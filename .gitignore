@@ -8,3 +8,23 @@ frontend/*.md5
 frontend/.npmrc
 .git
 
+# SvelteKit build artifacts
+frontend/.svelte-kit/
+frontend/build/
+frontend/.vite/
+
+# General development files
+.DS_Store
+*.log
+node_modules/
+.env
+.env.local
+.env.*.local
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
