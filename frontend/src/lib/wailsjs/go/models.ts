@@ -1,5 +1,23 @@
 export namespace main {
 	
+	export class Highlight {
+	    id: string;
+	    start: number;
+	    end: number;
+	    color: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Highlight(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.start = source["start"];
+	        this.end = source["end"];
+	        this.color = source["color"];
+	    }
+	}
 	export class LocalVideoFile {
 	    name: string;
 	    filePath: string;
@@ -136,6 +154,7 @@ export namespace main {
 	    transcriptionWords: Word[];
 	    transcriptionLanguage: string;
 	    transcriptionDuration: number;
+	    highlights: Highlight[];
 	
 	    static createFrom(source: any = {}) {
 	        return new VideoClipResponse(source);
@@ -162,6 +181,7 @@ export namespace main {
 	        this.transcriptionWords = this.convertValues(source["transcriptionWords"], Word);
 	        this.transcriptionLanguage = source["transcriptionLanguage"];
 	        this.transcriptionDuration = source["transcriptionDuration"];
+	        this.highlights = this.convertValues(source["highlights"], Highlight);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

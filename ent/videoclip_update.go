@@ -292,6 +292,24 @@ func (vcu *VideoClipUpdate) ClearTranscriptionDuration() *VideoClipUpdate {
 	return vcu
 }
 
+// SetHighlights sets the "highlights" field.
+func (vcu *VideoClipUpdate) SetHighlights(s []schema.Highlight) *VideoClipUpdate {
+	vcu.mutation.SetHighlights(s)
+	return vcu
+}
+
+// AppendHighlights appends s to the "highlights" field.
+func (vcu *VideoClipUpdate) AppendHighlights(s []schema.Highlight) *VideoClipUpdate {
+	vcu.mutation.AppendHighlights(s)
+	return vcu
+}
+
+// ClearHighlights clears the value of the "highlights" field.
+func (vcu *VideoClipUpdate) ClearHighlights() *VideoClipUpdate {
+	vcu.mutation.ClearHighlights()
+	return vcu
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (vcu *VideoClipUpdate) SetCreatedAt(t time.Time) *VideoClipUpdate {
 	vcu.mutation.SetCreatedAt(t)
@@ -490,6 +508,17 @@ func (vcu *VideoClipUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if vcu.mutation.TranscriptionDurationCleared() {
 		_spec.ClearField(videoclip.FieldTranscriptionDuration, field.TypeFloat64)
+	}
+	if value, ok := vcu.mutation.Highlights(); ok {
+		_spec.SetField(videoclip.FieldHighlights, field.TypeJSON, value)
+	}
+	if value, ok := vcu.mutation.AppendedHighlights(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, videoclip.FieldHighlights, value)
+		})
+	}
+	if vcu.mutation.HighlightsCleared() {
+		_spec.ClearField(videoclip.FieldHighlights, field.TypeJSON)
 	}
 	if value, ok := vcu.mutation.CreatedAt(); ok {
 		_spec.SetField(videoclip.FieldCreatedAt, field.TypeTime, value)
@@ -807,6 +836,24 @@ func (vcuo *VideoClipUpdateOne) ClearTranscriptionDuration() *VideoClipUpdateOne
 	return vcuo
 }
 
+// SetHighlights sets the "highlights" field.
+func (vcuo *VideoClipUpdateOne) SetHighlights(s []schema.Highlight) *VideoClipUpdateOne {
+	vcuo.mutation.SetHighlights(s)
+	return vcuo
+}
+
+// AppendHighlights appends s to the "highlights" field.
+func (vcuo *VideoClipUpdateOne) AppendHighlights(s []schema.Highlight) *VideoClipUpdateOne {
+	vcuo.mutation.AppendHighlights(s)
+	return vcuo
+}
+
+// ClearHighlights clears the value of the "highlights" field.
+func (vcuo *VideoClipUpdateOne) ClearHighlights() *VideoClipUpdateOne {
+	vcuo.mutation.ClearHighlights()
+	return vcuo
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (vcuo *VideoClipUpdateOne) SetCreatedAt(t time.Time) *VideoClipUpdateOne {
 	vcuo.mutation.SetCreatedAt(t)
@@ -1035,6 +1082,17 @@ func (vcuo *VideoClipUpdateOne) sqlSave(ctx context.Context) (_node *VideoClip, 
 	}
 	if vcuo.mutation.TranscriptionDurationCleared() {
 		_spec.ClearField(videoclip.FieldTranscriptionDuration, field.TypeFloat64)
+	}
+	if value, ok := vcuo.mutation.Highlights(); ok {
+		_spec.SetField(videoclip.FieldHighlights, field.TypeJSON, value)
+	}
+	if value, ok := vcuo.mutation.AppendedHighlights(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, videoclip.FieldHighlights, value)
+		})
+	}
+	if vcuo.mutation.HighlightsCleared() {
+		_spec.ClearField(videoclip.FieldHighlights, field.TypeJSON)
 	}
 	if value, ok := vcuo.mutation.CreatedAt(); ok {
 		_spec.SetField(videoclip.FieldCreatedAt, field.TypeTime, value)

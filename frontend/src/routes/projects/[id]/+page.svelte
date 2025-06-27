@@ -15,7 +15,7 @@
     TabsList, 
     TabsTrigger 
   } from "$lib/components/ui/tabs";
-  import { GetProjectByID, UpdateProject, DeleteProject, CreateVideoClip, GetVideoClipsByProject, UpdateVideoClip, DeleteVideoClip, SelectVideoFiles, GetVideoFileInfo, GetVideoURL, TranscribeVideoClip } from "$lib/wailsjs/go/main/App";
+  import { GetProjectByID, UpdateProject, DeleteProject, CreateVideoClip, GetVideoClipsByProject, UpdateVideoClip, DeleteVideoClip, SelectVideoFiles, GetVideoFileInfo, GetVideoURL, TranscribeVideoClip, UpdateVideoClipHighlights } from "$lib/wailsjs/go/main/App";
   import { onMount } from "svelte";
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
@@ -354,6 +354,35 @@
   function viewTranscription(clip) {
     transcriptionVideo = clip;
     transcriptionDialogOpen = true;
+  }
+
+  async function handleHighlightsChange(highlights) {
+    if (!transcriptionVideo) return;
+    
+    try {
+      await UpdateVideoClipHighlights(transcriptionVideo.id, highlights);
+      
+      // Update the local video clip data
+      const clipIndex = videoClips.findIndex(c => c.id === transcriptionVideo.id);
+      if (clipIndex !== -1) {
+        videoClips[clipIndex] = { 
+          ...videoClips[clipIndex], 
+          highlights: highlights
+        };
+        videoClips = [...videoClips]; // Trigger reactivity
+      }
+      
+      // Update the transcription video as well
+      transcriptionVideo = {
+        ...transcriptionVideo,
+        highlights: highlights
+      };
+    } catch (err) {
+      console.error("Failed to save highlights:", err);
+      toast.error("Failed to save highlights", {
+        description: "An error occurred while saving your highlights"
+      });
+    }
   }
 
   function formatTimestamp(seconds) {
@@ -937,6 +966,8 @@
                       <TextHighlighter 
                         text={transcriptionVideo.transcription} 
                         words={transcriptionVideo.transcriptionWords || []} 
+                        initialHighlights={transcriptionVideo.highlights || []}
+                        onHighlightsChange={handleHighlightsChange}
                       />
                     </div>
                   </div>

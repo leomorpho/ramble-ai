@@ -60,9 +60,10 @@ type VideoClipResponse struct {
 	Exists                 bool    `json:"exists"`
 	ThumbnailURL           string  `json:"thumbnailUrl"`
 	Transcription          string  `json:"transcription"`
-	TranscriptionWords     []Word  `json:"transcriptionWords"`
-	TranscriptionLanguage  string  `json:"transcriptionLanguage"`
-	TranscriptionDuration  float64 `json:"transcriptionDuration"`
+	TranscriptionWords     []Word      `json:"transcriptionWords"`
+	TranscriptionLanguage  string      `json:"transcriptionLanguage"`
+	TranscriptionDuration  float64     `json:"transcriptionDuration"`
+	Highlights             []Highlight `json:"highlights"`
 }
 
 // LocalVideoFile represents a local video file for the frontend
@@ -92,6 +93,20 @@ func schemaWordsToWords(schemaWords []schema.Word) []Word {
 		}
 	}
 	return words
+}
+
+// Helper function to convert schema.Highlight to Highlight
+func schemaHighlightsToHighlights(schemaHighlights []schema.Highlight) []Highlight {
+	highlights := make([]Highlight, len(schemaHighlights))
+	for i, sh := range schemaHighlights {
+		highlights[i] = Highlight{
+			ID:    sh.ID,
+			Start: sh.Start,
+			End:   sh.End,
+			Color: sh.Color,
+		}
+	}
+	return highlights
 }
 
 // NewApp creates a new App application struct
@@ -581,6 +596,7 @@ func (a *App) CreateVideoClip(projectID int, filePath string) (*VideoClipRespons
 			TranscriptionWords:    schemaWordsToWords(existingClip.TranscriptionWords),
 			TranscriptionLanguage: existingClip.TranscriptionLanguage,
 			TranscriptionDuration: existingClip.TranscriptionDuration,
+			Highlights:            schemaHighlightsToHighlights(existingClip.Highlights),
 		}, fmt.Errorf("video file already added to this project")
 	}
 	
@@ -622,6 +638,7 @@ func (a *App) CreateVideoClip(projectID int, filePath string) (*VideoClipRespons
 		TranscriptionWords:    schemaWordsToWords(videoClip.TranscriptionWords),
 		TranscriptionLanguage: videoClip.TranscriptionLanguage,
 		TranscriptionDuration: videoClip.TranscriptionDuration,
+		Highlights:            schemaHighlightsToHighlights(videoClip.Highlights),
 	}, nil
 }
 
@@ -661,6 +678,7 @@ func (a *App) GetVideoClipsByProject(projectID int) ([]*VideoClipResponse, error
 			TranscriptionWords:    schemaWordsToWords(clip.TranscriptionWords),
 			TranscriptionLanguage: clip.TranscriptionLanguage,
 			TranscriptionDuration: clip.TranscriptionDuration,
+			Highlights:            schemaHighlightsToHighlights(clip.Highlights),
 		})
 	}
 	
@@ -706,6 +724,7 @@ func (a *App) UpdateVideoClip(id int, name, description string) (*VideoClipRespo
 		TranscriptionWords:    schemaWordsToWords(updatedClip.TranscriptionWords),
 		TranscriptionLanguage: updatedClip.TranscriptionLanguage,
 		TranscriptionDuration: updatedClip.TranscriptionDuration,
+		Highlights:            schemaHighlightsToHighlights(updatedClip.Highlights),
 	}, nil
 }
 
@@ -1041,6 +1060,14 @@ type Word struct {
 	End   float64 `json:"end"`
 }
 
+// Highlight represents a highlighted text region with timestamps
+type Highlight struct {
+	ID    string  `json:"id"`
+	Start float64 `json:"start"`
+	End   float64 `json:"end"`
+	Color string  `json:"color"`
+}
+
 // Segment represents a segment of transcription with timing
 type Segment struct {
 	ID     int    `json:"id"`
@@ -1285,4 +1312,30 @@ func (a *App) transcribeAudio(audioPath, apiKey string) (*WhisperResponse, error
 		len(whisperResponse.Text), len(whisperResponse.Words))
 
 	return &whisperResponse, nil
+}
+
+// UpdateVideoClipHighlights updates the highlights for a video clip
+func (a *App) UpdateVideoClipHighlights(clipID int, highlights []Highlight) error {
+	// Convert Highlights to schema.Highlights for database storage
+	var schemaHighlights []schema.Highlight
+	for _, h := range highlights {
+		schemaHighlights = append(schemaHighlights, schema.Highlight{
+			ID:    h.ID,
+			Start: h.Start,
+			End:   h.End,
+			Color: h.Color,
+		})
+	}
+
+	// Update the video clip with new highlights
+	_, err := a.client.VideoClip.
+		UpdateOneID(clipID).
+		SetHighlights(schemaHighlights).
+		Save(a.ctx)
+	
+	if err != nil {
+		return fmt.Errorf("failed to update video clip highlights: %w", err)
+	}
+
+	return nil
 }

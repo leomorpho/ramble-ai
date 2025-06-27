@@ -2,10 +2,35 @@
   import { onMount } from 'svelte';
   import { Button } from "$lib/components/ui/button";
   
-  let { text = '', words = [] } = $props();
+  let { text = '', words = [], initialHighlights = [], onHighlightsChange } = $props();
   
   // State for highlights
   let highlights = $state([]);
+  
+  // Initialize highlights from props
+  $effect(() => {
+    if (initialHighlights && initialHighlights.length > 0) {
+      // Convert timestamp-based highlights to word-index-based highlights
+      const convertedHighlights = initialHighlights.map(h => {
+        const startIndex = findWordIndexByTimestamp(h.start);
+        const endIndex = findWordIndexByTimestamp(h.end);
+        return {
+          id: h.id,
+          start: startIndex,
+          end: endIndex,
+          color: h.color,
+          timestampStart: h.start,
+          timestampEnd: h.end
+        };
+      }).filter(h => h.start !== -1 && h.end !== -1);
+      
+      highlights = convertedHighlights;
+      // Update colorIndex to continue from where we left off
+      if (convertedHighlights.length > 0) {
+        colorIndex = Math.max(...convertedHighlights.map(h => colors.indexOf(h.color))) + 1;
+      }
+    }
+  });
   let isSelecting = $state(false);
   let selectionStart = $state(null);
   let selectionEnd = $state(null);
@@ -84,6 +109,68 @@
     return highlights.find(h => index >= h.start && index <= h.end);
   }
   
+  function findWordIndexByTimestamp(timestamp) {
+    if (!words || words.length === 0) return -1;
+    
+    // Find the word whose timestamp range contains the given timestamp
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+      if (word.start <= timestamp && timestamp <= word.end) {
+        return i;
+      }
+    }
+    
+    // If no exact match, find the closest word
+    let closestIndex = -1;
+    let minDistance = Infinity;
+    
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+      const distance = Math.min(
+        Math.abs(word.start - timestamp),
+        Math.abs(word.end - timestamp)
+      );
+      
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestIndex = i;
+      }
+    }
+    
+    return closestIndex;
+  }
+  
+  function calculateTimestamps(startIndex, endIndex) {
+    if (!words || words.length === 0) {
+      return { start: 0, end: 0 };
+    }
+    
+    const startWord = words[Math.max(0, Math.min(startIndex, words.length - 1))];
+    const endWord = words[Math.max(0, Math.min(endIndex, words.length - 1))];
+    
+    return {
+      start: startWord.start || 0,
+      end: endWord.end || 0
+    };
+  }
+  
+  function emitHighlightsChange() {
+    if (onHighlightsChange) {
+      // Convert highlights back to timestamp-based format
+      const timestampHighlights = highlights.map(h => {
+        const timestamps = calculateTimestamps(h.start, h.end);
+        return {
+          id: h.id,
+          start: timestamps.start,
+          end: timestamps.end,
+          color: h.color
+        };
+      });
+      
+      onHighlightsChange(timestampHighlights);
+    }
+  }
+  
   function isInSelection(index) {
     if (!isSelecting || selectionStart === null || selectionEnd === null) return false;
     const start = Math.min(selectionStart, selectionEnd);
@@ -143,13 +230,18 @@
         );
         
         if (!hasOverlap) {
-          highlights = [...highlights, {
-            id: highlightId++,
+          const newHighlight = {
+            id: String(highlightId++),
             start,
             end,
             color: colors[colorIndex % colors.length]
-          }];
+          };
+          
+          highlights = [...highlights, newHighlight];
           colorIndex++;
+          
+          // Emit changes
+          emitHighlightsChange();
         }
       }
     }
@@ -163,6 +255,9 @@
     highlights = highlights.filter(h => h.id !== highlightId);
     showDeleteButton = false;
     deleteButtonHighlight = null;
+    
+    // Emit changes
+    emitHighlightsChange();
   }
   
   function startDrag(highlight, type, event) {
@@ -198,6 +293,9 @@
           : h
       );
       dragHighlight = { ...dragHighlight, start: newStart, end: newEnd };
+      
+      // Emit changes
+      emitHighlightsChange();
     }
   }
   

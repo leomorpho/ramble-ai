@@ -44,6 +44,8 @@ type VideoClip struct {
 	TranscriptionLanguage string `json:"transcription_language,omitempty"`
 	// Duration of transcribed audio in seconds
 	TranscriptionDuration float64 `json:"transcription_duration,omitempty"`
+	// Highlighted text regions with timestamps
+	Highlights []schema.Highlight `json:"highlights,omitempty"`
 	// Creation timestamp
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Last update timestamp
@@ -80,7 +82,7 @@ func (*VideoClip) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case videoclip.FieldTranscriptionWords:
+		case videoclip.FieldTranscriptionWords, videoclip.FieldHighlights:
 			values[i] = new([]byte)
 		case videoclip.FieldDuration, videoclip.FieldTranscriptionDuration:
 			values[i] = new(sql.NullFloat64)
@@ -187,6 +189,14 @@ func (vc *VideoClip) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				vc.TranscriptionDuration = value.Float64
 			}
+		case videoclip.FieldHighlights:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field highlights", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &vc.Highlights); err != nil {
+					return fmt.Errorf("unmarshal field highlights: %w", err)
+				}
+			}
 		case videoclip.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field created_at", values[i])
@@ -282,6 +292,9 @@ func (vc *VideoClip) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("transcription_duration=")
 	builder.WriteString(fmt.Sprintf("%v", vc.TranscriptionDuration))
+	builder.WriteString(", ")
+	builder.WriteString("highlights=")
+	builder.WriteString(fmt.Sprintf("%v", vc.Highlights))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(vc.CreatedAt.Format(time.ANSIC))

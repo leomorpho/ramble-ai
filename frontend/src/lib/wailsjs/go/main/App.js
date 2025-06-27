@@ -89,3 +89,7 @@ export function UpdateProject(arg1, arg2, arg3) {
 export function UpdateVideoClip(arg1, arg2, arg3) {
   return window['go']['main']['App']['UpdateVideoClip'](arg1, arg2, arg3);
 }
+
+export function UpdateVideoClipHighlights(arg1, arg2) {
+  return window['go']['main']['App']['UpdateVideoClipHighlights'](arg1, arg2);
+}

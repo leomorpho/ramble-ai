@@ -1223,6 +1223,8 @@ type VideoClipMutation struct {
 	transcription_language    *string
 	transcription_duration    *float64
 	addtranscription_duration *float64
+	highlights                *[]schema.Highlight
+	appendhighlights          []schema.Highlight
 	created_at                *time.Time
 	updated_at                *time.Time
 	clearedFields             map[string]struct{}
@@ -2014,6 +2016,71 @@ func (m *VideoClipMutation) ResetTranscriptionDuration() {
 	delete(m.clearedFields, videoclip.FieldTranscriptionDuration)
 }
 
+// SetHighlights sets the "highlights" field.
+func (m *VideoClipMutation) SetHighlights(s []schema.Highlight) {
+	m.highlights = &s
+	m.appendhighlights = nil
+}
+
+// Highlights returns the value of the "highlights" field in the mutation.
+func (m *VideoClipMutation) Highlights() (r []schema.Highlight, exists bool) {
+	v := m.highlights
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldHighlights returns the old "highlights" field's value of the VideoClip entity.
+// If the VideoClip object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *VideoClipMutation) OldHighlights(ctx context.Context) (v []schema.Highlight, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldHighlights is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldHighlights requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldHighlights: %w", err)
+	}
+	return oldValue.Highlights, nil
+}
+
+// AppendHighlights adds s to the "highlights" field.
+func (m *VideoClipMutation) AppendHighlights(s []schema.Highlight) {
+	m.appendhighlights = append(m.appendhighlights, s...)
+}
+
+// AppendedHighlights returns the list of values that were appended to the "highlights" field in this mutation.
+func (m *VideoClipMutation) AppendedHighlights() ([]schema.Highlight, bool) {
+	if len(m.appendhighlights) == 0 {
+		return nil, false
+	}
+	return m.appendhighlights, true
+}
+
+// ClearHighlights clears the value of the "highlights" field.
+func (m *VideoClipMutation) ClearHighlights() {
+	m.highlights = nil
+	m.appendhighlights = nil
+	m.clearedFields[videoclip.FieldHighlights] = struct{}{}
+}
+
+// HighlightsCleared returns if the "highlights" field was cleared in this mutation.
+func (m *VideoClipMutation) HighlightsCleared() bool {
+	_, ok := m.clearedFields[videoclip.FieldHighlights]
+	return ok
+}
+
+// ResetHighlights resets all changes to the "highlights" field.
+func (m *VideoClipMutation) ResetHighlights() {
+	m.highlights = nil
+	m.appendhighlights = nil
+	delete(m.clearedFields, videoclip.FieldHighlights)
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (m *VideoClipMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
@@ -2159,7 +2226,7 @@ func (m *VideoClipMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *VideoClipMutation) Fields() []string {
-	fields := make([]string, 0, 14)
+	fields := make([]string, 0, 15)
 	if m.name != nil {
 		fields = append(fields, videoclip.FieldName)
 	}
@@ -2195,6 +2262,9 @@ func (m *VideoClipMutation) Fields() []string {
 	}
 	if m.transcription_duration != nil {
 		fields = append(fields, videoclip.FieldTranscriptionDuration)
+	}
+	if m.highlights != nil {
+		fields = append(fields, videoclip.FieldHighlights)
 	}
 	if m.created_at != nil {
 		fields = append(fields, videoclip.FieldCreatedAt)
@@ -2234,6 +2304,8 @@ func (m *VideoClipMutation) Field(name string) (ent.Value, bool) {
 		return m.TranscriptionLanguage()
 	case videoclip.FieldTranscriptionDuration:
 		return m.TranscriptionDuration()
+	case videoclip.FieldHighlights:
+		return m.Highlights()
 	case videoclip.FieldCreatedAt:
 		return m.CreatedAt()
 	case videoclip.FieldUpdatedAt:
@@ -2271,6 +2343,8 @@ func (m *VideoClipMutation) OldField(ctx context.Context, name string) (ent.Valu
 		return m.OldTranscriptionLanguage(ctx)
 	case videoclip.FieldTranscriptionDuration:
 		return m.OldTranscriptionDuration(ctx)
+	case videoclip.FieldHighlights:
+		return m.OldHighlights(ctx)
 	case videoclip.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	case videoclip.FieldUpdatedAt:
@@ -2367,6 +2441,13 @@ func (m *VideoClipMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetTranscriptionDuration(v)
+		return nil
+	case videoclip.FieldHighlights:
+		v, ok := value.([]schema.Highlight)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetHighlights(v)
 		return nil
 	case videoclip.FieldCreatedAt:
 		v, ok := value.(time.Time)
@@ -2505,6 +2586,9 @@ func (m *VideoClipMutation) ClearedFields() []string {
 	if m.FieldCleared(videoclip.FieldTranscriptionDuration) {
 		fields = append(fields, videoclip.FieldTranscriptionDuration)
 	}
+	if m.FieldCleared(videoclip.FieldHighlights) {
+		fields = append(fields, videoclip.FieldHighlights)
+	}
 	return fields
 }
 
@@ -2549,6 +2633,9 @@ func (m *VideoClipMutation) ClearField(name string) error {
 	case videoclip.FieldTranscriptionDuration:
 		m.ClearTranscriptionDuration()
 		return nil
+	case videoclip.FieldHighlights:
+		m.ClearHighlights()
+		return nil
 	}
 	return fmt.Errorf("unknown VideoClip nullable field %s", name)
 }
@@ -2592,6 +2679,9 @@ func (m *VideoClipMutation) ResetField(name string) error {
 		return nil
 	case videoclip.FieldTranscriptionDuration:
 		m.ResetTranscriptionDuration()
+		return nil
+	case videoclip.FieldHighlights:
+		m.ResetHighlights()
 		return nil
 	case videoclip.FieldCreatedAt:
 		m.ResetCreatedAt()

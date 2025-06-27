@@ -15,6 +15,14 @@ type Word struct {
 	End   float64 `json:"end"`
 }
 
+// Highlight represents a highlighted text region with timestamps
+type Highlight struct {
+	ID    string  `json:"id"`
+	Start float64 `json:"start"`
+	End   float64 `json:"end"`
+	Color string  `json:"color"`
+}
+
 // VideoClip holds the schema definition for the VideoClip entity.
 type VideoClip struct {
 	ent.Schema
@@ -59,6 +67,9 @@ func (VideoClip) Fields() []ent.Field {
 		field.Float("transcription_duration").
 			Optional().
 			Comment("Duration of transcribed audio in seconds"),
+		field.JSON("highlights", []Highlight{}).
+			Optional().
+			Comment("Highlighted text regions with timestamps"),
 		field.Time("created_at").
 			Default(time.Now).
 			Comment("Creation timestamp"),

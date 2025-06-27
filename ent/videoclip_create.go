@@ -166,6 +166,12 @@ func (vcc *VideoClipCreate) SetNillableTranscriptionDuration(f *float64) *VideoC
 	return vcc
 }
 
+// SetHighlights sets the "highlights" field.
+func (vcc *VideoClipCreate) SetHighlights(s []schema.Highlight) *VideoClipCreate {
+	vcc.mutation.SetHighlights(s)
+	return vcc
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (vcc *VideoClipCreate) SetCreatedAt(t time.Time) *VideoClipCreate {
 	vcc.mutation.SetCreatedAt(t)
@@ -355,6 +361,10 @@ func (vcc *VideoClipCreate) createSpec() (*VideoClip, *sqlgraph.CreateSpec) {
 	if value, ok := vcc.mutation.TranscriptionDuration(); ok {
 		_spec.SetField(videoclip.FieldTranscriptionDuration, field.TypeFloat64, value)
 		_node.TranscriptionDuration = value
+	}
+	if value, ok := vcc.mutation.Highlights(); ok {
+		_spec.SetField(videoclip.FieldHighlights, field.TypeJSON, value)
+		_node.Highlights = value
 	}
 	if value, ok := vcc.mutation.CreatedAt(); ok {
 		_spec.SetField(videoclip.FieldCreatedAt, field.TypeTime, value)

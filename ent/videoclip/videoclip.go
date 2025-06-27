@@ -38,6 +38,8 @@ const (
 	FieldTranscriptionLanguage = "transcription_language"
 	// FieldTranscriptionDuration holds the string denoting the transcription_duration field in the database.
 	FieldTranscriptionDuration = "transcription_duration"
+	// FieldHighlights holds the string denoting the highlights field in the database.
+	FieldHighlights = "highlights"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
@@ -70,6 +72,7 @@ var Columns = []string{
 	FieldTranscriptionWords,
 	FieldTranscriptionLanguage,
 	FieldTranscriptionDuration,
+	FieldHighlights,
 	FieldCreatedAt,
 	FieldUpdatedAt,
 }
