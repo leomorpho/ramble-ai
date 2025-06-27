@@ -5,6 +5,7 @@ package ent
 import (
 	"MYAPP/ent/predicate"
 	"MYAPP/ent/project"
+	"MYAPP/ent/schema"
 	"MYAPP/ent/videoclip"
 	"context"
 	"errors"
@@ -13,6 +14,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 )
 
@@ -225,6 +227,71 @@ func (vcu *VideoClipUpdate) ClearTranscription() *VideoClipUpdate {
 	return vcu
 }
 
+// SetTranscriptionWords sets the "transcription_words" field.
+func (vcu *VideoClipUpdate) SetTranscriptionWords(s []schema.Word) *VideoClipUpdate {
+	vcu.mutation.SetTranscriptionWords(s)
+	return vcu
+}
+
+// AppendTranscriptionWords appends s to the "transcription_words" field.
+func (vcu *VideoClipUpdate) AppendTranscriptionWords(s []schema.Word) *VideoClipUpdate {
+	vcu.mutation.AppendTranscriptionWords(s)
+	return vcu
+}
+
+// ClearTranscriptionWords clears the value of the "transcription_words" field.
+func (vcu *VideoClipUpdate) ClearTranscriptionWords() *VideoClipUpdate {
+	vcu.mutation.ClearTranscriptionWords()
+	return vcu
+}
+
+// SetTranscriptionLanguage sets the "transcription_language" field.
+func (vcu *VideoClipUpdate) SetTranscriptionLanguage(s string) *VideoClipUpdate {
+	vcu.mutation.SetTranscriptionLanguage(s)
+	return vcu
+}
+
+// SetNillableTranscriptionLanguage sets the "transcription_language" field if the given value is not nil.
+func (vcu *VideoClipUpdate) SetNillableTranscriptionLanguage(s *string) *VideoClipUpdate {
+	if s != nil {
+		vcu.SetTranscriptionLanguage(*s)
+	}
+	return vcu
+}
+
+// ClearTranscriptionLanguage clears the value of the "transcription_language" field.
+func (vcu *VideoClipUpdate) ClearTranscriptionLanguage() *VideoClipUpdate {
+	vcu.mutation.ClearTranscriptionLanguage()
+	return vcu
+}
+
+// SetTranscriptionDuration sets the "transcription_duration" field.
+func (vcu *VideoClipUpdate) SetTranscriptionDuration(f float64) *VideoClipUpdate {
+	vcu.mutation.ResetTranscriptionDuration()
+	vcu.mutation.SetTranscriptionDuration(f)
+	return vcu
+}
+
+// SetNillableTranscriptionDuration sets the "transcription_duration" field if the given value is not nil.
+func (vcu *VideoClipUpdate) SetNillableTranscriptionDuration(f *float64) *VideoClipUpdate {
+	if f != nil {
+		vcu.SetTranscriptionDuration(*f)
+	}
+	return vcu
+}
+
+// AddTranscriptionDuration adds f to the "transcription_duration" field.
+func (vcu *VideoClipUpdate) AddTranscriptionDuration(f float64) *VideoClipUpdate {
+	vcu.mutation.AddTranscriptionDuration(f)
+	return vcu
+}
+
+// ClearTranscriptionDuration clears the value of the "transcription_duration" field.
+func (vcu *VideoClipUpdate) ClearTranscriptionDuration() *VideoClipUpdate {
+	vcu.mutation.ClearTranscriptionDuration()
+	return vcu
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (vcu *VideoClipUpdate) SetCreatedAt(t time.Time) *VideoClipUpdate {
 	vcu.mutation.SetCreatedAt(t)
@@ -397,6 +464,32 @@ func (vcu *VideoClipUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if vcu.mutation.TranscriptionCleared() {
 		_spec.ClearField(videoclip.FieldTranscription, field.TypeString)
+	}
+	if value, ok := vcu.mutation.TranscriptionWords(); ok {
+		_spec.SetField(videoclip.FieldTranscriptionWords, field.TypeJSON, value)
+	}
+	if value, ok := vcu.mutation.AppendedTranscriptionWords(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, videoclip.FieldTranscriptionWords, value)
+		})
+	}
+	if vcu.mutation.TranscriptionWordsCleared() {
+		_spec.ClearField(videoclip.FieldTranscriptionWords, field.TypeJSON)
+	}
+	if value, ok := vcu.mutation.TranscriptionLanguage(); ok {
+		_spec.SetField(videoclip.FieldTranscriptionLanguage, field.TypeString, value)
+	}
+	if vcu.mutation.TranscriptionLanguageCleared() {
+		_spec.ClearField(videoclip.FieldTranscriptionLanguage, field.TypeString)
+	}
+	if value, ok := vcu.mutation.TranscriptionDuration(); ok {
+		_spec.SetField(videoclip.FieldTranscriptionDuration, field.TypeFloat64, value)
+	}
+	if value, ok := vcu.mutation.AddedTranscriptionDuration(); ok {
+		_spec.AddField(videoclip.FieldTranscriptionDuration, field.TypeFloat64, value)
+	}
+	if vcu.mutation.TranscriptionDurationCleared() {
+		_spec.ClearField(videoclip.FieldTranscriptionDuration, field.TypeFloat64)
 	}
 	if value, ok := vcu.mutation.CreatedAt(); ok {
 		_spec.SetField(videoclip.FieldCreatedAt, field.TypeTime, value)
@@ -649,6 +742,71 @@ func (vcuo *VideoClipUpdateOne) ClearTranscription() *VideoClipUpdateOne {
 	return vcuo
 }
 
+// SetTranscriptionWords sets the "transcription_words" field.
+func (vcuo *VideoClipUpdateOne) SetTranscriptionWords(s []schema.Word) *VideoClipUpdateOne {
+	vcuo.mutation.SetTranscriptionWords(s)
+	return vcuo
+}
+
+// AppendTranscriptionWords appends s to the "transcription_words" field.
+func (vcuo *VideoClipUpdateOne) AppendTranscriptionWords(s []schema.Word) *VideoClipUpdateOne {
+	vcuo.mutation.AppendTranscriptionWords(s)
+	return vcuo
+}
+
+// ClearTranscriptionWords clears the value of the "transcription_words" field.
+func (vcuo *VideoClipUpdateOne) ClearTranscriptionWords() *VideoClipUpdateOne {
+	vcuo.mutation.ClearTranscriptionWords()
+	return vcuo
+}
+
+// SetTranscriptionLanguage sets the "transcription_language" field.
+func (vcuo *VideoClipUpdateOne) SetTranscriptionLanguage(s string) *VideoClipUpdateOne {
+	vcuo.mutation.SetTranscriptionLanguage(s)
+	return vcuo
+}
+
+// SetNillableTranscriptionLanguage sets the "transcription_language" field if the given value is not nil.
+func (vcuo *VideoClipUpdateOne) SetNillableTranscriptionLanguage(s *string) *VideoClipUpdateOne {
+	if s != nil {
+		vcuo.SetTranscriptionLanguage(*s)
+	}
+	return vcuo
+}
+
+// ClearTranscriptionLanguage clears the value of the "transcription_language" field.
+func (vcuo *VideoClipUpdateOne) ClearTranscriptionLanguage() *VideoClipUpdateOne {
+	vcuo.mutation.ClearTranscriptionLanguage()
+	return vcuo
+}
+
+// SetTranscriptionDuration sets the "transcription_duration" field.
+func (vcuo *VideoClipUpdateOne) SetTranscriptionDuration(f float64) *VideoClipUpdateOne {
+	vcuo.mutation.ResetTranscriptionDuration()
+	vcuo.mutation.SetTranscriptionDuration(f)
+	return vcuo
+}
+
+// SetNillableTranscriptionDuration sets the "transcription_duration" field if the given value is not nil.
+func (vcuo *VideoClipUpdateOne) SetNillableTranscriptionDuration(f *float64) *VideoClipUpdateOne {
+	if f != nil {
+		vcuo.SetTranscriptionDuration(*f)
+	}
+	return vcuo
+}
+
+// AddTranscriptionDuration adds f to the "transcription_duration" field.
+func (vcuo *VideoClipUpdateOne) AddTranscriptionDuration(f float64) *VideoClipUpdateOne {
+	vcuo.mutation.AddTranscriptionDuration(f)
+	return vcuo
+}
+
+// ClearTranscriptionDuration clears the value of the "transcription_duration" field.
+func (vcuo *VideoClipUpdateOne) ClearTranscriptionDuration() *VideoClipUpdateOne {
+	vcuo.mutation.ClearTranscriptionDuration()
+	return vcuo
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (vcuo *VideoClipUpdateOne) SetCreatedAt(t time.Time) *VideoClipUpdateOne {
 	vcuo.mutation.SetCreatedAt(t)
@@ -851,6 +1009,32 @@ func (vcuo *VideoClipUpdateOne) sqlSave(ctx context.Context) (_node *VideoClip, 
 	}
 	if vcuo.mutation.TranscriptionCleared() {
 		_spec.ClearField(videoclip.FieldTranscription, field.TypeString)
+	}
+	if value, ok := vcuo.mutation.TranscriptionWords(); ok {
+		_spec.SetField(videoclip.FieldTranscriptionWords, field.TypeJSON, value)
+	}
+	if value, ok := vcuo.mutation.AppendedTranscriptionWords(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, videoclip.FieldTranscriptionWords, value)
+		})
+	}
+	if vcuo.mutation.TranscriptionWordsCleared() {
+		_spec.ClearField(videoclip.FieldTranscriptionWords, field.TypeJSON)
+	}
+	if value, ok := vcuo.mutation.TranscriptionLanguage(); ok {
+		_spec.SetField(videoclip.FieldTranscriptionLanguage, field.TypeString, value)
+	}
+	if vcuo.mutation.TranscriptionLanguageCleared() {
+		_spec.ClearField(videoclip.FieldTranscriptionLanguage, field.TypeString)
+	}
+	if value, ok := vcuo.mutation.TranscriptionDuration(); ok {
+		_spec.SetField(videoclip.FieldTranscriptionDuration, field.TypeFloat64, value)
+	}
+	if value, ok := vcuo.mutation.AddedTranscriptionDuration(); ok {
+		_spec.AddField(videoclip.FieldTranscriptionDuration, field.TypeFloat64, value)
+	}
+	if vcuo.mutation.TranscriptionDurationCleared() {
+		_spec.ClearField(videoclip.FieldTranscriptionDuration, field.TypeFloat64)
 	}
 	if value, ok := vcuo.mutation.CreatedAt(); ok {
 		_spec.SetField(videoclip.FieldCreatedAt, field.TypeTime, value)

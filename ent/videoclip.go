@@ -4,7 +4,9 @@ package ent
 
 import (
 	"MYAPP/ent/project"
+	"MYAPP/ent/schema"
 	"MYAPP/ent/videoclip"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -36,6 +38,12 @@ type VideoClip struct {
 	FileSize int64 `json:"file_size,omitempty"`
 	// Video transcription text
 	Transcription string `json:"transcription,omitempty"`
+	// Word-level transcription with timestamps
+	TranscriptionWords []schema.Word `json:"transcription_words,omitempty"`
+	// Detected language of transcription
+	TranscriptionLanguage string `json:"transcription_language,omitempty"`
+	// Duration of transcribed audio in seconds
+	TranscriptionDuration float64 `json:"transcription_duration,omitempty"`
 	// Creation timestamp
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Last update timestamp
@@ -72,11 +80,13 @@ func (*VideoClip) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case videoclip.FieldDuration:
+		case videoclip.FieldTranscriptionWords:
+			values[i] = new([]byte)
+		case videoclip.FieldDuration, videoclip.FieldTranscriptionDuration:
 			values[i] = new(sql.NullFloat64)
 		case videoclip.FieldID, videoclip.FieldWidth, videoclip.FieldHeight, videoclip.FieldFileSize:
 			values[i] = new(sql.NullInt64)
-		case videoclip.FieldName, videoclip.FieldDescription, videoclip.FieldFilePath, videoclip.FieldFormat, videoclip.FieldTranscription:
+		case videoclip.FieldName, videoclip.FieldDescription, videoclip.FieldFilePath, videoclip.FieldFormat, videoclip.FieldTranscription, videoclip.FieldTranscriptionLanguage:
 			values[i] = new(sql.NullString)
 		case videoclip.FieldCreatedAt, videoclip.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -156,6 +166,26 @@ func (vc *VideoClip) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field transcription", values[i])
 			} else if value.Valid {
 				vc.Transcription = value.String
+			}
+		case videoclip.FieldTranscriptionWords:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field transcription_words", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &vc.TranscriptionWords); err != nil {
+					return fmt.Errorf("unmarshal field transcription_words: %w", err)
+				}
+			}
+		case videoclip.FieldTranscriptionLanguage:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field transcription_language", values[i])
+			} else if value.Valid {
+				vc.TranscriptionLanguage = value.String
+			}
+		case videoclip.FieldTranscriptionDuration:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field transcription_duration", values[i])
+			} else if value.Valid {
+				vc.TranscriptionDuration = value.Float64
 			}
 		case videoclip.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -243,6 +273,15 @@ func (vc *VideoClip) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("transcription=")
 	builder.WriteString(vc.Transcription)
+	builder.WriteString(", ")
+	builder.WriteString("transcription_words=")
+	builder.WriteString(fmt.Sprintf("%v", vc.TranscriptionWords))
+	builder.WriteString(", ")
+	builder.WriteString("transcription_language=")
+	builder.WriteString(vc.TranscriptionLanguage)
+	builder.WriteString(", ")
+	builder.WriteString("transcription_duration=")
+	builder.WriteString(fmt.Sprintf("%v", vc.TranscriptionDuration))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(vc.CreatedAt.Format(time.ANSIC))

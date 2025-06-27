@@ -32,6 +32,12 @@ const (
 	FieldFileSize = "file_size"
 	// FieldTranscription holds the string denoting the transcription field in the database.
 	FieldTranscription = "transcription"
+	// FieldTranscriptionWords holds the string denoting the transcription_words field in the database.
+	FieldTranscriptionWords = "transcription_words"
+	// FieldTranscriptionLanguage holds the string denoting the transcription_language field in the database.
+	FieldTranscriptionLanguage = "transcription_language"
+	// FieldTranscriptionDuration holds the string denoting the transcription_duration field in the database.
+	FieldTranscriptionDuration = "transcription_duration"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
@@ -61,6 +67,9 @@ var Columns = []string{
 	FieldHeight,
 	FieldFileSize,
 	FieldTranscription,
+	FieldTranscriptionWords,
+	FieldTranscriptionLanguage,
+	FieldTranscriptionDuration,
 	FieldCreatedAt,
 	FieldUpdatedAt,
 }
@@ -150,6 +159,16 @@ func ByFileSize(opts ...sql.OrderTermOption) OrderOption {
 // ByTranscription orders the results by the transcription field.
 func ByTranscription(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldTranscription, opts...).ToFunc()
+}
+
+// ByTranscriptionLanguage orders the results by the transcription_language field.
+func ByTranscriptionLanguage(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTranscriptionLanguage, opts...).ToFunc()
+}
+
+// ByTranscriptionDuration orders the results by the transcription_duration field.
+func ByTranscriptionDuration(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTranscriptionDuration, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

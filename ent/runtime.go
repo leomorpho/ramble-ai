@@ -61,11 +61,11 @@ func init() {
 	// videoclip.FilePathValidator is a validator for the "file_path" field. It is called by the builders before save.
 	videoclip.FilePathValidator = videoclipDescFilePath.Validators[0].(func(string) error)
 	// videoclipDescCreatedAt is the schema descriptor for created_at field.
-	videoclipDescCreatedAt := videoclipFields[9].Descriptor()
+	videoclipDescCreatedAt := videoclipFields[12].Descriptor()
 	// videoclip.DefaultCreatedAt holds the default value on creation for the created_at field.
 	videoclip.DefaultCreatedAt = videoclipDescCreatedAt.Default.(func() time.Time)
 	// videoclipDescUpdatedAt is the schema descriptor for updated_at field.
-	videoclipDescUpdatedAt := videoclipFields[10].Descriptor()
+	videoclipDescUpdatedAt := videoclipFields[13].Descriptor()
 	// videoclip.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	videoclip.DefaultUpdatedAt = videoclipDescUpdatedAt.Default.(func() time.Time)
 	// videoclip.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

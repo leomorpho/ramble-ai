@@ -8,6 +8,13 @@ import (
 	"entgo.io/ent/schema/field"
 )
 
+// Word represents a word with timestamps for transcription
+type Word struct {
+	Word  string  `json:"word"`
+	Start float64 `json:"start"`
+	End   float64 `json:"end"`
+}
+
 // VideoClip holds the schema definition for the VideoClip entity.
 type VideoClip struct {
 	ent.Schema
@@ -43,6 +50,15 @@ func (VideoClip) Fields() []ent.Field {
 		field.Text("transcription").
 			Optional().
 			Comment("Video transcription text"),
+		field.JSON("transcription_words", []Word{}).
+			Optional().
+			Comment("Word-level transcription with timestamps"),
+		field.String("transcription_language").
+			Optional().
+			Comment("Detected language of transcription"),
+		field.Float("transcription_duration").
+			Optional().
+			Comment("Duration of transcribed audio in seconds"),
 		field.Time("created_at").
 			Default(time.Now).
 			Comment("Creation timestamp"),

@@ -11,6 +11,9 @@ importers:
       '@jridgewell/sourcemap-codec':
         specifier: ^1.5.0
         version: 1.5.0
+      '@neodrag/svelte':
+        specifier: ^2.3.3
+        version: 2.3.3(svelte@5.34.8)
       '@sveltejs/adapter-static':
         specifier: ^3.0.8
         version: 3.0.8(@sveltejs/kit@2.22.2(@sveltejs/vite-plugin-svelte@5.1.0(svelte@5.34.8)(vite@6.3.5(jiti@2.4.2)(lightningcss@1.30.1)))(svelte@5.34.8)(vite@6.3.5(jiti@2.4.2)(lightningcss@1.30.1)))
@@ -279,6 +282,11 @@ packages:
 
   '@neoconfetti/svelte@2.2.2':
     resolution: {integrity: sha512-E7xCFVEEm5Ctnj2udTJy1b9oaTvjz1zi1mYdEtE8rB5BVwq6kHisosDS+zdWN5PMfEMjtbsOV9Cl6tsNSAD1sA==}
+    peerDependencies:
+      svelte: ^3.0.0 || ^4.0.0 || ^5.0.0
+
+  '@neodrag/svelte@2.3.3':
+    resolution: {integrity: sha512-avXzhrilsBsnMFljhVAQ7h+6hbSIrvRCJ61GCiGbGISkC1QOhjDCNvPZo2+7KVwiYrnUBx4NRH0kTIqrcxv9Lg==}
     peerDependencies:
       svelte: ^3.0.0 || ^4.0.0 || ^5.0.0
 
@@ -1058,6 +1066,10 @@ snapshots:
       svelte: 5.34.8
 
   '@neoconfetti/svelte@2.2.2(svelte@5.34.8)':
+    dependencies:
+      svelte: 5.34.8
+
+  '@neodrag/svelte@2.3.3(svelte@5.34.8)':
     dependencies:
       svelte: 5.34.8
 

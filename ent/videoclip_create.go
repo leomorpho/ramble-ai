@@ -4,6 +4,7 @@ package ent
 
 import (
 	"MYAPP/ent/project"
+	"MYAPP/ent/schema"
 	"MYAPP/ent/videoclip"
 	"context"
 	"errors"
@@ -127,6 +128,40 @@ func (vcc *VideoClipCreate) SetTranscription(s string) *VideoClipCreate {
 func (vcc *VideoClipCreate) SetNillableTranscription(s *string) *VideoClipCreate {
 	if s != nil {
 		vcc.SetTranscription(*s)
+	}
+	return vcc
+}
+
+// SetTranscriptionWords sets the "transcription_words" field.
+func (vcc *VideoClipCreate) SetTranscriptionWords(s []schema.Word) *VideoClipCreate {
+	vcc.mutation.SetTranscriptionWords(s)
+	return vcc
+}
+
+// SetTranscriptionLanguage sets the "transcription_language" field.
+func (vcc *VideoClipCreate) SetTranscriptionLanguage(s string) *VideoClipCreate {
+	vcc.mutation.SetTranscriptionLanguage(s)
+	return vcc
+}
+
+// SetNillableTranscriptionLanguage sets the "transcription_language" field if the given value is not nil.
+func (vcc *VideoClipCreate) SetNillableTranscriptionLanguage(s *string) *VideoClipCreate {
+	if s != nil {
+		vcc.SetTranscriptionLanguage(*s)
+	}
+	return vcc
+}
+
+// SetTranscriptionDuration sets the "transcription_duration" field.
+func (vcc *VideoClipCreate) SetTranscriptionDuration(f float64) *VideoClipCreate {
+	vcc.mutation.SetTranscriptionDuration(f)
+	return vcc
+}
+
+// SetNillableTranscriptionDuration sets the "transcription_duration" field if the given value is not nil.
+func (vcc *VideoClipCreate) SetNillableTranscriptionDuration(f *float64) *VideoClipCreate {
+	if f != nil {
+		vcc.SetTranscriptionDuration(*f)
 	}
 	return vcc
 }
@@ -308,6 +343,18 @@ func (vcc *VideoClipCreate) createSpec() (*VideoClip, *sqlgraph.CreateSpec) {
 	if value, ok := vcc.mutation.Transcription(); ok {
 		_spec.SetField(videoclip.FieldTranscription, field.TypeString, value)
 		_node.Transcription = value
+	}
+	if value, ok := vcc.mutation.TranscriptionWords(); ok {
+		_spec.SetField(videoclip.FieldTranscriptionWords, field.TypeJSON, value)
+		_node.TranscriptionWords = value
+	}
+	if value, ok := vcc.mutation.TranscriptionLanguage(); ok {
+		_spec.SetField(videoclip.FieldTranscriptionLanguage, field.TypeString, value)
+		_node.TranscriptionLanguage = value
+	}
+	if value, ok := vcc.mutation.TranscriptionDuration(); ok {
+		_spec.SetField(videoclip.FieldTranscriptionDuration, field.TypeFloat64, value)
+		_node.TranscriptionDuration = value
 	}
 	if value, ok := vcc.mutation.CreatedAt(); ok {
 		_spec.SetField(videoclip.FieldCreatedAt, field.TypeTime, value)

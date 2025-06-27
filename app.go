@@ -22,6 +22,7 @@ import (
 
 	"MYAPP/ent"
 	"MYAPP/ent/project"
+	"MYAPP/ent/schema"
 	"MYAPP/ent/settings"
 	"MYAPP/ent/videoclip"
 	"entgo.io/ent/dialect"
@@ -43,22 +44,25 @@ type ProjectResponse struct {
 
 // VideoClipResponse represents a video clip response for the frontend
 type VideoClipResponse struct {
-	ID           int     `json:"id"`
-	Name         string  `json:"name"`
-	Description  string  `json:"description"`
-	FilePath     string  `json:"filePath"`
-	FileName     string  `json:"fileName"`
-	FileSize     int64   `json:"fileSize"`
-	Duration     float64 `json:"duration"`
-	Format       string  `json:"format"`
-	Width        int     `json:"width"`
-	Height       int     `json:"height"`
-	ProjectID    int     `json:"projectId"`
-	CreatedAt    string  `json:"createdAt"`
-	UpdatedAt    string  `json:"updatedAt"`
-	Exists       bool    `json:"exists"`
-	ThumbnailURL string  `json:"thumbnailUrl"`
-	Transcription string `json:"transcription"`
+	ID                     int     `json:"id"`
+	Name                   string  `json:"name"`
+	Description            string  `json:"description"`
+	FilePath               string  `json:"filePath"`
+	FileName               string  `json:"fileName"`
+	FileSize               int64   `json:"fileSize"`
+	Duration               float64 `json:"duration"`
+	Format                 string  `json:"format"`
+	Width                  int     `json:"width"`
+	Height                 int     `json:"height"`
+	ProjectID              int     `json:"projectId"`
+	CreatedAt              string  `json:"createdAt"`
+	UpdatedAt              string  `json:"updatedAt"`
+	Exists                 bool    `json:"exists"`
+	ThumbnailURL           string  `json:"thumbnailUrl"`
+	Transcription          string  `json:"transcription"`
+	TranscriptionWords     []Word  `json:"transcriptionWords"`
+	TranscriptionLanguage  string  `json:"transcriptionLanguage"`
+	TranscriptionDuration  float64 `json:"transcriptionDuration"`
 }
 
 // LocalVideoFile represents a local video file for the frontend
@@ -75,6 +79,19 @@ type LocalVideoFile struct {
 type App struct {
 	ctx    context.Context
 	client *ent.Client
+}
+
+// Helper function to convert schema.Word to Word
+func schemaWordsToWords(schemaWords []schema.Word) []Word {
+	words := make([]Word, len(schemaWords))
+	for i, sw := range schemaWords {
+		words[i] = Word{
+			Word:  sw.Word,
+			Start: sw.Start,
+			End:   sw.End,
+		}
+	}
+	return words
 }
 
 // NewApp creates a new App application struct
@@ -545,22 +562,25 @@ func (a *App) CreateVideoClip(projectID int, filePath string) (*VideoClipRespons
 		_, _, fileExists := a.getFileInfo(existingClip.FilePath)
 		
 		return &VideoClipResponse{
-			ID:           existingClip.ID,
-			Name:         existingClip.Name,
-			Description:  existingClip.Description,
-			FilePath:     existingClip.FilePath,
-			FileName:     fileName,
-			FileSize:     existingClip.FileSize,
-			Duration:     existingClip.Duration,
-			Format:       existingClip.Format,
-			Width:        existingClip.Width,
-			Height:       existingClip.Height,
-			ProjectID:    projectID,
-			CreatedAt:    existingClip.CreatedAt.Format("2006-01-02 15:04:05"),
-			UpdatedAt:    existingClip.UpdatedAt.Format("2006-01-02 15:04:05"),
-			Exists:       fileExists,
-			ThumbnailURL: a.getThumbnailURL(existingClip.FilePath),
-			Transcription: existingClip.Transcription,
+			ID:                    existingClip.ID,
+			Name:                  existingClip.Name,
+			Description:           existingClip.Description,
+			FilePath:              existingClip.FilePath,
+			FileName:              fileName,
+			FileSize:              existingClip.FileSize,
+			Duration:              existingClip.Duration,
+			Format:                existingClip.Format,
+			Width:                 existingClip.Width,
+			Height:                existingClip.Height,
+			ProjectID:             projectID,
+			CreatedAt:             existingClip.CreatedAt.Format("2006-01-02 15:04:05"),
+			UpdatedAt:             existingClip.UpdatedAt.Format("2006-01-02 15:04:05"),
+			Exists:                fileExists,
+			ThumbnailURL:          a.getThumbnailURL(existingClip.FilePath),
+			Transcription:         existingClip.Transcription,
+			TranscriptionWords:    schemaWordsToWords(existingClip.TranscriptionWords),
+			TranscriptionLanguage: existingClip.TranscriptionLanguage,
+			TranscriptionDuration: existingClip.TranscriptionDuration,
 		}, fmt.Errorf("video file already added to this project")
 	}
 	
@@ -587,18 +607,21 @@ func (a *App) CreateVideoClip(projectID int, filePath string) (*VideoClipRespons
 		Name:         videoClip.Name,
 		Description:  videoClip.Description,
 		FilePath:     videoClip.FilePath,
-		FileName:     fileName,
-		FileSize:     videoClip.FileSize,
-		Duration:     videoClip.Duration,
-		Format:       videoClip.Format,
-		Width:        videoClip.Width,
-		Height:       videoClip.Height,
-		ProjectID:    projectID,
-		CreatedAt:    videoClip.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt:    videoClip.UpdatedAt.Format("2006-01-02 15:04:05"),
-		Exists:       true,
-		ThumbnailURL: a.getThumbnailURL(videoClip.FilePath),
-		Transcription: videoClip.Transcription,
+		FileName:              fileName,
+		FileSize:              videoClip.FileSize,
+		Duration:              videoClip.Duration,
+		Format:                videoClip.Format,
+		Width:                 videoClip.Width,
+		Height:                videoClip.Height,
+		ProjectID:             projectID,
+		CreatedAt:             videoClip.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:             videoClip.UpdatedAt.Format("2006-01-02 15:04:05"),
+		Exists:                true,
+		ThumbnailURL:          a.getThumbnailURL(videoClip.FilePath),
+		Transcription:         videoClip.Transcription,
+		TranscriptionWords:    schemaWordsToWords(videoClip.TranscriptionWords),
+		TranscriptionLanguage: videoClip.TranscriptionLanguage,
+		TranscriptionDuration: videoClip.TranscriptionDuration,
 	}, nil
 }
 
@@ -619,22 +642,25 @@ func (a *App) GetVideoClipsByProject(projectID int) ([]*VideoClipResponse, error
 		_, _, exists := a.getFileInfo(clip.FilePath)
 		
 		responses = append(responses, &VideoClipResponse{
-			ID:           clip.ID,
-			Name:         clip.Name,
-			Description:  clip.Description,
-			FilePath:     clip.FilePath,
-			FileName:     fileName,
-			FileSize:     clip.FileSize,
-			Duration:     clip.Duration,
-			Format:       clip.Format,
-			Width:        clip.Width,
-			Height:       clip.Height,
-			ProjectID:    projectID,
-			CreatedAt:    clip.CreatedAt.Format("2006-01-02 15:04:05"),
-			UpdatedAt:    clip.UpdatedAt.Format("2006-01-02 15:04:05"),
-			Exists:       exists,
-			ThumbnailURL: a.getThumbnailURL(clip.FilePath),
-			Transcription: clip.Transcription,
+			ID:                    clip.ID,
+			Name:                  clip.Name,
+			Description:           clip.Description,
+			FilePath:              clip.FilePath,
+			FileName:              fileName,
+			FileSize:              clip.FileSize,
+			Duration:              clip.Duration,
+			Format:                clip.Format,
+			Width:                 clip.Width,
+			Height:                clip.Height,
+			ProjectID:             projectID,
+			CreatedAt:             clip.CreatedAt.Format("2006-01-02 15:04:05"),
+			UpdatedAt:             clip.UpdatedAt.Format("2006-01-02 15:04:05"),
+			Exists:                exists,
+			ThumbnailURL:          a.getThumbnailURL(clip.FilePath),
+			Transcription:         clip.Transcription,
+			TranscriptionWords:    schemaWordsToWords(clip.TranscriptionWords),
+			TranscriptionLanguage: clip.TranscriptionLanguage,
+			TranscriptionDuration: clip.TranscriptionDuration,
 		})
 	}
 	
@@ -661,22 +687,25 @@ func (a *App) UpdateVideoClip(id int, name, description string) (*VideoClipRespo
 	_, _, exists := a.getFileInfo(updatedClip.FilePath)
 	
 	return &VideoClipResponse{
-		ID:           updatedClip.ID,
-		Name:         updatedClip.Name,
-		Description:  updatedClip.Description,
-		FilePath:     updatedClip.FilePath,
-		FileName:     fileName,
-		FileSize:     updatedClip.FileSize,
-		Duration:     updatedClip.Duration,
-		Format:       updatedClip.Format,
-		Width:        updatedClip.Width,
-		Height:       updatedClip.Height,
-		ProjectID:    updatedClip.Edges.Project.ID,
-		CreatedAt:    updatedClip.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt:    updatedClip.UpdatedAt.Format("2006-01-02 15:04:05"),
-		Exists:       exists,
-		ThumbnailURL: a.getThumbnailURL(updatedClip.FilePath),
-		Transcription: updatedClip.Transcription,
+		ID:                    updatedClip.ID,
+		Name:                  updatedClip.Name,
+		Description:           updatedClip.Description,
+		FilePath:              updatedClip.FilePath,
+		FileName:              fileName,
+		FileSize:              updatedClip.FileSize,
+		Duration:              updatedClip.Duration,
+		Format:                updatedClip.Format,
+		Width:                 updatedClip.Width,
+		Height:                updatedClip.Height,
+		ProjectID:             updatedClip.Edges.Project.ID,
+		CreatedAt:             updatedClip.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:             updatedClip.UpdatedAt.Format("2006-01-02 15:04:05"),
+		Exists:                exists,
+		ThumbnailURL:          a.getThumbnailURL(updatedClip.FilePath),
+		Transcription:         updatedClip.Transcription,
+		TranscriptionWords:    schemaWordsToWords(updatedClip.TranscriptionWords),
+		TranscriptionLanguage: updatedClip.TranscriptionLanguage,
+		TranscriptionDuration: updatedClip.TranscriptionDuration,
 	}, nil
 }
 
@@ -1094,10 +1123,23 @@ func (a *App) TranscribeVideoClip(clipID int) (*TranscriptionResponse, error) {
 		}, nil
 	}
 
+	// Convert Word structs for storage
+	var wordsForStorage []schema.Word
+	for _, w := range whisperResponse.Words {
+		wordsForStorage = append(wordsForStorage, schema.Word{
+			Word:  w.Word,
+			Start: w.Start,
+			End:   w.End,
+		})
+	}
+
 	// Save transcription to database
 	_, err = a.client.VideoClip.
 		UpdateOneID(clipID).
 		SetTranscription(whisperResponse.Text).
+		SetTranscriptionWords(wordsForStorage).
+		SetTranscriptionLanguage(whisperResponse.Language).
+		SetTranscriptionDuration(whisperResponse.Duration).
 		Save(a.ctx)
 	
 	if err != nil {

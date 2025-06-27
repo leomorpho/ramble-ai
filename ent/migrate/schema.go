@@ -49,6 +49,9 @@ var (
 		{Name: "height", Type: field.TypeInt, Nullable: true},
 		{Name: "file_size", Type: field.TypeInt64, Nullable: true},
 		{Name: "transcription", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "transcription_words", Type: field.TypeJSON, Nullable: true},
+		{Name: "transcription_language", Type: field.TypeString, Nullable: true},
+		{Name: "transcription_duration", Type: field.TypeFloat64, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
 		{Name: "project_video_clips", Type: field.TypeInt, Nullable: true},
@@ -61,7 +64,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "video_clips_projects_video_clips",
-				Columns:    []*schema.Column{VideoClipsColumns[12]},
+				Columns:    []*schema.Column{VideoClipsColumns[15]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},

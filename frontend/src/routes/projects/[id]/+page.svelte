@@ -20,6 +20,7 @@
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
   import { toast } from "svelte-sonner";
+  import TextHighlighter from "$lib/components/TextHighlighter.svelte";
 
   let project = $state(null);
   let loading = $state(false);
@@ -868,7 +869,7 @@
 
 <!-- Transcription Viewer Dialog -->
 <Dialog bind:open={transcriptionDialogOpen}>
-  <DialogContent class="sm:max-w-[700px] max-h-[80vh]">
+  <DialogContent class="sm:max-w-[700px] max-h-[85vh]">
     <DialogHeader>
       <DialogTitle>Video Transcript</DialogTitle>
       <DialogDescription>
@@ -878,111 +879,123 @@
       </DialogDescription>
     </DialogHeader>
     
-    {#if transcriptionVideo}
-      <div class="space-y-4">
-        <!-- Video info -->
-        <div class="flex items-center gap-3 p-3 bg-secondary/30 rounded-lg">
-          <svg class="w-6 h-6 text-muted-foreground flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-          </svg>
-          <div class="flex-1 min-w-0">
-            <p class="font-medium truncate">{transcriptionVideo.name}</p>
-            <p class="text-sm text-muted-foreground truncate">{transcriptionVideo.fileName}</p>
-          </div>
-        </div>
-        
-        <!-- Transcript content with tabs -->
-        {#if transcriptionVideo.transcription}
-          <div class="space-y-3">
-            <div class="flex items-center justify-between">
-              <h3 class="font-medium">Transcript</h3>
-              <div class="flex gap-2">
-                {#if transcriptionVideo.transcriptionLanguage}
-                  <span class="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-md">
-                    {transcriptionVideo.transcriptionLanguage.toUpperCase()}
-                  </span>
-                {/if}
-                {#if transcriptionVideo.transcriptionDuration}
-                  <span class="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-md">
-                    {formatTimestamp(transcriptionVideo.transcriptionDuration)}
-                  </span>
-                {/if}
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onclick={() => navigator.clipboard.writeText(transcriptionVideo.transcription)}
-                  class="text-xs"
-                >
-                  <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                  Copy
-                </Button>
-              </div>
+    <div class="overflow-y-auto max-h-[60vh]">
+      {#if transcriptionVideo}
+        <div class="space-y-4">
+          <!-- Video info -->
+          <div class="flex items-center gap-3 p-3 bg-secondary/30 rounded-lg">
+            <svg class="w-6 h-6 text-muted-foreground flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            <div class="flex-1 min-w-0">
+              <p class="font-medium truncate">{transcriptionVideo.name}</p>
+              <p class="text-sm text-muted-foreground truncate">{transcriptionVideo.fileName}</p>
             </div>
+          </div>
+        
+          <!-- Transcript content with tabs -->
+          {#if transcriptionVideo.transcription}
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <h3 class="font-medium">Transcript</h3>
+                <div class="flex gap-2">
+                  {#if transcriptionVideo.transcriptionLanguage}
+                    <span class="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-md">
+                      {transcriptionVideo.transcriptionLanguage.toUpperCase()}
+                    </span>
+                  {/if}
+                  {#if transcriptionVideo.transcriptionDuration}
+                    <span class="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-md">
+                      {formatTimestamp(transcriptionVideo.transcriptionDuration)}
+                    </span>
+                  {/if}
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onclick={() => navigator.clipboard.writeText(transcriptionVideo.transcription)}
+                    class="text-xs"
+                  >
+                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Copy
+                  </Button>
+                </div>
+              </div>
 
-            <Tabs value="full-text" class="w-full">
-              <TabsList class="grid w-full grid-cols-2">
-                <TabsTrigger value="full-text">Full Text</TabsTrigger>
-                <TabsTrigger value="word-by-word" disabled={!transcriptionVideo.transcriptionWords || transcriptionVideo.transcriptionWords.length === 0}>
-                  Word by Word
-                </TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="full-text" class="space-y-3">
-                <div class="max-h-96 overflow-y-auto p-4 bg-background border rounded-lg">
-                  <p class="text-sm leading-relaxed whitespace-pre-wrap">{transcriptionVideo.transcription}</p>
-                </div>
-                <div class="text-xs text-muted-foreground">
-                  Character count: {transcriptionVideo.transcription.length}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="word-by-word" class="space-y-3">
-                {#if transcriptionVideo.transcriptionWords && transcriptionVideo.transcriptionWords.length > 0}
-                  <div class="max-h-96 overflow-y-auto p-4 bg-background border rounded-lg space-y-2">
-                    {#each transcriptionVideo.transcriptionWords as word, index}
-                      <div class="flex items-center gap-3 p-2 hover:bg-secondary/30 rounded-md group">
-                        <div class="flex-shrink-0 text-xs text-muted-foreground font-mono bg-secondary px-2 py-1 rounded">
-                          {formatTimestamp(word.start)}
-                        </div>
-                        <div class="flex-1">
-                          <span class="text-sm">{word.word.trim()}</span>
-                        </div>
-                        <div class="flex-shrink-0 text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                          {(word.end - word.start).toFixed(1)}s
-                        </div>
-                      </div>
-                    {/each}
+              <Tabs value="full-text" class="w-full">
+                <TabsList class="grid w-full grid-cols-2">
+                  <TabsTrigger value="full-text">Full Text</TabsTrigger>
+                  <TabsTrigger value="word-by-word" disabled={!transcriptionVideo.transcriptionWords || transcriptionVideo.transcriptionWords.length === 0}>
+                    Word by Word
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="full-text" class="space-y-3">
+                  <div class="max-h-64 overflow-y-auto p-4 bg-background border rounded-lg">
+                    <div class="text-sm leading-relaxed">
+                      <TextHighlighter 
+                        text={transcriptionVideo.transcription} 
+                        words={transcriptionVideo.transcriptionWords || []} 
+                      />
+                    </div>
                   </div>
                   <div class="text-xs text-muted-foreground">
-                    Word count: {transcriptionVideo.transcriptionWords.length}
+                    Character count: {transcriptionVideo.transcription.length}
                   </div>
-                {:else}
-                  <div class="text-center py-8 text-muted-foreground">
-                    <svg class="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <p class="text-lg font-medium">No word-level timing available</p>
-                    <p class="text-sm">Word timestamps weren't generated for this transcription.</p>
-                  </div>
-                {/if}
-              </TabsContent>
-            </Tabs>
-          </div>
-        {:else}
-          <div class="text-center py-8 text-muted-foreground">
-            <svg class="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <p class="text-lg font-medium">No transcript available</p>
-            <p class="text-sm">This video hasn't been transcribed yet.</p>
-          </div>
-        {/if}
-      </div>
-    {/if}
+                </TabsContent>
+                
+                <TabsContent value="word-by-word" class="space-y-3">
+                  {#if transcriptionVideo.transcriptionWords && transcriptionVideo.transcriptionWords.length > 0}
+                    <div class="max-h-64 overflow-y-auto p-4 bg-background border rounded-lg space-y-1">
+                      {#each transcriptionVideo.transcriptionWords as word, index}
+                        <div class="flex items-center gap-3 p-2 hover:bg-secondary/30 rounded-md group">
+                          <div class="flex-shrink-0 text-xs text-muted-foreground font-mono bg-secondary px-2 py-1 rounded">
+                            {formatTimestamp(word.start)}
+                          </div>
+                          <div class="flex-1">
+                            <span class="text-sm">{word.word.trim()}</span>
+                          </div>
+                          <div class="flex-shrink-0 text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                            {(word.end - word.start).toFixed(1)}s
+                          </div>
+                        </div>
+                      {/each}
+                    </div>
+                    <div class="text-xs text-muted-foreground flex-shrink-0">
+                      Word count: {transcriptionVideo.transcriptionWords.length}
+                    </div>
+                  {:else}
+                    <div class="flex-1 flex items-center justify-center text-muted-foreground">
+                      <div class="text-center">
+                        <svg class="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p class="text-lg font-medium">No word-level timing available</p>
+                        <p class="text-sm">Word timestamps weren't generated for this transcription.</p>
+                      </div>
+                    </div>
+                  {/if}
+                </TabsContent>
+              </Tabs>
+            </div>
+          {:else}
+            <div class="flex-1 flex items-center justify-center text-muted-foreground">
+              <div class="text-center">
+                <svg class="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p class="text-lg font-medium">No transcript available</p>
+                <p class="text-sm">This video hasn't been transcribed yet.</p>
+              </div>
+            </div>
+          {/if}
+        </div>
+      {/if}
+    </div>
     
-    <div class="flex justify-end gap-2 mt-4">
+    <!-- Fixed footer buttons -->
+    <div class="flex justify-end gap-2 pt-4 border-t flex-shrink-0">
       <Button variant="outline" onclick={() => transcriptionDialogOpen = false}>
         Close
       </Button>
