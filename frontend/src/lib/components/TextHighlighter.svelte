@@ -25,9 +25,11 @@
       }).filter(h => h.start !== -1 && h.end !== -1);
       
       highlights = convertedHighlights;
+      
       // Update colorIndex to continue from where we left off
       if (convertedHighlights.length > 0) {
-        colorIndex = Math.max(...convertedHighlights.map(h => colors.indexOf(h.color))) + 1;
+        const usedColors = convertedHighlights.map(h => colors.indexOf(h.color)).filter(i => i !== -1);
+        colorIndex = usedColors.length > 0 ? Math.max(...usedColors) + 1 : 0;
       }
     }
   });
@@ -45,6 +47,7 @@
   let dragType = $state(null); // 'start' or 'end'
   let originalHighlight = $state(null);
   let hoveredHighlight = $state(null);
+  let showHandles = $state(null); // Track which highlight should show handles
   
   // Color palette
   const colors = ['#ffeb3b', '#81c784', '#64b5f6', '#ff8a65', '#f06292'];
@@ -184,13 +187,16 @@
     if (highlight) {
       // Don't start selection on highlighted words
       event.preventDefault();
-    } else {
-      // Start new selection
-      isSelecting = true;
-      selectionStart = index;
-      selectionEnd = index;
-      showDeleteButton = false;
+      event.stopPropagation();
+      return;
     }
+    
+    // Start new selection only on non-highlighted words
+    isSelecting = true;
+    selectionStart = index;
+    selectionEnd = index;
+    showDeleteButton = false;
+    showHandles = null; // Hide any visible handles
   }
   
   function handleClick(index, event) {
@@ -224,14 +230,14 @@
       
       // Only create highlight if more than just a click (start != end)
       if (start !== end) {
-        // Check for overlap
+        // Check for overlap - highlights cannot overlap
         const hasOverlap = highlights.some(h => 
           (start <= h.end && end >= h.start)
         );
         
         if (!hasOverlap) {
           const newHighlight = {
-            id: String(highlightId++),
+            id: `highlight_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             start,
             end,
             color: colors[colorIndex % colors.length]
@@ -293,13 +299,15 @@
           : h
       );
       dragHighlight = { ...dragHighlight, start: newStart, end: newEnd };
-      
-      // Emit changes
-      emitHighlightsChange();
     }
   }
   
   function stopDrag() {
+    if (isDragging && dragHighlight) {
+      // Emit changes only when drag is complete
+      emitHighlightsChange();
+    }
+    
     isDragging = false;
     dragHighlight = null;
     dragType = null;
@@ -337,45 +345,50 @@
 <div class="highlighter">
   {#each groupedElements as group, groupIndex}
     {#if group.type === 'highlight'}
-      <!-- Highlight group with edge handles -->
-      <span class="highlight-container">
-        <!-- Highlight group -->
-        <span 
-          class="highlight-group"
-          style:background-color={group.highlight.color}
-          onmousedown={(e) => handleMouseDown(group.startIndex, e)}
-          onclick={(e) => handleClick(group.startIndex, e)}
-        >
-          <!-- Start handle at left edge -->
+      <!-- Start handle before first word -->
+      <span
+        class="drag-handle drag-handle-start"
+        class:visible={showHandles === group.highlight.id}
+        onmousedown={(e) => startDrag(group.highlight, 'start', e)}
+        onmouseenter={() => showHandles = group.highlight.id}
+        onmouseleave={() => showHandles = null}
+        title="Drag to resize highlight"
+      ></span>
+      
+      <!-- Highlight group - all words together -->
+      <span 
+        class="highlight-group"
+        style:background-color={group.highlight.color}
+        onmousedown={(e) => handleMouseDown(group.startIndex, e)}
+        onclick={(e) => handleClick(group.startIndex, e)}
+        onmouseenter={() => showHandles = group.highlight.id}
+        onmouseleave={() => showHandles = null}
+      >
+        {#each group.words as { word, index }, wordIndex}
+          {@const inSelection = isInSelection(index)}
           <span
-            class="drag-handle drag-handle-start"
-            onmousedown={(e) => startDrag(group.highlight, 'start', e)}
-            title="Drag to resize highlight"
-          ></span>
-          
-          {#each group.words as { word, index }, wordIndex}
-            {@const inSelection = isInSelection(index)}
-            <span
-              class="word highlighted"
-              class:selecting={inSelection}
-              onmouseenter={() => {
-                handleMouseEnter(index);
-                handleDragOver(index);
-              }}
-            >
-              {word.word}
-            </span>
-            {#if wordIndex < group.words.length - 1}{' '}{/if}
-          {/each}
-          
-          <!-- End handle at right edge -->
-          <span
-            class="drag-handle drag-handle-end"
-            onmousedown={(e) => startDrag(group.highlight, 'end', e)}
-            title="Drag to resize highlight"
-          ></span>
-        </span>
+            class="word highlighted"
+            class:selecting={inSelection}
+            onmouseenter={() => {
+              handleMouseEnter(index);
+              handleDragOver(index);
+            }}
+          >
+            {word.word}
+          </span>
+          {#if wordIndex < group.words.length - 1}{' '}{/if}
+        {/each}
       </span>
+      
+      <!-- End handle after last word -->
+      <span
+        class="drag-handle drag-handle-end"
+        class:visible={showHandles === group.highlight.id}
+        onmousedown={(e) => startDrag(group.highlight, 'end', e)}
+        onmouseenter={() => showHandles = group.highlight.id}
+        onmouseleave={() => showHandles = null}
+        title="Drag to resize highlight"
+      ></span>
     {:else}
       <!-- Regular word -->
       {@const inSelection = isInSelection(group.index)}
@@ -432,21 +445,15 @@
     position: relative;
   }
   
-  .highlight-container {
-    display: inline;
-    position: relative;
-  }
-  
-  .highlight-container:hover .drag-handle {
-    opacity: 1;
-  }
-  
   .highlight-group {
     display: inline;
-    position: relative;
     padding: 3px 6px;
     border-radius: 4px;
     cursor: pointer;
+  }
+  
+  .highlight-group:hover {
+    /* When hovering highlight, show adjacent handles */
   }
   
   .word.highlighted {
@@ -463,30 +470,24 @@
   
   
   .drag-handle {
-    position: absolute;
+    display: inline-block;
     width: 4px;
-    height: 100%;
-    top: 0;
+    height: 1.2em;
     cursor: ew-resize;
     opacity: 0;
-    transition: opacity 0.3s ease, transform 0.2s ease;
-    background-color: rgba(0, 0, 0, 0.5);
+    transition: opacity 0.3s ease, background-color 0.2s ease;
+    background-color: rgba(0, 0, 0, 0.6);
     border-radius: 2px;
-    transform: scale(1);
-    z-index: 10;
+    vertical-align: baseline;
+  }
+  
+  .drag-handle:hover,
+  .drag-handle.visible {
+    opacity: 1;
   }
   
   .drag-handle:hover {
-    background-color: rgba(0, 0, 0, 0.7);
-    transform: scaleX(1.5);
-  }
-  
-  .drag-handle-start {
-    left: 0;
-  }
-  
-  .drag-handle-end {
-    right: 0;
+    background-color: rgba(0, 0, 0, 0.8);
   }
   
   .delete-popup {
