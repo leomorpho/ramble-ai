@@ -9,10 +9,11 @@
     DialogTitle, 
     DialogTrigger 
   } from "$lib/components/ui/dialog";
-  import { GetProjectByID, UpdateProject, DeleteProject, CreateVideoClip, GetVideoClipsByProject, UpdateVideoClip, DeleteVideoClip, SelectVideoFiles, GetVideoFileInfo, GetVideoURL } from "$lib/wailsjs/go/main/App";
+  import { GetProjectByID, UpdateProject, DeleteProject, CreateVideoClip, GetVideoClipsByProject, UpdateVideoClip, DeleteVideoClip, SelectVideoFiles, GetVideoFileInfo, GetVideoURL, TranscribeVideoClip } from "$lib/wailsjs/go/main/App";
   import { onMount } from "svelte";
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
+  import { toast } from "svelte-sonner";
 
   let project = $state(null);
   let loading = $state(false);
@@ -35,6 +36,11 @@
   let previewDialogOpen = $state(false);
   let previewVideo = $state(null);
   let videoURL = $state("");
+  
+  // Transcription state
+  let transcriptionDialogOpen = $state(false);
+  let transcriptionVideo = $state(null);
+  let transcribingClips = $state(new Set());
 
   // Get project ID from route params
   let projectId = $derived(parseInt($page.params.id));
@@ -287,6 +293,54 @@
 
   function goBack() {
     goto("/");
+  }
+
+  async function startTranscription(clip) {
+    try {
+      // Add clip to transcribing set
+      transcribingClips.add(clip.id);
+      transcribingClips = new Set(transcribingClips); // Trigger reactivity
+      
+      // Show starting toast
+      toast.info(`Starting transcription for ${clip.name}`, {
+        description: "Extracting audio and sending to OpenAI..."
+      });
+
+      const result = await TranscribeVideoClip(clip.id);
+      
+      if (result.success) {
+        // Update the clip with transcription
+        const clipIndex = videoClips.findIndex(c => c.id === clip.id);
+        if (clipIndex !== -1) {
+          videoClips[clipIndex] = { ...videoClips[clipIndex], transcription: result.transcription };
+          videoClips = [...videoClips]; // Trigger reactivity
+        }
+        
+        // Show success toast
+        toast.success(`Transcription completed for ${clip.name}`, {
+          description: "Transcript is now available to view"
+        });
+      } else {
+        // Show error toast
+        toast.error(`Transcription failed for ${clip.name}`, {
+          description: result.message
+        });
+      }
+    } catch (err) {
+      console.error("Transcription error:", err);
+      toast.error(`Transcription failed for ${clip.name}`, {
+        description: "An unexpected error occurred"
+      });
+    } finally {
+      // Remove clip from transcribing set
+      transcribingClips.delete(clip.id);
+      transcribingClips = new Set(transcribingClips); // Trigger reactivity
+    }
+  }
+
+  function viewTranscription(clip) {
+    transcriptionVideo = clip;
+    transcriptionDialogOpen = true;
   }
 </script>
 
@@ -610,8 +664,9 @@
                       </div>
                     {/if}
 
-                    <!-- Preview button -->
-                    <div class="mt-3 pt-3 border-t border-border">
+                    <!-- Action buttons -->
+                    <div class="mt-3 pt-3 border-t border-border space-y-2">
+                      <!-- Preview button -->
                       <Button 
                         variant="outline" 
                         size="sm" 
@@ -624,6 +679,55 @@
                         </svg>
                         {clip.exists ? 'Preview Video' : 'File Missing'}
                       </Button>
+
+                      <!-- Transcription buttons -->
+                      <div class="flex gap-2">
+                        {#if clip.transcription}
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onclick={() => viewTranscription(clip)}
+                            class="flex-1"
+                          >
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            View Transcript
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onclick={() => startTranscription(clip)}
+                            disabled={transcribingClips.has(clip.id) || !clip.exists}
+                            class="px-3"
+                            title="Re-transcribe"
+                          >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                          </Button>
+                        {:else}
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onclick={() => startTranscription(clip)}
+                            disabled={transcribingClips.has(clip.id) || !clip.exists}
+                            class="w-full"
+                          >
+                            {#if transcribingClips.has(clip.id)}
+                              <svg class="w-4 h-4 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                              Transcribing...
+                            {:else}
+                              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                              </svg>
+                              Start Transcription
+                            {/if}
+                          </Button>
+                        {/if}
+                      </div>
                     </div>
                     </div>
                   </div>
@@ -738,6 +842,75 @@
     
     <div class="flex justify-end gap-2 mt-4">
       <Button variant="outline" onclick={() => previewDialogOpen = false}>
+        Close
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
+
+<!-- Transcription Viewer Dialog -->
+<Dialog bind:open={transcriptionDialogOpen}>
+  <DialogContent class="sm:max-w-[700px] max-h-[80vh]">
+    <DialogHeader>
+      <DialogTitle>Video Transcript</DialogTitle>
+      <DialogDescription>
+        {#if transcriptionVideo}
+          Transcript for {transcriptionVideo.name}
+        {/if}
+      </DialogDescription>
+    </DialogHeader>
+    
+    {#if transcriptionVideo}
+      <div class="space-y-4">
+        <!-- Video info -->
+        <div class="flex items-center gap-3 p-3 bg-secondary/30 rounded-lg">
+          <svg class="w-6 h-6 text-muted-foreground flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+          <div class="flex-1 min-w-0">
+            <p class="font-medium truncate">{transcriptionVideo.name}</p>
+            <p class="text-sm text-muted-foreground truncate">{transcriptionVideo.fileName}</p>
+          </div>
+        </div>
+        
+        <!-- Transcript content -->
+        {#if transcriptionVideo.transcription}
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="font-medium">Transcript</h3>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onclick={() => navigator.clipboard.writeText(transcriptionVideo.transcription)}
+                class="text-xs"
+              >
+                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                Copy
+              </Button>
+            </div>
+            <div class="max-h-96 overflow-y-auto p-4 bg-background border rounded-lg">
+              <p class="text-sm leading-relaxed whitespace-pre-wrap">{transcriptionVideo.transcription}</p>
+            </div>
+            <div class="text-xs text-muted-foreground">
+              Character count: {transcriptionVideo.transcription.length}
+            </div>
+          </div>
+        {:else}
+          <div class="text-center py-8 text-muted-foreground">
+            <svg class="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <p class="text-lg font-medium">No transcript available</p>
+            <p class="text-sm">This video hasn't been transcribed yet.</p>
+          </div>
+        {/if}
+      </div>
+    {/if}
+    
+    <div class="flex justify-end gap-2 mt-4">
+      <Button variant="outline" onclick={() => transcriptionDialogOpen = false}>
         Close
       </Button>
     </div>

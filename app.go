@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/md5"
 	"database/sql"
@@ -9,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
@@ -56,6 +58,7 @@ type VideoClipResponse struct {
 	UpdatedAt    string  `json:"updatedAt"`
 	Exists       bool    `json:"exists"`
 	ThumbnailURL string  `json:"thumbnailUrl"`
+	Transcription string `json:"transcription"`
 }
 
 // LocalVideoFile represents a local video file for the frontend
@@ -557,6 +560,7 @@ func (a *App) CreateVideoClip(projectID int, filePath string) (*VideoClipRespons
 			UpdatedAt:    existingClip.UpdatedAt.Format("2006-01-02 15:04:05"),
 			Exists:       fileExists,
 			ThumbnailURL: a.getThumbnailURL(existingClip.FilePath),
+			Transcription: existingClip.Transcription,
 		}, fmt.Errorf("video file already added to this project")
 	}
 	
@@ -594,6 +598,7 @@ func (a *App) CreateVideoClip(projectID int, filePath string) (*VideoClipRespons
 		UpdatedAt:    videoClip.UpdatedAt.Format("2006-01-02 15:04:05"),
 		Exists:       true,
 		ThumbnailURL: a.getThumbnailURL(videoClip.FilePath),
+		Transcription: videoClip.Transcription,
 	}, nil
 }
 
@@ -629,6 +634,7 @@ func (a *App) GetVideoClipsByProject(projectID int) ([]*VideoClipResponse, error
 			UpdatedAt:    clip.UpdatedAt.Format("2006-01-02 15:04:05"),
 			Exists:       exists,
 			ThumbnailURL: a.getThumbnailURL(clip.FilePath),
+			Transcription: clip.Transcription,
 		})
 	}
 	
@@ -670,6 +676,7 @@ func (a *App) UpdateVideoClip(id int, name, description string) (*VideoClipRespo
 		UpdatedAt:    updatedClip.UpdatedAt.Format("2006-01-02 15:04:05"),
 		Exists:       exists,
 		ThumbnailURL: a.getThumbnailURL(updatedClip.FilePath),
+		Transcription: updatedClip.Transcription,
 	}, nil
 }
 
@@ -996,4 +1003,193 @@ func (a *App) testOpenAIConnection(apiKey string) (*TestOpenAIApiKeyResponse, er
 			Message: fmt.Sprintf("API test failed with status %d: %s", resp.StatusCode, string(body)),
 		}, nil
 	}
+}
+
+// TranscriptionResponse represents the response from the transcription process
+type TranscriptionResponse struct {
+	Success   bool   `json:"success"`
+	Message   string `json:"message"`
+	Transcription string `json:"transcription,omitempty"`
+}
+
+// TranscribeVideoClip extracts audio from a video and transcribes it using OpenAI Whisper
+func (a *App) TranscribeVideoClip(clipID int) (*TranscriptionResponse, error) {
+	// Get the video clip
+	clip, err := a.client.VideoClip.Get(a.ctx, clipID)
+	if err != nil {
+		return &TranscriptionResponse{
+			Success: false,
+			Message: "Video clip not found",
+		}, nil
+	}
+
+	// Check if file exists
+	if _, err := os.Stat(clip.FilePath); os.IsNotExist(err) {
+		return &TranscriptionResponse{
+			Success: false,
+			Message: "Video file not found",
+		}, nil
+	}
+
+	// Get OpenAI API key
+	apiKey, err := a.GetOpenAIApiKey()
+	if err != nil || apiKey == "" {
+		return &TranscriptionResponse{
+			Success: false,
+			Message: "OpenAI API key not configured",
+		}, nil
+	}
+
+	// Extract audio from video
+	audioPath, err := a.extractAudio(clip.FilePath)
+	if err != nil {
+		return &TranscriptionResponse{
+			Success: false,
+			Message: fmt.Sprintf("Failed to extract audio: %v", err),
+		}, nil
+	}
+	defer os.Remove(audioPath) // Clean up temporary audio file
+
+	// Transcribe audio using OpenAI Whisper
+	transcription, err := a.transcribeAudio(audioPath, apiKey)
+	if err != nil {
+		return &TranscriptionResponse{
+			Success: false,
+			Message: fmt.Sprintf("Transcription failed: %v", err),
+		}, nil
+	}
+
+	// Save transcription to database
+	_, err = a.client.VideoClip.
+		UpdateOneID(clipID).
+		SetTranscription(transcription).
+		Save(a.ctx)
+	
+	if err != nil {
+		return &TranscriptionResponse{
+			Success: false,
+			Message: "Failed to save transcription",
+		}, nil
+	}
+
+	return &TranscriptionResponse{
+		Success:       true,
+		Message:       "Transcription completed successfully",
+		Transcription: transcription,
+	}, nil
+}
+
+// extractAudio extracts audio from a video file using ffmpeg
+func (a *App) extractAudio(videoPath string) (string, error) {
+	// Create temp directory for audio files
+	tempDir := "temp_audio"
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create temp directory: %w", err)
+	}
+
+	// Generate unique audio filename
+	hash := md5.Sum([]byte(videoPath + fmt.Sprintf("%d", time.Now().UnixNano())))
+	audioFilename := hex.EncodeToString(hash[:]) + ".mp3"
+	audioPath := filepath.Join(tempDir, audioFilename)
+
+	log.Printf("[TRANSCRIPTION] Extracting audio from: %s to: %s", videoPath, audioPath)
+
+	// Use ffmpeg to extract audio
+	cmd := exec.Command("ffmpeg",
+		"-i", videoPath,
+		"-vn",                    // No video
+		"-acodec", "mp3",         // Audio codec
+		"-ar", "16000",           // Sample rate (16kHz for Whisper)
+		"-ac", "1",               // Mono channel
+		"-b:a", "64k",            // Bitrate
+		"-y",                     // Overwrite output file
+		audioPath,
+	)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("[TRANSCRIPTION] ffmpeg error: %v, output: %s", err, string(output))
+		return "", fmt.Errorf("ffmpeg failed: %w", err)
+	}
+
+	log.Printf("[TRANSCRIPTION] Audio extracted successfully: %s", audioPath)
+	return audioPath, nil
+}
+
+// transcribeAudio sends audio to OpenAI Whisper API for transcription
+func (a *App) transcribeAudio(audioPath, apiKey string) (string, error) {
+	// Create HTTP client with longer timeout for transcription
+	client := &http.Client{
+		Timeout: 120 * time.Second, // 2 minutes for transcription
+	}
+
+	// Open audio file
+	file, err := os.Open(audioPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to open audio file: %w", err)
+	}
+	defer file.Close()
+
+	// Create multipart form
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+
+	// Add file field
+	fileWriter, err := writer.CreateFormFile("file", filepath.Base(audioPath))
+	if err != nil {
+		return "", fmt.Errorf("failed to create form file: %w", err)
+	}
+
+	_, err = io.Copy(fileWriter, file)
+	if err != nil {
+		return "", fmt.Errorf("failed to copy file data: %w", err)
+	}
+
+	// Add model field
+	err = writer.WriteField("model", "whisper-1")
+	if err != nil {
+		return "", fmt.Errorf("failed to add model field: %w", err)
+	}
+
+	// Add response format field
+	err = writer.WriteField("response_format", "text")
+	if err != nil {
+		return "", fmt.Errorf("failed to add response format field: %w", err)
+	}
+
+	writer.Close()
+
+	// Create request
+	req, err := http.NewRequest("POST", "https://api.openai.com/v1/audio/transcriptions", &buf)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	log.Printf("[TRANSCRIPTION] Sending audio to OpenAI Whisper API")
+
+	// Make request
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("OpenAI API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	transcription := strings.TrimSpace(string(body))
+	log.Printf("[TRANSCRIPTION] Transcription completed, length: %d characters", len(transcription))
+
+	return transcription, nil
 }

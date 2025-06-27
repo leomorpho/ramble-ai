@@ -1216,6 +1216,7 @@ type VideoClipMutation struct {
 	addheight      *int
 	file_size      *int64
 	addfile_size   *int64
+	transcription  *string
 	created_at     *time.Time
 	updated_at     *time.Time
 	clearedFields  map[string]struct{}
@@ -1774,6 +1775,55 @@ func (m *VideoClipMutation) ResetFileSize() {
 	delete(m.clearedFields, videoclip.FieldFileSize)
 }
 
+// SetTranscription sets the "transcription" field.
+func (m *VideoClipMutation) SetTranscription(s string) {
+	m.transcription = &s
+}
+
+// Transcription returns the value of the "transcription" field in the mutation.
+func (m *VideoClipMutation) Transcription() (r string, exists bool) {
+	v := m.transcription
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTranscription returns the old "transcription" field's value of the VideoClip entity.
+// If the VideoClip object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *VideoClipMutation) OldTranscription(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTranscription is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTranscription requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTranscription: %w", err)
+	}
+	return oldValue.Transcription, nil
+}
+
+// ClearTranscription clears the value of the "transcription" field.
+func (m *VideoClipMutation) ClearTranscription() {
+	m.transcription = nil
+	m.clearedFields[videoclip.FieldTranscription] = struct{}{}
+}
+
+// TranscriptionCleared returns if the "transcription" field was cleared in this mutation.
+func (m *VideoClipMutation) TranscriptionCleared() bool {
+	_, ok := m.clearedFields[videoclip.FieldTranscription]
+	return ok
+}
+
+// ResetTranscription resets all changes to the "transcription" field.
+func (m *VideoClipMutation) ResetTranscription() {
+	m.transcription = nil
+	delete(m.clearedFields, videoclip.FieldTranscription)
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (m *VideoClipMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
@@ -1919,7 +1969,7 @@ func (m *VideoClipMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *VideoClipMutation) Fields() []string {
-	fields := make([]string, 0, 10)
+	fields := make([]string, 0, 11)
 	if m.name != nil {
 		fields = append(fields, videoclip.FieldName)
 	}
@@ -1943,6 +1993,9 @@ func (m *VideoClipMutation) Fields() []string {
 	}
 	if m.file_size != nil {
 		fields = append(fields, videoclip.FieldFileSize)
+	}
+	if m.transcription != nil {
+		fields = append(fields, videoclip.FieldTranscription)
 	}
 	if m.created_at != nil {
 		fields = append(fields, videoclip.FieldCreatedAt)
@@ -1974,6 +2027,8 @@ func (m *VideoClipMutation) Field(name string) (ent.Value, bool) {
 		return m.Height()
 	case videoclip.FieldFileSize:
 		return m.FileSize()
+	case videoclip.FieldTranscription:
+		return m.Transcription()
 	case videoclip.FieldCreatedAt:
 		return m.CreatedAt()
 	case videoclip.FieldUpdatedAt:
@@ -2003,6 +2058,8 @@ func (m *VideoClipMutation) OldField(ctx context.Context, name string) (ent.Valu
 		return m.OldHeight(ctx)
 	case videoclip.FieldFileSize:
 		return m.OldFileSize(ctx)
+	case videoclip.FieldTranscription:
+		return m.OldTranscription(ctx)
 	case videoclip.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	case videoclip.FieldUpdatedAt:
@@ -2071,6 +2128,13 @@ func (m *VideoClipMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetFileSize(v)
+		return nil
+	case videoclip.FieldTranscription:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTranscription(v)
 		return nil
 	case videoclip.FieldCreatedAt:
 		v, ok := value.(time.Time)
@@ -2185,6 +2249,9 @@ func (m *VideoClipMutation) ClearedFields() []string {
 	if m.FieldCleared(videoclip.FieldFileSize) {
 		fields = append(fields, videoclip.FieldFileSize)
 	}
+	if m.FieldCleared(videoclip.FieldTranscription) {
+		fields = append(fields, videoclip.FieldTranscription)
+	}
 	return fields
 }
 
@@ -2217,6 +2284,9 @@ func (m *VideoClipMutation) ClearField(name string) error {
 	case videoclip.FieldFileSize:
 		m.ClearFileSize()
 		return nil
+	case videoclip.FieldTranscription:
+		m.ClearTranscription()
+		return nil
 	}
 	return fmt.Errorf("unknown VideoClip nullable field %s", name)
 }
@@ -2248,6 +2318,9 @@ func (m *VideoClipMutation) ResetField(name string) error {
 		return nil
 	case videoclip.FieldFileSize:
 		m.ResetFileSize()
+		return nil
+	case videoclip.FieldTranscription:
+		m.ResetTranscription()
 		return nil
 	case videoclip.FieldCreatedAt:
 		m.ResetCreatedAt()

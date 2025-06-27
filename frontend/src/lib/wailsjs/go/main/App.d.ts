@@ -40,6 +40,8 @@ export function SelectVideoFiles():Promise<Array<main.LocalVideoFile>>;
 
 export function TestOpenAIApiKey():Promise<main.TestOpenAIApiKeyResponse>;
 
+export function TranscribeVideoClip(arg1:number):Promise<main.TranscriptionResponse>;
+
 export function UpdateProject(arg1:number,arg2:string,arg3:string):Promise<main.ProjectResponse>;
 
 export function UpdateVideoClip(arg1:number,arg2:string,arg3:string):Promise<main.VideoClipResponse>;

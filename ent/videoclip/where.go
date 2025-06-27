@@ -95,6 +95,11 @@ func FileSize(v int64) predicate.VideoClip {
 	return predicate.VideoClip(sql.FieldEQ(FieldFileSize, v))
 }
 
+// Transcription applies equality check predicate on the "transcription" field. It's identical to TranscriptionEQ.
+func Transcription(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldEQ(FieldTranscription, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.VideoClip {
 	return predicate.VideoClip(sql.FieldEQ(FieldCreatedAt, v))
@@ -583,6 +588,81 @@ func FileSizeIsNil() predicate.VideoClip {
 // FileSizeNotNil applies the NotNil predicate on the "file_size" field.
 func FileSizeNotNil() predicate.VideoClip {
 	return predicate.VideoClip(sql.FieldNotNull(FieldFileSize))
+}
+
+// TranscriptionEQ applies the EQ predicate on the "transcription" field.
+func TranscriptionEQ(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldEQ(FieldTranscription, v))
+}
+
+// TranscriptionNEQ applies the NEQ predicate on the "transcription" field.
+func TranscriptionNEQ(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldNEQ(FieldTranscription, v))
+}
+
+// TranscriptionIn applies the In predicate on the "transcription" field.
+func TranscriptionIn(vs ...string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldIn(FieldTranscription, vs...))
+}
+
+// TranscriptionNotIn applies the NotIn predicate on the "transcription" field.
+func TranscriptionNotIn(vs ...string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldNotIn(FieldTranscription, vs...))
+}
+
+// TranscriptionGT applies the GT predicate on the "transcription" field.
+func TranscriptionGT(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldGT(FieldTranscription, v))
+}
+
+// TranscriptionGTE applies the GTE predicate on the "transcription" field.
+func TranscriptionGTE(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldGTE(FieldTranscription, v))
+}
+
+// TranscriptionLT applies the LT predicate on the "transcription" field.
+func TranscriptionLT(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldLT(FieldTranscription, v))
+}
+
+// TranscriptionLTE applies the LTE predicate on the "transcription" field.
+func TranscriptionLTE(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldLTE(FieldTranscription, v))
+}
+
+// TranscriptionContains applies the Contains predicate on the "transcription" field.
+func TranscriptionContains(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldContains(FieldTranscription, v))
+}
+
+// TranscriptionHasPrefix applies the HasPrefix predicate on the "transcription" field.
+func TranscriptionHasPrefix(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldHasPrefix(FieldTranscription, v))
+}
+
+// TranscriptionHasSuffix applies the HasSuffix predicate on the "transcription" field.
+func TranscriptionHasSuffix(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldHasSuffix(FieldTranscription, v))
+}
+
+// TranscriptionIsNil applies the IsNil predicate on the "transcription" field.
+func TranscriptionIsNil() predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldIsNull(FieldTranscription))
+}
+
+// TranscriptionNotNil applies the NotNil predicate on the "transcription" field.
+func TranscriptionNotNil() predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldNotNull(FieldTranscription))
+}
+
+// TranscriptionEqualFold applies the EqualFold predicate on the "transcription" field.
+func TranscriptionEqualFold(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldEqualFold(FieldTranscription, v))
+}
+
+// TranscriptionContainsFold applies the ContainsFold predicate on the "transcription" field.
+func TranscriptionContainsFold(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldContainsFold(FieldTranscription, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

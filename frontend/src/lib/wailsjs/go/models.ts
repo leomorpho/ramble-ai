@@ -60,6 +60,22 @@ export namespace main {
 	        this.model = source["model"];
 	    }
 	}
+	export class TranscriptionResponse {
+	    success: boolean;
+	    message: string;
+	    transcription?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TranscriptionResponse(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.success = source["success"];
+	        this.message = source["message"];
+	        this.transcription = source["transcription"];
+	    }
+	}
 	export class VideoClipResponse {
 	    id: number;
 	    name: string;
@@ -76,6 +92,7 @@ export namespace main {
 	    updatedAt: string;
 	    exists: boolean;
 	    thumbnailUrl: string;
+	    transcription: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new VideoClipResponse(source);
@@ -98,6 +115,7 @@ export namespace main {
 	        this.updatedAt = source["updatedAt"];
 	        this.exists = source["exists"];
 	        this.thumbnailUrl = source["thumbnailUrl"];
+	        this.transcription = source["transcription"];
 	    }
 	}
 

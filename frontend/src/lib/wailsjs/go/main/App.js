@@ -78,6 +78,10 @@ export function TestOpenAIApiKey() {
   return window['go']['main']['App']['TestOpenAIApiKey']();
 }
 
+export function TranscribeVideoClip(arg1) {
+  return window['go']['main']['App']['TranscribeVideoClip'](arg1);
+}
+
 export function UpdateProject(arg1, arg2, arg3) {
   return window['go']['main']['App']['UpdateProject'](arg1, arg2, arg3);
 }

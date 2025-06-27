@@ -205,6 +205,26 @@ func (vcu *VideoClipUpdate) ClearFileSize() *VideoClipUpdate {
 	return vcu
 }
 
+// SetTranscription sets the "transcription" field.
+func (vcu *VideoClipUpdate) SetTranscription(s string) *VideoClipUpdate {
+	vcu.mutation.SetTranscription(s)
+	return vcu
+}
+
+// SetNillableTranscription sets the "transcription" field if the given value is not nil.
+func (vcu *VideoClipUpdate) SetNillableTranscription(s *string) *VideoClipUpdate {
+	if s != nil {
+		vcu.SetTranscription(*s)
+	}
+	return vcu
+}
+
+// ClearTranscription clears the value of the "transcription" field.
+func (vcu *VideoClipUpdate) ClearTranscription() *VideoClipUpdate {
+	vcu.mutation.ClearTranscription()
+	return vcu
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (vcu *VideoClipUpdate) SetCreatedAt(t time.Time) *VideoClipUpdate {
 	vcu.mutation.SetCreatedAt(t)
@@ -371,6 +391,12 @@ func (vcu *VideoClipUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if vcu.mutation.FileSizeCleared() {
 		_spec.ClearField(videoclip.FieldFileSize, field.TypeInt64)
+	}
+	if value, ok := vcu.mutation.Transcription(); ok {
+		_spec.SetField(videoclip.FieldTranscription, field.TypeString, value)
+	}
+	if vcu.mutation.TranscriptionCleared() {
+		_spec.ClearField(videoclip.FieldTranscription, field.TypeString)
 	}
 	if value, ok := vcu.mutation.CreatedAt(); ok {
 		_spec.SetField(videoclip.FieldCreatedAt, field.TypeTime, value)
@@ -603,6 +629,26 @@ func (vcuo *VideoClipUpdateOne) ClearFileSize() *VideoClipUpdateOne {
 	return vcuo
 }
 
+// SetTranscription sets the "transcription" field.
+func (vcuo *VideoClipUpdateOne) SetTranscription(s string) *VideoClipUpdateOne {
+	vcuo.mutation.SetTranscription(s)
+	return vcuo
+}
+
+// SetNillableTranscription sets the "transcription" field if the given value is not nil.
+func (vcuo *VideoClipUpdateOne) SetNillableTranscription(s *string) *VideoClipUpdateOne {
+	if s != nil {
+		vcuo.SetTranscription(*s)
+	}
+	return vcuo
+}
+
+// ClearTranscription clears the value of the "transcription" field.
+func (vcuo *VideoClipUpdateOne) ClearTranscription() *VideoClipUpdateOne {
+	vcuo.mutation.ClearTranscription()
+	return vcuo
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (vcuo *VideoClipUpdateOne) SetCreatedAt(t time.Time) *VideoClipUpdateOne {
 	vcuo.mutation.SetCreatedAt(t)
@@ -799,6 +845,12 @@ func (vcuo *VideoClipUpdateOne) sqlSave(ctx context.Context) (_node *VideoClip, 
 	}
 	if vcuo.mutation.FileSizeCleared() {
 		_spec.ClearField(videoclip.FieldFileSize, field.TypeInt64)
+	}
+	if value, ok := vcuo.mutation.Transcription(); ok {
+		_spec.SetField(videoclip.FieldTranscription, field.TypeString, value)
+	}
+	if vcuo.mutation.TranscriptionCleared() {
+		_spec.ClearField(videoclip.FieldTranscription, field.TypeString)
 	}
 	if value, ok := vcuo.mutation.CreatedAt(); ok {
 		_spec.SetField(videoclip.FieldCreatedAt, field.TypeTime, value)

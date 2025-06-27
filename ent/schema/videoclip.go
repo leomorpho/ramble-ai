@@ -40,6 +40,9 @@ func (VideoClip) Fields() []ent.Field {
 		field.Int64("file_size").
 			Optional().
 			Comment("File size in bytes"),
+		field.Text("transcription").
+			Optional().
+			Comment("Video transcription text"),
 		field.Time("created_at").
 			Default(time.Now).
 			Comment("Creation timestamp"),

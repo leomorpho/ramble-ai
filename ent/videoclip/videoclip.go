@@ -30,6 +30,8 @@ const (
 	FieldHeight = "height"
 	// FieldFileSize holds the string denoting the file_size field in the database.
 	FieldFileSize = "file_size"
+	// FieldTranscription holds the string denoting the transcription field in the database.
+	FieldTranscription = "transcription"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
@@ -58,6 +60,7 @@ var Columns = []string{
 	FieldWidth,
 	FieldHeight,
 	FieldFileSize,
+	FieldTranscription,
 	FieldCreatedAt,
 	FieldUpdatedAt,
 }
@@ -142,6 +145,11 @@ func ByHeight(opts ...sql.OrderTermOption) OrderOption {
 // ByFileSize orders the results by the file_size field.
 func ByFileSize(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldFileSize, opts...).ToFunc()
+}
+
+// ByTranscription orders the results by the transcription field.
+func ByTranscription(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTranscription, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

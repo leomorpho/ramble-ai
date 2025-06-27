@@ -117,6 +117,20 @@ func (vcc *VideoClipCreate) SetNillableFileSize(i *int64) *VideoClipCreate {
 	return vcc
 }
 
+// SetTranscription sets the "transcription" field.
+func (vcc *VideoClipCreate) SetTranscription(s string) *VideoClipCreate {
+	vcc.mutation.SetTranscription(s)
+	return vcc
+}
+
+// SetNillableTranscription sets the "transcription" field if the given value is not nil.
+func (vcc *VideoClipCreate) SetNillableTranscription(s *string) *VideoClipCreate {
+	if s != nil {
+		vcc.SetTranscription(*s)
+	}
+	return vcc
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (vcc *VideoClipCreate) SetCreatedAt(t time.Time) *VideoClipCreate {
 	vcc.mutation.SetCreatedAt(t)
@@ -290,6 +304,10 @@ func (vcc *VideoClipCreate) createSpec() (*VideoClip, *sqlgraph.CreateSpec) {
 	if value, ok := vcc.mutation.FileSize(); ok {
 		_spec.SetField(videoclip.FieldFileSize, field.TypeInt64, value)
 		_node.FileSize = value
+	}
+	if value, ok := vcc.mutation.Transcription(); ok {
+		_spec.SetField(videoclip.FieldTranscription, field.TypeString, value)
+		_node.Transcription = value
 	}
 	if value, ok := vcc.mutation.CreatedAt(); ok {
 		_spec.SetField(videoclip.FieldCreatedAt, field.TypeTime, value)

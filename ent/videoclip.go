@@ -34,6 +34,8 @@ type VideoClip struct {
 	Height int `json:"height,omitempty"`
 	// File size in bytes
 	FileSize int64 `json:"file_size,omitempty"`
+	// Video transcription text
+	Transcription string `json:"transcription,omitempty"`
 	// Creation timestamp
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Last update timestamp
@@ -74,7 +76,7 @@ func (*VideoClip) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullFloat64)
 		case videoclip.FieldID, videoclip.FieldWidth, videoclip.FieldHeight, videoclip.FieldFileSize:
 			values[i] = new(sql.NullInt64)
-		case videoclip.FieldName, videoclip.FieldDescription, videoclip.FieldFilePath, videoclip.FieldFormat:
+		case videoclip.FieldName, videoclip.FieldDescription, videoclip.FieldFilePath, videoclip.FieldFormat, videoclip.FieldTranscription:
 			values[i] = new(sql.NullString)
 		case videoclip.FieldCreatedAt, videoclip.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -148,6 +150,12 @@ func (vc *VideoClip) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field file_size", values[i])
 			} else if value.Valid {
 				vc.FileSize = value.Int64
+			}
+		case videoclip.FieldTranscription:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field transcription", values[i])
+			} else if value.Valid {
+				vc.Transcription = value.String
 			}
 		case videoclip.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -232,6 +240,9 @@ func (vc *VideoClip) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("file_size=")
 	builder.WriteString(fmt.Sprintf("%v", vc.FileSize))
+	builder.WriteString(", ")
+	builder.WriteString("transcription=")
+	builder.WriteString(vc.Transcription)
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(vc.CreatedAt.Format(time.ANSIC))
