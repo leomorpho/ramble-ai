@@ -3,18 +3,15 @@ package main
 import (
 	"context"
 	"database/sql"
-	"encoding/base64"
 	"fmt"
+	"io"
 	"log"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
-	"time"
 
 	"MYAPP/ent"
 	"MYAPP/ent/project"
@@ -22,6 +19,7 @@ import (
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -65,11 +63,8 @@ type LocalVideoFile struct {
 
 // App struct
 type App struct {
-	ctx        context.Context
-	client     *ent.Client
-	videoServer *http.Server
-	serverPort  int
-	serverMutex sync.Mutex
+	ctx    context.Context
+	client *ent.Client
 }
 
 // NewApp creates a new App application struct
@@ -85,12 +80,8 @@ func NewApp() *App {
 	client := ent.NewClient(ent.Driver(drv))
 
 	app := &App{
-		client:     client,
-		serverPort: 0, // Will be set when server starts
+		client: client,
 	}
-
-	// Start video server
-	app.startVideoServer()
 
 	return app
 }
@@ -110,100 +101,42 @@ func (a *App) startup(ctx context.Context) {
 
 // shutdown is called when the app shuts down
 func (a *App) shutdown(ctx context.Context) {
-	// Stop video server
-	a.stopVideoServer()
-	
 	// Close the database connection
 	if err := a.client.Close(); err != nil {
 		log.Printf("failed to close database connection: %v", err)
 	}
 }
 
-// startVideoServer starts a local HTTP server to serve video files
-func (a *App) startVideoServer() {
-	a.serverMutex.Lock()
-	defer a.serverMutex.Unlock()
-
-	if a.videoServer != nil {
-		return // Server already running
-	}
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/video/", a.handleVideoRequest)
-
-	// Start server on available port
-	for port := 8080; port <= 8090; port++ {
-		addr := ":" + strconv.Itoa(port)
-		server := &http.Server{
-			Addr:    addr,
-			Handler: mux,
-		}
-
-		// Try to start the server
-		listener, err := net.Listen("tcp", addr)
-		if err != nil {
-			continue // Port not available, try next
-		}
-
-		a.videoServer = server
-		a.serverPort = port
-		
-		go func() {
-			if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
-				log.Printf("Video server error on port %d: %v", port, err)
+// createAssetMiddleware creates middleware for serving video files via AssetServer
+func (a *App) createAssetMiddleware() assetserver.Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Check if this is a video request
+			if strings.HasPrefix(r.URL.Path, "/api/video/") {
+				a.handleVideoRequest(w, r)
+				return
 			}
-		}()
-
-		log.Printf("Video server started on port %d", port)
-		return
-	}
-
-	log.Println("Failed to start video server - no available ports")
-}
-
-// stopVideoServer stops the video server
-func (a *App) stopVideoServer() {
-	a.serverMutex.Lock()
-	defer a.serverMutex.Unlock()
-
-	if a.videoServer != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		
-		if err := a.videoServer.Shutdown(ctx); err != nil {
-			log.Printf("Error shutting down video server: %v", err)
-		}
-		
-		a.videoServer = nil
-		a.serverPort = 0
-		log.Println("Video server stopped")
+			// Pass to next handler for non-video requests
+			next.ServeHTTP(w, r)
+		})
 	}
 }
 
-// handleVideoRequest handles video file requests
+// handleVideoRequest handles video file requests with HTTP range support
 func (a *App) handleVideoRequest(w http.ResponseWriter, r *http.Request) {
-	// Enable CORS
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Range")
-
-	if r.Method == "OPTIONS" {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
 	// Extract file path from URL
-	filePath := r.URL.Path[7:] // Remove "/video/"
+	filePath := r.URL.Path[11:] // Remove "/api/video/"
+	log.Printf("[VIDEO] Raw path: %s", r.URL.Path)
+	log.Printf("[VIDEO] Extracted path: %s", filePath)
+	
 	decodedPath, err := url.QueryUnescape(filePath)
 	if err != nil {
+		log.Printf("[VIDEO] URL decode error: %v", err)
 		http.Error(w, "Invalid file path", http.StatusBadRequest)
 		return
 	}
-
-	// Decode base64 if needed
-	if decoded, err := base64.StdEncoding.DecodeString(decodedPath); err == nil {
-		decodedPath = string(decoded)
-	}
+	
+	log.Printf("[VIDEO] Decoded path: %s", decodedPath)
 
 	// Security check - ensure file exists and is a video
 	if !a.isVideoFile(decodedPath) {
@@ -211,13 +144,116 @@ func (a *App) handleVideoRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := os.Stat(decodedPath); os.IsNotExist(err) {
+	file, err := os.Open(decodedPath)
+	if err != nil {
 		http.Error(w, "File not found", http.StatusNotFound)
 		return
 	}
+	defer file.Close()
 
-	// Serve the file
-	http.ServeFile(w, r, decodedPath)
+	fileInfo, err := file.Stat()
+	if err != nil {
+		http.Error(w, "File info error", http.StatusInternalServerError)
+		return
+	}
+
+	// Set content type based on file extension
+	contentType := a.getContentType(decodedPath)
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Accept-Ranges", "bytes")
+
+	// Handle range requests for video seeking
+	rangeHeader := r.Header.Get("Range")
+	if rangeHeader != "" {
+		a.handleRangeRequest(w, r, file, fileInfo.Size(), rangeHeader)
+		return
+	}
+
+	// Serve the entire file
+	w.Header().Set("Content-Length", strconv.FormatInt(fileInfo.Size(), 10))
+	io.Copy(w, file)
+}
+
+// handleRangeRequest handles HTTP range requests for efficient video seeking
+func (a *App) handleRangeRequest(w http.ResponseWriter, r *http.Request, file *os.File, fileSize int64, rangeHeader string) {
+	// Parse range header (e.g., "bytes=0-1023")
+	if !strings.HasPrefix(rangeHeader, "bytes=") {
+		http.Error(w, "Invalid range", http.StatusRequestedRangeNotSatisfiable)
+		return
+	}
+
+	rangeSpec := rangeHeader[6:] // Remove "bytes="
+	parts := strings.Split(rangeSpec, "-")
+	if len(parts) != 2 {
+		http.Error(w, "Invalid range format", http.StatusRequestedRangeNotSatisfiable)
+		return
+	}
+
+	var start, end int64
+	var err error
+
+	// Parse start
+	if parts[0] != "" {
+		start, err = strconv.ParseInt(parts[0], 10, 64)
+		if err != nil || start < 0 {
+			http.Error(w, "Invalid start range", http.StatusRequestedRangeNotSatisfiable)
+			return
+		}
+	}
+
+	// Parse end
+	if parts[1] != "" {
+		end, err = strconv.ParseInt(parts[1], 10, 64)
+		if err != nil || end >= fileSize {
+			end = fileSize - 1
+		}
+	} else {
+		end = fileSize - 1
+	}
+
+	// Validate range
+	if start > end || start >= fileSize {
+		http.Error(w, "Invalid range", http.StatusRequestedRangeNotSatisfiable)
+		return
+	}
+
+	contentLength := end - start + 1
+
+	// Set response headers for partial content
+	w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, fileSize))
+	w.Header().Set("Content-Length", strconv.FormatInt(contentLength, 10))
+	w.WriteHeader(http.StatusPartialContent)
+
+	// Seek to start position and copy the requested range
+	file.Seek(start, 0)
+	io.CopyN(w, file, contentLength)
+}
+
+// getContentType returns the appropriate MIME type for video files
+func (a *App) getContentType(filePath string) string {
+	ext := strings.ToLower(filepath.Ext(filePath))
+	switch ext {
+	case ".mp4":
+		return "video/mp4"
+	case ".mov":
+		return "video/quicktime"
+	case ".avi":
+		return "video/x-msvideo"
+	case ".mkv":
+		return "video/x-matroska"
+	case ".webm":
+		return "video/webm"
+	case ".flv":
+		return "video/x-flv"
+	case ".wmv":
+		return "video/x-ms-wmv"
+	case ".m4v":
+		return "video/x-m4v"
+	case ".mpg", ".mpeg":
+		return "video/mpeg"
+	default:
+		return "application/octet-stream"
+	}
 }
 
 // Greet returns a greeting for the given name
@@ -607,7 +643,7 @@ func (a *App) GetVideoFileInfo(filePath string) (*LocalVideoFile, error) {
 	}, nil
 }
 
-// GetVideoURL returns a URL that can be used to access the video file
+// GetVideoURL returns a URL that can be used to access the video file via AssetServer
 func (a *App) GetVideoURL(filePath string) (string, error) {
 	if !a.isVideoFile(filePath) {
 		return "", fmt.Errorf("file is not a supported video format")
@@ -618,16 +654,16 @@ func (a *App) GetVideoURL(filePath string) (string, error) {
 		return "", fmt.Errorf("file does not exist: %s", filePath)
 	}
 	
-	// Ensure video server is running
-	if a.serverPort == 0 {
-		return "", fmt.Errorf("video server not running")
-	}
+	// Encode file path for URL safety
+	encodedPath := url.QueryEscape(filePath)
+	videoURL := fmt.Sprintf("/api/video/%s", encodedPath)
 	
-	// Encode file path for URL
-	encodedPath := base64.StdEncoding.EncodeToString([]byte(filePath))
+	log.Printf("[VIDEO] Original path: %s", filePath)
+	log.Printf("[VIDEO] Encoded path: %s", encodedPath)
+	log.Printf("[VIDEO] Final URL: %s", videoURL)
 	
-	// Return localhost URL that will work in the webview
-	return fmt.Sprintf("http://localhost:%d/video/%s", a.serverPort, encodedPath), nil
+	// Return AssetServer URL that will work in the webview
+	return videoURL, nil
 }
 
 // Close closes the database connection
