@@ -27,6 +27,7 @@
   
   // If no words provided, create simple word array from text
   let displayWords = $state([]);
+  let groupedElements = $state([]);
   
   $effect(() => {
     if (words && words.length > 0) {
@@ -39,6 +40,44 @@
         word: word
       }));
     }
+  });
+  
+  // Group words and highlights for better rendering
+  $effect(() => {
+    const groups = [];
+    let i = 0;
+    
+    while (i < displayWords.length) {
+      const highlight = getWordHighlight(i);
+      
+      if (highlight) {
+        // Start of a highlight group
+        const group = {
+          type: 'highlight',
+          highlight: highlight,
+          words: [],
+          startIndex: i
+        };
+        
+        // Collect all consecutive words with the same highlight
+        while (i < displayWords.length && getWordHighlight(i)?.id === highlight.id) {
+          group.words.push({ word: displayWords[i], index: i });
+          i++;
+        }
+        
+        groups.push(group);
+      } else {
+        // Regular word
+        groups.push({
+          type: 'word',
+          word: displayWords[i],
+          index: i
+        });
+        i++;
+      }
+    }
+    
+    groupedElements = groups;
   });
   
   function getWordHighlight(index) {
@@ -88,24 +127,6 @@
   function handleMouseEnter(index) {
     if (isSelecting) {
       selectionEnd = index;
-    }
-    
-    // Set hovered highlight for showing handles
-    const highlight = getWordHighlight(index);
-    if (highlight) {
-      hoveredHighlight = highlight;
-    }
-  }
-  
-  function handleMouseLeave(index) {
-    // Only clear hover if we're not moving to another word in the same highlight
-    const highlight = getWordHighlight(index);
-    if (highlight === hoveredHighlight) {
-      // Add a small delay to prevent flickering when moving between words
-      setTimeout(() => {
-        // Check if we're still not hovering over this highlight
-        hoveredHighlight = null;
-      }, 50);
     }
   }
   
@@ -216,56 +237,64 @@
 </script>
 
 <div class="highlighter">
-  {#each displayWords as word, index}
-    {@const highlight = getWordHighlight(index)}
-    {@const inSelection = isInSelection(index)}
-    {@const isHighlightStart = highlight && (index === 0 || getWordHighlight(index - 1)?.id !== highlight.id)}
-    {@const isHighlightEnd = highlight && (index === displayWords.length - 1 || getWordHighlight(index + 1)?.id !== highlight.id)}
-    {@const isSelectionStart = inSelection && (index === 0 || !isInSelection(index - 1))}
-    {@const isSelectionEnd = inSelection && (index === displayWords.length - 1 || !isInSelection(index + 1))}
-    
-    <span
-      class="word"
-      class:highlighted={!!highlight}
-      class:selecting={inSelection}
-      class:highlight-start={isHighlightStart}
-      class:highlight-end={isHighlightEnd}
-      class:highlight-middle={highlight && !isHighlightStart && !isHighlightEnd}
-      class:selection-start={isSelectionStart}
-      class:selection-end={isSelectionEnd}
-      class:selection-middle={inSelection && !isSelectionStart && !isSelectionEnd}
-      style:background-color={highlight?.color || (inSelection ? 'rgba(100, 181, 246, 0.3)' : '')}
-      onmousedown={(e) => handleMouseDown(index, e)}
-      onmouseenter={() => {
-        handleMouseEnter(index);
-        handleDragOver(index);
-      }}
-      onmouseleave={() => handleMouseLeave(index)}
-      onclick={(e) => handleClick(index, e)}
-    >
-      {word.word}
-      
-      <!-- Start handle for dragging -->
-      {#if isHighlightStart && (hoveredHighlight?.id === highlight.id || isDragging)}
+  {#each groupedElements as group, groupIndex}
+    {#if group.type === 'highlight'}
+      <!-- Highlight group - all words together -->
+      <span 
+        class="highlight-group"
+        style:background-color={group.highlight.color}
+        onmousedown={(e) => handleMouseDown(group.startIndex, e)}
+        onclick={(e) => handleClick(group.startIndex, e)}
+      >
+        <!-- Start handle -->
         <span
           class="drag-handle drag-handle-start"
-          onmousedown={(e) => startDrag(highlight, 'start', e)}
+          onmousedown={(e) => startDrag(group.highlight, 'start', e)}
           title="Drag to resize highlight"
         ></span>
-      {/if}
-      
-      <!-- End handle for dragging -->
-      {#if isHighlightEnd && (hoveredHighlight?.id === highlight.id || isDragging)}
+        
+        {#each group.words as { word, index }, wordIndex}
+          {@const inSelection = isInSelection(index)}
+          <span
+            class="word highlighted"
+            class:selecting={inSelection}
+            onmouseenter={() => {
+              handleMouseEnter(index);
+              handleDragOver(index);
+            }}
+          >
+            {word.word}
+          </span>
+          {#if wordIndex < group.words.length - 1}{' '}{/if}
+        {/each}
+        
+        <!-- End handle -->
         <span
           class="drag-handle drag-handle-end"
-          onmousedown={(e) => startDrag(highlight, 'end', e)}
+          onmousedown={(e) => startDrag(group.highlight, 'end', e)}
           title="Drag to resize highlight"
         ></span>
-      {/if}
-    </span>
+      </span>
+    {:else}
+      <!-- Regular word -->
+      {@const inSelection = isInSelection(group.index)}
+      <span
+        class="word"
+        class:selecting={inSelection}
+        onmousedown={(e) => handleMouseDown(group.index, e)}
+        onmouseenter={() => {
+          handleMouseEnter(group.index);
+          handleDragOver(group.index);
+        }}
+        onclick={(e) => handleClick(group.index, e)}
+        style:background-color={inSelection ? 'rgba(100, 181, 246, 0.3)' : ''}
+      >
+        {group.word.word}
+      </span>
+    {/if}
     
-    <!-- Always add regular space -->
-    {#if index < displayWords.length - 1}{' '}{/if}
+    <!-- Add space between groups -->
+    {#if groupIndex < groupedElements.length - 1}{' '}{/if}
   {/each}
 </div>
 
@@ -302,53 +331,38 @@
     position: relative;
   }
   
-  .word.highlighted, .word.selecting {
-    padding: 3px 0;
-    border-radius: 0;
-    position: relative;
-    transition: background-color 0.2s ease, padding 0.2s ease;
-  }
-  
-  /* Extend background to cover the space after each highlighted word */
-  .word.highlighted:not(.highlight-end), .word.selecting:not(.selection-end) {
-    padding-right: 1ch; /* Extend padding to cover the space */
-    margin-right: -1ch; /* Pull back to not affect layout */
-    transition: padding 0.2s ease, margin 0.2s ease;
-  }
-  
-  .word.highlight-start, .word.selection-start {
-    border-radius: 4px 0 0 4px;
-    padding-left: 6px;
-    transition: border-radius 0.2s ease, padding 0.2s ease;
-  }
-  
-  .word.highlight-end, .word.selection-end {
-    border-radius: 0 4px 4px 0;
-    padding-right: 6px;
-    margin-right: 0; /* Reset margin for end words */
-    transition: border-radius 0.2s ease, padding 0.2s ease, margin 0.2s ease;
-  }
-  
-  .word.highlight-start.highlight-end, .word.selection-start.selection-end {
-    border-radius: 4px;
-    padding: 3px 6px;
-    margin-right: 0;
-    transition: border-radius 0.2s ease, padding 0.2s ease, margin 0.2s ease;
-  }
-  
-  .highlighted-space {
-    cursor: pointer;
-    padding: 3px 0;
+  .highlight-group {
     display: inline;
+    position: relative;
+    padding: 3px 6px;
+    border-radius: 4px;
+    cursor: pointer;
   }
+  
+  .highlight-group:hover .drag-handle {
+    opacity: 1;
+  }
+  
+  .word.highlighted {
+    display: inline;
+    padding: 0;
+  }
+  
+  .word.selecting {
+    padding: 3px 6px;
+    border-radius: 4px;
+    background-color: rgba(100, 181, 246, 0.3);
+    transition: background-color 0.2s ease, padding 0.2s ease, transform 0.2s ease;
+  }
+  
   
   .drag-handle {
     position: absolute;
-    width: 8px;
+    width: 12px;
     height: 100%;
     top: 0;
     cursor: ew-resize;
-    opacity: 1;
+    opacity: 0;
     transition: opacity 0.3s ease, transform 0.2s ease;
     background-color: rgba(0, 0, 0, 0.4);
     border-radius: 2px;
@@ -361,11 +375,11 @@
   }
   
   .drag-handle-start {
-    left: -4px;
+    left: -6px;
   }
   
   .drag-handle-end {
-    right: -4px;
+    right: -6px;
   }
   
   .delete-popup {
