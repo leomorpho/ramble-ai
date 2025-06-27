@@ -9,5 +9,8 @@ import (
 // Project is the predicate function for project builders.
 type Project func(*sql.Selector)
 
+// Settings is the predicate function for settings builders.
+type Settings func(*sql.Selector)
+
 // VideoClip is the predicate function for videoclip builders.
 type VideoClip func(*sql.Selector)

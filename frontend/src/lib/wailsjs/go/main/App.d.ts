@@ -8,13 +8,21 @@ export function CreateProject(arg1:string,arg2:string):Promise<main.ProjectRespo
 
 export function CreateVideoClip(arg1:number,arg2:string):Promise<main.VideoClipResponse>;
 
+export function DeleteOpenAIApiKey():Promise<void>;
+
 export function DeleteProject(arg1:number):Promise<void>;
 
+export function DeleteSetting(arg1:string):Promise<void>;
+
 export function DeleteVideoClip(arg1:number):Promise<void>;
+
+export function GetOpenAIApiKey():Promise<string>;
 
 export function GetProjectByID(arg1:number):Promise<main.ProjectResponse>;
 
 export function GetProjects():Promise<Array<main.ProjectResponse>>;
+
+export function GetSetting(arg1:string):Promise<string>;
 
 export function GetVideoClipsByProject(arg1:number):Promise<Array<main.VideoClipResponse>>;
 
@@ -24,7 +32,13 @@ export function GetVideoURL(arg1:string):Promise<string>;
 
 export function Greet(arg1:string):Promise<string>;
 
+export function SaveOpenAIApiKey(arg1:string):Promise<void>;
+
+export function SaveSetting(arg1:string,arg2:string):Promise<void>;
+
 export function SelectVideoFiles():Promise<Array<main.LocalVideoFile>>;
+
+export function TestOpenAIApiKey():Promise<main.TestOpenAIApiKeyResponse>;
 
 export function UpdateProject(arg1:number,arg2:string,arg3:string):Promise<main.ProjectResponse>;
 

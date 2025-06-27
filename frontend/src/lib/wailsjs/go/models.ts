@@ -44,6 +44,22 @@ export namespace main {
 	        this.updatedAt = source["updatedAt"];
 	    }
 	}
+	export class TestOpenAIApiKeyResponse {
+	    valid: boolean;
+	    message: string;
+	    model?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TestOpenAIApiKeyResponse(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.valid = source["valid"];
+	        this.message = source["message"];
+	        this.model = source["model"];
+	    }
+	}
 	export class VideoClipResponse {
 	    id: number;
 	    name: string;

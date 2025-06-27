@@ -14,6 +14,8 @@ type Tx struct {
 	config
 	// Project is the client for interacting with the Project builders.
 	Project *ProjectClient
+	// Settings is the client for interacting with the Settings builders.
+	Settings *SettingsClient
 	// VideoClip is the client for interacting with the VideoClip builders.
 	VideoClip *VideoClipClient
 
@@ -148,6 +150,7 @@ func (tx *Tx) Client() *Client {
 
 func (tx *Tx) init() {
 	tx.Project = NewProjectClient(tx.config)
+	tx.Settings = NewSettingsClient(tx.config)
 	tx.VideoClip = NewVideoClipClient(tx.config)
 }
 

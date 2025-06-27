@@ -14,12 +14,24 @@ export function CreateVideoClip(arg1, arg2) {
   return window['go']['main']['App']['CreateVideoClip'](arg1, arg2);
 }
 
+export function DeleteOpenAIApiKey() {
+  return window['go']['main']['App']['DeleteOpenAIApiKey']();
+}
+
 export function DeleteProject(arg1) {
   return window['go']['main']['App']['DeleteProject'](arg1);
 }
 
+export function DeleteSetting(arg1) {
+  return window['go']['main']['App']['DeleteSetting'](arg1);
+}
+
 export function DeleteVideoClip(arg1) {
   return window['go']['main']['App']['DeleteVideoClip'](arg1);
+}
+
+export function GetOpenAIApiKey() {
+  return window['go']['main']['App']['GetOpenAIApiKey']();
 }
 
 export function GetProjectByID(arg1) {
@@ -28,6 +40,10 @@ export function GetProjectByID(arg1) {
 
 export function GetProjects() {
   return window['go']['main']['App']['GetProjects']();
+}
+
+export function GetSetting(arg1) {
+  return window['go']['main']['App']['GetSetting'](arg1);
 }
 
 export function GetVideoClipsByProject(arg1) {
@@ -46,8 +62,20 @@ export function Greet(arg1) {
   return window['go']['main']['App']['Greet'](arg1);
 }
 
+export function SaveOpenAIApiKey(arg1) {
+  return window['go']['main']['App']['SaveOpenAIApiKey'](arg1);
+}
+
+export function SaveSetting(arg1, arg2) {
+  return window['go']['main']['App']['SaveSetting'](arg1, arg2);
+}
+
 export function SelectVideoFiles() {
   return window['go']['main']['App']['SelectVideoFiles']();
+}
+
+export function TestOpenAIApiKey() {
+  return window['go']['main']['App']['TestOpenAIApiKey']();
 }
 
 export function UpdateProject(arg1, arg2, arg3) {

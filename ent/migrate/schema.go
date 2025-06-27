@@ -23,6 +23,20 @@ var (
 		Columns:    ProjectsColumns,
 		PrimaryKey: []*schema.Column{ProjectsColumns[0]},
 	}
+	// SettingsColumns holds the columns for the "settings" table.
+	SettingsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "key", Type: field.TypeString, Unique: true},
+		{Name: "value", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// SettingsTable holds the schema information for the "settings" table.
+	SettingsTable = &schema.Table{
+		Name:       "settings",
+		Columns:    SettingsColumns,
+		PrimaryKey: []*schema.Column{SettingsColumns[0]},
+	}
 	// VideoClipsColumns holds the columns for the "video_clips" table.
 	VideoClipsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -55,6 +69,7 @@ var (
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		ProjectsTable,
+		SettingsTable,
 		VideoClipsTable,
 	}
 )

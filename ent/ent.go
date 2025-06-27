@@ -4,6 +4,7 @@ package ent
 
 import (
 	"MYAPP/ent/project"
+	"MYAPP/ent/settings"
 	"MYAPP/ent/videoclip"
 	"context"
 	"errors"
@@ -75,6 +76,7 @@ func checkColumn(table, column string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
 			project.Table:   project.ValidColumn,
+			settings.Table:  settings.ValidColumn,
 			videoclip.Table: videoclip.ValidColumn,
 		})
 	})

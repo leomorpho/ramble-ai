@@ -5,6 +5,7 @@ package ent
 import (
 	"MYAPP/ent/project"
 	"MYAPP/ent/schema"
+	"MYAPP/ent/settings"
 	"MYAPP/ent/videoclip"
 	"time"
 )
@@ -33,6 +34,22 @@ func init() {
 	project.DefaultUpdatedAt = projectDescUpdatedAt.Default.(func() time.Time)
 	// project.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
 	project.UpdateDefaultUpdatedAt = projectDescUpdatedAt.UpdateDefault.(func() time.Time)
+	settingsFields := schema.Settings{}.Fields()
+	_ = settingsFields
+	// settingsDescKey is the schema descriptor for key field.
+	settingsDescKey := settingsFields[0].Descriptor()
+	// settings.KeyValidator is a validator for the "key" field. It is called by the builders before save.
+	settings.KeyValidator = settingsDescKey.Validators[0].(func(string) error)
+	// settingsDescCreatedAt is the schema descriptor for created_at field.
+	settingsDescCreatedAt := settingsFields[2].Descriptor()
+	// settings.DefaultCreatedAt holds the default value on creation for the created_at field.
+	settings.DefaultCreatedAt = settingsDescCreatedAt.Default.(func() time.Time)
+	// settingsDescUpdatedAt is the schema descriptor for updated_at field.
+	settingsDescUpdatedAt := settingsFields[3].Descriptor()
+	// settings.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	settings.DefaultUpdatedAt = settingsDescUpdatedAt.Default.(func() time.Time)
+	// settings.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	settings.UpdateDefaultUpdatedAt = settingsDescUpdatedAt.UpdateDefault.(func() time.Time)
 	videoclipFields := schema.VideoClip{}.Fields()
 	_ = videoclipFields
 	// videoclipDescName is the schema descriptor for name field.
