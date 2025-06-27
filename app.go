@@ -5,7 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"MYAPP/ent"
 	"MYAPP/ent/project"
@@ -13,6 +15,7 @@ import (
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // ProjectResponse represents a project response for the frontend
@@ -23,6 +26,34 @@ type ProjectResponse struct {
 	Path        string `json:"path"`
 	CreatedAt   string `json:"createdAt"`
 	UpdatedAt   string `json:"updatedAt"`
+}
+
+// VideoClipResponse represents a video clip response for the frontend
+type VideoClipResponse struct {
+	ID          int     `json:"id"`
+	Name        string  `json:"name"`
+	Description string  `json:"description"`
+	FilePath    string  `json:"filePath"`
+	FileName    string  `json:"fileName"`
+	FileSize    int64   `json:"fileSize"`
+	Duration    float64 `json:"duration"`
+	Format      string  `json:"format"`
+	Width       int     `json:"width"`
+	Height      int     `json:"height"`
+	ProjectID   int     `json:"projectId"`
+	CreatedAt   string  `json:"createdAt"`
+	UpdatedAt   string  `json:"updatedAt"`
+	Exists      bool    `json:"exists"`
+}
+
+// LocalVideoFile represents a local video file for the frontend
+type LocalVideoFile struct {
+	Name     string `json:"name"`
+	FilePath string `json:"filePath"`
+	FileName string `json:"fileName"`
+	FileSize int64  `json:"fileSize"`
+	Format   string `json:"format"`
+	Exists   bool   `json:"exists"`
 }
 
 // App struct
@@ -195,23 +226,233 @@ func (a *App) DeleteProject(id int) error {
 	return nil
 }
 
-// CreateVideoClip creates a new video clip
-func (a *App) CreateVideoClip(projectID int, name, description, filePath string) (*ent.VideoClip, error) {
-	return a.client.VideoClip.
+// isVideoFile checks if a file is a supported video format
+func (a *App) isVideoFile(filePath string) bool {
+	ext := strings.ToLower(filepath.Ext(filePath))
+	videoExtensions := []string{".mp4", ".mov", ".avi", ".mkv", ".wmv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg"}
+	
+	for _, validExt := range videoExtensions {
+		if ext == validExt {
+			return true
+		}
+	}
+	return false
+}
+
+// getFileInfo extracts file information from the filesystem
+func (a *App) getFileInfo(filePath string) (int64, string, bool) {
+	fileInfo, err := os.Stat(filePath)
+	if err != nil {
+		return 0, "", false
+	}
+	
+	ext := strings.ToLower(filepath.Ext(filePath))
+	format := strings.TrimPrefix(ext, ".")
+	
+	return fileInfo.Size(), format, true
+}
+
+// CreateVideoClip creates a new video clip with file validation
+func (a *App) CreateVideoClip(projectID int, filePath string) (*VideoClipResponse, error) {
+	// Validate file exists and is a video
+	if !a.isVideoFile(filePath) {
+		return nil, fmt.Errorf("file is not a supported video format")
+	}
+	
+	fileSize, format, exists := a.getFileInfo(filePath)
+	if !exists {
+		return nil, fmt.Errorf("file does not exist: %s", filePath)
+	}
+	
+	fileName := filepath.Base(filePath)
+	name := strings.TrimSuffix(fileName, filepath.Ext(fileName))
+	
+	// Create video clip in database
+	videoClip, err := a.client.VideoClip.
 		Create().
 		SetName(name).
-		SetDescription(description).
+		SetDescription("").
 		SetFilePath(filePath).
+		SetFormat(format).
+		SetFileSize(fileSize).
 		SetProjectID(projectID).
 		Save(a.ctx)
+	
+	if err != nil {
+		return nil, fmt.Errorf("failed to create video clip: %w", err)
+	}
+	
+	return &VideoClipResponse{
+		ID:          videoClip.ID,
+		Name:        videoClip.Name,
+		Description: videoClip.Description,
+		FilePath:    videoClip.FilePath,
+		FileName:    fileName,
+		FileSize:    videoClip.FileSize,
+		Duration:    videoClip.Duration,
+		Format:      videoClip.Format,
+		Width:       videoClip.Width,
+		Height:      videoClip.Height,
+		ProjectID:   projectID,
+		CreatedAt:   videoClip.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:   videoClip.UpdatedAt.Format("2006-01-02 15:04:05"),
+		Exists:      true,
+	}, nil
 }
 
 // GetVideoClipsByProject returns all video clips for a project
-func (a *App) GetVideoClipsByProject(projectID int) ([]*ent.VideoClip, error) {
-	return a.client.VideoClip.
+func (a *App) GetVideoClipsByProject(projectID int) ([]*VideoClipResponse, error) {
+	clips, err := a.client.VideoClip.
 		Query().
 		Where(videoclip.HasProjectWith(project.ID(projectID))).
 		All(a.ctx)
+	
+	if err != nil {
+		return nil, fmt.Errorf("failed to get video clips: %w", err)
+	}
+	
+	var responses []*VideoClipResponse
+	for _, clip := range clips {
+		fileName := filepath.Base(clip.FilePath)
+		_, _, exists := a.getFileInfo(clip.FilePath)
+		
+		responses = append(responses, &VideoClipResponse{
+			ID:          clip.ID,
+			Name:        clip.Name,
+			Description: clip.Description,
+			FilePath:    clip.FilePath,
+			FileName:    fileName,
+			FileSize:    clip.FileSize,
+			Duration:    clip.Duration,
+			Format:      clip.Format,
+			Width:       clip.Width,
+			Height:      clip.Height,
+			ProjectID:   projectID,
+			CreatedAt:   clip.CreatedAt.Format("2006-01-02 15:04:05"),
+			UpdatedAt:   clip.UpdatedAt.Format("2006-01-02 15:04:05"),
+			Exists:      exists,
+		})
+	}
+	
+	return responses, nil
+}
+
+// UpdateVideoClip updates a video clip's metadata
+func (a *App) UpdateVideoClip(id int, name, description string) (*VideoClipResponse, error) {
+	if name == "" {
+		return nil, fmt.Errorf("video clip name cannot be empty")
+	}
+	
+	updatedClip, err := a.client.VideoClip.
+		UpdateOneID(id).
+		SetName(name).
+		SetDescription(description).
+		Save(a.ctx)
+	
+	if err != nil {
+		return nil, fmt.Errorf("failed to update video clip: %w", err)
+	}
+	
+	fileName := filepath.Base(updatedClip.FilePath)
+	_, _, exists := a.getFileInfo(updatedClip.FilePath)
+	
+	return &VideoClipResponse{
+		ID:          updatedClip.ID,
+		Name:        updatedClip.Name,
+		Description: updatedClip.Description,
+		FilePath:    updatedClip.FilePath,
+		FileName:    fileName,
+		FileSize:    updatedClip.FileSize,
+		Duration:    updatedClip.Duration,
+		Format:      updatedClip.Format,
+		Width:       updatedClip.Width,
+		Height:      updatedClip.Height,
+		ProjectID:   updatedClip.Edges.Project.ID,
+		CreatedAt:   updatedClip.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:   updatedClip.UpdatedAt.Format("2006-01-02 15:04:05"),
+		Exists:      exists,
+	}, nil
+}
+
+// DeleteVideoClip deletes a video clip
+func (a *App) DeleteVideoClip(id int) error {
+	err := a.client.VideoClip.
+		DeleteOneID(id).
+		Exec(a.ctx)
+	
+	if err != nil {
+		return fmt.Errorf("failed to delete video clip: %w", err)
+	}
+	
+	return nil
+}
+
+// SelectVideoFiles opens a file dialog to select video files
+func (a *App) SelectVideoFiles() ([]*LocalVideoFile, error) {
+	// Open file dialog for multiple video files
+	filePaths, err := runtime.OpenMultipleFilesDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Select Video Files",
+		Filters: []runtime.FileFilter{
+			{
+				DisplayName: "Video Files",
+				Pattern:     "*.mp4;*.mov;*.avi;*.mkv;*.wmv;*.flv;*.webm;*.m4v;*.mpg;*.mpeg",
+			},
+		},
+	})
+	
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file dialog: %w", err)
+	}
+
+	var videoFiles []*LocalVideoFile
+	for _, filePath := range filePaths {
+		if !a.isVideoFile(filePath) {
+			continue // Skip non-video files
+		}
+
+		fileSize, format, exists := a.getFileInfo(filePath)
+		if !exists {
+			continue // Skip files that don't exist
+		}
+
+		fileName := filepath.Base(filePath)
+		name := strings.TrimSuffix(fileName, filepath.Ext(fileName))
+
+		videoFiles = append(videoFiles, &LocalVideoFile{
+			Name:     name,
+			FilePath: filePath,
+			FileName: fileName,
+			FileSize: fileSize,
+			Format:   format,
+			Exists:   true,
+		})
+	}
+
+	return videoFiles, nil
+}
+
+// GetVideoFileInfo returns information about a local video file
+func (a *App) GetVideoFileInfo(filePath string) (*LocalVideoFile, error) {
+	if !a.isVideoFile(filePath) {
+		return nil, fmt.Errorf("file is not a supported video format")
+	}
+	
+	fileSize, format, exists := a.getFileInfo(filePath)
+	if !exists {
+		return nil, fmt.Errorf("file does not exist: %s", filePath)
+	}
+	
+	fileName := filepath.Base(filePath)
+	name := strings.TrimSuffix(fileName, filepath.Ext(fileName))
+	
+	return &LocalVideoFile{
+		Name:     name,
+		FilePath: filePath,
+		FileName: fileName,
+		FileSize: fileSize,
+		Format:   format,
+		Exists:   true,
+	}, nil
 }
 
 // Close closes the database connection

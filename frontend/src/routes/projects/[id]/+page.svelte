@@ -9,7 +9,7 @@
     DialogTitle, 
     DialogTrigger 
   } from "$lib/components/ui/dialog";
-  import { GetProjectByID, UpdateProject, DeleteProject } from "$lib/wailsjs/go/main/App";
+  import { GetProjectByID, UpdateProject, DeleteProject, CreateVideoClip, GetVideoClipsByProject, UpdateVideoClip, DeleteVideoClip, SelectVideoFiles, GetVideoFileInfo } from "$lib/wailsjs/go/main/App";
   import { onMount } from "svelte";
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
@@ -22,12 +22,25 @@
   let editName = $state("");
   let editDescription = $state("");
   let deleting = $state(false);
+  
+  // Video clips state
+  let videoClips = $state([]);
+  let loadingClips = $state(false);
+  let addingClip = $state(false);
+  let clipError = $state("");
+  let dragActive = $state(false);
+  let fileInput = $state();
+  
+  // Video preview state
+  let previewDialogOpen = $state(false);
+  let previewVideo = $state(null);
 
   // Get project ID from route params
   let projectId = $derived(parseInt($page.params.id));
 
   onMount(async () => {
     await loadProject();
+    await loadVideoClips();
   });
 
   async function loadProject() {
@@ -89,6 +102,166 @@
       error = "Failed to delete project";
       deleting = false;
     }
+  }
+
+  async function loadVideoClips() {
+    if (!projectId || isNaN(projectId)) return;
+    
+    try {
+      loadingClips = true;
+      clipError = "";
+      videoClips = await GetVideoClipsByProject(projectId);
+    } catch (err) {
+      console.error("Failed to load video clips:", err);
+      clipError = "Failed to load video clips";
+    } finally {
+      loadingClips = false;
+    }
+  }
+
+  function isVideoFile(file) {
+    const videoTypes = [
+      'video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska',
+      'video/x-ms-wmv', 'video/x-flv', 'video/webm', 'video/mpeg'
+    ];
+    return videoTypes.includes(file.type) || file.name.match(/\.(mp4|mov|avi|mkv|wmv|flv|webm|m4v|mpg|mpeg)$/i);
+  }
+
+  async function handleFiles(files) {
+    if (!files || files.length === 0) return;
+    
+    addingClip = true;
+    clipError = "";
+    
+    const fileArray = Array.from(files);
+    const videoFiles = fileArray.filter(isVideoFile);
+    
+    if (videoFiles.length === 0) {
+      clipError = "No valid video files found. Please select video files (MP4, MOV, AVI, etc.)";
+      addingClip = false;
+      return;
+    }
+    
+    for (const file of videoFiles) {
+      try {
+        // In Wails, we can access the file path directly from the File object
+        // For drag & drop, we need to use the file path if available
+        let filePath = file.path || file.webkitRelativePath || file.name;
+        
+        // If we have a real path, use it directly
+        if (file.path) {
+          const newClip = await CreateVideoClip(projectId, file.path);
+          videoClips = [...videoClips, newClip]; // Trigger reactivity
+        } else {
+          // For files without paths (browser drag & drop), show error
+          clipError = `Cannot access file system path for ${file.name}. Please use "Select Video Files" button instead.`;
+          break;
+        }
+      } catch (err) {
+        console.error("Failed to add video clip:", err);
+        clipError = `Failed to add ${file.name}: ${err.message || err}`;
+        break;
+      }
+    }
+    
+    addingClip = false;
+  }
+
+  async function selectVideoFiles() {
+    try {
+      addingClip = true;
+      clipError = "";
+      const selectedFiles = await SelectVideoFiles();
+      
+      // Add each selected file to database
+      for (const file of selectedFiles) {
+        try {
+          const newClip = await CreateVideoClip(projectId, file.filePath);
+          videoClips = [...videoClips, newClip]; // Trigger reactivity
+        } catch (err) {
+          console.error("Failed to add video clip:", err);
+          clipError = `Failed to add ${file.fileName}: ${err.message || err}`;
+          break;
+        }
+      }
+    } catch (err) {
+      console.error("Failed to select video files:", err);
+      clipError = "Failed to select video files";
+    } finally {
+      addingClip = false;
+    }
+  }
+
+  function handleDrop(event) {
+    event.preventDefault();
+    dragActive = false;
+    
+    const files = event.dataTransfer?.files;
+    if (files) {
+      handleFiles(files);
+    }
+  }
+
+  function handleDragOver(event) {
+    event.preventDefault();
+  }
+
+  function handleDragEnter(event) {
+    event.preventDefault();
+    dragActive = true;
+  }
+
+  function handleDragLeave(event) {
+    event.preventDefault();
+    // Only hide drag state if we're leaving the drop zone completely
+    if (!event.currentTarget.contains(event.relatedTarget)) {
+      dragActive = false;
+    }
+  }
+
+  function handleFileInputChange(event) {
+    const files = event.target?.files;
+    if (files) {
+      handleFiles(files);
+    }
+    // Reset input value so the same file can be selected again
+    if (event.target) {
+      event.target.value = '';
+    }
+  }
+
+  function openFileDialog() {
+    fileInput?.click();
+  }
+
+  function handleKeyDown(event) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      openFileDialog();
+    }
+  }
+
+  async function handleDeleteClip(clipId) {
+    try {
+      await DeleteVideoClip(clipId);
+      videoClips = videoClips.filter(clip => clip.id !== clipId);
+    } catch (err) {
+      console.error("Failed to delete video clip:", err);
+      clipError = "Failed to delete video clip";
+    }
+  }
+
+  function openPreview(clip) {
+    previewVideo = clip;
+    previewDialogOpen = true;
+  }
+
+  function formatFileSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 
   function goBack() {
@@ -233,26 +406,169 @@
             </div>
           </div>
 
-          <!-- Video Clips section (placeholder) -->
+          <!-- Video Clips section -->
           <div class="mt-8">
             <div class="flex justify-between items-center mb-4">
               <h2 class="text-xl font-semibold">Video Clips</h2>
-              <Button class="flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                </svg>
-                Add Video Clip
-              </Button>
+              <div class="flex items-center gap-4">
+                <div class="text-sm text-muted-foreground">
+                  {videoClips.length} {videoClips.length === 1 ? 'clip' : 'clips'}
+                </div>
+                <Button onclick={selectVideoFiles} disabled={addingClip}>
+                  {addingClip ? "Adding..." : "Select Video Files"}
+                </Button>
+              </div>
             </div>
+
+            <!-- Video clip error display -->
+            {#if clipError}
+              <div class="bg-destructive/10 text-destructive border border-destructive/20 rounded-lg p-4 mb-4">
+                <p class="font-medium">Error</p>
+                <p class="text-sm">{clipError}</p>
+                <Button variant="outline" size="sm" class="mt-2" onclick={() => clipError = ""}>
+                  Dismiss
+                </Button>
+              </div>
+            {/if}
             
-            <!-- Placeholder for video clips -->
-            <div class="text-center py-8 text-muted-foreground border-2 border-dashed border-border rounded-lg">
-              <svg class="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-              <p class="text-lg">No video clips yet</p>
-              <p class="text-sm">Add your first video clip to get started</p>
+            <!-- File drop zone -->
+            <div class="mb-6">
+              <!-- Hidden file input -->
+              <input
+                bind:this={fileInput}
+                type="file"
+                multiple
+                accept="video/*"
+                onchange={handleFileInputChange}
+                class="hidden"
+              />
+              
+              <!-- Drop zone -->
+              <div
+                role="button"
+                tabindex="0"
+                aria-label="Drop video files here or click to browse"
+                ondrop={handleDrop}
+                ondragover={handleDragOver}
+                ondragenter={handleDragEnter}
+                ondragleave={handleDragLeave}
+                onclick={openFileDialog}
+                onkeydown={handleKeyDown}
+                class="border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 cursor-pointer
+                       {dragActive ? 'border-primary bg-primary/5' : 'border-border hover:border-primary'}
+                       {addingClip ? 'pointer-events-none opacity-50' : ''}"
+              >
+                <div class="flex flex-col items-center gap-4">
+                  <svg class="w-12 h-12 text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  <div>
+                    <p class="text-lg font-medium">
+                      {#if addingClip}
+                        Adding video clips...
+                      {:else if dragActive}
+                        Drop video files now
+                      {:else}
+                        Drop video files here or click to browse
+                      {/if}
+                    </p>
+                    <p class="text-sm text-muted-foreground">
+                      Supports MP4, MOV, AVI, MKV, WMV, FLV, WebM, and more
+                    </p>
+                    <p class="text-xs text-muted-foreground mt-1">
+                      Note: For drag & drop to work, files must be from a local file manager
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
+            <!-- Video clips list -->
+            {#if loadingClips}
+              <div class="text-center py-8 text-muted-foreground">
+                <p class="text-lg">Loading video clips...</p>
+              </div>
+            {:else if videoClips.length === 0}
+              <div class="text-center py-8 text-muted-foreground">
+                <p class="text-lg">No video clips yet</p>
+                <p class="text-sm">Drag and drop video files above or use "Select Video Files" to get started</p>
+              </div>
+            {:else}
+              <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {#each videoClips as clip (clip.id)}
+                  <div class="bg-secondary/30 rounded-lg p-4 border">
+                    <div class="flex justify-between items-start mb-3">
+                      <div class="flex-1 min-w-0">
+                        <h3 class="font-semibold truncate" title={clip.name}>{clip.name}</h3>
+                        <p class="text-sm text-muted-foreground truncate" title={clip.fileName}>
+                          {clip.fileName}
+                        </p>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onclick={() => handleDeleteClip(clip.id)}
+                        class="ml-2 text-destructive hover:text-destructive"
+                      >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </Button>
+                    </div>
+
+                    <div class="space-y-2 text-xs text-muted-foreground">
+                      <div class="flex justify-between">
+                        <span>Format:</span>
+                        <span class="font-mono uppercase">{clip.format || 'unknown'}</span>
+                      </div>
+                      <div class="flex justify-between">
+                        <span>Size:</span>
+                        <span>{formatFileSize(clip.fileSize || 0)}</span>
+                      </div>
+                      {#if clip.width && clip.height}
+                        <div class="flex justify-between">
+                          <span>Resolution:</span>
+                          <span>{clip.width}×{clip.height}</span>
+                        </div>
+                      {/if}
+                      {#if clip.duration}
+                        <div class="flex justify-between">
+                          <span>Duration:</span>
+                          <span>{Math.round(clip.duration)}s</span>
+                        </div>
+                      {/if}
+                      <div class="flex justify-between">
+                        <span>Status:</span>
+                        <span class={clip.exists ? "text-green-600" : "text-destructive"}>
+                          {clip.exists ? "Found" : "Missing"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {#if clip.description}
+                      <div class="mt-3 pt-3 border-t border-border">
+                        <p class="text-sm text-muted-foreground">{clip.description}</p>
+                      </div>
+                    {/if}
+
+                    <!-- Preview button -->
+                    <div class="mt-3 pt-3 border-t border-border">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onclick={() => openPreview(clip)}
+                        disabled={!clip.exists}
+                        class="w-full"
+                      >
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h8m-5-9v-.5a2.5 2.5 0 015 0V4a2 2 0 012 2v6.5" />
+                        </svg>
+                        {clip.exists ? 'Preview Video' : 'File Missing'}
+                      </Button>
+                    </div>
+                  </div>
+                {/each}
+              </div>
+            {/if}
           </div>
         </div>
       </div>
@@ -266,3 +582,96 @@
     {/if}
   </div>
 </main>
+
+<!-- Video Preview Dialog -->
+<Dialog bind:open={previewDialogOpen}>
+  <DialogContent class="sm:max-w-[800px] max-h-[90vh]">
+    <DialogHeader>
+      <DialogTitle>Video Preview</DialogTitle>
+      <DialogDescription>
+        {#if previewVideo}
+          Preview of {previewVideo.name}
+        {/if}
+      </DialogDescription>
+    </DialogHeader>
+    
+    {#if previewVideo}
+      <div class="space-y-4">
+        <!-- Video player -->
+        <div class="bg-background border rounded-lg overflow-hidden">
+          {#if previewVideo.exists}
+            <video 
+              class="w-full h-auto max-h-96" 
+              controls 
+              preload="metadata"
+              poster=""
+            >
+              <source src="file://{previewVideo.filePath}" type="video/{previewVideo.format}" />
+              <p class="p-4 text-center text-muted-foreground">
+                Your browser doesn't support video playback.
+              </p>
+            </video>
+          {:else}
+            <div class="p-8 text-center text-muted-foreground">
+              <svg class="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.864-.833-2.634 0L4.18 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <p class="text-lg font-medium">Video file not found</p>
+              <p class="text-sm">The video file may have been moved or deleted</p>
+            </div>
+          {/if}
+        </div>
+        
+        <!-- Video details -->
+        <div class="grid grid-cols-2 gap-4 text-sm">
+          <div class="space-y-2">
+            <div class="flex justify-between">
+              <span class="text-muted-foreground">Name:</span>
+              <span class="font-medium">{previewVideo.name}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-muted-foreground">Format:</span>
+              <span class="font-mono uppercase">{previewVideo.format}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-muted-foreground">Size:</span>
+              <span>{formatFileSize(previewVideo.fileSize)}</span>
+            </div>
+          </div>
+          <div class="space-y-2">
+            {#if previewVideo.width && previewVideo.height}
+              <div class="flex justify-between">
+                <span class="text-muted-foreground">Resolution:</span>
+                <span>{previewVideo.width}×{previewVideo.height}</span>
+              </div>
+            {/if}
+            {#if previewVideo.duration}
+              <div class="flex justify-between">
+                <span class="text-muted-foreground">Duration:</span>
+                <span>{Math.round(previewVideo.duration)}s</span>
+              </div>
+            {/if}
+            <div class="flex justify-between">
+              <span class="text-muted-foreground">Status:</span>
+              <span class={previewVideo.exists ? "text-green-600" : "text-destructive"}>
+                {previewVideo.exists ? "Available" : "Missing"}
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- File path -->
+        <div class="p-3 bg-secondary/30 rounded-lg">
+          <p class="text-xs text-muted-foreground mb-1">File Path:</p>
+          <p class="text-sm font-mono break-all">{previewVideo.filePath}</p>
+        </div>
+      </div>
+    {/if}
+    
+    <div class="flex justify-end gap-2 mt-4">
+      <Button variant="outline" onclick={() => previewDialogOpen = false}>
+        Close
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
