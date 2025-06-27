@@ -73,6 +73,12 @@ No test configuration found - add test scripts to `frontend/package.json` if nee
 - Access via `$lib/wailsjs/go/main/App.js` (auto-generated)
 - Example: `Greet(name)` function returns a promise
 
+## UI Components
+
+- **shadcn-svelte**: Always use https://shadcn-svelte.com/docs/components components first for UI elements
+- Components are located in `frontend/src/lib/components/ui/`
+- Import from `$lib/components/ui/component-name`
+
 ## Important Notes
 
 - Frontend builds to `frontend/build/` directory (not `dist/`)
