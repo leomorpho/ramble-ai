@@ -38,6 +38,10 @@ export function GetVideoFileInfo(arg1) {
   return window['go']['main']['App']['GetVideoFileInfo'](arg1);
 }
 
+export function GetVideoURL(arg1) {
+  return window['go']['main']['App']['GetVideoURL'](arg1);
+}
+
 export function Greet(arg1) {
   return window['go']['main']['App']['Greet'](arg1);
 }

@@ -3,11 +3,18 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"log"
+	"net"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"MYAPP/ent"
 	"MYAPP/ent/project"
@@ -58,8 +65,11 @@ type LocalVideoFile struct {
 
 // App struct
 type App struct {
-	ctx    context.Context
-	client *ent.Client
+	ctx        context.Context
+	client     *ent.Client
+	videoServer *http.Server
+	serverPort  int
+	serverMutex sync.Mutex
 }
 
 // NewApp creates a new App application struct
@@ -74,9 +84,15 @@ func NewApp() *App {
 	drv := entsql.OpenDB(dialect.SQLite, db)
 	client := ent.NewClient(ent.Driver(drv))
 
-	return &App{
-		client: client,
+	app := &App{
+		client:     client,
+		serverPort: 0, // Will be set when server starts
 	}
+
+	// Start video server
+	app.startVideoServer()
+
+	return app
 }
 
 // startup is called when the app starts. The context is saved
@@ -94,10 +110,114 @@ func (a *App) startup(ctx context.Context) {
 
 // shutdown is called when the app shuts down
 func (a *App) shutdown(ctx context.Context) {
+	// Stop video server
+	a.stopVideoServer()
+	
 	// Close the database connection
 	if err := a.client.Close(); err != nil {
 		log.Printf("failed to close database connection: %v", err)
 	}
+}
+
+// startVideoServer starts a local HTTP server to serve video files
+func (a *App) startVideoServer() {
+	a.serverMutex.Lock()
+	defer a.serverMutex.Unlock()
+
+	if a.videoServer != nil {
+		return // Server already running
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/video/", a.handleVideoRequest)
+
+	// Start server on available port
+	for port := 8080; port <= 8090; port++ {
+		addr := ":" + strconv.Itoa(port)
+		server := &http.Server{
+			Addr:    addr,
+			Handler: mux,
+		}
+
+		// Try to start the server
+		listener, err := net.Listen("tcp", addr)
+		if err != nil {
+			continue // Port not available, try next
+		}
+
+		a.videoServer = server
+		a.serverPort = port
+		
+		go func() {
+			if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
+				log.Printf("Video server error on port %d: %v", port, err)
+			}
+		}()
+
+		log.Printf("Video server started on port %d", port)
+		return
+	}
+
+	log.Println("Failed to start video server - no available ports")
+}
+
+// stopVideoServer stops the video server
+func (a *App) stopVideoServer() {
+	a.serverMutex.Lock()
+	defer a.serverMutex.Unlock()
+
+	if a.videoServer != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		
+		if err := a.videoServer.Shutdown(ctx); err != nil {
+			log.Printf("Error shutting down video server: %v", err)
+		}
+		
+		a.videoServer = nil
+		a.serverPort = 0
+		log.Println("Video server stopped")
+	}
+}
+
+// handleVideoRequest handles video file requests
+func (a *App) handleVideoRequest(w http.ResponseWriter, r *http.Request) {
+	// Enable CORS
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Range")
+
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Extract file path from URL
+	filePath := r.URL.Path[7:] // Remove "/video/"
+	decodedPath, err := url.QueryUnescape(filePath)
+	if err != nil {
+		http.Error(w, "Invalid file path", http.StatusBadRequest)
+		return
+	}
+
+	// Decode base64 if needed
+	if decoded, err := base64.StdEncoding.DecodeString(decodedPath); err == nil {
+		decodedPath = string(decoded)
+	}
+
+	// Security check - ensure file exists and is a video
+	if !a.isVideoFile(decodedPath) {
+		http.Error(w, "Not a video file", http.StatusBadRequest)
+		return
+	}
+
+	if _, err := os.Stat(decodedPath); os.IsNotExist(err) {
+		http.Error(w, "File not found", http.StatusNotFound)
+		return
+	}
+
+	// Serve the file
+	http.ServeFile(w, r, decodedPath)
 }
 
 // Greet returns a greeting for the given name
@@ -262,6 +382,38 @@ func (a *App) CreateVideoClip(projectID int, filePath string) (*VideoClipRespons
 	fileSize, format, exists := a.getFileInfo(filePath)
 	if !exists {
 		return nil, fmt.Errorf("file does not exist: %s", filePath)
+	}
+	
+	// Check if this file path already exists for this project
+	existingClip, err := a.client.VideoClip.
+		Query().
+		Where(
+			videoclip.HasProjectWith(project.ID(projectID)),
+			videoclip.FilePath(filePath),
+		).
+		Only(a.ctx)
+	
+	if err == nil {
+		// File already exists for this project, return the existing clip
+		fileName := filepath.Base(existingClip.FilePath)
+		_, _, fileExists := a.getFileInfo(existingClip.FilePath)
+		
+		return &VideoClipResponse{
+			ID:          existingClip.ID,
+			Name:        existingClip.Name,
+			Description: existingClip.Description,
+			FilePath:    existingClip.FilePath,
+			FileName:    fileName,
+			FileSize:    existingClip.FileSize,
+			Duration:    existingClip.Duration,
+			Format:      existingClip.Format,
+			Width:       existingClip.Width,
+			Height:      existingClip.Height,
+			ProjectID:   projectID,
+			CreatedAt:   existingClip.CreatedAt.Format("2006-01-02 15:04:05"),
+			UpdatedAt:   existingClip.UpdatedAt.Format("2006-01-02 15:04:05"),
+			Exists:      fileExists,
+		}, fmt.Errorf("video file already added to this project")
 	}
 	
 	fileName := filepath.Base(filePath)
@@ -453,6 +605,29 @@ func (a *App) GetVideoFileInfo(filePath string) (*LocalVideoFile, error) {
 		Format:   format,
 		Exists:   true,
 	}, nil
+}
+
+// GetVideoURL returns a URL that can be used to access the video file
+func (a *App) GetVideoURL(filePath string) (string, error) {
+	if !a.isVideoFile(filePath) {
+		return "", fmt.Errorf("file is not a supported video format")
+	}
+	
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return "", fmt.Errorf("file does not exist: %s", filePath)
+	}
+	
+	// Ensure video server is running
+	if a.serverPort == 0 {
+		return "", fmt.Errorf("video server not running")
+	}
+	
+	// Encode file path for URL
+	encodedPath := base64.StdEncoding.EncodeToString([]byte(filePath))
+	
+	// Return localhost URL that will work in the webview
+	return fmt.Sprintf("http://localhost:%d/video/%s", a.serverPort, encodedPath), nil
 }
 
 // Close closes the database connection

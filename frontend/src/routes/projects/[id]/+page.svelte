@@ -9,7 +9,7 @@
     DialogTitle, 
     DialogTrigger 
   } from "$lib/components/ui/dialog";
-  import { GetProjectByID, UpdateProject, DeleteProject, CreateVideoClip, GetVideoClipsByProject, UpdateVideoClip, DeleteVideoClip, SelectVideoFiles, GetVideoFileInfo } from "$lib/wailsjs/go/main/App";
+  import { GetProjectByID, UpdateProject, DeleteProject, CreateVideoClip, GetVideoClipsByProject, UpdateVideoClip, DeleteVideoClip, SelectVideoFiles, GetVideoFileInfo, GetVideoURL } from "$lib/wailsjs/go/main/App";
   import { onMount } from "svelte";
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
@@ -34,6 +34,7 @@
   // Video preview state
   let previewDialogOpen = $state(false);
   let previewVideo = $state(null);
+  let videoURL = $state("");
 
   // Get project ID from route params
   let projectId = $derived(parseInt($page.params.id));
@@ -151,7 +152,10 @@
         // If we have a real path, use it directly
         if (file.path) {
           const newClip = await CreateVideoClip(projectId, file.path);
-          videoClips = [...videoClips, newClip]; // Trigger reactivity
+          // Check if this clip is already in our list
+          if (!videoClips.some(clip => clip.id === newClip.id)) {
+            videoClips = [...videoClips, newClip]; // Trigger reactivity
+          }
         } else {
           // For files without paths (browser drag & drop), show error
           clipError = `Cannot access file system path for ${file.name}. Please use "Select Video Files" button instead.`;
@@ -177,11 +181,18 @@
       for (const file of selectedFiles) {
         try {
           const newClip = await CreateVideoClip(projectId, file.filePath);
-          videoClips = [...videoClips, newClip]; // Trigger reactivity
+          // Check if this clip is already in our list
+          if (!videoClips.some(clip => clip.id === newClip.id)) {
+            videoClips = [...videoClips, newClip]; // Trigger reactivity
+          }
         } catch (err) {
           console.error("Failed to add video clip:", err);
-          clipError = `Failed to add ${file.fileName}: ${err.message || err}`;
-          break;
+          if (err.message && err.message.includes("already added")) {
+            clipError = `${file.fileName} is already added to this project`;
+          } else {
+            clipError = `Failed to add ${file.fileName}: ${err.message || err}`;
+          }
+          continue; // Continue with other files instead of breaking
         }
       }
     } catch (err) {
@@ -251,8 +262,18 @@
     }
   }
 
-  function openPreview(clip) {
+  async function openPreview(clip) {
     previewVideo = clip;
+    
+    // Get video URL for playback
+    try {
+      const url = await GetVideoURL(clip.filePath);
+      videoURL = url;
+    } catch (err) {
+      console.error("Failed to get video URL:", err);
+      videoURL = "";
+    }
+    
     previewDialogOpen = true;
   }
 
@@ -599,18 +620,25 @@
       <div class="space-y-4">
         <!-- Video player -->
         <div class="bg-background border rounded-lg overflow-hidden">
-          {#if previewVideo.exists}
+          {#if previewVideo.exists && videoURL}
             <video 
               class="w-full h-auto max-h-96" 
               controls 
               preload="metadata"
-              poster=""
+              src={videoURL}
             >
-              <source src="file://{previewVideo.filePath}" type="video/{previewVideo.format}" />
               <p class="p-4 text-center text-muted-foreground">
-                Your browser doesn't support video playback.
+                Your browser doesn't support video playback or the video format is not supported.
               </p>
             </video>
+          {:else if previewVideo.exists && !videoURL}
+            <div class="p-8 text-center text-muted-foreground">
+              <svg class="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <p class="text-lg font-medium">Loading video...</p>
+              <p class="text-sm">Preparing video for playback</p>
+            </div>
           {:else}
             <div class="p-8 text-center text-muted-foreground">
               <svg class="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">

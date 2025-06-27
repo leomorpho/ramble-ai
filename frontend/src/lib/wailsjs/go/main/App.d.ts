@@ -20,6 +20,8 @@ export function GetVideoClipsByProject(arg1:number):Promise<Array<main.VideoClip
 
 export function GetVideoFileInfo(arg1:string):Promise<main.LocalVideoFile>;
 
+export function GetVideoURL(arg1:string):Promise<string>;
+
 export function Greet(arg1:string):Promise<string>;
 
 export function SelectVideoFiles():Promise<Array<main.LocalVideoFile>>;
