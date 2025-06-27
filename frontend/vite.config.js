@@ -1,4 +1,5 @@
 import { sveltekit } from '@sveltejs/kit/vite';
+import tailwindcss from '@tailwindcss/vite';
 // import path from 'path'
 
 /** @type {import('vite').UserConfig} */
@@ -10,7 +11,7 @@ const config = {
       // allow: ['.'],
     },
   },
-	plugins: [sveltekit()],
+	plugins: [sveltekit(), tailwindcss()],
   resolve: {
     alias: {
       // This alias finishes the ability to reference our

@@ -10,79 +10,30 @@
   }
 </script>
 
-<main>
-  <h1>Welcome to the Unofficial Wails.io SvelteKit Template!</h1>
-  <p>
-    Visit <a href="https://kit.svelte.dev">kit.svelte.dev</a>
-    to read the documentation
-  </p>
-  <img alt="Wails logo" id="logo" src={logo} />
-  <div class="result" id="result">{resultText}</div>
-  <div class="input-box" id="input">
-    <input
-      autocomplete="off"
-      bind:value={name}
-      class="input"
-      id="name"
-      type="text"
-    />
-    <button class="btn" onclick={greet}>Greet</button>
+<main class="min-h-screen bg-background text-foreground p-8">
+  <div class="max-w-2xl mx-auto text-center space-y-6">
+    <h1 class="text-4xl font-bold text-primary">Welcome to the Unofficial Wails.io SvelteKit Template!</h1>
+    <p class="text-muted-foreground">
+      Visit <a href="https://kit.svelte.dev" class="text-primary hover:underline">kit.svelte.dev</a>
+      to read the documentation
+    </p>
+    <img alt="Wails logo" src={logo} class="w-64 h-64 mx-auto object-contain" />
+    <div class="text-lg font-medium text-card-foreground bg-card p-4 rounded-lg border">{resultText}</div>
+    <div class="flex gap-4 justify-center items-center">
+      <input
+        autocomplete="off"
+        bind:value={name}
+        class="px-4 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        id="name"
+        type="text"
+        placeholder="Enter your name"
+      />
+      <button 
+        class="px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+        onclick={greet}
+      >
+        Greet
+      </button>
+    </div>
   </div>
 </main>
-
-<style>
-  #logo {
-    display: block;
-    width: 50%;
-    height: 50%;
-    margin: auto;
-    padding: 10% 0 0;
-    background-position: center;
-    background-repeat: no-repeat;
-    background-size: 100% 100%;
-    background-origin: content-box;
-  }
-
-  .result {
-    height: 20px;
-    line-height: 20px;
-    margin: 1.5rem auto;
-  }
-
-  .input-box .btn {
-    width: 60px;
-    height: 30px;
-    line-height: 30px;
-    border-radius: 3px;
-    border: none;
-    margin: 0 0 0 20px;
-    padding: 0 8px;
-    cursor: pointer;
-  }
-
-  .input-box .btn:hover {
-    background-image: linear-gradient(to top, #cfd9df 0%, #e2ebf0 100%);
-    color: #333333;
-  }
-
-  .input-box .input {
-    border: none;
-    border-radius: 3px;
-    outline: none;
-    height: 30px;
-    line-height: 30px;
-    padding: 0 10px;
-    background-color: rgba(240, 240, 240, 1);
-    -webkit-font-smoothing: antialiased;
-  }
-
-  .input-box .input:hover {
-    border: none;
-    background-color: rgba(255, 255, 255, 1);
-  }
-
-  .input-box .input:focus {
-    border: none;
-    background-color: rgba(255, 255, 255, 1);
-  }
-</style>

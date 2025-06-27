@@ -7,5 +7,8 @@ export default {
       // Static needs a fallback page.
       fallback: 'index.html'
     }),
+    alias: {
+      "@/*": "./path/to/lib/*",
+    },
 	},
 };

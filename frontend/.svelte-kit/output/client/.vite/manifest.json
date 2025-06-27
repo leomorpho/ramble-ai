@@ -1,6 +1,6 @@
 {
   ".svelte-kit/generated/client-optimized/app.js": {
-    "file": "_app/immutable/entry/app.FAl6xQ7H.js",
+    "file": "_app/immutable/entry/app.CCUsLWUG.js",
     "name": "entry/app",
     "src": ".svelte-kit/generated/client-optimized/app.js",
     "isEntry": true,
@@ -28,7 +28,7 @@
     ]
   },
   ".svelte-kit/generated/client-optimized/nodes/1.js": {
-    "file": "_app/immutable/nodes/1.CCeA0_1k.js",
+    "file": "_app/immutable/nodes/1.CiNVAObJ.js",
     "name": "nodes/1",
     "src": ".svelte-kit/generated/client-optimized/nodes/1.js",
     "isEntry": true,
@@ -37,7 +37,7 @@
       "_B3p-91KC.js",
       "_SW6kwxMa.js",
       "_DA9ChAja.js",
-      "_BCMKCiN5.js",
+      "_OZ36DSTA.js",
       "_B3azi3pk.js"
     ]
   },
@@ -73,14 +73,6 @@
       "_SW6kwxMa.js"
     ]
   },
-  "_BCMKCiN5.js": {
-    "file": "_app/immutable/chunks/BCMKCiN5.js",
-    "name": "entry",
-    "imports": [
-      "_B3azi3pk.js",
-      "_SW6kwxMa.js"
-    ]
-  },
   "_DA9ChAja.js": {
     "file": "_app/immutable/chunks/DA9ChAja.js",
     "name": "render",
@@ -89,17 +81,25 @@
       "_B3p-91KC.js"
     ]
   },
+  "_OZ36DSTA.js": {
+    "file": "_app/immutable/chunks/OZ36DSTA.js",
+    "name": "entry",
+    "imports": [
+      "_B3azi3pk.js",
+      "_SW6kwxMa.js"
+    ]
+  },
   "_SW6kwxMa.js": {
     "file": "_app/immutable/chunks/SW6kwxMa.js",
     "name": "index-client"
   },
   "node_modules/.pnpm/@sveltejs+kit@2.22.2_@sveltejs+vite-plugin-svelte@5.1.0_svelte@5.34.8_vite@7.0.0_sass@1_93c2a736b6e18ee58c6096428844503c/node_modules/@sveltejs/kit/src/runtime/client/entry.js": {
-    "file": "_app/immutable/entry/start.BRBHIhui.js",
+    "file": "_app/immutable/entry/start.C4SQ1KgK.js",
     "name": "entry/start",
     "src": "node_modules/.pnpm/@sveltejs+kit@2.22.2_@sveltejs+vite-plugin-svelte@5.1.0_svelte@5.34.8_vite@7.0.0_sass@1_93c2a736b6e18ee58c6096428844503c/node_modules/@sveltejs/kit/src/runtime/client/entry.js",
     "isEntry": true,
     "imports": [
-      "_BCMKCiN5.js"
+      "_OZ36DSTA.js"
     ]
   },
   "src/lib/assets/images/logo-universal.png": {
