@@ -516,25 +516,64 @@
             {:else}
               <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {#each videoClips as clip (clip.id)}
-                  <div class="bg-secondary/30 rounded-lg p-4 border">
-                    <div class="flex justify-between items-start mb-3">
-                      <div class="flex-1 min-w-0">
-                        <h3 class="font-semibold truncate" title={clip.name}>{clip.name}</h3>
-                        <p class="text-sm text-muted-foreground truncate" title={clip.fileName}>
-                          {clip.fileName}
-                        </p>
-                      </div>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onclick={() => handleDeleteClip(clip.id)}
-                        class="ml-2 text-destructive hover:text-destructive"
+                  <div class="bg-secondary/30 rounded-lg overflow-hidden border">
+                    <!-- Video thumbnail -->
+                    {#if clip.exists && clip.thumbnailUrl}
+                      <div 
+                        class="relative group cursor-pointer" 
+                        onclick={() => openPreview(clip)}
+                        onkeydown={(e) => e.key === 'Enter' && openPreview(clip)}
+                        role="button"
+                        tabindex="0"
+                        aria-label="Preview video {clip.name}"
                       >
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </Button>
-                    </div>
+                        <img 
+                          src={clip.thumbnailUrl} 
+                          alt="Video thumbnail for {clip.name}"
+                          class="w-full h-48 object-cover bg-muted"
+                          loading="lazy"
+                        />
+                        <!-- Play overlay -->
+                        <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                          <div class="w-16 h-16 bg-white/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <svg class="w-8 h-8 text-black ml-1" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M8 5v14l11-7z"/>
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+                    {:else}
+                      <div class="w-full h-48 bg-muted flex items-center justify-center">
+                        <div class="text-center text-muted-foreground">
+                          <svg class="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                          <p class="text-sm">
+                            {clip.exists ? 'Generating thumbnail...' : 'Video not found'}
+                          </p>
+                        </div>
+                      </div>
+                    {/if}
+
+                    <div class="p-4">
+                      <div class="flex justify-between items-start mb-3">
+                        <div class="flex-1 min-w-0">
+                          <h3 class="font-semibold truncate" title={clip.name}>{clip.name}</h3>
+                          <p class="text-sm text-muted-foreground truncate" title={clip.fileName}>
+                            {clip.fileName}
+                          </p>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onclick={() => handleDeleteClip(clip.id)}
+                          class="ml-2 text-destructive hover:text-destructive"
+                        >
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </Button>
+                      </div>
 
                     <div class="space-y-2 text-xs text-muted-foreground">
                       <div class="flex justify-between">
@@ -585,6 +624,7 @@
                         </svg>
                         {clip.exists ? 'Preview Video' : 'File Missing'}
                       </Button>
+                    </div>
                     </div>
                   </div>
                 {/each}

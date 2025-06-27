@@ -59,6 +59,7 @@ export namespace main {
 	    createdAt: string;
 	    updatedAt: string;
 	    exists: boolean;
+	    thumbnailUrl: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new VideoClipResponse(source);
@@ -80,6 +81,7 @@ export namespace main {
 	        this.createdAt = source["createdAt"];
 	        this.updatedAt = source["updatedAt"];
 	        this.exists = source["exists"];
+	        this.thumbnailUrl = source["thumbnailUrl"];
 	    }
 	}
 

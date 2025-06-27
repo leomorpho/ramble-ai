@@ -2,13 +2,16 @@ package main
 
 import (
 	"context"
+	"crypto/md5"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -35,20 +38,21 @@ type ProjectResponse struct {
 
 // VideoClipResponse represents a video clip response for the frontend
 type VideoClipResponse struct {
-	ID          int     `json:"id"`
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	FilePath    string  `json:"filePath"`
-	FileName    string  `json:"fileName"`
-	FileSize    int64   `json:"fileSize"`
-	Duration    float64 `json:"duration"`
-	Format      string  `json:"format"`
-	Width       int     `json:"width"`
-	Height      int     `json:"height"`
-	ProjectID   int     `json:"projectId"`
-	CreatedAt   string  `json:"createdAt"`
-	UpdatedAt   string  `json:"updatedAt"`
-	Exists      bool    `json:"exists"`
+	ID           int     `json:"id"`
+	Name         string  `json:"name"`
+	Description  string  `json:"description"`
+	FilePath     string  `json:"filePath"`
+	FileName     string  `json:"fileName"`
+	FileSize     int64   `json:"fileSize"`
+	Duration     float64 `json:"duration"`
+	Format       string  `json:"format"`
+	Width        int     `json:"width"`
+	Height       int     `json:"height"`
+	ProjectID    int     `json:"projectId"`
+	CreatedAt    string  `json:"createdAt"`
+	UpdatedAt    string  `json:"updatedAt"`
+	Exists       bool    `json:"exists"`
+	ThumbnailURL string  `json:"thumbnailUrl"`
 }
 
 // LocalVideoFile represents a local video file for the frontend
@@ -114,6 +118,11 @@ func (a *App) createAssetMiddleware() assetserver.Middleware {
 			// Check if this is a video request
 			if strings.HasPrefix(r.URL.Path, "/api/video/") {
 				a.handleVideoRequest(w, r)
+				return
+			}
+			// Check if this is a thumbnail request
+			if strings.HasPrefix(r.URL.Path, "/api/thumbnail/") {
+				a.handleThumbnailRequest(w, r)
 				return
 			}
 			// Pass to next handler for non-video requests
@@ -254,6 +263,101 @@ func (a *App) getContentType(filePath string) string {
 	default:
 		return "application/octet-stream"
 	}
+}
+
+// handleThumbnailRequest handles video thumbnail requests
+func (a *App) handleThumbnailRequest(w http.ResponseWriter, r *http.Request) {
+	// Extract file path from URL
+	filePath := r.URL.Path[15:] // Remove "/api/thumbnail/"
+	log.Printf("[THUMBNAIL] Raw path: %s", r.URL.Path)
+	log.Printf("[THUMBNAIL] Extracted path: %s", filePath)
+	
+	decodedPath, err := url.QueryUnescape(filePath)
+	if err != nil {
+		log.Printf("[THUMBNAIL] URL decode error: %v", err)
+		http.Error(w, "Invalid file path", http.StatusBadRequest)
+		return
+	}
+	
+	log.Printf("[THUMBNAIL] Decoded path: %s", decodedPath)
+
+	// Security check - ensure file exists and is a video
+	if !a.isVideoFile(decodedPath) {
+		http.Error(w, "Not a video file", http.StatusBadRequest)
+		return
+	}
+
+	if _, err := os.Stat(decodedPath); os.IsNotExist(err) {
+		http.Error(w, "Video file not found", http.StatusNotFound)
+		return
+	}
+
+	// Generate or get existing thumbnail
+	thumbnailPath, err := a.generateThumbnail(decodedPath)
+	if err != nil {
+		log.Printf("[THUMBNAIL] Generation error: %v", err)
+		http.Error(w, "Failed to generate thumbnail", http.StatusInternalServerError)
+		return
+	}
+
+	// Serve the thumbnail file
+	w.Header().Set("Content-Type", "image/jpeg")
+	w.Header().Set("Cache-Control", "public, max-age=86400") // Cache for 24 hours
+	http.ServeFile(w, r, thumbnailPath)
+}
+
+// generateThumbnail generates a thumbnail for the video file
+func (a *App) generateThumbnail(videoPath string) (string, error) {
+	// Create thumbnails directory if it doesn't exist
+	thumbnailsDir := "thumbnails"
+	if err := os.MkdirAll(thumbnailsDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create thumbnails directory: %w", err)
+	}
+
+	// Generate unique filename based on video path hash
+	hash := md5.Sum([]byte(videoPath))
+	thumbnailFilename := hex.EncodeToString(hash[:]) + ".jpg"
+	thumbnailPath := filepath.Join(thumbnailsDir, thumbnailFilename)
+
+	// Check if thumbnail already exists
+	if _, err := os.Stat(thumbnailPath); err == nil {
+		log.Printf("[THUMBNAIL] Using existing thumbnail: %s", thumbnailPath)
+		return thumbnailPath, nil
+	}
+
+	log.Printf("[THUMBNAIL] Generating new thumbnail for: %s", videoPath)
+
+	// Use ffmpeg to generate thumbnail at 10% of video duration
+	cmd := exec.Command("ffmpeg", 
+		"-i", videoPath,
+		"-ss", "00:00:03", // Seek to 3 seconds
+		"-vframes", "1",   // Extract 1 frame
+		"-vf", "scale=320:240:force_original_aspect_ratio=decrease,pad=320:240:(ow-iw)/2:(oh-ih)/2", // Scale to 320x240 with padding
+		"-q:v", "2",       // High quality
+		"-y",              // Overwrite output file
+		thumbnailPath,
+	)
+
+	// Run ffmpeg command
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("[THUMBNAIL] ffmpeg error: %v, output: %s", err, string(output))
+		return "", fmt.Errorf("ffmpeg failed: %w", err)
+	}
+
+	log.Printf("[THUMBNAIL] Successfully generated: %s", thumbnailPath)
+	return thumbnailPath, nil
+}
+
+// getThumbnailURL returns a URL for the video thumbnail
+func (a *App) getThumbnailURL(filePath string) string {
+	if !a.isVideoFile(filePath) {
+		return ""
+	}
+	
+	// Encode file path for URL safety
+	encodedPath := url.QueryEscape(filePath)
+	return fmt.Sprintf("/api/thumbnail/%s", encodedPath)
 }
 
 // Greet returns a greeting for the given name
@@ -435,20 +539,21 @@ func (a *App) CreateVideoClip(projectID int, filePath string) (*VideoClipRespons
 		_, _, fileExists := a.getFileInfo(existingClip.FilePath)
 		
 		return &VideoClipResponse{
-			ID:          existingClip.ID,
-			Name:        existingClip.Name,
-			Description: existingClip.Description,
-			FilePath:    existingClip.FilePath,
-			FileName:    fileName,
-			FileSize:    existingClip.FileSize,
-			Duration:    existingClip.Duration,
-			Format:      existingClip.Format,
-			Width:       existingClip.Width,
-			Height:      existingClip.Height,
-			ProjectID:   projectID,
-			CreatedAt:   existingClip.CreatedAt.Format("2006-01-02 15:04:05"),
-			UpdatedAt:   existingClip.UpdatedAt.Format("2006-01-02 15:04:05"),
-			Exists:      fileExists,
+			ID:           existingClip.ID,
+			Name:         existingClip.Name,
+			Description:  existingClip.Description,
+			FilePath:     existingClip.FilePath,
+			FileName:     fileName,
+			FileSize:     existingClip.FileSize,
+			Duration:     existingClip.Duration,
+			Format:       existingClip.Format,
+			Width:        existingClip.Width,
+			Height:       existingClip.Height,
+			ProjectID:    projectID,
+			CreatedAt:    existingClip.CreatedAt.Format("2006-01-02 15:04:05"),
+			UpdatedAt:    existingClip.UpdatedAt.Format("2006-01-02 15:04:05"),
+			Exists:       fileExists,
+			ThumbnailURL: a.getThumbnailURL(existingClip.FilePath),
 		}, fmt.Errorf("video file already added to this project")
 	}
 	
@@ -471,20 +576,21 @@ func (a *App) CreateVideoClip(projectID int, filePath string) (*VideoClipRespons
 	}
 	
 	return &VideoClipResponse{
-		ID:          videoClip.ID,
-		Name:        videoClip.Name,
-		Description: videoClip.Description,
-		FilePath:    videoClip.FilePath,
-		FileName:    fileName,
-		FileSize:    videoClip.FileSize,
-		Duration:    videoClip.Duration,
-		Format:      videoClip.Format,
-		Width:       videoClip.Width,
-		Height:      videoClip.Height,
-		ProjectID:   projectID,
-		CreatedAt:   videoClip.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt:   videoClip.UpdatedAt.Format("2006-01-02 15:04:05"),
-		Exists:      true,
+		ID:           videoClip.ID,
+		Name:         videoClip.Name,
+		Description:  videoClip.Description,
+		FilePath:     videoClip.FilePath,
+		FileName:     fileName,
+		FileSize:     videoClip.FileSize,
+		Duration:     videoClip.Duration,
+		Format:       videoClip.Format,
+		Width:        videoClip.Width,
+		Height:       videoClip.Height,
+		ProjectID:    projectID,
+		CreatedAt:    videoClip.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:    videoClip.UpdatedAt.Format("2006-01-02 15:04:05"),
+		Exists:       true,
+		ThumbnailURL: a.getThumbnailURL(videoClip.FilePath),
 	}, nil
 }
 
@@ -505,20 +611,21 @@ func (a *App) GetVideoClipsByProject(projectID int) ([]*VideoClipResponse, error
 		_, _, exists := a.getFileInfo(clip.FilePath)
 		
 		responses = append(responses, &VideoClipResponse{
-			ID:          clip.ID,
-			Name:        clip.Name,
-			Description: clip.Description,
-			FilePath:    clip.FilePath,
-			FileName:    fileName,
-			FileSize:    clip.FileSize,
-			Duration:    clip.Duration,
-			Format:      clip.Format,
-			Width:       clip.Width,
-			Height:      clip.Height,
-			ProjectID:   projectID,
-			CreatedAt:   clip.CreatedAt.Format("2006-01-02 15:04:05"),
-			UpdatedAt:   clip.UpdatedAt.Format("2006-01-02 15:04:05"),
-			Exists:      exists,
+			ID:           clip.ID,
+			Name:         clip.Name,
+			Description:  clip.Description,
+			FilePath:     clip.FilePath,
+			FileName:     fileName,
+			FileSize:     clip.FileSize,
+			Duration:     clip.Duration,
+			Format:       clip.Format,
+			Width:        clip.Width,
+			Height:       clip.Height,
+			ProjectID:    projectID,
+			CreatedAt:    clip.CreatedAt.Format("2006-01-02 15:04:05"),
+			UpdatedAt:    clip.UpdatedAt.Format("2006-01-02 15:04:05"),
+			Exists:       exists,
+			ThumbnailURL: a.getThumbnailURL(clip.FilePath),
 		})
 	}
 	
@@ -545,20 +652,21 @@ func (a *App) UpdateVideoClip(id int, name, description string) (*VideoClipRespo
 	_, _, exists := a.getFileInfo(updatedClip.FilePath)
 	
 	return &VideoClipResponse{
-		ID:          updatedClip.ID,
-		Name:        updatedClip.Name,
-		Description: updatedClip.Description,
-		FilePath:    updatedClip.FilePath,
-		FileName:    fileName,
-		FileSize:    updatedClip.FileSize,
-		Duration:    updatedClip.Duration,
-		Format:      updatedClip.Format,
-		Width:       updatedClip.Width,
-		Height:      updatedClip.Height,
-		ProjectID:   updatedClip.Edges.Project.ID,
-		CreatedAt:   updatedClip.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt:   updatedClip.UpdatedAt.Format("2006-01-02 15:04:05"),
-		Exists:      exists,
+		ID:           updatedClip.ID,
+		Name:         updatedClip.Name,
+		Description:  updatedClip.Description,
+		FilePath:     updatedClip.FilePath,
+		FileName:     fileName,
+		FileSize:     updatedClip.FileSize,
+		Duration:     updatedClip.Duration,
+		Format:       updatedClip.Format,
+		Width:        updatedClip.Width,
+		Height:       updatedClip.Height,
+		ProjectID:    updatedClip.Edges.Project.ID,
+		CreatedAt:    updatedClip.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:    updatedClip.UpdatedAt.Format("2006-01-02 15:04:05"),
+		Exists:       exists,
+		ThumbnailURL: a.getThumbnailURL(updatedClip.FilePath),
 	}, nil
 }
 
