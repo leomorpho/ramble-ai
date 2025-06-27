@@ -14,6 +14,7 @@ This is a Wails v2 application using Go as the backend and SvelteKit with the st
   - `wails.json`: Wails configuration file defining build commands and settings
 
 - **Frontend (SvelteKit)**: Located in `frontend/` directory  
+  - Uses **Svelte 5** with runes mode (modern syntax)
   - Uses `@sveltejs/adapter-static` to generate static files for embedding
   - Wails JS bindings available at `$lib/wailsjs/` (auto-generated)
   - Routes in `frontend/src/routes/`
@@ -73,11 +74,33 @@ No test configuration found - add test scripts to `frontend/package.json` if nee
 - Access via `$lib/wailsjs/go/main/App.js` (auto-generated)
 - Example: `Greet(name)` function returns a promise
 
-## UI Components
+## UI Components & Styling
 
 - **shadcn-svelte**: Always use https://shadcn-svelte.com/docs/components components first for UI elements
 - Components are located in `frontend/src/lib/components/ui/`
 - Import from `$lib/components/ui/component-name`
+
+### Styling Guidelines
+
+- **Use Tailwind CSS** for all styling - no custom CSS unless absolutely necessary
+- **Theme-Aware Classes**: Always use CSS custom properties/variables that adapt to theme
+  - Use `bg-background`, `text-foreground`, `border-border` etc.
+  - **NEVER use `dark:` classes** - use universal classes that work with both themes
+  - Use `text-muted-foreground` for secondary text
+  - Use `bg-card`, `bg-secondary`, `bg-primary` for surfaces
+  - Use `border-input` for form elements
+- **Color System**: Stick to the predefined color tokens that support theme switching
+- **Responsive Design**: Use responsive utilities (`md:`, `lg:`, etc.) for different screen sizes
+
+### Svelte 5 Syntax (Runes Mode)
+
+- **State**: Use `let variable = $state(value)` instead of `let variable = value`
+- **Reactive**: Use `let derived = $derived(expression)` instead of `$: derived = expression`
+- **Effects**: Use `$effect(() => { ... })` instead of `$: { ... }`
+- **Props**: Use `let { prop } = $props()` instead of `export let prop`
+- **Events**: Use `onclick={handler}` instead of `on:click={handler}`
+- **Class/Style**: Use `class={condition ? 'class' : ''}` instead of `class:name={condition}`
+- **Binding**: `bind:value={variable}` remains the same
 
 ## Important Notes
 

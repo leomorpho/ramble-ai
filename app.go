@@ -130,6 +130,71 @@ func (a *App) GetProjects() ([]*ProjectResponse, error) {
 	return responses, nil
 }
 
+// GetProjectByID returns a project by its ID
+func (a *App) GetProjectByID(id int) (*ProjectResponse, error) {
+	project, err := a.client.Project.
+		Query().
+		Where(project.ID(id)).
+		WithVideoClips().
+		Only(a.ctx)
+	
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project with ID %d: %w", id, err)
+	}
+
+	return &ProjectResponse{
+		ID:          project.ID,
+		Name:        project.Name,
+		Description: project.Description,
+		Path:        project.Path,
+		CreatedAt:   project.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:   project.UpdatedAt.Format("2006-01-02 15:04:05"),
+	}, nil
+}
+
+// UpdateProject updates an existing project
+func (a *App) UpdateProject(id int, name, description string) (*ProjectResponse, error) {
+	if name == "" {
+		return nil, fmt.Errorf("project name cannot be empty")
+	}
+
+	// Update the project path if name changed
+	projectPath := filepath.Join("projects", name)
+
+	updatedProject, err := a.client.Project.
+		UpdateOneID(id).
+		SetName(name).
+		SetDescription(description).
+		SetPath(projectPath).
+		Save(a.ctx)
+	
+	if err != nil {
+		return nil, fmt.Errorf("failed to update project with ID %d: %w", id, err)
+	}
+
+	return &ProjectResponse{
+		ID:          updatedProject.ID,
+		Name:        updatedProject.Name,
+		Description: updatedProject.Description,
+		Path:        updatedProject.Path,
+		CreatedAt:   updatedProject.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:   updatedProject.UpdatedAt.Format("2006-01-02 15:04:05"),
+	}, nil
+}
+
+// DeleteProject deletes a project by its ID
+func (a *App) DeleteProject(id int) error {
+	err := a.client.Project.
+		DeleteOneID(id).
+		Exec(a.ctx)
+	
+	if err != nil {
+		return fmt.Errorf("failed to delete project with ID %d: %w", id, err)
+	}
+
+	return nil
+}
+
 // CreateVideoClip creates a new video clip
 func (a *App) CreateVideoClip(projectID int, name, description, filePath string) (*ent.VideoClip, error) {
 	return a.client.VideoClip.

@@ -9,8 +9,14 @@ export function CreateProject(arg1:string,arg2:string):Promise<main.ProjectRespo
 
 export function CreateVideoClip(arg1:number,arg2:string,arg3:string,arg4:string):Promise<ent.VideoClip>;
 
+export function DeleteProject(arg1:number):Promise<void>;
+
+export function GetProjectByID(arg1:number):Promise<main.ProjectResponse>;
+
 export function GetProjects():Promise<Array<main.ProjectResponse>>;
 
 export function GetVideoClipsByProject(arg1:number):Promise<Array<ent.VideoClip>>;
 
 export function Greet(arg1:string):Promise<string>;
+
+export function UpdateProject(arg1:number,arg2:string,arg3:string):Promise<main.ProjectResponse>;

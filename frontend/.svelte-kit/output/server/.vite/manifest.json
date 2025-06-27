@@ -8,24 +8,33 @@
       "_internal.js"
     ]
   },
-  "_equality.js": {
-    "file": "chunks/equality.js",
-    "name": "equality"
+  "_button.js": {
+    "file": "chunks/button.js",
+    "name": "button",
+    "imports": [
+      "_index.js"
+    ]
+  },
+  "_client.js": {
+    "file": "chunks/client.js",
+    "name": "client",
+    "imports": [
+      "_exports.js",
+      "_index.js"
+    ]
   },
   "_events.js": {
     "file": "chunks/events.js",
     "name": "events",
     "imports": [
-      "_index.js",
-      "_equality.js"
+      "_index.js"
     ]
   },
   "_exports.js": {
     "file": "chunks/exports.js",
     "name": "exports",
     "imports": [
-      "_index.js",
-      "_equality.js"
+      "_index.js"
     ]
   },
   "_index.js": {
@@ -36,8 +45,8 @@
     "file": "chunks/internal.js",
     "name": "internal",
     "imports": [
-      "_events.js",
-      "_index.js"
+      "_index.js",
+      "_events.js"
     ]
   },
   "node_modules/.pnpm/@sveltejs+kit@2.22.2_@sveltejs+vite-plugin-svelte@5.1.0_svelte@5.34.8_vite@6.3.5_jiti@2_791cb018a7f2094009f45763b931dc51/node_modules/@sveltejs/kit/src/runtime/components/svelte-5/error.svelte": {
@@ -47,7 +56,7 @@
     "isEntry": true,
     "imports": [
       "_index.js",
-      "_exports.js"
+      "_client.js"
     ]
   },
   "node_modules/.pnpm/@sveltejs+kit@2.22.2_@sveltejs+vite-plugin-svelte@5.1.0_svelte@5.34.8_vite@6.3.5_jiti@2_791cb018a7f2094009f45763b931dc51/node_modules/@sveltejs/kit/src/runtime/server/index.js": {
@@ -56,7 +65,7 @@
     "src": "node_modules/.pnpm/@sveltejs+kit@2.22.2_@sveltejs+vite-plugin-svelte@5.1.0_svelte@5.34.8_vite@6.3.5_jiti@2_791cb018a7f2094009f45763b931dc51/node_modules/@sveltejs/kit/src/runtime/server/index.js",
     "isEntry": true,
     "imports": [
-      "_events.js",
+      "_index.js",
       "_internal.js",
       "_exports.js"
     ]
@@ -70,7 +79,7 @@
       "_index.js"
     ],
     "css": [
-      "_app/immutable/assets/_layout.DAoU0jSv.css"
+      "_app/immutable/assets/_layout.B2QWzsbi.css"
     ]
   },
   "src/routes/+page.svelte": {
@@ -80,7 +89,19 @@
     "isEntry": true,
     "imports": [
       "_index.js",
+      "_button.js",
       "_events.js"
+    ]
+  },
+  "src/routes/projects/[id]/+page.svelte": {
+    "file": "entries/pages/projects/_id_/_page.svelte.js",
+    "name": "entries/pages/projects/_id_/_page.svelte",
+    "src": "src/routes/projects/[id]/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index.js",
+      "_button.js",
+      "_client.js"
     ]
   }
 }

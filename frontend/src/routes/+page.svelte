@@ -134,16 +134,24 @@
     {:else}
       <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {#each projects as project (project.id)}
-          <div class="bg-card text-card-foreground p-6 rounded-lg border shadow-sm">
-            <h3 class="text-xl font-semibold mb-2">{project.name}</h3>
+          <a 
+            href="/projects/{project.id}" 
+            class="bg-card text-card-foreground p-6 rounded-lg border shadow-sm hover:shadow-md transition-shadow duration-200 block group"
+          >
+            <div class="flex justify-between items-start mb-2">
+              <h3 class="text-xl font-semibold group-hover:text-primary transition-colors duration-200">{project.name}</h3>
+              <svg class="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
             {#if project.description}
-              <p class="text-muted-foreground mb-4">{project.description}</p>
+              <p class="text-muted-foreground mb-4 line-clamp-2">{project.description}</p>
             {/if}
             <div class="text-sm text-muted-foreground space-y-1">
               <p>Created: {project.createdAt}</p>
-              <p class="text-xs">Path: {project.path}</p>
+              <p class="text-xs truncate">Path: {project.path}</p>
             </div>
-          </div>
+          </a>
         {/each}
       </div>
     {/if}

@@ -1,8 +1,7 @@
-import { A as ATTACHMENT_KEY, p as push, j as spread_attributes, k as clsx$1, l as bind_props, e as pop, m as hasContext, g as getContext, s as setContext, o as derived, q as run, t as props_id, u as getAllContexts, v as spread_props, w as copy_payload, x as assign_payload, y as ensure_array_like, z as element, B as attr, h as escape_html } from "../../chunks/index.js";
+import { E as ATTACHMENT_KEY, F as hasContext, A as getContext, x as setContext, G as derived, I as run, w as push, y as pop, J as props_id, K as spread_attributes, M as bind_props, N as getAllContexts, O as spread_props, P as copy_payload, Q as assign_payload, R as clsx$1, S as ensure_array_like, T as element, U as attr, D as escape_html, V as stringify } from "../../chunks/index.js";
+import { c as cn, B as Button } from "../../chunks/button.js";
 import { clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
-import { tv } from "tailwind-variants";
-import { t as on } from "../../chunks/events.js";
+import { o as on } from "../../chunks/events.js";
 function createAttachmentKey() {
   return Symbol(ATTACHMENT_KEY);
 }
@@ -23,77 +22,6 @@ function unmount() {
   lifecycle_function_unavailable("unmount");
 }
 async function tick() {
-}
-function cn(...inputs) {
-  return twMerge(clsx(inputs));
-}
-const buttonVariants = tv({
-  base: "focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium outline-none transition-all focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
-  variants: {
-    variant: {
-      default: "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90",
-      destructive: "bg-destructive shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60 text-white",
-      outline: "bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 border",
-      secondary: "bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80",
-      ghost: "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
-      link: "text-primary underline-offset-4 hover:underline"
-    },
-    size: {
-      default: "h-9 px-4 py-2 has-[>svg]:px-3",
-      sm: "h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5",
-      lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
-      icon: "size-9"
-    }
-  },
-  defaultVariants: { variant: "default", size: "default" }
-});
-function Button($$payload, $$props) {
-  push();
-  let {
-    class: className,
-    variant = "default",
-    size = "default",
-    ref = null,
-    href = void 0,
-    type = "button",
-    disabled,
-    children,
-    $$slots,
-    $$events,
-    ...restProps
-  } = $$props;
-  if (href) {
-    $$payload.out += "<!--[-->";
-    $$payload.out += `<a${spread_attributes(
-      {
-        "data-slot": "button",
-        class: clsx$1(cn(buttonVariants({ variant, size }), className)),
-        href: disabled ? void 0 : href,
-        "aria-disabled": disabled,
-        role: disabled ? "link" : void 0,
-        tabindex: disabled ? -1 : void 0,
-        ...restProps
-      }
-    )}>`;
-    children?.($$payload);
-    $$payload.out += `<!----></a>`;
-  } else {
-    $$payload.out += "<!--[!-->";
-    $$payload.out += `<button${spread_attributes(
-      {
-        "data-slot": "button",
-        class: clsx$1(cn(buttonVariants({ variant, size }), className)),
-        type,
-        disabled,
-        ...restProps
-      }
-    )}>`;
-    children?.($$payload);
-    $$payload.out += `<!----></button>`;
-  }
-  $$payload.out += `<!--]-->`;
-  bind_props($$props, { ref });
-  pop();
 }
 function isFunction(value) {
   return typeof value === "function";
@@ -3502,14 +3430,14 @@ function _page($$payload, $$props) {
       $$payload2.out += `<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3"><!--[-->`;
       for (let $$index = 0, $$length = each_array.length; $$index < $$length; $$index++) {
         let project = each_array[$$index];
-        $$payload2.out += `<div class="bg-card text-card-foreground p-6 rounded-lg border shadow-sm"><h3 class="text-xl font-semibold mb-2">${escape_html(project.name)}</h3> `;
+        $$payload2.out += `<a${attr("href", `/projects/${stringify(project.id)}`)} class="bg-card text-card-foreground p-6 rounded-lg border shadow-sm hover:shadow-md transition-shadow duration-200 block group"><div class="flex justify-between items-start mb-2"><h3 class="text-xl font-semibold group-hover:text-primary transition-colors duration-200">${escape_html(project.name)}</h3> <svg class="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></div> `;
         if (project.description) {
           $$payload2.out += "<!--[-->";
-          $$payload2.out += `<p class="text-muted-foreground mb-4">${escape_html(project.description)}</p>`;
+          $$payload2.out += `<p class="text-muted-foreground mb-4 line-clamp-2">${escape_html(project.description)}</p>`;
         } else {
           $$payload2.out += "<!--[!-->";
         }
-        $$payload2.out += `<!--]--> <div class="text-sm text-muted-foreground space-y-1"><p>Created: ${escape_html(project.createdAt)}</p> <p class="text-xs">Path: ${escape_html(project.path)}</p></div></div>`;
+        $$payload2.out += `<!--]--> <div class="text-sm text-muted-foreground space-y-1"><p>Created: ${escape_html(project.createdAt)}</p> <p class="text-xs truncate">Path: ${escape_html(project.path)}</p></div></a>`;
       }
       $$payload2.out += `<!--]--></div>`;
     }

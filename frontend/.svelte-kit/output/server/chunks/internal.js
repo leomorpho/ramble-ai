@@ -1,5 +1,5 @@
-import { g as get_next_sibling, a as active_effect, i as init_operations, b as get_first_child, C as COMMENT_NODE, h as hydration_failed, c as clear_text_content, d as all_registered_events, r as root_event_handles, e as component_root, f as handle_event_propagation, j as create_text, k as branch, p as push, l as component_context, m as pop, s as set, L as LEGACY_PROPS, n as get, o as flushSync, q as mutable_source } from "./events.js";
-import { H as HYDRATION_ERROR, a as HYDRATION_START, b as HYDRATION_END, c as array_from, i as is_passive_event, d as define_property, r as render, p as push$1, s as setContext, e as pop$1 } from "./index.js";
+import { H as HYDRATION_ERROR, g as get_next_sibling, a as active_effect, i as init_operations, b as get_first_child, C as COMMENT_NODE, c as HYDRATION_START, d as HYDRATION_END, h as hydration_failed, e as clear_text_content, f as array_from, j as component_root, k as is_passive_event, l as create_text, m as branch, p as push, n as component_context, o as pop, s as set, L as LEGACY_PROPS, q as get, r as flushSync, t as define_property, u as mutable_source, v as render, w as push$1, x as setContext, y as pop$1 } from "./index.js";
+import { a as all_registered_events, r as root_event_handles, h as handle_event_propagation } from "./events.js";
 import "clsx";
 let base = "";
 let assets = base;
@@ -459,7 +459,7 @@ const options = {
 		<div class="error">
 			<span class="status">` + status + '</span>\n			<div class="message">\n				<h1>' + message + "</h1>\n			</div>\n		</div>\n	</body>\n</html>\n"
   },
-  version_hash: "gocsqd"
+  version_hash: "fycpjk"
 };
 async function get_hooks() {
   let handle;

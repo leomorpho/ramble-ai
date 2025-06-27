@@ -14,6 +14,14 @@ export function CreateVideoClip(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['CreateVideoClip'](arg1, arg2, arg3, arg4);
 }
 
+export function DeleteProject(arg1) {
+  return window['go']['main']['App']['DeleteProject'](arg1);
+}
+
+export function GetProjectByID(arg1) {
+  return window['go']['main']['App']['GetProjectByID'](arg1);
+}
+
 export function GetProjects() {
   return window['go']['main']['App']['GetProjects']();
 }
@@ -24,4 +32,8 @@ export function GetVideoClipsByProject(arg1) {
 
 export function Greet(arg1) {
   return window['go']['main']['App']['Greet'](arg1);
+}
+
+export function UpdateProject(arg1, arg2, arg3) {
+  return window['go']['main']['App']['UpdateProject'](arg1, arg2, arg3);
 }

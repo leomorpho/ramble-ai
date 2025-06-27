@@ -1,4 +1,4 @@
-import { f as slot } from "../../chunks/index.js";
+import { z as slot } from "../../chunks/index.js";
 function _layout($$payload, $$props) {
   $$payload.out += `<!---->`;
   slot($$payload, $$props, "default", {});
