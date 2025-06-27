@@ -5,11 +5,25 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"os"
+	"path/filepath"
 
 	"MYAPP/ent"
+	"MYAPP/ent/project"
+	"MYAPP/ent/videoclip"
+	"entgo.io/ent/dialect"
+	entsql "entgo.io/ent/dialect/sql"
 	_ "github.com/mattn/go-sqlite3"
 )
+
+// ProjectResponse represents a project response for the frontend
+type ProjectResponse struct {
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Path        string `json:"path"`
+	CreatedAt   string `json:"createdAt"`
+	UpdatedAt   string `json:"updatedAt"`
+}
 
 // App struct
 type App struct {
@@ -25,8 +39,9 @@ func NewApp() *App {
 		log.Fatalf("failed opening connection to sqlite: %v", err)
 	}
 
-	// Create Ent client
-	client := ent.NewClient(ent.Driver(ent.Dialect.SQLite, db))
+	// Create Ent client with proper dialect
+	drv := entsql.OpenDB(dialect.SQLite, db)
+	client := ent.NewClient(ent.Driver(drv))
 
 	return &App{
 		client: client,
@@ -46,27 +61,73 @@ func (a *App) startup(ctx context.Context) {
 	log.Println("Database initialized and migrations applied")
 }
 
+// shutdown is called when the app shuts down
+func (a *App) shutdown(ctx context.Context) {
+	// Close the database connection
+	if err := a.client.Close(); err != nil {
+		log.Printf("failed to close database connection: %v", err)
+	}
+}
+
 // Greet returns a greeting for the given name
 func (a *App) Greet(name string) string {
 	return fmt.Sprintf("Hello %s, It's show time!", name)
 }
 
-// CreateProject creates a new project
-func (a *App) CreateProject(name, description, path string) (*ent.Project, error) {
-	return a.client.Project.
+// CreateProject creates a new project with a default path
+func (a *App) CreateProject(name, description string) (*ProjectResponse, error) {
+	if name == "" {
+		return nil, fmt.Errorf("project name cannot be empty")
+	}
+
+	// Create a default project path
+	projectPath := filepath.Join("projects", name)
+
+	project, err := a.client.Project.
 		Create().
 		SetName(name).
 		SetDescription(description).
-		SetPath(path).
+		SetPath(projectPath).
 		Save(a.ctx)
+	
+	if err != nil {
+		return nil, fmt.Errorf("failed to create project: %w", err)
+	}
+
+	return &ProjectResponse{
+		ID:          project.ID,
+		Name:        project.Name,
+		Description: project.Description,
+		Path:        project.Path,
+		CreatedAt:   project.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:   project.UpdatedAt.Format("2006-01-02 15:04:05"),
+	}, nil
 }
 
 // GetProjects returns all projects
-func (a *App) GetProjects() ([]*ent.Project, error) {
-	return a.client.Project.
+func (a *App) GetProjects() ([]*ProjectResponse, error) {
+	projects, err := a.client.Project.
 		Query().
 		WithVideoClips().
 		All(a.ctx)
+	
+	if err != nil {
+		return nil, fmt.Errorf("failed to get projects: %w", err)
+	}
+
+	var responses []*ProjectResponse
+	for _, project := range projects {
+		responses = append(responses, &ProjectResponse{
+			ID:          project.ID,
+			Name:        project.Name,
+			Description: project.Description,
+			Path:        project.Path,
+			CreatedAt:   project.CreatedAt.Format("2006-01-02 15:04:05"),
+			UpdatedAt:   project.UpdatedAt.Format("2006-01-02 15:04:05"),
+		})
+	}
+
+	return responses, nil
 }
 
 // CreateVideoClip creates a new video clip
@@ -84,7 +145,7 @@ func (a *App) CreateVideoClip(projectID int, name, description, filePath string)
 func (a *App) GetVideoClipsByProject(projectID int) ([]*ent.VideoClip, error) {
 	return a.client.VideoClip.
 		Query().
-		Where(ent.VideoClip.HasProjectWith(ent.Project.ID(projectID))).
+		Where(videoclip.HasProjectWith(project.ID(projectID))).
 		All(a.ctx)
 }
 

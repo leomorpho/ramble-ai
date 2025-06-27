@@ -9,24 +9,59 @@
     DialogTitle, 
     DialogTrigger 
   } from "$lib/components/ui/dialog";
+  import { CreateProject, GetProjects } from "$lib/wailsjs/go/main/App";
+  import { onMount } from "svelte";
 
   let projects = $state([]);
   let dialogOpen = $state(false);
   let projectName = $state("");
   let projectDescription = $state("");
+  let loading = $state(false);
+  let error = $state("");
 
-  function createProject() {
-    if (projectName.trim()) {
-      const newProject = {
-        id: Date.now(),
-        name: projectName.trim(),
-        description: projectDescription.trim(),
-        createdAt: new Date().toLocaleDateString()
-      };
+  // Load projects on mount
+  onMount(async () => {
+    await loadProjects();
+  });
+
+  async function loadProjects() {
+    try {
+      loading = true;
+      error = "";
+      const result = await GetProjects();
+      projects = result || [];
+    } catch (err) {
+      console.error("Failed to load projects:", err);
+      error = "Failed to load projects";
+    } finally {
+      loading = false;
+    }
+  }
+
+  async function createProject() {
+    if (!projectName.trim()) return;
+    
+    try {
+      loading = true;
+      error = "";
+      
+      const newProject = await CreateProject(
+        projectName.trim(), 
+        projectDescription.trim()
+      );
+      
+      // Add the new project to the list
       projects.push(newProject);
+      
+      // Reset form
       projectName = "";
       projectDescription = "";
       dialogOpen = false;
+    } catch (err) {
+      console.error("Failed to create project:", err);
+      error = "Failed to create project";
+    } finally {
+      loading = false;
     }
   }
 </script>
@@ -69,15 +104,29 @@
             </div>
           </div>
           <DialogFooter>
-            <Button onclick={createProject} disabled={!projectName.trim()}>
-              Create Project
+            <Button onclick={createProject} disabled={!projectName.trim() || loading}>
+              {loading ? "Creating..." : "Create Project"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
 
-    {#if projects.length === 0}
+    {#if error}
+      <div class="bg-destructive/10 text-destructive border border-destructive/20 rounded-lg p-4">
+        <p class="font-medium">Error</p>
+        <p class="text-sm">{error}</p>
+        <Button variant="outline" size="sm" class="mt-2" onclick={loadProjects}>
+          Try Again
+        </Button>
+      </div>
+    {/if}
+
+    {#if loading && projects.length === 0}
+      <div class="text-center py-12 text-muted-foreground">
+        <p class="text-lg">Loading projects...</p>
+      </div>
+    {:else if projects.length === 0}
       <div class="text-center py-12 text-muted-foreground">
         <p class="text-lg">No projects yet</p>
         <p class="text-sm">Create your first project to get started</p>
@@ -90,7 +139,10 @@
             {#if project.description}
               <p class="text-muted-foreground mb-4">{project.description}</p>
             {/if}
-            <p class="text-sm text-muted-foreground">Created: {project.createdAt}</p>
+            <div class="text-sm text-muted-foreground space-y-1">
+              <p>Created: {project.createdAt}</p>
+              <p class="text-xs">Path: {project.path}</p>
+            </div>
           </div>
         {/each}
       </div>

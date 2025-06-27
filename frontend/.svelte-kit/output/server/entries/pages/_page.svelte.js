@@ -3353,24 +3353,48 @@ function Dialog_trigger($$payload, $$props) {
 }
 const Root = Dialog;
 const Portal = Portal$1;
+function CreateProject(arg1, arg2) {
+  return window["go"]["main"]["App"]["CreateProject"](arg1, arg2);
+}
+function GetProjects() {
+  return window["go"]["main"]["App"]["GetProjects"]();
+}
 function _page($$payload, $$props) {
   push();
   let projects = [];
   let dialogOpen = false;
   let projectName = "";
   let projectDescription = "";
-  function createProject() {
-    if (projectName.trim()) {
-      const newProject = {
-        id: Date.now(),
-        name: projectName.trim(),
-        description: projectDescription.trim(),
-        createdAt: (/* @__PURE__ */ new Date()).toLocaleDateString()
-      };
+  let loading = false;
+  let error = "";
+  async function loadProjects() {
+    try {
+      loading = true;
+      error = "";
+      const result = await GetProjects();
+      projects = result || [];
+    } catch (err) {
+      console.error("Failed to load projects:", err);
+      error = "Failed to load projects";
+    } finally {
+      loading = false;
+    }
+  }
+  async function createProject() {
+    if (!projectName.trim()) return;
+    try {
+      loading = true;
+      error = "";
+      const newProject = await CreateProject(projectName.trim(), projectDescription.trim());
       projects.push(newProject);
       projectName = "";
       projectDescription = "";
       dialogOpen = false;
+    } catch (err) {
+      console.error("Failed to create project:", err);
+      error = "Failed to create project";
+    } finally {
+      loading = false;
     }
   }
   let $$settled = true;
@@ -3430,9 +3454,9 @@ function _page($$payload, $$props) {
               children: ($$payload5) => {
                 Button($$payload5, {
                   onclick: createProject,
-                  disabled: !projectName.trim(),
+                  disabled: !projectName.trim() || loading,
                   children: ($$payload6) => {
-                    $$payload6.out += `<!---->Create Project`;
+                    $$payload6.out += `<!---->${escape_html(loading ? "Creating..." : "Create Project")}`;
                   },
                   $$slots: { default: true }
                 });
@@ -3448,8 +3472,29 @@ function _page($$payload, $$props) {
       $$slots: { default: true }
     });
     $$payload2.out += `<!----></div> `;
-    if (projects.length === 0) {
+    if (error) {
       $$payload2.out += "<!--[-->";
+      $$payload2.out += `<div class="bg-destructive/10 text-destructive border border-destructive/20 rounded-lg p-4"><p class="font-medium">Error</p> <p class="text-sm">${escape_html(error)}</p> `;
+      Button($$payload2, {
+        variant: "outline",
+        size: "sm",
+        class: "mt-2",
+        onclick: loadProjects,
+        children: ($$payload3) => {
+          $$payload3.out += `<!---->Try Again`;
+        },
+        $$slots: { default: true }
+      });
+      $$payload2.out += `<!----></div>`;
+    } else {
+      $$payload2.out += "<!--[!-->";
+    }
+    $$payload2.out += `<!--]--> `;
+    if (loading && projects.length === 0) {
+      $$payload2.out += "<!--[-->";
+      $$payload2.out += `<div class="text-center py-12 text-muted-foreground"><p class="text-lg">Loading projects...</p></div>`;
+    } else if (projects.length === 0) {
+      $$payload2.out += "<!--[1-->";
       $$payload2.out += `<div class="text-center py-12 text-muted-foreground"><p class="text-lg">No projects yet</p> <p class="text-sm">Create your first project to get started</p></div>`;
     } else {
       $$payload2.out += "<!--[!-->";
@@ -3464,7 +3509,7 @@ function _page($$payload, $$props) {
         } else {
           $$payload2.out += "<!--[!-->";
         }
-        $$payload2.out += `<!--]--> <p class="text-sm text-muted-foreground">Created: ${escape_html(project.createdAt)}</p></div>`;
+        $$payload2.out += `<!--]--> <div class="text-sm text-muted-foreground space-y-1"><p>Created: ${escape_html(project.createdAt)}</p> <p class="text-xs">Path: ${escape_html(project.path)}</p></div></div>`;
       }
       $$payload2.out += `<!--]--></div>`;
     }
