@@ -337,41 +337,44 @@
 <div class="highlighter">
   {#each groupedElements as group, groupIndex}
     {#if group.type === 'highlight'}
-      <!-- Highlight group - all words together -->
-      <span 
-        class="highlight-group"
-        style:background-color={group.highlight.color}
-        onmousedown={(e) => handleMouseDown(group.startIndex, e)}
-        onclick={(e) => handleClick(group.startIndex, e)}
-      >
-        <!-- Start handle -->
-        <span
-          class="drag-handle drag-handle-start"
-          onmousedown={(e) => startDrag(group.highlight, 'start', e)}
-          title="Drag to resize highlight"
-        ></span>
-        
-        {#each group.words as { word, index }, wordIndex}
-          {@const inSelection = isInSelection(index)}
+      <!-- Highlight group with edge handles -->
+      <span class="highlight-container">
+        <!-- Highlight group -->
+        <span 
+          class="highlight-group"
+          style:background-color={group.highlight.color}
+          onmousedown={(e) => handleMouseDown(group.startIndex, e)}
+          onclick={(e) => handleClick(group.startIndex, e)}
+        >
+          <!-- Start handle at left edge -->
           <span
-            class="word highlighted"
-            class:selecting={inSelection}
-            onmouseenter={() => {
-              handleMouseEnter(index);
-              handleDragOver(index);
-            }}
-          >
-            {word.word}
-          </span>
-          {#if wordIndex < group.words.length - 1}{' '}{/if}
-        {/each}
-        
-        <!-- End handle -->
-        <span
-          class="drag-handle drag-handle-end"
-          onmousedown={(e) => startDrag(group.highlight, 'end', e)}
-          title="Drag to resize highlight"
-        ></span>
+            class="drag-handle drag-handle-start"
+            onmousedown={(e) => startDrag(group.highlight, 'start', e)}
+            title="Drag to resize highlight"
+          ></span>
+          
+          {#each group.words as { word, index }, wordIndex}
+            {@const inSelection = isInSelection(index)}
+            <span
+              class="word highlighted"
+              class:selecting={inSelection}
+              onmouseenter={() => {
+                handleMouseEnter(index);
+                handleDragOver(index);
+              }}
+            >
+              {word.word}
+            </span>
+            {#if wordIndex < group.words.length - 1}{' '}{/if}
+          {/each}
+          
+          <!-- End handle at right edge -->
+          <span
+            class="drag-handle drag-handle-end"
+            onmousedown={(e) => startDrag(group.highlight, 'end', e)}
+            title="Drag to resize highlight"
+          ></span>
+        </span>
       </span>
     {:else}
       <!-- Regular word -->
@@ -429,16 +432,21 @@
     position: relative;
   }
   
+  .highlight-container {
+    display: inline;
+    position: relative;
+  }
+  
+  .highlight-container:hover .drag-handle {
+    opacity: 1;
+  }
+  
   .highlight-group {
     display: inline;
     position: relative;
     padding: 3px 6px;
     border-radius: 4px;
     cursor: pointer;
-  }
-  
-  .highlight-group:hover .drag-handle {
-    opacity: 1;
   }
   
   .word.highlighted {
@@ -456,28 +464,29 @@
   
   .drag-handle {
     position: absolute;
-    width: 12px;
+    width: 4px;
     height: 100%;
     top: 0;
     cursor: ew-resize;
     opacity: 0;
     transition: opacity 0.3s ease, transform 0.2s ease;
-    background-color: rgba(0, 0, 0, 0.4);
+    background-color: rgba(0, 0, 0, 0.5);
     border-radius: 2px;
     transform: scale(1);
+    z-index: 10;
   }
   
   .drag-handle:hover {
-    background-color: rgba(0, 0, 0, 0.6);
-    transform: scale(1.1);
+    background-color: rgba(0, 0, 0, 0.7);
+    transform: scaleX(1.5);
   }
   
   .drag-handle-start {
-    left: -6px;
+    left: 0;
   }
   
   .drag-handle-end {
-    right: -6px;
+    right: 0;
   }
   
   .delete-popup {
