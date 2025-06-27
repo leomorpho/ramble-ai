@@ -1005,11 +1005,46 @@ func (a *App) testOpenAIConnection(apiKey string) (*TestOpenAIApiKeyResponse, er
 	}
 }
 
+// Word represents a single word with timing information
+type Word struct {
+	Word  string  `json:"word"`
+	Start float64 `json:"start"`
+	End   float64 `json:"end"`
+}
+
+// Segment represents a segment of transcription with timing
+type Segment struct {
+	ID     int    `json:"id"`
+	Seek   int    `json:"seek"`
+	Start  float64 `json:"start"`
+	End    float64 `json:"end"`
+	Text   string  `json:"text"`
+	Tokens []int   `json:"tokens"`
+	Temperature float64 `json:"temperature"`
+	AvgLogprob  float64 `json:"avg_logprob"`
+	CompressionRatio float64 `json:"compression_ratio"`
+	NoSpeechProb     float64 `json:"no_speech_prob"`
+	Words   []Word  `json:"words"`
+}
+
+// WhisperResponse represents the detailed response from OpenAI Whisper API
+type WhisperResponse struct {
+	Task     string    `json:"task"`
+	Language string    `json:"language"`
+	Duration float64   `json:"duration"`
+	Text     string    `json:"text"`
+	Segments []Segment `json:"segments"`
+	Words    []Word    `json:"words"`
+}
+
 // TranscriptionResponse represents the response from the transcription process
 type TranscriptionResponse struct {
 	Success   bool   `json:"success"`
 	Message   string `json:"message"`
 	Transcription string `json:"transcription,omitempty"`
+	Words     []Word `json:"words,omitempty"`
+	Language  string `json:"language,omitempty"`
+	Duration  float64 `json:"duration,omitempty"`
 }
 
 // TranscribeVideoClip extracts audio from a video and transcribes it using OpenAI Whisper
@@ -1051,7 +1086,7 @@ func (a *App) TranscribeVideoClip(clipID int) (*TranscriptionResponse, error) {
 	defer os.Remove(audioPath) // Clean up temporary audio file
 
 	// Transcribe audio using OpenAI Whisper
-	transcription, err := a.transcribeAudio(audioPath, apiKey)
+	whisperResponse, err := a.transcribeAudio(audioPath, apiKey)
 	if err != nil {
 		return &TranscriptionResponse{
 			Success: false,
@@ -1062,7 +1097,7 @@ func (a *App) TranscribeVideoClip(clipID int) (*TranscriptionResponse, error) {
 	// Save transcription to database
 	_, err = a.client.VideoClip.
 		UpdateOneID(clipID).
-		SetTranscription(transcription).
+		SetTranscription(whisperResponse.Text).
 		Save(a.ctx)
 	
 	if err != nil {
@@ -1075,7 +1110,10 @@ func (a *App) TranscribeVideoClip(clipID int) (*TranscriptionResponse, error) {
 	return &TranscriptionResponse{
 		Success:       true,
 		Message:       "Transcription completed successfully",
-		Transcription: transcription,
+		Transcription: whisperResponse.Text,
+		Words:         whisperResponse.Words,
+		Language:      whisperResponse.Language,
+		Duration:      whisperResponse.Duration,
 	}, nil
 }
 
@@ -1117,7 +1155,7 @@ func (a *App) extractAudio(videoPath string) (string, error) {
 }
 
 // transcribeAudio sends audio to OpenAI Whisper API for transcription
-func (a *App) transcribeAudio(audioPath, apiKey string) (string, error) {
+func (a *App) transcribeAudio(audioPath, apiKey string) (*WhisperResponse, error) {
 	// Create HTTP client with longer timeout for transcription
 	client := &http.Client{
 		Timeout: 120 * time.Second, // 2 minutes for transcription
@@ -1126,7 +1164,7 @@ func (a *App) transcribeAudio(audioPath, apiKey string) (string, error) {
 	// Open audio file
 	file, err := os.Open(audioPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to open audio file: %w", err)
+		return nil, fmt.Errorf("failed to open audio file: %w", err)
 	}
 	defer file.Close()
 
@@ -1137,24 +1175,30 @@ func (a *App) transcribeAudio(audioPath, apiKey string) (string, error) {
 	// Add file field
 	fileWriter, err := writer.CreateFormFile("file", filepath.Base(audioPath))
 	if err != nil {
-		return "", fmt.Errorf("failed to create form file: %w", err)
+		return nil, fmt.Errorf("failed to create form file: %w", err)
 	}
 
 	_, err = io.Copy(fileWriter, file)
 	if err != nil {
-		return "", fmt.Errorf("failed to copy file data: %w", err)
+		return nil, fmt.Errorf("failed to copy file data: %w", err)
 	}
 
 	// Add model field
 	err = writer.WriteField("model", "whisper-1")
 	if err != nil {
-		return "", fmt.Errorf("failed to add model field: %w", err)
+		return nil, fmt.Errorf("failed to add model field: %w", err)
 	}
 
-	// Add response format field
-	err = writer.WriteField("response_format", "text")
+	// Add response format field for verbose JSON with timestamps
+	err = writer.WriteField("response_format", "verbose_json")
 	if err != nil {
-		return "", fmt.Errorf("failed to add response format field: %w", err)
+		return nil, fmt.Errorf("failed to add response format field: %w", err)
+	}
+
+	// Add timestamp granularities for word-level timestamps
+	err = writer.WriteField("timestamp_granularities[]", "word")
+	if err != nil {
+		return nil, fmt.Errorf("failed to add timestamp granularities field: %w", err)
 	}
 
 	writer.Close()
@@ -1162,7 +1206,7 @@ func (a *App) transcribeAudio(audioPath, apiKey string) (string, error) {
 	// Create request
 	req, err := http.NewRequest("POST", "https://api.openai.com/v1/audio/transcriptions", &buf)
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	// Set headers
@@ -1174,22 +1218,29 @@ func (a *App) transcribeAudio(audioPath, apiKey string) (string, error) {
 	// Make request
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to make request: %w", err)
+		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	// Read response
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read response: %w", err)
+		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("OpenAI API error (status %d): %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("OpenAI API error (status %d): %s", resp.StatusCode, string(body))
 	}
 
-	transcription := strings.TrimSpace(string(body))
-	log.Printf("[TRANSCRIPTION] Transcription completed, length: %d characters", len(transcription))
+	// Parse JSON response
+	var whisperResponse WhisperResponse
+	err = json.Unmarshal(body, &whisperResponse)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse transcription response: %w", err)
+	}
 
-	return transcription, nil
+	log.Printf("[TRANSCRIPTION] Transcription completed, text length: %d characters, words: %d", 
+		len(whisperResponse.Text), len(whisperResponse.Words))
+
+	return &whisperResponse, nil
 }
