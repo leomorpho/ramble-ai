@@ -46,6 +46,10 @@ export function GetSetting(arg1) {
   return window['go']['main']['App']['GetSetting'](arg1);
 }
 
+export function GetThemePreference() {
+  return window['go']['main']['App']['GetThemePreference']();
+}
+
 export function GetVideoClipsByProject(arg1) {
   return window['go']['main']['App']['GetVideoClipsByProject'](arg1);
 }
@@ -68,6 +72,10 @@ export function SaveOpenAIApiKey(arg1) {
 
 export function SaveSetting(arg1, arg2) {
   return window['go']['main']['App']['SaveSetting'](arg1, arg2);
+}
+
+export function SaveThemePreference(arg1) {
+  return window['go']['main']['App']['SaveThemePreference'](arg1);
 }
 
 export function SelectVideoFiles() {

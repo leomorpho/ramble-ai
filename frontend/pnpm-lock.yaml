@@ -63,9 +63,6 @@ importers:
       jsdom:
         specifier: ^26.1.0
         version: 26.1.0
-      mode-watcher:
-        specifier: ^1.0.8
-        version: 1.0.8(svelte@5.34.8)
       shadcn-svelte:
         specifier: ^1.0.5
         version: 1.0.5
@@ -1011,11 +1008,6 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
-  mode-watcher@1.0.8:
-    resolution: {integrity: sha512-1YIgYymrae0lhcG9zPS/YWOvcKsUbM4bLGIh+eXTUIput5+dEJifcmUgp8NSehSXGSwITH6jbSjNhGEIhE3k5Q==}
-    peerDependencies:
-      svelte: ^5.27.0
-
   mri@1.2.0:
     resolution: {integrity: sha512-tzzskb3bG8LvYGFF/mDTpq3jpI6Q9wc3LEmBaghu+DdCssd1FakN7Bc0hVNmEyGq1bq3RgfkCb3cmQLpNPOroA==}
     engines: {node: '>=4'}
@@ -1086,16 +1078,6 @@ packages:
   rrweb-cssom@0.8.0:
     resolution: {integrity: sha512-guoltQEx+9aMf2gDZ0s62EcV8lsXR+0w8915TC3ITdn2YueuNjdAYh/levpU9nFaoChh9RUS5ZdQMrKfVEN9tw==}
 
-  runed@0.23.4:
-    resolution: {integrity: sha512-9q8oUiBYeXIDLWNK5DfCWlkL0EW3oGbk845VdKlPeia28l751VpfesaB/+7pI6rnbx1I6rqoZ2fZxptOJLxILA==}
-    peerDependencies:
-      svelte: ^5.7.0
-
-  runed@0.25.0:
-    resolution: {integrity: sha512-7+ma4AG9FT2sWQEA0Egf6mb7PBT2vHyuHail1ie8ropfSjvZGtEAx8YTmUjv/APCsdRRxEVvArNjALk9zFSOrg==}
-    peerDependencies:
-      svelte: ^5.7.0
-
   runed@0.28.0:
     resolution: {integrity: sha512-k2xx7RuO9hWcdd9f+8JoBeqWtYrm5CALfgpkg2YDB80ds/QE4w0qqu34A7fqiAwiBBSBQOid7TLxwxVC27ymWQ==}
     peerDependencies:
@@ -1165,12 +1147,6 @@ packages:
 
   svelte-sonner@1.0.5:
     resolution: {integrity: sha512-9dpGPFqKb/QWudYqGnEz93vuY+NgCEvyNvxoCLMVGw6sDN/3oVeKV1xiEirW2E1N3vJEyj5imSBNOGltQHA7mg==}
-    peerDependencies:
-      svelte: ^5.0.0
-
-  svelte-toolbelt@0.7.1:
-    resolution: {integrity: sha512-HcBOcR17Vx9bjaOceUvxkY3nGmbBmCBBbuWLLEWO6jtmWH8f/QoWmbyUfQZrpDINH39en1b8mptfPQT9VKQ1xQ==}
-    engines: {node: '>=18', pnpm: '>=8.7.0'}
     peerDependencies:
       svelte: ^5.0.0
 
@@ -2163,12 +2139,6 @@ snapshots:
 
   mkdirp@3.0.1: {}
 
-  mode-watcher@1.0.8(svelte@5.34.8):
-    dependencies:
-      runed: 0.25.0(svelte@5.34.8)
-      svelte: 5.34.8
-      svelte-toolbelt: 0.7.1(svelte@5.34.8)
-
   mri@1.2.0: {}
 
   mrmime@2.0.1: {}
@@ -2244,16 +2214,6 @@ snapshots:
 
   rrweb-cssom@0.8.0: {}
 
-  runed@0.23.4(svelte@5.34.8):
-    dependencies:
-      esm-env: 1.2.2
-      svelte: 5.34.8
-
-  runed@0.25.0(svelte@5.34.8):
-    dependencies:
-      esm-env: 1.2.2
-      svelte: 5.34.8
-
   runed@0.28.0(svelte@5.34.8):
     dependencies:
       esm-env: 1.2.2
@@ -2327,13 +2287,6 @@ snapshots:
   svelte-sonner@1.0.5(svelte@5.34.8):
     dependencies:
       runed: 0.28.0(svelte@5.34.8)
-      svelte: 5.34.8
-
-  svelte-toolbelt@0.7.1(svelte@5.34.8):
-    dependencies:
-      clsx: 2.1.1
-      runed: 0.23.4(svelte@5.34.8)
-      style-to-object: 1.0.9
       svelte: 5.34.8
 
   svelte-toolbelt@0.9.3(svelte@5.34.8):

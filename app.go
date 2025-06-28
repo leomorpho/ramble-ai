@@ -927,6 +927,26 @@ func (a *App) DeleteOpenAIApiKey() error {
 	return a.DeleteSetting("openai_api_key")
 }
 
+// SaveThemePreference saves the user's preferred theme (light or dark)
+func (a *App) SaveThemePreference(theme string) error {
+	if theme != "light" && theme != "dark" {
+		return fmt.Errorf("theme must be either 'light' or 'dark'")
+	}
+	return a.SaveSetting("theme_preference", theme)
+}
+
+// GetThemePreference retrieves the user's preferred theme, defaults to "light"
+func (a *App) GetThemePreference() (string, error) {
+	theme, err := a.GetSetting("theme_preference")
+	if err != nil {
+		return "light", err
+	}
+	if theme == "" {
+		return "light", nil // Default to light theme
+	}
+	return theme, nil
+}
+
 // TestOpenAIApiKeyResponse represents the response from testing the API key
 type TestOpenAIApiKeyResponse struct {
 	Valid   bool   `json:"valid"`

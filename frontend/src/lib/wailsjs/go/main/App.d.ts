@@ -24,6 +24,8 @@ export function GetProjects():Promise<Array<main.ProjectResponse>>;
 
 export function GetSetting(arg1:string):Promise<string>;
 
+export function GetThemePreference():Promise<string>;
+
 export function GetVideoClipsByProject(arg1:number):Promise<Array<main.VideoClipResponse>>;
 
 export function GetVideoFileInfo(arg1:string):Promise<main.LocalVideoFile>;
@@ -35,6 +37,8 @@ export function Greet(arg1:string):Promise<string>;
 export function SaveOpenAIApiKey(arg1:string):Promise<void>;
 
 export function SaveSetting(arg1:string,arg2:string):Promise<void>;
+
+export function SaveThemePreference(arg1:string):Promise<void>;
 
 export function SelectVideoFiles():Promise<Array<main.LocalVideoFile>>;
 
