@@ -12,7 +12,7 @@
     DialogTitle 
   } from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button";
-  import SequentialPlayer from "$lib/components/SequentialPlayer.svelte";
+  import SequentialPlayer from "$lib/components/videoplayback/SequentialPlayer.svelte";
 
   let { projectId, onHighlightClick = () => {} } = $props();
   

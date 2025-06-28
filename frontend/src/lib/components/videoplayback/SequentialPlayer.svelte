@@ -2,8 +2,10 @@
   import { onMount, onDestroy } from 'svelte';
   import { GetVideoURL } from '$lib/wailsjs/go/main/App';
   import { toast } from 'svelte-sonner';
-  import { Play, Pause, SkipForward, SkipBack, Square, Film } from '@lucide/svelte';
-  import { Button } from "$lib/components/ui/button";
+  import VideoDisplay from './VideoDisplay.svelte';
+  import PlaybackTimeline from './PlaybackTimeline.svelte';
+  import PlaybackControls from './PlaybackControls.svelte';
+  import CurrentHighlightInfo from './CurrentHighlightInfo.svelte';
 
   let { highlights = [] } = $props();
   
@@ -268,6 +270,43 @@
     }
   }
 
+  // Seek to a specific time in the virtual timeline
+  async function seekToTime(targetSegmentIndex, segmentTime) {
+    if (targetSegmentIndex < 0 || targetSegmentIndex >= highlights.length) return;
+    
+    // Stop current playback
+    if (currentVideoElement) {
+      currentVideoElement.pause();
+      currentVideoElement.ontimeupdate = null;
+    }
+    
+    if (displayVideoElement) {
+      displayVideoElement.pause();
+      displayVideoElement.ontimeupdate = null;
+    }
+    
+    // Update current segment
+    currentHighlightIndex = targetSegmentIndex;
+    const highlight = highlights[currentHighlightIndex];
+    const seekTime = Math.max(highlight.start, Math.min(highlight.end, highlight.start + segmentTime));
+    
+    // Update virtual time
+    virtualTime = segmentStartTimes[currentHighlightIndex] + (seekTime - highlight.start);
+    
+    // If we were playing, continue playing from the new position
+    if (isPlaying) {
+      await playCurrentHighlight();
+      
+      // Seek to the specific time within the segment
+      if (currentVideoElement) {
+        currentVideoElement.currentTime = seekTime;
+      }
+      if (displayVideoElement) {
+        displayVideoElement.currentTime = seekTime;
+      }
+    }
+  }
+
   // Play next highlight
   async function playNextHighlight() {
     if (currentVideoElement) {
@@ -384,11 +423,6 @@
     }
   }
 
-  // Calculate progress percentage
-  function getProgressPercentage() {
-    return totalVirtualDuration > 0 ? (virtualTime / totalVirtualDuration) * 100 : 0;
-  }
-
   // Cleanup
   onDestroy(() => {
     stopProgressTracking();
@@ -471,161 +505,46 @@
       </div>
     </div>
     
-    <!-- Loading Progress -->
-    {#if !allVideosLoaded}
-      <div class="mb-4">
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-sm font-medium">Loading videos...</span>
-          <span class="text-sm text-muted-foreground">{Math.round(loadingProgress)}%</span>
-        </div>
-        <div class="w-full bg-secondary rounded-full h-2">
-          <div 
-            class="bg-primary h-full rounded-full transition-all duration-300"
-            style="width: {loadingProgress}%"
-          ></div>
-        </div>
-      </div>
-    {/if}
-    
-    <!-- Player Container -->
-    <div class="bg-background border rounded-lg overflow-hidden mb-4">
-      {#if !allVideosLoaded}
-        <div class="p-12 text-center text-muted-foreground">
-          <div class="w-16 h-16 mx-auto mb-4 text-muted-foreground/50 animate-pulse">
-            <Film />
-          </div>
-          <p class="text-lg font-medium">Preparing videos...</p>
-          <p class="text-sm">Loading {highlights.length} video segments for seamless playback</p>
-        </div>
-      {:else if !isPlaying}
-        <div class="p-12 text-center text-muted-foreground">
-          <Film class="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" />
-          <p class="text-lg font-medium">Ready to play sequence</p>
-          <p class="text-sm">All videos loaded and ready for seamless playback</p>
-        </div>
-      {:else}
-        <!-- Visible video player -->
-        <video 
-          bind:this={displayVideoElement}
-          class="w-full aspect-video bg-black"
-          controls={false}
-          muted={false}
-        >
-          <track kind="captions" />
-        </video>
-      {/if}
-    </div>
+    <!-- Video Display -->
+    <VideoDisplay 
+      bind:displayVideoElement
+      {allVideosLoaded}
+      {isPlaying}
+      {highlights}
+      {loadingProgress}
+    />
     
     <!-- Current Highlight Info -->
-    {#if isPlaying && highlights[currentHighlightIndex]}
-      {@const currentHighlight = highlights[currentHighlightIndex]}
-      <div class="flex items-center gap-3 p-3 mb-4 rounded-lg" style="background-color: {currentHighlight.color}20; border-left: 4px solid {currentHighlight.color};">
-        <div class="flex-shrink-0">
-          <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-medium">
-            {currentHighlightIndex + 1}
-          </span>
-        </div>
-        <div class="flex-1 min-w-0">
-          <h4 class="font-medium truncate">{currentHighlight.videoClipName}</h4>
-          <p class="text-sm text-muted-foreground">
-            {formatTime(currentHighlight.start)} - {formatTime(currentHighlight.end)}
-            {#if currentHighlight.text}
-              • "{currentHighlight.text}"
-            {/if}
-          </p>
-        </div>
-        <div class="text-sm text-muted-foreground">
-          {currentHighlightIndex + 1} / {highlights.length}
-        </div>
-      </div>
-    {/if}
+    <CurrentHighlightInfo 
+      {isPlaying}
+      {currentHighlightIndex}
+      {highlights}
+    />
     
-    <!-- Custom Progress Bar -->
-    <div class="mb-4">
-      <div class="w-full bg-secondary rounded-full h-3 overflow-hidden">
-        <!-- Progress segments -->
-        <div class="relative h-full flex">
-          {#each highlights as highlight, index}
-            {@const segmentDuration = highlight.end - highlight.start}
-            {@const segmentWidth = (segmentDuration / totalVirtualDuration) * 100}
-            {@const segmentStart = (segmentStartTimes[index] / totalVirtualDuration) * 100}
-            
-            <!-- Segment background -->
-            <div 
-              class="relative border-r border-background/50 last:border-r-0"
-              style="width: {segmentWidth}%; background-color: {highlight.color}40;"
-            >
-              <!-- Progress within this segment -->
-              {#if index === currentHighlightIndex && isPlaying}
-                {@const segmentProgress = Math.max(0, Math.min(1, (virtualTime - segmentStartTimes[index]) / segmentDuration))}
-                <div 
-                  class="h-full transition-all duration-100"
-                  style="width: {segmentProgress * 100}%; background-color: {highlight.color};"
-                ></div>
-              {:else if index < currentHighlightIndex}
-                <!-- Completed segment -->
-                <div 
-                  class="h-full"
-                  style="width: 100%; background-color: {highlight.color};"
-                ></div>
-              {/if}
-            </div>
-          {/each}
-        </div>
-      </div>
-      
-      <div class="flex justify-between text-xs text-muted-foreground mt-1">
-        <span>{formatTime(virtualTime)}</span>
-        <span>{Math.round(getProgressPercentage())}%</span>
-        <span>{formatTime(totalVirtualDuration)}</span>
-      </div>
-    </div>
+    <!-- Playback Timeline -->
+    <PlaybackTimeline 
+      {highlights}
+      {virtualTime}
+      {totalVirtualDuration}
+      {currentHighlightIndex}
+      {isPlaying}
+      {segmentStartTimes}
+      onSeek={seekToTime}
+    />
     
-    <!-- Controls -->
-    <div class="flex items-center justify-center gap-2">
-      {#if !isPlaying}
-        <Button 
-          onclick={startPlayback} 
-          disabled={!allVideosLoaded}
-          class="flex items-center gap-2"
-        >
-          <Play class="w-4 h-4" />
-          Play Sequence
-        </Button>
-      {:else}
-        <Button 
-          variant="outline" 
-          onclick={playPreviousHighlight}
-          disabled={currentHighlightIndex === 0}
-          title="Previous highlight"
-        >
-          <SkipBack class="w-4 h-4" />
-        </Button>
-        
-        <Button onclick={togglePlayback} class="flex items-center gap-2">
-          {#if !isPaused}
-            <Pause class="w-4 h-4" />
-            Pause
-          {:else}
-            <Play class="w-4 h-4" />
-            Play
-          {/if}
-        </Button>
-        
-        <Button 
-          variant="outline" 
-          onclick={playNextHighlight}
-          disabled={currentHighlightIndex >= highlights.length - 1}
-          title="Next highlight"
-        >
-          <SkipForward class="w-4 h-4" />
-        </Button>
-        
-        <Button variant="outline" onclick={stopPlayback} title="Stop sequence">
-          <Square class="w-4 h-4" />
-        </Button>
-      {/if}
-    </div>
+    <!-- Playback Controls -->
+    <PlaybackControls 
+      {isPlaying}
+      {isPaused}
+      {allVideosLoaded}
+      {currentHighlightIndex}
+      {highlights}
+      onStartPlayback={startPlayback}
+      onTogglePlayback={togglePlayback}
+      onPreviousHighlight={playPreviousHighlight}
+      onNextHighlight={playNextHighlight}
+      onStopPlayback={stopPlayback}
+    />
   </div>
 {/if}
 

@@ -239,6 +239,14 @@
     event.preventDefault();
     event.stopPropagation();
   }
+
+  // Handle keyboard events for accessibility
+  function handleWordKeydown(wordIndex, event) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleWordClick(wordIndex, event);
+    }
+  }
   
   
   function handleMouseUp() {
@@ -352,6 +360,10 @@
         onmouseenter={() => handleWordMouseEnter(wordIndex)}
         onclick={(e) => handleWordClick(wordIndex, e)}
         ondblclick={(e) => handleWordDoubleClick(wordIndex, e)}
+        onkeydown={(e) => handleWordKeydown(wordIndex, e)}
+        role="button"
+        tabindex="0"
+        aria-label="Highlighted text: {word.word}"
       >
         {word.word}
       </span>
@@ -368,6 +380,10 @@
         onmouseenter={() => handleWordMouseEnter(wordIndex)}
         onclick={(e) => handleWordClick(wordIndex, e)}
         ondblclick={(e) => handleWordDoubleClick(wordIndex, e)}
+        onkeydown={(e) => handleWordKeydown(wordIndex, e)}
+        role="button"
+        tabindex="0"
+        aria-label="Text: {word.word}"
       >
         {word.word}
       </span>

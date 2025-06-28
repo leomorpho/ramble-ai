@@ -94,6 +94,8 @@ No test configuration found - add test scripts to `frontend/package.json` if nee
 
 ### Svelte 5 Syntax (Runes Mode)
 
+**IMPORTANT**: This project uses Svelte 5 with runes mode enabled. You MUST use Svelte 5 syntax exclusively:
+
 - **State**: Use `let variable = $state(value)` instead of `let variable = value`
 - **Reactive**: Use `let derived = $derived(expression)` instead of `$: derived = expression`
 - **Effects**: Use `$effect(() => { ... })` instead of `$: { ... }`
@@ -101,6 +103,8 @@ No test configuration found - add test scripts to `frontend/package.json` if nee
 - **Events**: Use `onclick={handler}` instead of `on:click={handler}`
 - **Class/Style**: Use `class={condition ? 'class' : ''}` instead of `class:name={condition}`
 - **Binding**: `bind:value={variable}` remains the same
+
+**NEVER use legacy Svelte syntax** like `$:`, `export let`, `on:click`, `class:name` - the build will fail in runes mode.
 
 ## Important Notes
 

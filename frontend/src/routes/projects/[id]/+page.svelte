@@ -868,6 +868,7 @@
               preload="metadata"
               src={videoURL}
             >
+              <track kind="captions" />
               <p class="p-4 text-center text-muted-foreground">
                 Your browser doesn't support video playback or the video format is not supported.
               </p>
