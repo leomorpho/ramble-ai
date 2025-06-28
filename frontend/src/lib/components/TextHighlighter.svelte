@@ -15,44 +15,45 @@
   
   // === DRAG STATE ===
   let isDragging = $state(false);
-  let dragTarget = $state(null); // { highlightId, type: 'start'|'end', originalBounds }
+  let dragTarget = $state(null);
   
   // === UI STATE ===
   let showDeleteButton = $state(false);
   let deleteButtonHighlight = $state(null);
   let deleteButtonPosition = $state({ x: 0, y: 0 });
-  let showHandles = $state(null);
   
-  // === PURE FUNCTIONS (TESTABLE) ===
+  // === CACHED DATA ===
+  let wordsWithIds = $state([]);
+  let wordToHighlightMap = $state(new Map());
+  let initialized = $state(false);
+  
+  // === PURE FUNCTIONS ===
   
   function generateUniqueColor() {
     const baseColors = ['#ffeb3b', '#81c784', '#64b5f6', '#ff8a65', '#f06292'];
     
-    // Try base colors first
     for (const color of baseColors) {
       if (!usedColors.has(color)) {
         return color;
       }
     }
     
-    // Generate random pastel color
     const hue = Math.floor(Math.random() * 360);
     const saturation = 45 + Math.random() * 30;
     const lightness = 65 + Math.random() * 20;
     return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
   }
   
-  function createHighlight(start, end) {
+  function createHighlight(startTime, endTime, startWordId, endWordId, wordIds = []) {
     return {
       id: `highlight_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      start,
-      end,
+      start: startTime,
+      end: endTime,
+      startWordId,
+      endWordId,
+      wordIds,
       color: generateUniqueColor()
     };
-  }
-  
-  function isWordInHighlight(wordIndex, highlight) {
-    return wordIndex >= highlight.start && wordIndex <= highlight.end;
   }
   
   function isWordInSelection(wordIndex) {
@@ -63,21 +64,24 @@
   }
   
   function findHighlightForWord(wordIndex) {
-    return highlights.find(h => isWordInHighlight(wordIndex, h));
+    if (!wordsWithIds || !wordsWithIds[wordIndex]) return null;
+    const word = wordsWithIds[wordIndex];
+    const highlightId = wordToHighlightMap.get(word.id);
+    return highlightId ? highlights.find(h => h.id === highlightId) : null;
   }
   
-  function checkOverlap(start, end, excludeId = null) {
+  function checkOverlap(startTime, endTime, excludeId = null) {
     return highlights.some(h => 
       h.id !== excludeId && 
-      start <= h.end && end >= h.start
+      startTime < h.end && endTime > h.start
     );
   }
   
   function calculateTimestamps(startIndex, endIndex) {
-    if (!words || words.length === 0) return { start: 0, end: 0 };
+    if (!wordsWithIds || wordsWithIds.length === 0) return { start: 0, end: 0 };
     
-    const startWord = words[Math.max(0, Math.min(startIndex, words.length - 1))];
-    const endWord = words[Math.max(0, Math.min(endIndex, words.length - 1))];
+    const startWord = wordsWithIds[Math.max(0, Math.min(startIndex, wordsWithIds.length - 1))];
+    const endWord = wordsWithIds[Math.max(0, Math.min(endIndex, wordsWithIds.length - 1))];
     
     return {
       start: startWord.start || 0,
@@ -85,38 +89,94 @@
     };
   }
   
-  function findWordByTimestamp(timestamp) {
-    if (!words || words.length === 0) return -1;
-    
-    // Find exact match
-    for (let i = 0; i < words.length; i++) {
-      const word = words[i];
-      if (word.start <= timestamp && timestamp <= word.end) {
-        return i;
+  function getWordsInTimeRange(startTime, endTime) {
+    if (!wordsWithIds) return [];
+    return wordsWithIds.filter(word => 
+      word.start < endTime && word.end > startTime
+    );
+  }
+  
+  // === WORD PROCESSING ===
+  
+  function processWords() {
+    if (words && words.length > 0) {
+      return words.map((word, index) => ({
+        ...word,
+        id: `word_${index}_${word.word}_${word.start}`
+      }));
+    } else if (text) {
+      const wordMatches = text.match(/\S+/g) || [];
+      return wordMatches.map((word, index) => ({
+        id: `text_word_${index}`,
+        word: word,
+        start: index * 0.5,
+        end: index * 0.5 + 0.4
+      }));
+    }
+    return [];
+  }
+  
+  function rebuildWordMap() {
+    const newMap = new Map();
+    highlights.forEach(highlight => {
+      if (highlight.wordIds) {
+        highlight.wordIds.forEach(wordId => {
+          newMap.set(wordId, highlight.id);
+        });
       }
+    });
+    wordToHighlightMap = newMap;
+  }
+  
+  function initializeData() {
+    if (initialized) return;
+    
+    wordsWithIds = processWords();
+    
+    if (initialHighlights && initialHighlights.length > 0 && wordsWithIds.length > 0) {
+      highlights = initialHighlights.map(h => {
+        const wordsInRange = getWordsInTimeRange(h.start, h.end);
+        const wordIds = wordsInRange.map(word => word.id);
+        
+        return {
+          id: h.id,
+          start: h.start,
+          end: h.end,
+          color: h.color,
+          startWordId: wordsInRange[0]?.id,
+          endWordId: wordsInRange[wordsInRange.length - 1]?.id,
+          wordIds
+        };
+      });
+      
+      highlights.forEach(h => usedColors.add(h.color));
     }
     
-    // Find closest by start time
-    let closestIndex = 0;
-    let minDistance = Math.abs(words[0].start - timestamp);
-    
-    for (let i = 1; i < words.length; i++) {
-      const distance = Math.abs(words[i].start - timestamp);
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestIndex = i;
-      }
-    }
-    
-    return closestIndex;
+    rebuildWordMap();
+    initialized = true;
   }
   
   // === ACTIONS ===
   
-  function addHighlight(start, end) {
-    const newHighlight = createHighlight(start, end);
+  function addHighlight(startIndex, endIndex) {
+    const timestamps = calculateTimestamps(startIndex, endIndex);
+    const startWord = wordsWithIds[startIndex];
+    const endWord = wordsWithIds[endIndex];
+    
+    const wordsInRange = getWordsInTimeRange(timestamps.start, timestamps.end);
+    const wordIds = wordsInRange.map(word => word.id);
+    
+    const newHighlight = createHighlight(
+      timestamps.start, 
+      timestamps.end, 
+      startWord?.id, 
+      endWord?.id, 
+      wordIds
+    );
+    
     highlights = [...highlights, newHighlight];
     usedColors.add(newHighlight.color);
+    rebuildWordMap();
     emitChanges();
     return newHighlight;
   }
@@ -128,29 +188,34 @@
       usedColors = new Set(usedColors);
     }
     highlights = highlights.filter(h => h.id !== highlightId);
+    rebuildWordMap();
     emitChanges();
   }
   
-  function updateHighlight(highlightId, newStart, newEnd) {
+  function updateHighlight(highlightId, newStartTime, newEndTime) {
+    const wordsInRange = getWordsInTimeRange(newStartTime, newEndTime);
+    const wordIds = wordsInRange.map(word => word.id);
+    const startWordId = wordsInRange[0]?.id;
+    const endWordId = wordsInRange[wordsInRange.length - 1]?.id;
+    
     highlights = highlights.map(h => 
       h.id === highlightId 
-        ? { ...h, start: newStart, end: newEnd }
+        ? { 
+            ...h, 
+            start: newStartTime, 
+            end: newEndTime,
+            startWordId,
+            endWordId,
+            wordIds 
+          }
         : h
     );
+    rebuildWordMap();
   }
   
   function emitChanges() {
     if (onHighlightsChange) {
-      const timestampHighlights = highlights.map(h => {
-        const timestamps = calculateTimestamps(h.start, h.end);
-        return {
-          id: h.id,
-          start: timestamps.start,
-          end: timestamps.end,
-          color: h.color
-        };
-      });
-      onHighlightsChange(timestampHighlights);
+      onHighlightsChange(highlights);
     }
   }
   
@@ -165,12 +230,10 @@
       return;
     }
     
-    // Start selection
     isSelecting = true;
     selectionStart = wordIndex;
     selectionEnd = wordIndex;
     showDeleteButton = false;
-    showHandles = null;
   }
   
   function handleWordMouseEnter(wordIndex) {
@@ -178,15 +241,18 @@
       selectionEnd = wordIndex;
     }
     
-    if (isDragging && dragTarget) {
+    if (isDragging && dragTarget && wordsWithIds && wordsWithIds[wordIndex]) {
       const currentHighlight = highlights.find(h => h.id === dragTarget.highlightId);
       if (!currentHighlight) return;
       
-      const newStart = dragTarget.type === 'start' ? wordIndex : currentHighlight.start;
-      const newEnd = dragTarget.type === 'end' ? wordIndex : currentHighlight.end;
+      const word = wordsWithIds[wordIndex];
+      const newStartTime = dragTarget.type === 'start' ? word.start : currentHighlight.start;
+      const newEndTime = dragTarget.type === 'end' ? word.end : currentHighlight.end;
       
-      if (newStart <= newEnd && !checkOverlap(newStart, newEnd, dragTarget.highlightId)) {
-        updateHighlight(dragTarget.highlightId, newStart, newEnd);
+      if (newStartTime >= newEndTime) return;
+      
+      if (!checkOverlap(newStartTime, newEndTime, dragTarget.highlightId)) {
+        updateHighlight(dragTarget.highlightId, newStartTime, newEndTime);
       }
     }
   }
@@ -208,11 +274,15 @@
   
   function handleMouseUp() {
     if (isSelecting && selectionStart !== null && selectionEnd !== null) {
-      const start = Math.min(selectionStart, selectionEnd);
-      const end = Math.max(selectionStart, selectionEnd);
+      const startIndex = Math.min(selectionStart, selectionEnd);
+      const endIndex = Math.max(selectionStart, selectionEnd);
       
-      if (start !== end && !checkOverlap(start, end)) {
-        addHighlight(start, end);
+      if (startIndex !== endIndex) {
+        const timestamps = calculateTimestamps(startIndex, endIndex);
+        
+        if (!checkOverlap(timestamps.start, timestamps.end)) {
+          addHighlight(startIndex, endIndex);
+        }
       }
     }
     
@@ -227,107 +297,17 @@
     dragTarget = null;
   }
   
-  function handleHandleDrag(highlightId, type, event) {
-    const highlight = highlights.find(h => h.id === highlightId);
-    if (!highlight) return;
-    
-    isDragging = true;
-    dragTarget = {
-      highlightId,
-      type,
-      originalBounds: { start: highlight.start, end: highlight.end }
-    };
-    
-    showDeleteButton = false;
-    event.stopPropagation();
-    event.preventDefault();
-  }
-  
   function handleDeleteHighlight(highlightId) {
     removeHighlight(highlightId);
     showDeleteButton = false;
     deleteButtonHighlight = null;
   }
   
-  // === INITIALIZATION ===
-  
-  $effect(() => {
-    if (initialHighlights && initialHighlights.length > 0) {
-      const convertedHighlights = initialHighlights
-        .map(h => ({
-          id: h.id,
-          start: findWordByTimestamp(h.start),
-          end: findWordByTimestamp(h.end),
-          color: h.color
-        }))
-        .filter(h => h.start !== -1 && h.end !== -1);
-      
-      highlights = convertedHighlights;
-      convertedHighlights.forEach(h => usedColors.add(h.color));
-    }
-  });
-  
-  // === WORD PROCESSING ===
-  
-  let displayWords = $state([]);
-  let groupedElements = $state([]);
-  
-  $effect(() => {
-    if (words && words.length > 0) {
-      displayWords = words;
-    } else if (text) {
-      const wordMatches = text.match(/\S+/g) || [];
-      displayWords = wordMatches.map((word, index) => ({
-        id: index,
-        word: word
-      }));
-    }
-  });
-  
-  // Group words and highlights for better rendering
-  $effect(() => {
-    const groups = [];
-    let i = 0;
-    
-    while (i < displayWords.length) {
-      const highlight = findHighlightForWord(i);
-      
-      if (highlight) {
-        // Start of a highlight group
-        const group = {
-          type: 'highlight',
-          highlight: highlight,
-          words: [],
-          startIndex: i
-        };
-        
-        // Collect all consecutive words in this highlight
-        while (i < displayWords.length && findHighlightForWord(i)?.id === highlight.id) {
-          group.words.push({
-            word: displayWords[i],
-            index: i
-          });
-          i++;
-        }
-        
-        groups.push(group);
-      } else {
-        // Regular word
-        groups.push({
-          type: 'word',
-          word: displayWords[i],
-          index: i
-        });
-        i++;
-      }
-    }
-    
-    groupedElements = groups;
-  });
-  
-  // === GLOBAL HANDLERS ===
+  // === MOUNT ===
   
   onMount(() => {
+    initializeData();
+    
     document.addEventListener('mouseup', handleMouseUp);
     document.addEventListener('click', (e) => {
       if (!e.target.closest('.delete-popup')) {
@@ -341,74 +321,42 @@
   });
 </script>
 
-<div class="highlighter">
-  {#each groupedElements as group, groupIndex}
-    {#if group.type === 'highlight'}
-      <!-- Highlight group with edge handles -->
-      {@const showThisHandle = showHandles === group.highlight.id}
-      
-      <!-- Start handle at left edge -->
-      <span
-        class="drag-handle drag-handle-start"
-        class:visible={showThisHandle}
-        onmousedown={(e) => handleHandleDrag(group.highlight.id, 'start', e)}
-        onmouseenter={() => showHandles = group.highlight.id}
-        onmouseleave={() => showHandles = null}
-        title="Drag to resize highlight"
-      ></span>
-      
-      <!-- Highlight group -->
+<div class="highlighter" class:dragging={isDragging}>
+  {#each wordsWithIds as word, wordIndex}
+    {@const highlightId = wordToHighlightMap.get(word.id)}
+    {@const highlight = highlightId ? highlights.find(h => h.id === highlightId) : null}
+    {@const inSelection = isWordInSelection(wordIndex)}
+    
+    {#if highlight}
+      <!-- Highlighted word -->
       <span 
-        class="highlight-group"
-        style:background-color={group.highlight.color}
-        onmousedown={(e) => handleWordMouseDown(group.startIndex, e)}
-        onclick={(e) => handleWordClick(group.startIndex, e)}
-        onmouseenter={() => showHandles = group.highlight.id}
-        onmouseleave={() => showHandles = null}
+        class="word highlighted"
+        style:background-color={highlight.color}
+        onmousedown={(e) => handleWordMouseDown(wordIndex, e)}
+        onmouseenter={() => handleWordMouseEnter(wordIndex)}
+        onclick={(e) => handleWordClick(wordIndex, e)}
       >
-        {#each group.words as { word, index }, wordIndex}
-          {@const inSelection = isWordInSelection(index)}
-          <span
-            class="word highlighted"
-            class:selecting={inSelection}
-            onmouseenter={() => handleWordMouseEnter(index)}
-          >
-            {word.word}
-          </span>
-          {#if wordIndex < group.words.length - 1}{' '}{/if}
-        {/each}
+        {word.word}
       </span>
-      
-      <!-- End handle at right edge -->
-      <span
-        class="drag-handle drag-handle-end"
-        class:visible={showThisHandle}
-        onmousedown={(e) => handleHandleDrag(group.highlight.id, 'end', e)}
-        onmouseenter={() => showHandles = group.highlight.id}
-        onmouseleave={() => showHandles = null}
-        title="Drag to resize highlight"
-      ></span>
-      
-    {:else if isWordInSelection(group.index)}
+    {:else if inSelection}
       <!-- Selection preview -->
       <span class="selection-word">
-        {group.word.word}
+        {word.word}
       </span>
-      
     {:else}
       <!-- Regular word -->
       <span
         class="word"
-        onmousedown={(e) => handleWordMouseDown(group.index, e)}
-        onmouseenter={() => handleWordMouseEnter(group.index)}
-        onclick={(e) => handleWordClick(group.index, e)}
+        onmousedown={(e) => handleWordMouseDown(wordIndex, e)}
+        onmouseenter={() => handleWordMouseEnter(wordIndex)}
+        onclick={(e) => handleWordClick(wordIndex, e)}
       >
-        {group.word.word}
+        {word.word}
       </span>
     {/if}
     
-    <!-- Space between groups -->
-    {#if groupIndex < groupedElements.length - 1}{' '}{/if}
+    <!-- Space between words -->
+    {#if wordIndex < wordsWithIds.length - 1}{' '}{/if}
   {/each}
 </div>
 
@@ -442,19 +390,11 @@
   .word {
     cursor: pointer;
     display: inline;
-  }
-  
-  .highlight-word {
-    display: inline;
     padding: 3px 6px;
     border-radius: 4px;
-    cursor: pointer;
   }
   
-  .highlight-group {
-    display: inline;
-    padding: 3px 6px;
-    border-radius: 4px;
+  .word.highlighted {
     cursor: pointer;
   }
   
@@ -463,27 +403,6 @@
     padding: 3px 6px;
     border-radius: 4px;
     background-color: rgba(156, 163, 175, 0.3);
-  }
-  
-  .drag-handle {
-    display: inline-block;
-    width: 4px;
-    height: 1.2em;
-    cursor: ew-resize;
-    opacity: 0;
-    transition: opacity 0.3s ease, background-color 0.2s ease;
-    background-color: rgba(0, 0, 0, 0.6);
-    border-radius: 2px;
-    vertical-align: baseline;
-  }
-  
-  .drag-handle:hover,
-  .drag-handle.visible {
-    opacity: 1;
-  }
-  
-  .drag-handle:hover {
-    background-color: rgba(0, 0, 0, 0.8);
   }
   
   .delete-popup {

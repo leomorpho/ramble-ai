@@ -30,4 +30,5 @@ node_modules/
 
 # Generated thumbnails
 thumbnails/
-
+database.db 
+temp*

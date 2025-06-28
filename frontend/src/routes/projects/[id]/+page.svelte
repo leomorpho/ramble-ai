@@ -15,7 +15,7 @@
     TabsList, 
     TabsTrigger 
   } from "$lib/components/ui/tabs";
-  import { GetProjectByID, UpdateProject, DeleteProject, CreateVideoClip, GetVideoClipsByProject, UpdateVideoClip, DeleteVideoClip, SelectVideoFiles, GetVideoFileInfo, GetVideoURL, TranscribeVideoClip, UpdateVideoClipHighlights } from "$lib/wailsjs/go/main/App";
+  import { GetProjectByID, UpdateProject, DeleteProject, CreateVideoClip, GetVideoClipsByProject, UpdateVideoClip, DeleteVideoClip, SelectVideoFiles, GetVideoFileInfo, GetVideoURL, TranscribeVideoClip, UpdateVideoClipHighlights, GetOpenAIApiKey } from "$lib/wailsjs/go/main/App";
   import { onMount } from "svelte";
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
@@ -124,10 +124,12 @@
     try {
       loadingClips = true;
       clipError = "";
-      videoClips = await GetVideoClipsByProject(projectId);
+      const clips = await GetVideoClipsByProject(projectId);
+      videoClips = clips || []; // Ensure it's always an array
     } catch (err) {
       console.error("Failed to load video clips:", err);
       clipError = "Failed to load video clips";
+      videoClips = []; // Set to empty array on error
     } finally {
       loadingClips = false;
     }
@@ -166,8 +168,8 @@
         if (file.path) {
           const newClip = await CreateVideoClip(projectId, file.path);
           // Check if this clip is already in our list
-          if (!videoClips.some(clip => clip.id === newClip.id)) {
-            videoClips = [...videoClips, newClip]; // Trigger reactivity
+          if (!videoClips || !videoClips.some(clip => clip.id === newClip.id)) {
+            videoClips = [...(videoClips || []), newClip]; // Trigger reactivity
           }
         } else {
           // For files without paths (browser drag & drop), show error
@@ -195,8 +197,8 @@
         try {
           const newClip = await CreateVideoClip(projectId, file.filePath);
           // Check if this clip is already in our list
-          if (!videoClips.some(clip => clip.id === newClip.id)) {
-            videoClips = [...videoClips, newClip]; // Trigger reactivity
+          if (!videoClips || !videoClips.some(clip => clip.id === newClip.id)) {
+            videoClips = [...(videoClips || []), newClip]; // Trigger reactivity
           }
         } catch (err) {
           console.error("Failed to add video clip:", err);
@@ -304,6 +306,20 @@
 
   async function startTranscription(clip) {
     try {
+      // Check if OpenAI API key is configured
+      const apiKey = await GetOpenAIApiKey();
+      if (!apiKey || apiKey.trim() === '') {
+        toast.error("OpenAI API Key Required", {
+          description: "Please configure your OpenAI API key in settings to use transcription."
+        });
+        
+        // Redirect to settings after a short delay
+        setTimeout(() => {
+          goto("/settings");
+        }, 2000);
+        return;
+      }
+      
       // Add clip to transcribing set
       transcribingClips.add(clip.id);
       transcribingClips = new Set(transcribingClips); // Trigger reactivity
