@@ -4,56 +4,271 @@
   
   let { text = '', words = [], initialHighlights = [], onHighlightsChange } = $props();
   
-  // State for highlights
+  // === CORE STATE ===
   let highlights = $state([]);
+  let usedColors = $state(new Set());
   
-  // Initialize highlights from props
-  $effect(() => {
-    if (initialHighlights && initialHighlights.length > 0) {
-      // Convert timestamp-based highlights to word-index-based highlights
-      const convertedHighlights = initialHighlights.map(h => {
-        const startIndex = findWordIndexByTimestamp(h.start);
-        const endIndex = findWordIndexByTimestamp(h.end);
-        return {
-          id: h.id,
-          start: startIndex,
-          end: endIndex,
-          color: h.color,
-          timestampStart: h.start,
-          timestampEnd: h.end
-        };
-      }).filter(h => h.start !== -1 && h.end !== -1);
-      
-      highlights = convertedHighlights;
-      
-      // Update colorIndex to continue from where we left off
-      if (convertedHighlights.length > 0) {
-        const usedColors = convertedHighlights.map(h => colors.indexOf(h.color)).filter(i => i !== -1);
-        colorIndex = usedColors.length > 0 ? Math.max(...usedColors) + 1 : 0;
-      }
-    }
-  });
+  // === SELECTION STATE ===
   let isSelecting = $state(false);
   let selectionStart = $state(null);
   let selectionEnd = $state(null);
-  let highlightId = $state(0);
+  
+  // === DRAG STATE ===
+  let isDragging = $state(false);
+  let dragTarget = $state(null); // { highlightId, type: 'start'|'end', originalBounds }
+  
+  // === UI STATE ===
   let showDeleteButton = $state(false);
   let deleteButtonHighlight = $state(null);
   let deleteButtonPosition = $state({ x: 0, y: 0 });
+  let showHandles = $state(null);
   
-  // State for resizing handles
-  let isDragging = $state(false);
-  let dragHighlight = $state(null);
-  let dragType = $state(null); // 'start' or 'end'
-  let originalHighlight = $state(null);
-  let hoveredHighlight = $state(null);
-  let showHandles = $state(null); // Track which highlight should show handles
+  // === PURE FUNCTIONS (TESTABLE) ===
   
-  // Color palette
-  const colors = ['#ffeb3b', '#81c784', '#64b5f6', '#ff8a65', '#f06292'];
-  let colorIndex = $state(0);
+  function generateUniqueColor() {
+    const baseColors = ['#ffeb3b', '#81c784', '#64b5f6', '#ff8a65', '#f06292'];
+    
+    // Try base colors first
+    for (const color of baseColors) {
+      if (!usedColors.has(color)) {
+        return color;
+      }
+    }
+    
+    // Generate random pastel color
+    const hue = Math.floor(Math.random() * 360);
+    const saturation = 45 + Math.random() * 30;
+    const lightness = 65 + Math.random() * 20;
+    return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+  }
   
-  // If no words provided, create simple word array from text
+  function createHighlight(start, end) {
+    return {
+      id: `highlight_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      start,
+      end,
+      color: generateUniqueColor()
+    };
+  }
+  
+  function isWordInHighlight(wordIndex, highlight) {
+    return wordIndex >= highlight.start && wordIndex <= highlight.end;
+  }
+  
+  function isWordInSelection(wordIndex) {
+    if (!isSelecting || selectionStart === null || selectionEnd === null) return false;
+    const start = Math.min(selectionStart, selectionEnd);
+    const end = Math.max(selectionStart, selectionEnd);
+    return wordIndex >= start && wordIndex <= end;
+  }
+  
+  function findHighlightForWord(wordIndex) {
+    return highlights.find(h => isWordInHighlight(wordIndex, h));
+  }
+  
+  function checkOverlap(start, end, excludeId = null) {
+    return highlights.some(h => 
+      h.id !== excludeId && 
+      start <= h.end && end >= h.start
+    );
+  }
+  
+  function calculateTimestamps(startIndex, endIndex) {
+    if (!words || words.length === 0) return { start: 0, end: 0 };
+    
+    const startWord = words[Math.max(0, Math.min(startIndex, words.length - 1))];
+    const endWord = words[Math.max(0, Math.min(endIndex, words.length - 1))];
+    
+    return {
+      start: startWord.start || 0,
+      end: endWord.end || 0
+    };
+  }
+  
+  function findWordByTimestamp(timestamp) {
+    if (!words || words.length === 0) return -1;
+    
+    // Find exact match
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+      if (word.start <= timestamp && timestamp <= word.end) {
+        return i;
+      }
+    }
+    
+    // Find closest by start time
+    let closestIndex = 0;
+    let minDistance = Math.abs(words[0].start - timestamp);
+    
+    for (let i = 1; i < words.length; i++) {
+      const distance = Math.abs(words[i].start - timestamp);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestIndex = i;
+      }
+    }
+    
+    return closestIndex;
+  }
+  
+  // === ACTIONS ===
+  
+  function addHighlight(start, end) {
+    const newHighlight = createHighlight(start, end);
+    highlights = [...highlights, newHighlight];
+    usedColors.add(newHighlight.color);
+    emitChanges();
+    return newHighlight;
+  }
+  
+  function removeHighlight(highlightId) {
+    const highlight = highlights.find(h => h.id === highlightId);
+    if (highlight) {
+      usedColors.delete(highlight.color);
+      usedColors = new Set(usedColors);
+    }
+    highlights = highlights.filter(h => h.id !== highlightId);
+    emitChanges();
+  }
+  
+  function updateHighlight(highlightId, newStart, newEnd) {
+    highlights = highlights.map(h => 
+      h.id === highlightId 
+        ? { ...h, start: newStart, end: newEnd }
+        : h
+    );
+  }
+  
+  function emitChanges() {
+    if (onHighlightsChange) {
+      const timestampHighlights = highlights.map(h => {
+        const timestamps = calculateTimestamps(h.start, h.end);
+        return {
+          id: h.id,
+          start: timestamps.start,
+          end: timestamps.end,
+          color: h.color
+        };
+      });
+      onHighlightsChange(timestampHighlights);
+    }
+  }
+  
+  // === EVENT HANDLERS ===
+  
+  function handleWordMouseDown(wordIndex, event) {
+    const existingHighlight = findHighlightForWord(wordIndex);
+    
+    if (existingHighlight) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    
+    // Start selection
+    isSelecting = true;
+    selectionStart = wordIndex;
+    selectionEnd = wordIndex;
+    showDeleteButton = false;
+    showHandles = null;
+  }
+  
+  function handleWordMouseEnter(wordIndex) {
+    if (isSelecting) {
+      selectionEnd = wordIndex;
+    }
+    
+    if (isDragging && dragTarget) {
+      const currentHighlight = highlights.find(h => h.id === dragTarget.highlightId);
+      if (!currentHighlight) return;
+      
+      const newStart = dragTarget.type === 'start' ? wordIndex : currentHighlight.start;
+      const newEnd = dragTarget.type === 'end' ? wordIndex : currentHighlight.end;
+      
+      if (newStart <= newEnd && !checkOverlap(newStart, newEnd, dragTarget.highlightId)) {
+        updateHighlight(dragTarget.highlightId, newStart, newEnd);
+      }
+    }
+  }
+  
+  function handleWordClick(wordIndex, event) {
+    const highlight = findHighlightForWord(wordIndex);
+    
+    if (highlight) {
+      const rect = event.target.getBoundingClientRect();
+      deleteButtonHighlight = highlight;
+      deleteButtonPosition = { 
+        x: rect.left + (rect.width / 2) - 40,
+        y: rect.top - 45
+      };
+      showDeleteButton = true;
+      event.stopPropagation();
+    }
+  }
+  
+  function handleMouseUp() {
+    if (isSelecting && selectionStart !== null && selectionEnd !== null) {
+      const start = Math.min(selectionStart, selectionEnd);
+      const end = Math.max(selectionStart, selectionEnd);
+      
+      if (start !== end && !checkOverlap(start, end)) {
+        addHighlight(start, end);
+      }
+    }
+    
+    if (isDragging) {
+      emitChanges();
+    }
+    
+    isSelecting = false;
+    selectionStart = null;
+    selectionEnd = null;
+    isDragging = false;
+    dragTarget = null;
+  }
+  
+  function handleHandleDrag(highlightId, type, event) {
+    const highlight = highlights.find(h => h.id === highlightId);
+    if (!highlight) return;
+    
+    isDragging = true;
+    dragTarget = {
+      highlightId,
+      type,
+      originalBounds: { start: highlight.start, end: highlight.end }
+    };
+    
+    showDeleteButton = false;
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  
+  function handleDeleteHighlight(highlightId) {
+    removeHighlight(highlightId);
+    showDeleteButton = false;
+    deleteButtonHighlight = null;
+  }
+  
+  // === INITIALIZATION ===
+  
+  $effect(() => {
+    if (initialHighlights && initialHighlights.length > 0) {
+      const convertedHighlights = initialHighlights
+        .map(h => ({
+          id: h.id,
+          start: findWordByTimestamp(h.start),
+          end: findWordByTimestamp(h.end),
+          color: h.color
+        }))
+        .filter(h => h.start !== -1 && h.end !== -1);
+      
+      highlights = convertedHighlights;
+      convertedHighlights.forEach(h => usedColors.add(h.color));
+    }
+  });
+  
+  // === WORD PROCESSING ===
+  
   let displayWords = $state([]);
   let groupedElements = $state([]);
   
@@ -61,7 +276,6 @@
     if (words && words.length > 0) {
       displayWords = words;
     } else if (text) {
-      // Simple word splitting
       const wordMatches = text.match(/\S+/g) || [];
       displayWords = wordMatches.map((word, index) => ({
         id: index,
@@ -76,7 +290,7 @@
     let i = 0;
     
     while (i < displayWords.length) {
-      const highlight = getWordHighlight(i);
+      const highlight = findHighlightForWord(i);
       
       if (highlight) {
         // Start of a highlight group
@@ -87,9 +301,12 @@
           startIndex: i
         };
         
-        // Collect all consecutive words with the same highlight
-        while (i < displayWords.length && getWordHighlight(i)?.id === highlight.id) {
-          group.words.push({ word: displayWords[i], index: i });
+        // Collect all consecutive words in this highlight
+        while (i < displayWords.length && findHighlightForWord(i)?.id === highlight.id) {
+          group.words.push({
+            word: displayWords[i],
+            index: i
+          });
           i++;
         }
         
@@ -108,236 +325,18 @@
     groupedElements = groups;
   });
   
-  function getWordHighlight(index) {
-    return highlights.find(h => index >= h.start && index <= h.end);
-  }
+  // === GLOBAL HANDLERS ===
   
-  function findWordIndexByTimestamp(timestamp) {
-    if (!words || words.length === 0) return -1;
-    
-    // Find the word whose timestamp range contains the given timestamp
-    for (let i = 0; i < words.length; i++) {
-      const word = words[i];
-      if (word.start <= timestamp && timestamp <= word.end) {
-        return i;
-      }
-    }
-    
-    // If no exact match, find the closest word
-    let closestIndex = -1;
-    let minDistance = Infinity;
-    
-    for (let i = 0; i < words.length; i++) {
-      const word = words[i];
-      const distance = Math.min(
-        Math.abs(word.start - timestamp),
-        Math.abs(word.end - timestamp)
-      );
-      
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestIndex = i;
-      }
-    }
-    
-    return closestIndex;
-  }
-  
-  function calculateTimestamps(startIndex, endIndex) {
-    if (!words || words.length === 0) {
-      return { start: 0, end: 0 };
-    }
-    
-    const startWord = words[Math.max(0, Math.min(startIndex, words.length - 1))];
-    const endWord = words[Math.max(0, Math.min(endIndex, words.length - 1))];
-    
-    return {
-      start: startWord.start || 0,
-      end: endWord.end || 0
-    };
-  }
-  
-  function emitHighlightsChange() {
-    if (onHighlightsChange) {
-      // Convert highlights back to timestamp-based format
-      const timestampHighlights = highlights.map(h => {
-        const timestamps = calculateTimestamps(h.start, h.end);
-        return {
-          id: h.id,
-          start: timestamps.start,
-          end: timestamps.end,
-          color: h.color
-        };
-      });
-      
-      onHighlightsChange(timestampHighlights);
-    }
-  }
-  
-  function isInSelection(index) {
-    if (!isSelecting || selectionStart === null || selectionEnd === null) return false;
-    const start = Math.min(selectionStart, selectionEnd);
-    const end = Math.max(selectionStart, selectionEnd);
-    return index >= start && index <= end;
-  }
-  
-  function handleMouseDown(index, event) {
-    const highlight = getWordHighlight(index);
-    
-    if (highlight) {
-      // Don't start selection on highlighted words
-      event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
-    
-    // Start new selection only on non-highlighted words
-    isSelecting = true;
-    selectionStart = index;
-    selectionEnd = index;
-    showDeleteButton = false;
-    showHandles = null; // Hide any visible handles
-  }
-  
-  function handleClick(index, event) {
-    const highlight = getWordHighlight(index);
-    
-    if (highlight) {
-      // Get the bounding rect of the clicked element
-      const rect = event.target.getBoundingClientRect();
-      
-      // Position delete button just above the clicked word
-      deleteButtonHighlight = highlight;
-      deleteButtonPosition = { 
-        x: rect.left + (rect.width / 2) - 40, // Center horizontally, offset for button width
-        y: rect.top - 45 // Position above the text
-      };
-      showDeleteButton = true;
-      event.stopPropagation();
-    }
-  }
-  
-  function handleMouseEnter(index) {
-    if (isSelecting) {
-      selectionEnd = index;
-    }
-  }
-  
-  function handleMouseUp() {
-    if (isSelecting && selectionStart !== null && selectionEnd !== null) {
-      const start = Math.min(selectionStart, selectionEnd);
-      const end = Math.max(selectionStart, selectionEnd);
-      
-      // Only create highlight if more than just a click (start != end)
-      if (start !== end) {
-        // Check for overlap - highlights cannot overlap
-        const hasOverlap = highlights.some(h => 
-          (start <= h.end && end >= h.start)
-        );
-        
-        if (!hasOverlap) {
-          const newHighlight = {
-            id: `highlight_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            start,
-            end,
-            color: colors[colorIndex % colors.length]
-          };
-          
-          highlights = [...highlights, newHighlight];
-          colorIndex++;
-          
-          // Emit changes
-          emitHighlightsChange();
-        }
-      }
-    }
-    
-    isSelecting = false;
-    selectionStart = null;
-    selectionEnd = null;
-  }
-  
-  function deleteHighlight(highlightId) {
-    highlights = highlights.filter(h => h.id !== highlightId);
-    showDeleteButton = false;
-    deleteButtonHighlight = null;
-    
-    // Emit changes
-    emitHighlightsChange();
-  }
-  
-  function startDrag(highlight, type, event) {
-    isDragging = true;
-    dragHighlight = highlight;
-    dragType = type;
-    originalHighlight = { ...highlight };
-    showDeleteButton = false;
-    event.stopPropagation();
-    event.preventDefault();
-  }
-  
-  function handleDragOver(index) {
-    if (!isDragging || !dragHighlight) return;
-    
-    const newStart = dragType === 'start' ? index : dragHighlight.start;
-    const newEnd = dragType === 'end' ? index : dragHighlight.end;
-    
-    // Validate the new range
-    if (newStart > newEnd) return;
-    
-    // Check for overlaps with other highlights
-    const hasOverlap = highlights.some(h => 
-      h.id !== dragHighlight.id && 
-      (newStart <= h.end && newEnd >= h.start)
-    );
-    
-    if (!hasOverlap) {
-      // Update the highlight
-      highlights = highlights.map(h => 
-        h.id === dragHighlight.id 
-          ? { ...h, start: newStart, end: newEnd }
-          : h
-      );
-      dragHighlight = { ...dragHighlight, start: newStart, end: newEnd };
-    }
-  }
-  
-  function stopDrag() {
-    if (isDragging && dragHighlight) {
-      // Emit changes only when drag is complete
-      emitHighlightsChange();
-    }
-    
-    isDragging = false;
-    dragHighlight = null;
-    dragType = null;
-    originalHighlight = null;
-  }
-  
-  // Global mouse up handler
   onMount(() => {
-    const handleGlobalMouseUp = () => {
-      if (isSelecting) {
-        handleMouseUp();
-      }
-      if (isDragging) {
-        stopDrag();
-      }
-    };
-    
-    const handleGlobalClick = (e) => {
-      // Hide delete button if clicking outside
+    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('click', (e) => {
       if (!e.target.closest('.delete-popup')) {
         showDeleteButton = false;
       }
-    };
-    
-    document.addEventListener('mouseup', handleGlobalMouseUp);
-    document.addEventListener('click', handleGlobalClick);
+    });
     
     return () => {
-      document.removeEventListener('mouseup', handleGlobalMouseUp);
-      document.removeEventListener('click', handleGlobalClick);
+      document.removeEventListener('mouseup', handleMouseUp);
     };
   });
 </script>
@@ -345,34 +344,34 @@
 <div class="highlighter">
   {#each groupedElements as group, groupIndex}
     {#if group.type === 'highlight'}
-      <!-- Start handle before first word -->
+      <!-- Highlight group with edge handles -->
+      {@const showThisHandle = showHandles === group.highlight.id}
+      
+      <!-- Start handle at left edge -->
       <span
         class="drag-handle drag-handle-start"
-        class:visible={showHandles === group.highlight.id}
-        onmousedown={(e) => startDrag(group.highlight, 'start', e)}
+        class:visible={showThisHandle}
+        onmousedown={(e) => handleHandleDrag(group.highlight.id, 'start', e)}
         onmouseenter={() => showHandles = group.highlight.id}
         onmouseleave={() => showHandles = null}
         title="Drag to resize highlight"
       ></span>
       
-      <!-- Highlight group - all words together -->
+      <!-- Highlight group -->
       <span 
         class="highlight-group"
         style:background-color={group.highlight.color}
-        onmousedown={(e) => handleMouseDown(group.startIndex, e)}
-        onclick={(e) => handleClick(group.startIndex, e)}
+        onmousedown={(e) => handleWordMouseDown(group.startIndex, e)}
+        onclick={(e) => handleWordClick(group.startIndex, e)}
         onmouseenter={() => showHandles = group.highlight.id}
         onmouseleave={() => showHandles = null}
       >
         {#each group.words as { word, index }, wordIndex}
-          {@const inSelection = isInSelection(index)}
+          {@const inSelection = isWordInSelection(index)}
           <span
             class="word highlighted"
             class:selecting={inSelection}
-            onmouseenter={() => {
-              handleMouseEnter(index);
-              handleDragOver(index);
-            }}
+            onmouseenter={() => handleWordMouseEnter(index)}
           >
             {word.word}
           </span>
@@ -380,39 +379,40 @@
         {/each}
       </span>
       
-      <!-- End handle after last word -->
+      <!-- End handle at right edge -->
       <span
         class="drag-handle drag-handle-end"
-        class:visible={showHandles === group.highlight.id}
-        onmousedown={(e) => startDrag(group.highlight, 'end', e)}
+        class:visible={showThisHandle}
+        onmousedown={(e) => handleHandleDrag(group.highlight.id, 'end', e)}
         onmouseenter={() => showHandles = group.highlight.id}
         onmouseleave={() => showHandles = null}
         title="Drag to resize highlight"
       ></span>
+      
+    {:else if isWordInSelection(group.index)}
+      <!-- Selection preview -->
+      <span class="selection-word">
+        {group.word.word}
+      </span>
+      
     {:else}
       <!-- Regular word -->
-      {@const inSelection = isInSelection(group.index)}
       <span
         class="word"
-        class:selecting={inSelection}
-        onmousedown={(e) => handleMouseDown(group.index, e)}
-        onmouseenter={() => {
-          handleMouseEnter(group.index);
-          handleDragOver(group.index);
-        }}
-        onclick={(e) => handleClick(group.index, e)}
-        style:background-color={inSelection ? 'rgba(100, 181, 246, 0.3)' : ''}
+        onmousedown={(e) => handleWordMouseDown(group.index, e)}
+        onmouseenter={() => handleWordMouseEnter(group.index)}
+        onclick={(e) => handleWordClick(group.index, e)}
       >
         {group.word.word}
       </span>
     {/if}
     
-    <!-- Add space between groups -->
+    <!-- Space between groups -->
     {#if groupIndex < groupedElements.length - 1}{' '}{/if}
   {/each}
 </div>
 
-<!-- Simple delete button popup -->
+<!-- Delete button popup -->
 {#if showDeleteButton && deleteButtonHighlight}
   <div 
     class="delete-popup"
@@ -422,7 +422,7 @@
     <Button
       variant="destructive"
       size="sm"
-      onclick={() => deleteHighlight(deleteButtonHighlight.id)}
+      onclick={() => handleDeleteHighlight(deleteButtonHighlight.id)}
       class="flex items-center gap-2"
     >
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -442,7 +442,13 @@
   .word {
     cursor: pointer;
     display: inline;
-    position: relative;
+  }
+  
+  .highlight-word {
+    display: inline;
+    padding: 3px 6px;
+    border-radius: 4px;
+    cursor: pointer;
   }
   
   .highlight-group {
@@ -452,22 +458,12 @@
     cursor: pointer;
   }
   
-  .highlight-group:hover {
-    /* When hovering highlight, show adjacent handles */
-  }
-  
-  .word.highlighted {
+  .selection-word {
     display: inline;
-    padding: 0;
-  }
-  
-  .word.selecting {
     padding: 3px 6px;
     border-radius: 4px;
-    background-color: rgba(100, 181, 246, 0.3);
-    transition: background-color 0.2s ease, padding 0.2s ease, transform 0.2s ease;
+    background-color: rgba(156, 163, 175, 0.3);
   }
-  
   
   .drag-handle {
     display: inline-block;
