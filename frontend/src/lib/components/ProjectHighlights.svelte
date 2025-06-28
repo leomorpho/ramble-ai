@@ -12,6 +12,7 @@
     DialogTitle 
   } from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button";
+  import SequentialPlayer from "$lib/components/SequentialPlayer.svelte";
 
   let { projectId, onHighlightClick = () => {} } = $props();
   
@@ -244,6 +245,7 @@
     videoURL = '';
   }
 
+
   // Expose refresh method
   export function refresh() {
     loadHighlights();
@@ -341,6 +343,9 @@
       {/each}
     </div>
   {/if}
+  
+  <!-- Sequential Player -->
+  <SequentialPlayer highlights={orderedHighlights} />
 </div>
 
 <!-- Video Player Dialog -->
