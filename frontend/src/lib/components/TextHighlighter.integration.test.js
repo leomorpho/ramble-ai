@@ -239,6 +239,122 @@ describe('TextHighlighter Integration Tests', () => {
     });
   });
 
+  describe('Highlight expansion functionality', () => {
+    it('should expand highlight to the right correctly', () => {
+      // Setup: highlight on words 1-2, then expand to include word 3
+      const originalHighlight = { id: 'h1', start: 1, end: 2, color: '#ffeb3b' };
+      const dragTarget = { highlightId: 'h1', originalStart: 1, originalEnd: 2 };
+      
+      // Test expansion preview: dragging from word 2 to word 3
+      const selectionStart = 2; // last word of original highlight
+      const selectionEnd = 3;   // new word to include
+      
+      // Only word 3 should show expansion preview (not already highlighted words)
+      expect(isWordInExpansionPreview(0, dragTarget, selectionStart, selectionEnd)).toBe(false); // before range
+      expect(isWordInExpansionPreview(1, dragTarget, selectionStart, selectionEnd)).toBe(false); // in original
+      expect(isWordInExpansionPreview(2, dragTarget, selectionStart, selectionEnd)).toBe(false); // in original
+      expect(isWordInExpansionPreview(3, dragTarget, selectionStart, selectionEnd)).toBe(true);  // new expansion
+      expect(isWordInExpansionPreview(4, dragTarget, selectionStart, selectionEnd)).toBe(false); // after range
+    });
+
+    it('should expand highlight to the left correctly', () => {
+      // Setup: highlight on words 2-3, then expand to include word 1
+      const originalHighlight = { id: 'h1', start: 2, end: 3, color: '#ffeb3b' };
+      const dragTarget = { highlightId: 'h1', originalStart: 2, originalEnd: 3 };
+      
+      // Test expansion preview: dragging from word 2 to word 1
+      const selectionStart = 2; // first word of original highlight
+      const selectionEnd = 1;   // new word to include (to the left)
+      
+      // Only word 1 should show expansion preview
+      expect(isWordInExpansionPreview(0, dragTarget, selectionStart, selectionEnd)).toBe(false); // before range
+      expect(isWordInExpansionPreview(1, dragTarget, selectionStart, selectionEnd)).toBe(true);  // new expansion
+      expect(isWordInExpansionPreview(2, dragTarget, selectionStart, selectionEnd)).toBe(false); // in original
+      expect(isWordInExpansionPreview(3, dragTarget, selectionStart, selectionEnd)).toBe(false); // in original
+      expect(isWordInExpansionPreview(4, dragTarget, selectionStart, selectionEnd)).toBe(false); // after range
+    });
+
+    it('should expand highlight in both directions correctly', () => {
+      // Setup: highlight on word 2, then expand to include words 1 and 3
+      const originalHighlight = { id: 'h1', start: 2, end: 2, color: '#ffeb3b' };
+      const dragTarget = { highlightId: 'h1', originalStart: 2, originalEnd: 2 };
+      
+      // Test expansion preview: dragging from word 2 to span words 1-3
+      const selectionStart = 1; // expand left
+      const selectionEnd = 3;   // expand right
+      
+      // Words 1 and 3 should show expansion preview, word 2 should not (already highlighted)
+      expect(isWordInExpansionPreview(0, dragTarget, selectionStart, selectionEnd)).toBe(false); // before range
+      expect(isWordInExpansionPreview(1, dragTarget, selectionStart, selectionEnd)).toBe(true);  // new expansion left
+      expect(isWordInExpansionPreview(2, dragTarget, selectionStart, selectionEnd)).toBe(false); // in original
+      expect(isWordInExpansionPreview(3, dragTarget, selectionStart, selectionEnd)).toBe(true);  // new expansion right
+      expect(isWordInExpansionPreview(4, dragTarget, selectionStart, selectionEnd)).toBe(false); // after range
+    });
+
+    it('should not show expansion preview when not in drag expansion mode', () => {
+      const dragTarget = { highlightId: 'h1', originalStart: 1, originalEnd: 2 };
+      const selectionStart = 1;
+      const selectionEnd = 3;
+      
+      // Without dragExpansion flag, should return false
+      expect(isWordInExpansionPreview(3, null, selectionStart, selectionEnd)).toBe(false);
+      expect(isWordInExpansionPreview(3, dragTarget, null, selectionEnd)).toBe(false);
+      expect(isWordInExpansionPreview(3, dragTarget, selectionStart, null)).toBe(false);
+    });
+
+    it('should handle expansion with reversed selection correctly', () => {
+      // Setup: highlight on words 2-3, selection from 4 back to 1
+      const dragTarget = { highlightId: 'h1', originalStart: 2, originalEnd: 3 };
+      const selectionStart = 4; // drag starts from right
+      const selectionEnd = 1;   // drag ends on left
+      
+      // Words 1 and 4 should show expansion preview
+      expect(isWordInExpansionPreview(1, dragTarget, selectionStart, selectionEnd)).toBe(true);  // new expansion
+      expect(isWordInExpansionPreview(2, dragTarget, selectionStart, selectionEnd)).toBe(false); // in original
+      expect(isWordInExpansionPreview(3, dragTarget, selectionStart, selectionEnd)).toBe(false); // in original
+      expect(isWordInExpansionPreview(4, dragTarget, selectionStart, selectionEnd)).toBe(true);  // new expansion
+    });
+
+    it('should prevent expansion when it would cause overlap', () => {
+      const highlights = [
+        { id: 'h1', start: 2, end: 3, color: '#ffeb3b' },
+        { id: 'h2', start: 5, end: 6, color: '#81c784' }
+      ];
+      
+      // Try to expand h1 to overlap with h2
+      const newStartTime = 2.0; // original start of h1
+      const newEndTime = 5.5;   // would overlap with h2
+      
+      expect(checkOverlap(newStartTime, newEndTime, highlights, 'h1')).toBe(true);
+      
+      // But expansion that doesn't overlap should be allowed
+      const safeEndTime = 4.9;
+      expect(checkOverlap(newStartTime, safeEndTime, highlights, 'h1')).toBe(false);
+    });
+  });
+
+  // Helper function for expansion preview tests
+  function isWordInExpansionPreview(wordIndex, dragTarget, selectionStart, selectionEnd) {
+    if (!dragTarget || selectionStart === null || selectionEnd === null) return false;
+    
+    // Get the original highlight bounds
+    const originalStart = Math.min(dragTarget.originalStart, dragTarget.originalEnd);
+    const originalEnd = Math.max(dragTarget.originalStart, dragTarget.originalEnd);
+    
+    // Get the current selection bounds
+    const selStart = Math.min(selectionStart, selectionEnd);
+    const selEnd = Math.max(selectionStart, selectionEnd);
+    
+    // Check if word is in the original highlight
+    const inOriginal = wordIndex >= originalStart && wordIndex <= originalEnd;
+    
+    // Check if word is in the current selection
+    const inSelection = wordIndex >= selStart && wordIndex <= selEnd;
+    
+    // Show expansion preview only for words in selection that are NOT in original highlight
+    return inSelection && !inOriginal;
+  }
+
   describe('Performance characteristics', () => {
     it('should handle large datasets efficiently', () => {
       // Create large dataset
