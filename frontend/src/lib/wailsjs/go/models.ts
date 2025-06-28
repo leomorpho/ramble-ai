@@ -18,6 +18,26 @@ export namespace main {
 	        this.color = source["color"];
 	    }
 	}
+	export class HighlightWithText {
+	    id: string;
+	    start: number;
+	    end: number;
+	    color: string;
+	    text: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new HighlightWithText(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.start = source["start"];
+	        this.end = source["end"];
+	        this.color = source["color"];
+	        this.text = source["text"];
+	    }
+	}
 	export class LocalVideoFile {
 	    name: string;
 	    filePath: string;
@@ -39,6 +59,44 @@ export namespace main {
 	        this.format = source["format"];
 	        this.exists = source["exists"];
 	    }
+	}
+	export class ProjectHighlight {
+	    videoClipId: number;
+	    videoClipName: string;
+	    filePath: string;
+	    duration: number;
+	    highlights: HighlightWithText[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectHighlight(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.videoClipId = source["videoClipId"];
+	        this.videoClipName = source["videoClipName"];
+	        this.filePath = source["filePath"];
+	        this.duration = source["duration"];
+	        this.highlights = this.convertValues(source["highlights"], HighlightWithText);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class ProjectResponse {
 	    id: number;

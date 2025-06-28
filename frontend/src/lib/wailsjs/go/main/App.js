@@ -38,6 +38,14 @@ export function GetProjectByID(arg1) {
   return window['go']['main']['App']['GetProjectByID'](arg1);
 }
 
+export function GetProjectHighlightOrder(arg1) {
+  return window['go']['main']['App']['GetProjectHighlightOrder'](arg1);
+}
+
+export function GetProjectHighlights(arg1) {
+  return window['go']['main']['App']['GetProjectHighlights'](arg1);
+}
+
 export function GetProjects() {
   return window['go']['main']['App']['GetProjects']();
 }
@@ -92,6 +100,10 @@ export function TranscribeVideoClip(arg1) {
 
 export function UpdateProject(arg1, arg2, arg3) {
   return window['go']['main']['App']['UpdateProject'](arg1, arg2, arg3);
+}
+
+export function UpdateProjectHighlightOrder(arg1, arg2) {
+  return window['go']['main']['App']['UpdateProjectHighlightOrder'](arg1, arg2);
 }
 
 export function UpdateVideoClip(arg1, arg2, arg3) {

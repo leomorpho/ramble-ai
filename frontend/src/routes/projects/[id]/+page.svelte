@@ -21,6 +21,7 @@
   import { goto } from "$app/navigation";
   import { toast } from "svelte-sonner";
   import TextHighlighter from "$lib/components/TextHighlighter.svelte";
+  import ProjectHighlights from "$lib/components/ProjectHighlights.svelte";
 
   let project = $state(null);
   let loading = $state(false);
@@ -48,6 +49,9 @@
   let transcriptionDialogOpen = $state(false);
   let transcriptionVideo = $state(null);
   let transcribingClips = $state(new Set());
+  
+  // Highlights component reference
+  let projectHighlightsComponent = $state(null);
 
   // Get project ID from route params
   let projectId = $derived(parseInt($page.params.id));
@@ -271,6 +275,11 @@
     try {
       await DeleteVideoClip(clipId);
       videoClips = videoClips.filter(clip => clip.id !== clipId);
+      
+      // Refresh highlights timeline after deletion
+      if (projectHighlightsComponent) {
+        projectHighlightsComponent.refresh();
+      }
     } catch (err) {
       console.error("Failed to delete video clip:", err);
       clipError = "Failed to delete video clip";
@@ -349,6 +358,11 @@
         toast.success(`Transcription completed for ${clip.name}`, {
           description: "Transcript is now available to view"
         });
+        
+        // Refresh highlights timeline since new transcription might have highlights
+        if (projectHighlightsComponent) {
+          projectHighlightsComponent.refresh();
+        }
       } else {
         // Show error toast
         toast.error(`Transcription failed for ${clip.name}`, {
@@ -393,6 +407,11 @@
         ...transcriptionVideo,
         highlights: highlights
       };
+      
+      // Refresh the highlights timeline
+      if (projectHighlightsComponent) {
+        projectHighlightsComponent.refresh();
+      }
     } catch (err) {
       console.error("Failed to save highlights:", err);
       toast.error("Failed to save highlights", {
@@ -799,6 +818,20 @@
               </div>
             {/if}
           </div>
+          
+          <!-- Highlights Timeline section -->
+          {#if project}
+            <div class="mt-8">
+              <ProjectHighlights 
+                bind:this={projectHighlightsComponent}
+                projectId={projectId}
+                onHighlightClick={(highlight) => {
+                  console.log('Highlight clicked:', highlight);
+                  // The video playback is now handled internally by the ProjectHighlights component
+                }}
+              />
+            </div>
+          {/if}
         </div>
       </div>
     {:else if !loading}

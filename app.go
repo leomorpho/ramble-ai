@@ -1359,3 +1359,177 @@ func (a *App) UpdateVideoClipHighlights(clipID int, highlights []Highlight) erro
 
 	return nil
 }
+
+// HighlightWithText represents a highlight with its text content
+type HighlightWithText struct {
+	ID    string  `json:"id"`
+	Start float64 `json:"start"`
+	End   float64 `json:"end"`
+	Color string  `json:"color"`
+	Text  string  `json:"text"`
+}
+
+// ProjectHighlight represents a highlight with its video clip information
+type ProjectHighlight struct {
+	VideoClipID   int                 `json:"videoClipId"`
+	VideoClipName string              `json:"videoClipName"`
+	FilePath      string              `json:"filePath"`
+	Duration      float64             `json:"duration"`
+	Highlights    []HighlightWithText `json:"highlights"`
+}
+
+// GetProjectHighlights returns all highlights from all video clips in a project
+func (a *App) GetProjectHighlights(projectID int) ([]ProjectHighlight, error) {
+	// Get all video clips for the project with their highlights
+	clips, err := a.client.VideoClip.
+		Query().
+		Where(videoclip.HasProjectWith(project.ID(projectID))).
+		All(a.ctx)
+	
+	if err != nil {
+		return nil, fmt.Errorf("failed to get video clips: %w", err)
+	}
+
+	var projectHighlights []ProjectHighlight
+	
+	for _, clip := range clips {
+		// Skip clips without highlights
+		if len(clip.Highlights) == 0 {
+			continue
+		}
+
+		// Convert schema highlights to highlights with text
+		var highlightsWithText []HighlightWithText
+		for _, h := range clip.Highlights {
+			hwt := HighlightWithText{
+				ID:    h.ID,
+				Start: h.Start,
+				End:   h.End,
+				Color: h.Color,
+			}
+			
+			// Extract text for the highlight if transcription exists
+			if clip.Transcription != "" && len(clip.TranscriptionWords) > 0 {
+				hwt.Text = a.extractHighlightText(h, clip.TranscriptionWords, clip.Transcription)
+			}
+			
+			highlightsWithText = append(highlightsWithText, hwt)
+		}
+
+		projectHighlight := ProjectHighlight{
+			VideoClipID:   clip.ID,
+			VideoClipName: clip.Name,
+			FilePath:      clip.FilePath,
+			Duration:      clip.Duration,
+			Highlights:    highlightsWithText,
+		}
+		
+		projectHighlights = append(projectHighlights, projectHighlight)
+	}
+
+	return projectHighlights, nil
+}
+
+// extractHighlightText extracts the text for a highlight based on word timestamps
+func (a *App) extractHighlightText(highlight schema.Highlight, words []schema.Word, fullText string) string {
+	if len(words) == 0 {
+		return ""
+	}
+
+	// Find words within the highlight's time range
+	var highlightWords []string
+	for _, word := range words {
+		// Check if word falls within highlight time range
+		if word.Start >= highlight.Start && word.End <= highlight.End {
+			highlightWords = append(highlightWords, word.Word)
+		} else if word.Start < highlight.End && word.End > highlight.Start {
+			// Partial overlap - include the word
+			highlightWords = append(highlightWords, word.Word)
+		}
+	}
+
+	if len(highlightWords) > 0 {
+		text := strings.Join(highlightWords, " ")
+		// Limit text length for display
+		if len(text) > 100 {
+			return text[:97] + "..."
+		}
+		return text
+	}
+
+	// Fallback: extract from full text if no word-level data
+	// This is a rough approximation
+	if fullText != "" && len(fullText) > 50 {
+		return fullText[:47] + "..."
+	}
+	
+	return fullText
+}
+
+// UpdateProjectHighlightOrder updates the custom order of highlights for a project
+func (a *App) UpdateProjectHighlightOrder(projectID int, highlightOrder []string) error {
+	// For now, we'll store this in the project's settings
+	// In a real implementation, you might want a separate table for this
+	
+	orderJSON, err := json.Marshal(highlightOrder)
+	if err != nil {
+		return fmt.Errorf("failed to marshal highlight order: %w", err)
+	}
+
+	// Check if settings exist for this key
+	settingKey := fmt.Sprintf("project_%d_highlight_order", projectID)
+	existingSettings, err := a.client.Settings.
+		Query().
+		Where(settings.Key(settingKey)).
+		First(a.ctx)
+
+	if err != nil && !ent.IsNotFound(err) {
+		return fmt.Errorf("failed to query settings: %w", err)
+	}
+
+	if existingSettings != nil {
+		// Update existing settings
+		_, err = existingSettings.Update().
+			SetValue(string(orderJSON)).
+			Save(a.ctx)
+	} else {
+		// Create new settings
+		_, err = a.client.Settings.
+			Create().
+			SetKey(settingKey).
+			SetValue(string(orderJSON)).
+			Save(a.ctx)
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to save highlight order: %w", err)
+	}
+
+	return nil
+}
+
+// GetProjectHighlightOrder retrieves the custom highlight order for a project
+func (a *App) GetProjectHighlightOrder(projectID int) ([]string, error) {
+	settingKey := fmt.Sprintf("project_%d_highlight_order", projectID)
+	
+	setting, err := a.client.Settings.
+		Query().
+		Where(settings.Key(settingKey)).
+		First(a.ctx)
+	
+	if err != nil {
+		if ent.IsNotFound(err) {
+			// No custom order exists
+			return []string{}, nil
+		}
+		return nil, fmt.Errorf("failed to get highlight order: %w", err)
+	}
+
+	var order []string
+	err = json.Unmarshal([]byte(setting.Value), &order)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal highlight order: %w", err)
+	}
+
+	return order, nil
+}

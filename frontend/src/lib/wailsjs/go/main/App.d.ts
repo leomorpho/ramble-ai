@@ -20,6 +20,10 @@ export function GetOpenAIApiKey():Promise<string>;
 
 export function GetProjectByID(arg1:number):Promise<main.ProjectResponse>;
 
+export function GetProjectHighlightOrder(arg1:number):Promise<Array<string>>;
+
+export function GetProjectHighlights(arg1:number):Promise<Array<main.ProjectHighlight>>;
+
 export function GetProjects():Promise<Array<main.ProjectResponse>>;
 
 export function GetSetting(arg1:string):Promise<string>;
@@ -47,6 +51,8 @@ export function TestOpenAIApiKey():Promise<main.TestOpenAIApiKeyResponse>;
 export function TranscribeVideoClip(arg1:number):Promise<main.TranscriptionResponse>;
 
 export function UpdateProject(arg1:number,arg2:string,arg3:string):Promise<main.ProjectResponse>;
+
+export function UpdateProjectHighlightOrder(arg1:number,arg2:Array<string>):Promise<void>;
 
 export function UpdateVideoClip(arg1:number,arg2:string,arg3:string):Promise<main.VideoClipResponse>;
 
