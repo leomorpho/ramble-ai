@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { GetVideoURL } from '$lib/wailsjs/go/main/App';
   import { toast } from 'svelte-sonner';
-  import VideoDisplay from './VideoDisplay.svelte';
+  import VideoPlayerPool from './VideoPlayerPool.svelte';
   import PlaybackTimeline from './PlaybackTimeline.svelte';
   import PlaybackControls from './PlaybackControls.svelte';
   import CurrentHighlightInfo from './CurrentHighlightInfo.svelte';
@@ -11,19 +11,20 @@
   
   // Player state
   let isPlaying = $state(false);
-  let isPaused = $state(false); // Separate reactive state for play/pause
+  let isPaused = $state(false);
   let currentHighlightIndex = $state(0);
-  let videoElements = $state([]);
-  let currentVideoElement = $state(null);
-  let displayVideoElement = $state(null); // Visible video element for UI
-  let loadedVideos = $state(new Set());
+  let videoURLs = $state(new Map()); // Map of filePath -> videoURL
   let loadingProgress = $state(0);
   let allVideosLoaded = $state(false);
   
+  // Video pool management
+  let videoPoolAPI = $state(null);
+  let preloadingNextSegment = $state(false);
+  
   // Progress tracking
-  let virtualTime = $state(0); // Time position in the virtual stitched video
+  let virtualTime = $state(0);
   let totalVirtualDuration = $state(0);
-  let segmentStartTimes = $state([]); // Start time of each segment in virtual timeline
+  let segmentStartTimes = $state([]);
   
   // Animation frame for smooth progress updates
   let animationFrame = null;
@@ -49,17 +50,14 @@
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   }
 
-  // Preload all videos
-  async function preloadVideos() {
+  // Load video URLs only (no complex preloading)
+  async function loadVideoURLs() {
     if (highlights.length === 0) return;
     
     loadingProgress = 0;
-    loadedVideos.clear();
-    videoElements = [];
+    videoURLs.clear();
     
     const uniqueVideos = new Map();
-    
-    // Group highlights by video file to avoid loading same video multiple times
     for (const highlight of highlights) {
       if (!uniqueVideos.has(highlight.filePath)) {
         uniqueVideos.set(highlight.filePath, highlight);
@@ -72,39 +70,13 @@
     for (const highlight of videoFiles) {
       try {
         const videoURL = await GetVideoURL(highlight.filePath);
-        
-        // Create video element
-        const video = document.createElement('video');
-        video.preload = 'auto';
-        video.style.display = 'none';
-        document.body.appendChild(video);
-        
-        // Wait for video to load
-        await new Promise((resolve, reject) => {
-          video.onloadeddata = () => {
-            loadedVideos.add(highlight.filePath);
-            loadedCount++;
-            loadingProgress = (loadedCount / videoFiles.length) * 100;
-            resolve();
-          };
-          
-          video.onerror = () => {
-            console.error(`Failed to load video: ${highlight.filePath}`);
-            reject(new Error(`Failed to load ${highlight.videoClipName}`));
-          };
-          
-          video.src = videoURL;
-        });
-        
-        videoElements.push({
-          filePath: highlight.filePath,
-          element: video
-        });
-        
+        videoURLs.set(highlight.filePath, videoURL);
+        loadedCount++;
+        loadingProgress = (loadedCount / videoFiles.length) * 100;
       } catch (err) {
-        console.error('Error preloading video:', err);
+        console.error('Error loading video URL for:', highlight.filePath, err);
         toast.error('Failed to load video', {
-          description: `Could not load ${highlight.videoClipName}`
+          description: `Could not load ${highlight.videoClipName}: ${err.message}`
         });
       }
     }
@@ -112,178 +84,145 @@
     allVideosLoaded = loadedCount === videoFiles.length;
     
     if (allVideosLoaded) {
-      toast.success('All videos loaded!', {
-        description: 'Ready for seamless playback'
-      });
+      toast.success('All videos ready!');
     }
   }
 
-  // Get video element for a specific file path
-  function getVideoElement(filePath) {
-    const videoData = videoElements.find(v => v.filePath === filePath);
-    return videoData ? videoData.element : null;
+  // Handle video pool ready
+  function handleVideoPoolReady(api) {
+    videoPoolAPI = api;
+    console.log('Video pool ready');
+    
+    // Load first video if everything is ready
+    if (allVideosLoaded && highlights.length > 0) {
+      loadFirstVideo();
+    }
   }
+
+  // Watch for when everything is ready
+  $effect(() => {
+    if (videoPoolAPI && allVideosLoaded && highlights.length > 0) {
+      // Load first video into pool when ready
+      videoPoolAPI.loadVideoIntoPlayer(0, 0);
+    }
+  });
 
   // Start playing the sequence
   async function startPlayback() {
     if (!allVideosLoaded) {
-      toast.error('Videos still loading', {
-        description: 'Please wait for all videos to finish loading'
-      });
+      toast.error('Videos still loading');
       return;
     }
     
     if (highlights.length === 0) return;
+    
+    if (!videoPoolAPI) {
+      toast.error('Video player not ready');
+      return;
+    }
     
     currentHighlightIndex = 0;
     virtualTime = 0;
     isPlaying = true;
     isPaused = false;
     
-    await playCurrentHighlight();
-    startProgressTracking();
+    // Switch to first player and start playing
+    const success = videoPoolAPI.switchToPlayer(0);
+    if (success) {
+      startProgressTracking();
+      preloadNextSegments();
+    } else {
+      toast.error('Failed to start playback');
+      stopPlayback();
+    }
   }
 
-  // Play the current highlight
-  async function playCurrentHighlight() {
-    if (currentHighlightIndex >= highlights.length) {
-      stopPlayback();
-      return;
-    }
+  // Preload next segments for seamless playback
+  async function preloadNextSegments() {
+    if (!videoPoolAPI || preloadingNextSegment) return;
     
-    const highlight = highlights[currentHighlightIndex];
-    const video = getVideoElement(highlight.filePath);
+    preloadingNextSegment = true;
     
-    if (!video) {
-      console.error('Video element not found for:', highlight.filePath);
-      await playNextHighlight();
-      return;
-    }
-    
-    // Set current video element
-    currentVideoElement = video;
-    
-    // Update visible video element source and sync
-    if (displayVideoElement) {
-      // Pause and reset display video first to avoid conflicts
-      displayVideoElement.pause();
-      displayVideoElement.ontimeupdate = null;
+    try {
+      console.log(`Preloading segments after ${currentHighlightIndex}`);
       
-      // Only update src if it's different to avoid reloading
-      if (displayVideoElement.src !== video.src) {
-        displayVideoElement.src = video.src;
-        // Wait for the video to be ready with timeout
-        await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => {
-            reject(new Error('Video load timeout'));
-          }, 3000);
-          
-          const cleanup = () => {
-            clearTimeout(timeout);
-            displayVideoElement.onloadeddata = null;
-            displayVideoElement.oncanplay = null;
-            displayVideoElement.onerror = null;
-          };
-          
-          displayVideoElement.onloadeddata = () => {
-            cleanup();
-            resolve();
-          };
-          displayVideoElement.oncanplay = () => {
-            cleanup();
-            resolve();
-          };
-          displayVideoElement.onerror = () => {
-            cleanup();
-            reject(new Error('Video load error'));
-          };
-        }).catch(err => {
-          console.warn('Video loading issue:', err);
-        });
-      }
-      
-      // Set start times
-      displayVideoElement.currentTime = highlight.start;
-      video.currentTime = highlight.start;
-      
-      // Set up time update handler on both elements
-      video.ontimeupdate = handleVideoTimeUpdate;
-      displayVideoElement.ontimeupdate = handleDisplayVideoUpdate;
-      
-      // Sync play state
-      try {
-        await video.play();
-        await displayVideoElement.play();
-        isPaused = false;
-      } catch (err) {
-        console.error('Error playing video:', err);
-        if (err.name !== 'AbortError') {
-          await playNextHighlight();
+      // Load next segment into next available player
+      if (currentHighlightIndex + 1 < highlights.length) {
+        // Check if next segment is already loaded
+        let nextAlreadyLoaded = false;
+        for (let i = 0; i < 3; i++) {
+          if (videoPoolAPI.isPlayerReady(i, currentHighlightIndex + 1)) {
+            nextAlreadyLoaded = true;
+            break;
+          }
+        }
+        
+        if (!nextAlreadyLoaded) {
+          const nextPlayerIndex = videoPoolAPI.getNextAvailablePlayer();
+          if (nextPlayerIndex >= 0) {
+            console.log(`Preloading segment ${currentHighlightIndex + 1} into player ${nextPlayerIndex}`);
+            await videoPoolAPI.loadVideoIntoPlayer(nextPlayerIndex, currentHighlightIndex + 1);
+          }
         }
       }
-    } else {
-      // Fallback to hidden video only
-      video.currentTime = highlight.start;
-      video.ontimeupdate = handleVideoTimeUpdate;
       
-      try {
-        await video.play();
-        isPaused = false;
-      } catch (err) {
-        console.error('Error playing video:', err);
-        if (err.name !== 'AbortError') {
-          await playNextHighlight();
+      // Load segment after next if available
+      if (currentHighlightIndex + 2 < highlights.length) {
+        let bufferAlreadyLoaded = false;
+        for (let i = 0; i < 3; i++) {
+          if (videoPoolAPI.isPlayerReady(i, currentHighlightIndex + 2)) {
+            bufferAlreadyLoaded = true;
+            break;
+          }
+        }
+        
+        if (!bufferAlreadyLoaded) {
+          const bufferPlayerIndex = videoPoolAPI.getNextAvailablePlayer();
+          if (bufferPlayerIndex >= 0) {
+            console.log(`Preloading segment ${currentHighlightIndex + 2} into player ${bufferPlayerIndex}`);
+            await videoPoolAPI.loadVideoIntoPlayer(bufferPlayerIndex, currentHighlightIndex + 2);
+          }
         }
       }
+    } catch (err) {
+      console.error('Error preloading segments:', err);
+    } finally {
+      preloadingNextSegment = false;
     }
   }
 
   // Handle video time updates
-  function handleVideoTimeUpdate() {
-    if (!currentVideoElement || !isPlaying) return;
+  function handleVideoTimeUpdate(event) {
+    if (!isPlaying || !videoPoolAPI) return;
     
     const highlight = highlights[currentHighlightIndex];
     if (!highlight) return;
     
-    const currentTime = currentVideoElement.currentTime;
+    const activePlayer = videoPoolAPI.getActivePlayer();
+    if (!activePlayer) return;
     
-    // Sync display video if it exists
-    if (displayVideoElement && Math.abs(displayVideoElement.currentTime - currentTime) > 0.1) {
-      displayVideoElement.currentTime = currentTime;
-    }
+    const currentTime = event.target.currentTime;
+    
+    console.log(`Time update: ${currentTime.toFixed(2)}s, segment ends at ${highlight.end}s`);
     
     // Check if we've reached the end of the current highlight
-    if (currentTime >= highlight.end) {
+    if (currentTime >= highlight.end - 0.1) { // Small buffer for timing precision
+      console.log('Segment ended, switching to next highlight');
       playNextHighlight();
+      return;
     }
-  }
-
-  // Handle display video updates (keep in sync with hidden video)
-  function handleDisplayVideoUpdate() {
-    if (!displayVideoElement || !currentVideoElement || !isPlaying) return;
     
-    const displayTime = displayVideoElement.currentTime;
-    
-    // Sync hidden video if it exists
-    if (Math.abs(currentVideoElement.currentTime - displayTime) > 0.1) {
-      currentVideoElement.currentTime = displayTime;
+    // Preload next segments when approaching end (3 seconds before for better timing)
+    const timeToEnd = highlight.end - currentTime;
+    if (timeToEnd <= 3 && !preloadingNextSegment) {
+      console.log('Preloading next segments');
+      preloadNextSegments();
     }
   }
 
   // Seek to a specific time in the virtual timeline
   async function seekToTime(targetSegmentIndex, segmentTime) {
     if (targetSegmentIndex < 0 || targetSegmentIndex >= highlights.length) return;
-    
-    // Stop current playback
-    if (currentVideoElement) {
-      currentVideoElement.pause();
-      currentVideoElement.ontimeupdate = null;
-    }
-    
-    if (displayVideoElement) {
-      displayVideoElement.pause();
-      displayVideoElement.ontimeupdate = null;
-    }
     
     // Update current segment
     currentHighlightIndex = targetSegmentIndex;
@@ -293,32 +232,23 @@
     // Update virtual time
     virtualTime = segmentStartTimes[currentHighlightIndex] + (seekTime - highlight.start);
     
-    // If we were playing, continue playing from the new position
-    if (isPlaying) {
-      await playCurrentHighlight();
-      
-      // Seek to the specific time within the segment
-      if (currentVideoElement) {
-        currentVideoElement.currentTime = seekTime;
-      }
-      if (displayVideoElement) {
-        displayVideoElement.currentTime = seekTime;
+    // If we were playing, load the segment and seek
+    if (isPlaying && videoPoolAPI) {
+      // Load the target segment into active player
+      const success = await videoPoolAPI.loadVideoIntoPlayer(0, targetSegmentIndex);
+      if (success) {
+        const activePlayer = videoPoolAPI.getActivePlayer();
+        if (activePlayer) {
+          videoPoolAPI.switchToPlayer(activePlayer.index);
+          // The seek time is already set during loading in the pool
+        }
       }
     }
   }
 
   // Play next highlight
   async function playNextHighlight() {
-    if (currentVideoElement) {
-      currentVideoElement.pause();
-      currentVideoElement.ontimeupdate = null;
-    }
-    
-    if (displayVideoElement) {
-      displayVideoElement.pause();
-      displayVideoElement.ontimeupdate = null;
-    }
-    
+    const previousIndex = currentHighlightIndex;
     currentHighlightIndex++;
     
     if (currentHighlightIndex >= highlights.length) {
@@ -327,45 +257,68 @@
       return;
     }
     
-    await playCurrentHighlight();
+    console.log(`Switching from highlight ${previousIndex} to ${currentHighlightIndex}`);
+    
+    // Switch to next available player with preloaded content
+    if (videoPoolAPI) {
+      // First, check if any player already has this segment loaded
+      for (let i = 0; i < 3; i++) {
+        if (videoPoolAPI.isPlayerReady(i, currentHighlightIndex)) {
+          console.log(`Found preloaded segment ${currentHighlightIndex} in player ${i}`);
+          const success = videoPoolAPI.switchToPlayer(i);
+          if (success) {
+            preloadNextSegments(); // Continue preloading
+            return;
+          }
+        }
+      }
+      
+      // No preloaded segment found, load into next available player
+      const nextPlayerIndex = videoPoolAPI.getNextAvailablePlayer();
+      if (nextPlayerIndex >= 0) {
+        console.log(`Loading segment ${currentHighlightIndex} into player ${nextPlayerIndex}`);
+        const success = await videoPoolAPI.loadVideoIntoPlayer(nextPlayerIndex, currentHighlightIndex);
+        if (success) {
+          videoPoolAPI.switchToPlayer(nextPlayerIndex);
+          preloadNextSegments();
+        } else {
+          console.error(`Failed to load segment ${currentHighlightIndex}`);
+        }
+      } else {
+        console.error('No available player found');
+      }
+    }
   }
 
   // Play previous highlight
   async function playPreviousHighlight() {
-    if (currentVideoElement) {
-      currentVideoElement.pause();
-      currentVideoElement.ontimeupdate = null;
-    }
-    
-    if (displayVideoElement) {
-      displayVideoElement.pause();
-      displayVideoElement.ontimeupdate = null;
-    }
-    
     currentHighlightIndex = Math.max(0, currentHighlightIndex - 1);
-    
-    // Update virtual time to start of current segment
     virtualTime = segmentStartTimes[currentHighlightIndex] || 0;
     
-    await playCurrentHighlight();
+    if (videoPoolAPI) {
+      // Load previous segment
+      const success = await videoPoolAPI.loadVideoIntoPlayer(0, currentHighlightIndex);
+      if (success) {
+        videoPoolAPI.switchToPlayer(0);
+        preloadNextSegments();
+      }
+    }
   }
 
   // Toggle play/pause
   function togglePlayback() {
-    if (!currentVideoElement) return;
+    if (!videoPoolAPI) return;
     
-    if (isPaused || currentVideoElement.paused) {
-      currentVideoElement.play();
-      if (displayVideoElement) {
-        displayVideoElement.play();
-      }
+    const activePlayer = videoPoolAPI.getActivePlayer();
+    if (!activePlayer) return;
+    
+    if (isPaused) {
+      // Resume playback
+      videoPoolAPI.switchToPlayer(activePlayer.index);
       isPaused = false;
       startProgressTracking();
     } else {
-      currentVideoElement.pause();
-      if (displayVideoElement) {
-        displayVideoElement.pause();
-      }
+      // Pause playback
       isPaused = true;
       stopProgressTracking();
     }
@@ -378,14 +331,12 @@
     currentHighlightIndex = 0;
     virtualTime = 0;
     
-    if (currentVideoElement) {
-      currentVideoElement.pause();
-      currentVideoElement.ontimeupdate = null;
-    }
-    
-    if (displayVideoElement) {
-      displayVideoElement.pause();
-      displayVideoElement.ontimeupdate = null;
+    if (videoPoolAPI) {
+      const activePlayer = videoPoolAPI.getActivePlayer();
+      if (activePlayer) {
+        // Cleanup active player
+        videoPoolAPI.cleanupPlayer(activePlayer.index);
+      }
     }
     
     stopProgressTracking();
@@ -393,16 +344,16 @@
 
   // Start tracking progress for smooth updates
   function startProgressTracking() {
-    stopProgressTracking(); // Clear any existing animation frame
+    stopProgressTracking();
     
     function updateProgress() {
-      if (!isPlaying || !currentVideoElement) return;
+      if (!isPlaying || !videoPoolAPI) return;
       
       const highlight = highlights[currentHighlightIndex];
       if (!highlight) return;
       
       const segmentStartTime = segmentStartTimes[currentHighlightIndex] || 0;
-      const currentVideoTime = currentVideoElement.currentTime;
+      const currentVideoTime = videoPoolAPI.getCurrentTime();
       const highlightProgress = Math.max(0, currentVideoTime - highlight.start);
       
       virtualTime = segmentStartTime + highlightProgress;
@@ -426,23 +377,15 @@
   // Cleanup
   onDestroy(() => {
     stopProgressTracking();
-    
-    // Clean up video elements
-    videoElements.forEach(({ element }) => {
-      if (element.parentNode) {
-        element.parentNode.removeChild(element);
+    if (videoPoolAPI) {
+      // Cleanup all players in the pool
+      for (let i = 0; i < 3; i++) {
+        videoPoolAPI.cleanupPlayer(i);
       }
-    });
-    
-    // Clean up display video element
-    if (displayVideoElement) {
-      displayVideoElement.pause();
-      displayVideoElement.ontimeupdate = null;
-      displayVideoElement.src = '';
     }
   });
 
-  // Initialize and handle highlights changes
+  // Initialize with proper change detection
   let initialized = false;
   let lastHighlightsLength = 0;
   
@@ -450,7 +393,7 @@
     initializePlayer();
   });
   
-  // Watch for highlights changes more carefully
+  // Watch for highlights changes with proper change detection
   $effect(() => {
     if (initialized && highlights.length !== lastHighlightsLength) {
       reinitializePlayer();
@@ -463,35 +406,24 @@
     initialized = true;
     
     if (highlights.length > 0) {
-      preloadVideos();
+      loadVideoURLs();
     }
   }
   
   function reinitializePlayer() {
-    // Reset state when highlights change
     if (isPlaying) {
       stopPlayback();
     }
     
-    // Clear previous videos
-    videoElements.forEach(({ element }) => {
-      if (element.parentNode) {
-        element.parentNode.removeChild(element);
-      }
-    });
-    
-    // Reset state without triggering effects
-    videoElements = [];
-    loadedVideos.clear();
+    videoURLs.clear();
     allVideosLoaded = false;
     loadingProgress = 0;
-    lastHighlightsLength = highlights.length;
+    lastHighlightsLength = highlights.length; // Update tracking variable
     
-    // Recalculate and preload
     calculateVirtualTimeline();
     
     if (highlights.length > 0) {
-      preloadVideos();
+      loadVideoURLs();
     }
   }
 </script>
@@ -505,13 +437,13 @@
       </div>
     </div>
     
-    <!-- Video Display -->
-    <VideoDisplay 
-      bind:displayVideoElement
-      {allVideosLoaded}
-      {isPlaying}
+    <!-- Video Player Pool -->
+    <VideoPlayerPool 
       {highlights}
-      {loadingProgress}
+      {videoURLs}
+      onPlayerReady={handleVideoPoolReady}
+      onTimeUpdate={handleVideoTimeUpdate}
+      poolSize={3}
     />
     
     <!-- Current Highlight Info -->
@@ -547,9 +479,3 @@
     />
   </div>
 {/if}
-
-<style>
-  .sequential-player {
-    /* Ensure the component has proper spacing */
-  }
-</style>

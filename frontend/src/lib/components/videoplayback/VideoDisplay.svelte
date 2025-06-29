@@ -25,22 +25,29 @@
         ></div>
       </div>
     </div>
-  {:else if !isPlaying}
-    <div class="p-12 text-center text-muted-foreground">
-      <Film class="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" />
-      <p class="text-lg font-medium">Ready to play sequence</p>
-      <p class="text-sm">All videos loaded and ready for seamless playback</p>
-    </div>
   {:else}
-    <!-- Visible video player -->
-    <video 
-      bind:this={displayVideoElement}
-      class="w-full aspect-video bg-black"
-      controls={false}
-      muted={false}
-    >
-      <track kind="captions" />
-    </video>
+    <!-- Always show video element when videos are loaded -->
+    <div class="relative">
+      <video 
+        bind:this={displayVideoElement}
+        class="w-full aspect-video bg-black"
+        controls={false}
+        muted={false}
+      >
+        <track kind="captions" />
+      </video>
+      
+      <!-- Show ready message overlay when not playing -->
+      {#if !isPlaying}
+        <div class="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div class="text-center text-muted-foreground">
+            <Film class="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" />
+            <p class="text-lg font-medium">Ready to play sequence</p>
+            <p class="text-sm">All videos loaded and ready for seamless playback</p>
+          </div>
+        </div>
+      {/if}
+    </div>
   {/if}
 </div>
 
