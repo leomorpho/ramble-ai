@@ -3,7 +3,7 @@
   import { GetVideoURL } from '$lib/wailsjs/go/main/App';
   import { draggable } from '@neodrag/svelte';
   import { toast } from 'svelte-sonner';
-  import { Play, Film, GripVertical, X } from '@lucide/svelte';
+  import { Play, Film, GripVertical, X, Edit3 } from '@lucide/svelte';
   import { 
     Dialog, 
     DialogContent, 
@@ -13,6 +13,7 @@
   } from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button";
   import EtroVideoPlayer from "$lib/components/videoplayback/EtroVideoPlayer.svelte";
+  import ClipEditor from "$lib/components/ClipEditor.svelte";
   import { 
     orderedHighlights, 
     highlightsLoading, 
@@ -34,6 +35,10 @@
   let videoURL = $state('');
   let videoElement = $state(null);
   let videoLoading = $state(false);
+
+  // Clip editor state
+  let clipEditorOpen = $state(false);
+  let editingHighlight = $state(null);
 
   // Initialize on mount and watch for project changes
   onMount(() => {
@@ -174,6 +179,23 @@
     videoURL = '';
   }
 
+  // Handle edit highlight
+  function handleEditHighlight(event, highlight) {
+    event.stopPropagation();
+    editingHighlight = highlight;
+    clipEditorOpen = true;
+  }
+
+  // Handle highlight save from editor
+  function handleHighlightSave(updatedHighlight) {
+    // Refresh the highlights to get the updated data
+    loadProjectHighlights(projectId);
+    
+    toast.success('Highlight updated', {
+      description: `Updated timing for "${updatedHighlight.videoClipName}"`
+    });
+  }
+
 
   // Expose refresh method
   export function refresh() {
@@ -245,16 +267,25 @@
                   {formatTimeRange(highlight.start, highlight.end)}
                 </p>
               </div>
-              <button
-                class="flex-shrink-0 p-1 rounded hover:bg-secondary/50 transition-colors"
-                onclick={(e) => {
-                  e.stopPropagation();
-                  handleHighlightClick(highlight);
-                }}
-                title="Play this highlight"
-              >
-                <Play class="w-4 h-4" />
-              </button>
+              <div class="flex gap-1">
+                <button
+                  class="flex-shrink-0 p-1 rounded hover:bg-secondary/50 transition-colors"
+                  onclick={(e) => handleEditHighlight(e, highlight)}
+                  title="Edit highlight times"
+                >
+                  <Edit3 class="w-4 h-4" />
+                </button>
+                <button
+                  class="flex-shrink-0 p-1 rounded hover:bg-secondary/50 transition-colors"
+                  onclick={(e) => {
+                    e.stopPropagation();
+                    handleHighlightClick(highlight);
+                  }}
+                  title="Play this highlight"
+                >
+                  <Play class="w-4 h-4" />
+                </button>
+              </div>
             </div>
             
             {#if highlight.text}
@@ -368,6 +399,13 @@
     </div>
   </DialogContent>
 </Dialog>
+
+<!-- Clip Editor -->
+<ClipEditor 
+  bind:open={clipEditorOpen}
+  highlight={editingHighlight}
+  onSave={handleHighlightSave}
+/>
 
 <style>
   .highlight-card {
