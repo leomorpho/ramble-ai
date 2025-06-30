@@ -43,6 +43,7 @@
 		"@jridgewell/sourcemap-codec": "^1.5.0",
 		"@neodrag/svelte": "^2.3.3",
 		"@sveltejs/adapter-static": "^3.0.8",
-		"dotenv": "^16.6.1"
+		"dotenv": "^16.6.1",
+		"etro": "^0.12.1"
 	}
 }

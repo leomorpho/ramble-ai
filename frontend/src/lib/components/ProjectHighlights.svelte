@@ -12,7 +12,7 @@
     DialogTitle 
   } from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button";
-  import VideoPlayer from "$lib/components/videoplayback/VideoPlayer.svelte";
+  import EtroVideoPlayer from "$lib/components/videoplayback/EtroVideoPlayer.svelte";
 
   let { projectId, onHighlightClick = () => {} } = $props();
   
@@ -37,46 +37,29 @@
 
   // Initialize on mount
   onMount(() => {
-    console.log('ProjectHighlights mounted with projectId:', projectId);
-    console.log('typeof projectId:', typeof projectId);
     loadHighlights();
   });
 
   // Load highlights from backend
   async function loadHighlights() {
-    if (!projectId) {
-      console.log('loadHighlights: No projectId provided');
-      return;
-    }
-    
-    console.log('loadHighlights: Starting with projectId:', projectId);
+    if (!projectId) return;
     
     try {
       loading = true;
       error = '';
       
       // Get highlights and custom order in parallel
-      console.log('loadHighlights: Calling backend APIs...');
       const [highlightsData, order] = await Promise.all([
         GetProjectHighlights(projectId),
         GetProjectHighlightOrder(projectId)
       ]);
       
-      console.log('loadHighlights: Backend response - highlightsData:', highlightsData);
-      console.log('loadHighlights: Backend response - order:', order);
-      
       highlights = highlightsData || [];
       highlightOrder = order || [];
-      
-      console.log('loadHighlights: Set highlights length:', highlights.length);
-      console.log('loadHighlights: Set highlightOrder length:', highlightOrder.length);
       
       // Flatten highlights from all videos
       flattenedHighlights = [];
       for (const videoHighlights of highlights) {
-        console.log('loadHighlights: Processing video highlights:', videoHighlights);
-        console.log('loadHighlights: Video has highlights:', videoHighlights.highlights?.length || 0);
-        
         for (const highlight of videoHighlights.highlights) {
           flattenedHighlights.push({
             ...highlight,
@@ -88,12 +71,8 @@
         }
       }
       
-      console.log('loadHighlights: Flattened highlights length:', flattenedHighlights.length);
-      
       // Apply custom order if exists
       applyCustomOrder();
-      
-      console.log('loadHighlights: Final orderedHighlights length:', orderedHighlights.length);
       
     } catch (err) {
       console.error('Failed to load highlights:', err);
@@ -105,11 +84,7 @@
 
   // Apply custom ordering to highlights
   function applyCustomOrder() {
-    console.log('applyCustomOrder: Starting with flattenedHighlights length:', flattenedHighlights.length);
-    console.log('applyCustomOrder: highlightOrder length:', highlightOrder.length);
-    
     if (highlightOrder.length === 0) {
-      console.log('applyCustomOrder: Using default sort order');
       // No custom order, use default (by video, then by time)
       orderedHighlights = [...flattenedHighlights].sort((a, b) => {
         if (a.videoClipId !== b.videoClipId) {
@@ -118,12 +93,9 @@
         return a.start - b.start;
       });
     } else {
-      console.log('applyCustomOrder: Using custom order');
       // Apply custom order
       const orderedList = [];
       const highlightMap = new Map(flattenedHighlights.map(h => [h.id, h]));
-      
-      console.log('applyCustomOrder: Created highlight map with', highlightMap.size, 'entries');
       
       // Add highlights in custom order
       for (const id of highlightOrder) {
@@ -134,18 +106,13 @@
         }
       }
       
-      console.log('applyCustomOrder: Added', orderedList.length, 'highlights from custom order');
-      
       // Add any remaining highlights not in custom order
       for (const highlight of highlightMap.values()) {
         orderedList.push(highlight);
       }
       
-      console.log('applyCustomOrder: Final ordered list length:', orderedList.length);
       orderedHighlights = orderedList;
     }
-    
-    console.log('applyCustomOrder: Final orderedHighlights length:', orderedHighlights.length);
   }
 
   // Format timestamp for display
@@ -377,8 +344,8 @@
     </div>
   {/if}
   
-  <!-- Sequential Player -->
-  <VideoPlayer highlights={orderedHighlights} />
+  <!-- Etro Video Player -->
+  <EtroVideoPlayer highlights={orderedHighlights} />
 </div>
 
 <!-- Video Player Dialog -->
