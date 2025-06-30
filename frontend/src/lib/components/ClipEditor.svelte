@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { GetVideoURL, UpdateVideoClipHighlights } from '$lib/wailsjs/go/main/App';
   import { toast } from 'svelte-sonner';
-  import { Edit3, Save, X, RotateCcw } from '@lucide/svelte';
+  import { Edit3, Save, X, RotateCcw, Play, Pause, SkipBack, SkipForward } from '@lucide/svelte';
   import { 
     Dialog, 
     DialogContent, 
@@ -97,6 +97,14 @@
     if (videoElement) {
       duration = videoElement.duration;
       // Seek to the start of the highlight
+      videoElement.currentTime = editedStart;
+    }
+  }
+
+  // Handle when video can play (has enough data)
+  function handleVideoCanPlay() {
+    if (videoElement && editedStart !== undefined) {
+      // Set to the highlight start time to show the first frame
       videoElement.currentTime = editedStart;
     }
   }
@@ -204,6 +212,18 @@
            Math.abs(editedEnd - originalEnd) > 0.001;
   }
 
+  // Handle timeline click for seeking
+  function handleTimelineClick(event) {
+    if (!videoElement || duration === 0) return;
+    
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const clickPercentage = x / rect.width;
+    const targetTime = clickPercentage * duration;
+    
+    seekTo(targetTime);
+  }
+
   // Close dialog
   function closeDialog() {
     if (videoElement) {
@@ -241,25 +261,186 @@
               <p class="text-lg font-medium">Loading video...</p>
             </div>
           {:else if videoURL}
-            <video 
-              bind:this={videoElement}
-              class="w-full h-auto max-h-96" 
-              controls 
-              preload="metadata"
-              src={videoURL}
-              onloadeddata={handleVideoLoaded}
-              ontimeupdate={handleTimeUpdate}
-              onplay={() => isPlaying = true}
-              onpause={() => isPlaying = false}
-            >
-              <track kind="captions" src="" label="No captions available" />
-            </video>
+            <div class="relative">
+              <video 
+                bind:this={videoElement}
+                class="w-full h-auto max-h-96" 
+                preload="auto"
+                src={videoURL}
+                onloadeddata={handleVideoLoaded}
+                oncanplay={handleVideoCanPlay}
+                onloadedmetadata={() => {
+                  if (videoElement) {
+                    duration = videoElement.duration;
+                  }
+                }}
+                ontimeupdate={handleTimeUpdate}
+                onplay={() => isPlaying = true}
+                onpause={() => isPlaying = false}
+                onclick={togglePlayPause}
+              >
+                <track kind="captions" src="" label="No captions available" />
+              </video>
+              
+              <!-- Custom Play/Pause Overlay -->
+              <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <button
+                  class="pointer-events-auto bg-black/60 hover:bg-black/80 text-white rounded-full p-4 transition-all duration-200 opacity-0 hover:opacity-100 group-hover:opacity-100"
+                  onclick={togglePlayPause}
+                  title={isPlaying ? 'Pause' : 'Play'}
+                >
+                  {#if isPlaying}
+                    <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                    </svg>
+                  {:else}
+                    <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z"/>
+                    </svg>
+                  {/if}
+                </button>
+              </div>
+              
+              <!-- Video click area for play/pause -->
+              <div 
+                class="absolute inset-0 cursor-pointer group"
+                onclick={togglePlayPause}
+                title={isPlaying ? 'Pause' : 'Play'}
+              ></div>
+            </div>
           {:else}
             <div class="p-8 text-center text-muted-foreground">
               <p class="text-lg font-medium">Video not available</p>
             </div>
           {/if}
         </div>
+
+        <!-- Timeline Visualization -->
+        {#if videoURL && !videoLoading && duration > 0}
+          <div class="space-y-3">
+            <div class="flex items-center justify-between text-sm text-muted-foreground">
+              <span>Video Timeline</span>
+              <span>Total: {formatTime(duration)}</span>
+            </div>
+            
+            <!-- Timeline Bar -->
+            <div 
+              class="relative w-full h-12 bg-secondary rounded-lg overflow-hidden cursor-pointer hover:bg-secondary/80 transition-colors"
+              onclick={handleTimelineClick}
+              title="Click to seek to position"
+            >
+              <!-- Full video background -->
+              <div class="absolute inset-0 bg-secondary"></div>
+              
+              <!-- Highlight segment -->
+              {#if duration > 0}
+                {@const highlightStart = (editedStart / duration) * 100}
+                {@const highlightWidth = ((editedEnd - editedStart) / duration) * 100}
+                <div 
+                  class="absolute top-0 h-full rounded transition-all duration-200"
+                  style="left: {highlightStart}%; width: {highlightWidth}%; background-color: {highlight.color};"
+                  title="Highlight segment: {formatTime(editedStart)} - {formatTime(editedEnd)}"
+                ></div>
+              {/if}
+              
+              <!-- Current playhead -->
+              {#if duration > 0}
+                {@const playheadPosition = (currentTime / duration) * 100}
+                <div 
+                  class="absolute top-0 w-0.5 h-full bg-white shadow-lg z-10 transition-all duration-75"
+                  style="left: {playheadPosition}%;"
+                ></div>
+              {/if}
+              
+              <!-- Start/End markers -->
+              {#if duration > 0}
+                {@const startPosition = (editedStart / duration) * 100}
+                {@const endPosition = (editedEnd / duration) * 100}
+                
+                <!-- Start marker -->
+                <div 
+                  class="absolute top-0 w-1 h-full bg-green-500 z-20 transition-all duration-200"
+                  style="left: {startPosition}%;"
+                  title="Start: {formatTime(editedStart)}"
+                ></div>
+                
+                <!-- End marker -->
+                <div 
+                  class="absolute top-0 w-1 h-full bg-red-500 z-20 transition-all duration-200"
+                  style="left: {endPosition}%;"
+                  title="End: {formatTime(editedEnd)}"
+                ></div>
+              {/if}
+              
+              <!-- Time labels -->
+              <div class="absolute inset-0 flex items-center justify-between px-2 text-xs text-white/80 font-mono pointer-events-none">
+                <span>0:00</span>
+                <span class="bg-black/50 px-1 rounded">
+                  {formatTime(currentTime)}
+                </span>
+                <span>{formatTime(duration)}</span>
+              </div>
+            </div>
+            
+            <!-- Video Controls -->
+            <div class="flex items-center justify-center gap-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onclick={() => seekTo(Math.max(0, currentTime - 10))}
+                title="Skip back 10 seconds"
+              >
+                <SkipBack class="w-4 h-4" />
+                -10s
+              </Button>
+              
+              <Button
+                variant="default"
+                size="sm"
+                onclick={togglePlayPause}
+                class="px-6"
+              >
+                {#if isPlaying}
+                  <Pause class="w-4 h-4 mr-2" />
+                  Pause
+                {:else}
+                  <Play class="w-4 h-4 mr-2" />
+                  Play
+                {/if}
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onclick={() => seekTo(Math.min(duration, currentTime + 10))}
+                title="Skip forward 10 seconds"
+              >
+                <SkipForward class="w-4 h-4" />
+                +10s
+              </Button>
+            </div>
+
+            <!-- Timeline Legend -->
+            <div class="flex items-center justify-center gap-6 text-xs text-muted-foreground">
+              <div class="flex items-center gap-1">
+                <div class="w-3 h-3 rounded" style="background-color: {highlight.color};"></div>
+                <span>Highlight Segment</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <div class="w-1 h-3 bg-green-500"></div>
+                <span>Start ({formatTime(editedStart)})</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <div class="w-1 h-3 bg-red-500"></div>
+                <span>End ({formatTime(editedEnd)})</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <div class="w-0.5 h-3 bg-white"></div>
+                <span>Playhead</span>
+              </div>
+            </div>
+          </div>
+        {/if}
 
         <!-- Current Time Info -->
         {#if videoURL && !videoLoading}
