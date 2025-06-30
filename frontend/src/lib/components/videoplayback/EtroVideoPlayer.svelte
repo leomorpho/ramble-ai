@@ -452,11 +452,13 @@
     if (!movie || !isInitialized) return;
 
     movie.currentTime = Math.max(0, Math.min(targetTime, totalDuration));
+    updateTimeAndHighlight();
 
     // Resume playing if we were playing before seeking
     if (isPlaying && movie.paused) {
       try {
         await movie.play();
+        startProgressTracking();
       } catch (err) {
         // Ignore "already playing" errors
         if (!err.message.includes("Already playing")) {
@@ -466,6 +468,43 @@
     }
   }
 
+  // Handle timeline segment clicks for seeking
+  function handleSegmentClick(event, segmentIndex) {
+    // Check if the click was on the drag handle (upper right corner)
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    // Define drag handle area (upper right corner, 16x16 pixels)
+    const dragHandleSize = 16;
+    const isDragHandle = x >= rect.width - dragHandleSize && y <= dragHandleSize;
+    
+    if (isDragHandle) {
+      // This is a drag handle click, don't seek
+      return;
+    }
+
+    // Calculate the click position within the segment as a percentage
+    const clickPercentage = x / rect.width;
+    
+    // Calculate the start time for this segment
+    let segmentStartTime = 0;
+    for (let i = 0; i < segmentIndex; i++) {
+      segmentStartTime += highlights[i].end - highlights[i].start;
+    }
+    
+    // Calculate the duration of the clicked segment
+    const segmentDuration = highlights[segmentIndex].end - highlights[segmentIndex].start;
+    
+    // Calculate the target time within the segment
+    const targetTime = segmentStartTime + (clickPercentage * segmentDuration);
+    
+    console.log(`Segment click: index=${segmentIndex}, clickPos=${clickPercentage.toFixed(2)}, targetTime=${targetTime.toFixed(2)}s`);
+    
+    // Seek to the calculated time
+    handleTimelineSeek(targetTime);
+  }
+
   // Progress percentage for timeline
   function getProgressPercentage() {
     return totalDuration > 0 ? (currentTime / totalDuration) * 100 : 0;
@@ -473,6 +512,21 @@
 
   // Drag and drop functions
   function handleDragStart(event, index) {
+    // Check if the drag started from the drag handle
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    // Define drag handle area (upper right corner, 16x16 pixels)
+    const dragHandleSize = 16;
+    const isDragHandle = x >= rect.width - dragHandleSize && y <= dragHandleSize;
+    
+    if (!isDragHandle) {
+      // Prevent drag if not started from the handle
+      event.preventDefault();
+      return false;
+    }
+
     isDragging = true;
     dragStartIndex = index;
     event.dataTransfer.effectAllowed = "move";
@@ -819,7 +873,7 @@
     <div class="timeline-container mb-4">
       <div class="space-y-2">
         <div class="text-xs text-muted-foreground mb-2">
-          💡 Drag segments to reorder them
+          💡 Click segments to seek, drag handle (⚫) to reorder
         </div>
 
         <!-- Clip segments with drag and drop -->
@@ -841,17 +895,17 @@
                 ? 'ring-2 ring-primary'
                 : ''} {isDragging && dragStartIndex === index
                 ? 'opacity-50 scale-95'
-                : ''} cursor-move"
+                : ''} cursor-pointer"
               style="width: {segmentWidth}%; background-color: {highlight.color}; min-width: 20px;"
               title="{highlight.videoClipName}: {formatTime(
                 highlight.start
-              )} - {formatTime(highlight.end)} (drag to reorder)"
+              )} - {formatTime(highlight.end)} (click to seek, drag handle to reorder)"
               draggable="true"
               ondragstart={(e) => handleDragStart(e, index)}
               ondragend={handleDragEnd}
               ondragover={handleDragOver}
               ondrop={(e) => handleDrop(e, index)}
-              onclick={() => jumpToHighlight(index)}
+              onclick={(e) => handleSegmentClick(e, index)}
             >
               <!-- Progress indicator for active segment -->
               {#if isActive }
@@ -878,11 +932,12 @@
                 {index + 1}
               </div>
 
-              <!-- Drag indicator -->
+              <!-- Drag handle -->
               <div
-                class="absolute top-0 right-0 w-2 h-2 bg-white/40 rounded-bl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+                class="absolute top-0 right-0 w-4 h-4 bg-black/80 rounded-bl opacity-0 group-hover:opacity-100 transition-opacity cursor-move flex items-center justify-center"
+                title="Drag to reorder"
               >
-                <div class="w-1 h-1 bg-white rounded-full m-0.5"></div>
+                <div class="w-1.5 h-1.5 bg-white rounded-full"></div>
               </div>
             </button>
           {/each}
