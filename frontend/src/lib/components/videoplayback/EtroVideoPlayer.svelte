@@ -20,6 +20,7 @@
   // Drag and drop state (use highlights prop directly from store)
   let isDragging = $state(false);
   let dragStartIndex = $state(-1);
+  let dragOverIndex = $state(-1);
 
   // Video URLs and loading
   let videoURLs = $state(new Map());
@@ -536,11 +537,32 @@
   function handleDragEnd() {
     isDragging = false;
     dragStartIndex = -1;
+    dragOverIndex = -1;
   }
 
-  function handleDragOver(event) {
+  function handleDragOver(event, targetIndex) {
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
+    
+    // Calculate insertion point based on mouse position within the target
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const isLeftHalf = x < rect.width / 2;
+    
+    // Determine where the item would be inserted
+    let insertionIndex;
+    if (isLeftHalf) {
+      insertionIndex = targetIndex;
+    } else {
+      insertionIndex = targetIndex + 1;
+    }
+    
+    // Adjust for the dragged item being removed first
+    if (dragStartIndex !== -1 && dragStartIndex < insertionIndex) {
+      insertionIndex--;
+    }
+    
+    dragOverIndex = insertionIndex;
   }
 
   async function handleDrop(event, targetIndex) {
@@ -890,6 +912,11 @@
                 : 100 / highlights.length}
             {@const isActive = index === currentHighlightIndex}
 
+            <!-- Drop indicator before this segment -->
+            {#if isDragging && dragOverIndex === index}
+              <div class="w-0.5 h-8 bg-black flex-shrink-0"></div>
+            {/if}
+
             <button
               class="group relative h-8 rounded transition-all duration-200 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-primary/50 {isActive
                 ? 'ring-2 ring-primary'
@@ -903,7 +930,7 @@
               draggable="true"
               ondragstart={(e) => handleDragStart(e, index)}
               ondragend={handleDragEnd}
-              ondragover={handleDragOver}
+              ondragover={(e) => handleDragOver(e, index)}
               ondrop={(e) => handleDrop(e, index)}
               onclick={(e) => handleSegmentClick(e, index)}
             >
@@ -934,12 +961,17 @@
 
               <!-- Drag handle -->
               <div
-                class="absolute top-0 right-0 w-4 h-4 bg-black/80 rounded-bl opacity-0 group-hover:opacity-100 transition-opacity cursor-move flex items-center justify-center"
+                class="absolute top-0 right-0 w-4 h-4 bg-black/80 rounded-bl rounded-tr opacity-0 group-hover:opacity-100 transition-opacity cursor-move flex items-center justify-center"
                 title="Drag to reorder"
               >
                 <div class="w-1.5 h-1.5 bg-white rounded-full"></div>
               </div>
             </button>
+
+            <!-- Drop indicator after the last segment -->
+            {#if index === highlights.length - 1 && isDragging && dragOverIndex === highlights.length}
+              <div class="w-0.5 h-8 bg-black flex-shrink-0"></div>
+            {/if}
           {/each}
         </div>
 
