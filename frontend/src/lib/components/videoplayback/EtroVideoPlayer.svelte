@@ -4,18 +4,22 @@
   import { toast } from 'svelte-sonner';
   import { Play, Pause, SkipForward, SkipBack, Square } from '@lucide/svelte';
   import { Button } from "$lib/components/ui/button";
+  import { updateHighlightOrder } from '$lib/stores/projectHighlights.js';
   import * as etro from 'etro';
 
-  let { highlights = [] } = $props();
+  let { highlights = [], projectId = null } = $props();
 
   // Core state
   let canvasElement = $state(null);
   let movie = $state(null);
   let isPlaying = $state(false);
-  let isPaused = $state(false);
   let currentTime = $state(0);
   let totalDuration = $state(0);
   let currentHighlightIndex = $state(0);
+
+  // Drag and drop state (use highlights prop directly from store)
+  let isDragging = $state(false);
+  let dragStartIndex = $state(-1);
 
   // Video URLs and loading
   let videoURLs = $state(new Map());
@@ -248,11 +252,10 @@
     
     currentTime = movie.currentTime;
     
-    // Sync our state with Etro's actual state
-    isPaused = movie.paused;
-    isPlaying = !movie.paused;
+    // Force reactivity by reassigning
+    isPlaying = !movie.paused && !movie.ended;
     
-    // Determine current highlight based on timeline
+    // Determine current highlight based on timeline using highlights from store
     let highlightIndex = 0;
     let accumulatedTime = 0;
     
@@ -271,92 +274,41 @@
     // Check if playback has ended
     if (movie.ended) {
       isPlaying = false;
-      isPaused = false;
       stopProgressTracking();
       console.log('Playback ended');
     }
   }
 
   // Playback controls
-  async function startPlayback() {
-    console.log('startPlayback called');
-    console.log('State check - allVideosLoaded:', allVideosLoaded, 'isInitialized:', isInitialized, 'movie:', !!movie);
-    
-    if (!allVideosLoaded) {
-      toast.error('Videos still loading');
-      console.log('Playback blocked: videos still loading');
-      return;
-    }
-    
-    if (!isInitialized || !movie) {
+  async function playPause() {
+    if (!movie || !isInitialized) {
       toast.error('Video player not ready');
-      console.log('Playback blocked: player not ready - isInitialized:', isInitialized, 'movie:', !!movie);
       return;
     }
     
     try {
-      console.log('Movie state before play - paused:', movie.paused, 'currentTime:', movie.currentTime, 'layers:', movie.layers.length);
-      console.log('Movie ready state:', movie.ready);
-      
-      // Set playing state immediately to show playhead
-      isPlaying = true;
-      isPaused = false;
-      startProgressTracking();
-      
-      // Wait for movie to be ready if it's not
-      if (!movie.ready) {
-        console.log('Movie not ready, waiting...');
-        // Simple polling to wait for ready state
-        let attempts = 0;
-        while (!movie.ready && attempts < 50) { // Wait up to 5 seconds
-          await new Promise(resolve => setTimeout(resolve, 100));
-          attempts++;
-          console.log('Waiting for movie ready... attempt', attempts);
+      if (movie.paused || movie.ended) {
+        // Start or resume playback
+        if (movie.ended) {
+          movie.currentTime = 0; // Reset if ended
         }
         
-        if (!movie.ready) {
-          throw new Error('Movie failed to become ready after 5 seconds');
-        }
-        console.log('Movie is now ready!');
-      }
-      
-      // Only play if not already playing
-      if (movie.paused) {
-        console.log('Calling movie.play()...');
+        console.log('Starting/resuming playback');
         await movie.play();
-        console.log('movie.play() completed');
-      } else {
-        console.log('Movie was already playing');
-      }
-      
-      console.log('Playback started successfully');
-    } catch (err) {
-      console.error('Error starting playback:', err);
-      isPlaying = false;
-      isPaused = false;
-      stopProgressTracking();
-      toast.error('Failed to start playback: ' + err.message);
-    }
-  }
-
-  async function togglePlayback() {
-    if (!movie || !isInitialized) return;
-    
-    try {
-      if (movie.paused) {
-        // Movie is paused, resume playback
-        await movie.play();
-        isPaused = false;
         isPlaying = true;
         startProgressTracking();
       } else {
-        // Movie is playing, pause it
+        // Pause playback
+        console.log('Pausing playback');
         movie.pause();
-        isPaused = true;
+        isPlaying = false;
         stopProgressTracking();
       }
     } catch (err) {
       console.error('Error toggling playback:', err);
+      toast.error('Failed to toggle playback');
+      // Sync state with actual movie state
+      isPlaying = !movie.paused && !movie.ended;
     }
   }
 
@@ -367,7 +319,6 @@
     }
     
     isPlaying = false;
-    isPaused = false;
     currentTime = 0;
     currentHighlightIndex = 0;
     
@@ -378,7 +329,7 @@
   async function jumpToHighlight(highlightIndex) {
     if (!movie || highlightIndex < 0 || highlightIndex >= highlights.length) return;
     
-    // Calculate time at start of target highlight
+    // Calculate time at start of target highlight using highlights from store
     let targetTime = 0;
     for (let i = 0; i < highlightIndex; i++) {
       targetTime += highlights[i].end - highlights[i].start;
@@ -387,29 +338,44 @@
     console.log(`Jumping to highlight ${highlightIndex} at time ${targetTime}s`);
     movie.currentTime = targetTime;
     
+    // Update time and highlight index immediately
+    updateTimeAndHighlight();
+    
     // Continue playing if we were already playing
     if (isPlaying && movie.paused) {
       try {
         await movie.play();
+        // Ensure progress tracking continues
+        startProgressTracking();
       } catch (err) {
         if (!err.message.includes('Already playing')) {
           console.error('Error resuming playback:', err);
         }
       }
+    } else if (isPlaying && !movie.paused) {
+      // Already playing, just ensure progress tracking is active
+      startProgressTracking();
     }
   }
 
   // Progress tracking
   function startProgressTracking() {
     stopProgressTracking();
+    console.log('Starting progress tracking');
     
     function updateProgress() {
-      if (!movie || !isPlaying) return;
+      if (!movie) {
+        console.log('No movie in updateProgress');
+        return;
+      }
       
       updateTimeAndHighlight();
       
-      if (isPlaying && !isPaused && !movie.ended) {
+      // Continue tracking if movie is actually playing (not paused)
+      if (!movie.paused && !movie.ended) {
         animationFrame = requestAnimationFrame(updateProgress);
+      } else {
+        console.log('Stopping progress tracking - paused:', movie.paused, 'ended:', movie.ended);
       }
     }
     
@@ -447,11 +413,165 @@
     return totalDuration > 0 ? (currentTime / totalDuration) * 100 : 0;
   }
 
+  // Drag and drop functions
+  function handleDragStart(event, index) {
+    isDragging = true;
+    dragStartIndex = index;
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', index.toString());
+  }
+
+  function handleDragEnd() {
+    isDragging = false;
+    dragStartIndex = -1;
+  }
+
+  function handleDragOver(event) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  }
+
+  async function handleDrop(event, targetIndex) {
+    event.preventDefault();
+    
+    if (dragStartIndex === -1 || dragStartIndex === targetIndex) {
+      handleDragEnd();
+      return;
+    }
+    
+    const newHighlights = [...highlights];
+    const draggedItem = newHighlights[dragStartIndex];
+    
+    // Remove dragged item
+    newHighlights.splice(dragStartIndex, 1);
+    
+    // Insert at new position
+    const insertIndex = dragStartIndex < targetIndex ? targetIndex - 1 : targetIndex;
+    newHighlights.splice(insertIndex, 0, draggedItem);
+    
+    // Update via centralized store (this handles database save and state updates)
+    const success = await updateHighlightOrder(newHighlights);
+    
+    if (success) {
+      // Reinitialize the video player with new order (only if save was successful)
+      await reinitializeWithNewOrder(newHighlights);
+    }
+    
+    handleDragEnd();
+  }
+
+  // Reinitialize video player with new segment order
+  async function reinitializeWithNewOrder(newHighlights = highlights) {
+    if (movie) {
+      movie.pause();
+      movie = null;
+    }
+    
+    isInitialized = false;
+    currentTime = 0;
+    currentHighlightIndex = 0;
+    
+    // Recreate the movie with the new order
+    if (allVideosLoaded && newHighlights.length > 0 && canvasElement) {
+      await createEtroMovieWithOrder(newHighlights);
+    }
+  }
+
+  // Create Etro movie with custom highlight order
+  async function createEtroMovieWithOrder(highlightOrder) {
+    if (!canvasElement || !allVideosLoaded || highlightOrder.length === 0) {
+      console.error('Cannot create Etro movie: missing requirements');
+      return false;
+    }
+
+    try {
+      console.log('Creating Etro movie with', highlightOrder.length, 'video layers in custom order');
+      
+      // Set canvas dimensions
+      const canvasWidth = 1280;
+      const canvasHeight = 720;
+      canvasElement.width = canvasWidth;
+      canvasElement.height = canvasHeight;
+      
+      // Get video dimensions from the first video
+      const firstVideoURL = videoURLs.get(highlightOrder[0].filePath);
+      if (!firstVideoURL) {
+        throw new Error('No video URL for first highlight');
+      }
+      
+      console.log('Getting video dimensions from first video...');
+      const videoDimensions = await getVideoDimensions(firstVideoURL);
+      console.log('Video dimensions:', videoDimensions);
+      
+      // Create movie first (Etro determines dimensions from canvas)
+      movie = new etro.Movie({ 
+        canvas: canvasElement
+      });
+      
+      // Now calculate scaled dimensions using movie dimensions
+      const scaledDims = calculateScaledDimensions(
+        videoDimensions.width, 
+        videoDimensions.height, 
+        movie.width || canvasWidth,
+        movie.height || canvasHeight
+      );
+      console.log('Scaled dimensions:', scaledDims);
+      console.log('Movie dimensions after creation:', movie.width, 'x', movie.height);
+      
+      let currentStartTime = 0;
+      
+      // Create video layers for each highlight in the specified order
+      for (let i = 0; i < highlightOrder.length; i++) {
+        const highlight = highlightOrder[i];
+        const videoURL = videoURLs.get(highlight.filePath);
+        
+        if (!videoURL) {
+          console.warn(`Skipping highlight ${i}: no video URL for ${highlight.filePath}`);
+          continue;
+        }
+        
+        const segmentDuration = highlight.end - highlight.start;
+        
+        console.log(`Creating layer ${i}: ${highlight.videoClipName} (${segmentDuration}s)`);
+        
+        // Create video layer with proper destination sizing
+        const videoLayer = new etro.layer.Video({
+          startTime: currentStartTime,
+          duration: segmentDuration,
+          source: videoURL,
+          sourceStartTime: highlight.start,
+          x: 0,
+          y: 0,
+          width: movie.width || canvasWidth,
+          height: movie.height || canvasHeight,
+          destX: scaledDims.x,
+          destY: scaledDims.y,
+          destWidth: scaledDims.width,
+          destHeight: scaledDims.height
+        });
+        
+        movie.layers.push(videoLayer);
+        currentStartTime += segmentDuration;
+      }
+      
+      totalDuration = currentStartTime;
+      console.log(`Etro movie created with total duration: ${totalDuration}s`);
+      
+      isInitialized = true;
+      return true;
+      
+    } catch (err) {
+      console.error('Failed to create Etro movie with custom order:', err);
+      initializationError = err.message;
+      return false;
+    }
+  }
+
   // Watch for when videos are loaded to initialize
   $effect(() => {
     if (allVideosLoaded && highlights.length > 0 && !isInitialized && canvasElement) {
       console.log('Effect: Creating Etro movie with', highlights.length, 'highlights');
-      createEtroMovie();
+      createEtroMovieWithOrder(highlights);
     }
   });
 
@@ -465,6 +585,22 @@
         console.log('Effect: Starting video URL loading for', highlights.length, 'highlights');
         loadVideoURLs();
       }
+    }
+  });
+
+  // Force update of isPlaying state when movie state changes
+  $effect(() => {
+    if (movie) {
+      const interval = setInterval(() => {
+        if (movie) {
+          const shouldBePlaying = !movie.paused && !movie.ended;
+          if (isPlaying !== shouldBePlaying) {
+            isPlaying = shouldBePlaying;
+          }
+        }
+      }, 100);
+      
+      return () => clearInterval(interval);
     }
   });
 
@@ -573,24 +709,34 @@
       </div>
     {/if}
     
-    <!-- Simplified Clip Timeline -->
+    <!-- Draggable Clip Timeline -->
     <div class="timeline-container mb-4">
       <div class="space-y-2">
-        <!-- Clip segments -->
+        <div class="text-xs text-muted-foreground mb-2">
+          💡 Drag segments to reorder them
+        </div>
+        
+        <!-- Clip segments with drag and drop -->
         <div class="flex gap-1 w-full">
           {#each highlights as highlight, index}
             {@const segmentDuration = highlight.end - highlight.start}
-            {@const segmentWidth = totalDuration > 0 ? (segmentDuration / totalDuration) * 100 : 0}
+            {@const calculatedTotalDuration = highlights.reduce((sum, h) => sum + (h.end - h.start), 0)}
+            {@const segmentWidth = calculatedTotalDuration > 0 ? (segmentDuration / calculatedTotalDuration) * 100 : (100 / highlights.length)}
             {@const isActive = index === currentHighlightIndex}
             
             <button
-              class="relative h-8 rounded transition-all duration-200 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-primary/50 {isActive ? 'ring-2 ring-primary' : ''}"
+              class="group relative h-8 rounded transition-all duration-200 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-primary/50 {isActive ? 'ring-2 ring-primary' : ''} {isDragging && dragStartIndex === index ? 'opacity-50 scale-95' : ''} cursor-move"
               style="width: {segmentWidth}%; background-color: {highlight.color}; min-width: 20px;"
-              title="{highlight.videoClipName}: {formatTime(highlight.start)} - {formatTime(highlight.end)}"
+              title="{highlight.videoClipName}: {formatTime(highlight.start)} - {formatTime(highlight.end)} (drag to reorder)"
+              draggable="true"
+              ondragstart={(e) => handleDragStart(e, index)}
+              ondragend={handleDragEnd}
+              ondragover={handleDragOver}
+              ondrop={(e) => handleDrop(e, index)}
               onclick={() => jumpToHighlight(index)}
             >
               <!-- Progress indicator for active segment -->
-              {#if isActive && (isPlaying || !isPaused)}
+              {#if isActive && isPlaying}
                 {@const segmentStartTime = highlights.slice(0, index).reduce((sum, h) => sum + (h.end - h.start), 0)}
                 {@const segmentProgress = Math.max(0, Math.min(1, (currentTime - segmentStartTime) / segmentDuration))}
                 <div 
@@ -600,8 +746,13 @@
               {/if}
               
               <!-- Segment label -->
-              <div class="absolute inset-0 flex items-center justify-center text-xs font-medium text-white drop-shadow">
+              <div class="absolute inset-0 flex items-center justify-center text-xs font-medium text-white drop-shadow pointer-events-none">
                 {index + 1}
+              </div>
+              
+              <!-- Drag indicator -->
+              <div class="absolute top-0 right-0 w-2 h-2 bg-white/40 rounded-bl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                <div class="w-1 h-1 bg-white rounded-full m-0.5"></div>
               </div>
             </button>
           {/each}
@@ -618,27 +769,26 @@
     
     <!-- Simplified Controls -->
     <div class="playback-controls flex items-center justify-center gap-3">
-      <Button 
-        onclick={isPlaying ? togglePlayback : startPlayback} 
-        disabled={!allVideosLoaded || !isInitialized}
-        class="flex items-center gap-2"
-      >
-        {#if !isPlaying}
-          <Play class="w-4 h-4" />
-          Play All Clips
-        {:else if isPaused}
-          <Play class="w-4 h-4" />
-          Resume
-        {:else}
-          <Pause class="w-4 h-4" />
-          Pause
-        {/if}
-      </Button>
+      {#key isPlaying}
+        <Button 
+          onclick={playPause} 
+          disabled={!allVideosLoaded || !isInitialized}
+          class="flex items-center gap-2"
+        >
+          {#if isPlaying}
+            <Pause class="w-4 h-4" />
+            Pause
+          {:else}
+            <Play class="w-4 h-4" />
+            Play
+          {/if}
+        </Button>
+      {/key}
       
       <!-- Debug info -->
       <div class="text-xs text-muted-foreground ml-4">
-        Movie: {movie ? (movie.paused ? 'Paused' : 'Playing') : 'Not ready'} | 
-        Time: {currentTime.toFixed(1)}s
+        State: {isPlaying ? 'Playing' : 'Paused'} | 
+        Time: {currentTime.toFixed(1)}s / {totalDuration.toFixed(1)}s
       </div>
     </div>
     

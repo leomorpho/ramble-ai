@@ -1,6 +1,6 @@
 <script>
-  import { onMount } from 'svelte';
-  import { GetProjectHighlights, UpdateProjectHighlightOrder, GetProjectHighlightOrder, GetVideoURL } from '$lib/wailsjs/go/main/App';
+  import { onMount, onDestroy } from 'svelte';
+  import { GetVideoURL } from '$lib/wailsjs/go/main/App';
   import { draggable } from '@neodrag/svelte';
   import { toast } from 'svelte-sonner';
   import { Play, Film, GripVertical, X } from '@lucide/svelte';
@@ -13,20 +13,20 @@
   } from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button";
   import EtroVideoPlayer from "$lib/components/videoplayback/EtroVideoPlayer.svelte";
+  import { 
+    orderedHighlights, 
+    highlightsLoading, 
+    loadProjectHighlights, 
+    updateHighlightOrder, 
+    clearHighlights 
+  } from '$lib/stores/projectHighlights.js';
 
   let { projectId, onHighlightClick = () => {} } = $props();
   
-  // State
-  let highlights = $state([]);
-  let loading = $state(false);
-  let error = $state('');
-  let highlightOrder = $state([]);
+  // Local state for drag and drop
   let draggedItem = $state(null);
   let dragOverItem = $state(null);
-  
-  // Flattened highlights for display
-  let flattenedHighlights = $state([]);
-  let orderedHighlights = $state([]);
+  let error = $state('');
   
   // Video player dialog state
   let videoDialogOpen = $state(false);
@@ -35,85 +35,26 @@
   let videoElement = $state(null);
   let videoLoading = $state(false);
 
-  // Initialize on mount
+  // Initialize on mount and watch for project changes
   onMount(() => {
-    loadHighlights();
+    if (projectId) {
+      loadProjectHighlights(projectId);
+    }
   });
 
-  // Load highlights from backend
-  async function loadHighlights() {
-    if (!projectId) return;
-    
-    try {
-      loading = true;
-      error = '';
-      
-      // Get highlights and custom order in parallel
-      const [highlightsData, order] = await Promise.all([
-        GetProjectHighlights(projectId),
-        GetProjectHighlightOrder(projectId)
-      ]);
-      
-      highlights = highlightsData || [];
-      highlightOrder = order || [];
-      
-      // Flatten highlights from all videos
-      flattenedHighlights = [];
-      for (const videoHighlights of highlights) {
-        for (const highlight of videoHighlights.highlights) {
-          flattenedHighlights.push({
-            ...highlight,
-            videoClipId: videoHighlights.videoClipId,
-            videoClipName: videoHighlights.videoClipName,
-            filePath: videoHighlights.filePath,
-            videoDuration: videoHighlights.duration
-          });
-        }
-      }
-      
-      // Apply custom order if exists
-      applyCustomOrder();
-      
-    } catch (err) {
-      console.error('Failed to load highlights:', err);
-      error = 'Failed to load highlights';
-    } finally {
-      loading = false;
+  // Watch for project ID changes
+  $effect(() => {
+    if (projectId) {
+      loadProjectHighlights(projectId);
     }
-  }
+  });
 
-  // Apply custom ordering to highlights
-  function applyCustomOrder() {
-    if (highlightOrder.length === 0) {
-      // No custom order, use default (by video, then by time)
-      orderedHighlights = [...flattenedHighlights].sort((a, b) => {
-        if (a.videoClipId !== b.videoClipId) {
-          return a.videoClipId - b.videoClipId;
-        }
-        return a.start - b.start;
-      });
-    } else {
-      // Apply custom order
-      const orderedList = [];
-      const highlightMap = new Map(flattenedHighlights.map(h => [h.id, h]));
-      
-      // Add highlights in custom order
-      for (const id of highlightOrder) {
-        const highlight = highlightMap.get(id);
-        if (highlight) {
-          orderedList.push(highlight);
-          highlightMap.delete(id);
-        }
-      }
-      
-      // Add any remaining highlights not in custom order
-      for (const highlight of highlightMap.values()) {
-        orderedList.push(highlight);
-      }
-      
-      orderedHighlights = orderedList;
-    }
-  }
+  // Cleanup on unmount
+  onDestroy(() => {
+    clearHighlights();
+  });
+
+  // These functions are now handled by the centralized store
 
   // Format timestamp for display
   function formatTimestamp(seconds) {
@@ -154,26 +95,14 @@
       return;
     }
 
-    // Reorder the array
-    const newOrder = [...orderedHighlights];
+    // Reorder the array using current store value
+    const currentHighlights = $orderedHighlights;
+    const newOrder = [...currentHighlights];
     const [draggedHighlight] = newOrder.splice(draggedItem, 1);
     newOrder.splice(dropIndex, 0, draggedHighlight);
     
-    orderedHighlights = newOrder;
-    
-    // Save new order
-    const newHighlightOrder = newOrder.map(h => h.id);
-    highlightOrder = newHighlightOrder;
-    
-    try {
-      await UpdateProjectHighlightOrder(projectId, newHighlightOrder);
-      toast.success('Highlight order updated');
-    } catch (err) {
-      console.error('Failed to save highlight order:', err);
-      toast.error('Failed to save highlight order');
-      // Revert on error
-      applyCustomOrder();
-    }
+    // Update via store (this will handle database save and state management)
+    await updateHighlightOrder(newOrder);
     
     draggedItem = null;
     dragOverItem = null;
@@ -256,11 +185,11 @@
   <div class="flex items-center justify-between">
     <h2 class="text-xl font-semibold">Highlight Timeline</h2>
     <div class="text-sm text-muted-foreground">
-      {orderedHighlights.length} {orderedHighlights.length === 1 ? 'highlight' : 'highlights'}
+      {$orderedHighlights.length} {$orderedHighlights.length === 1 ? 'highlight' : 'highlights'}
     </div>
   </div>
 
-  {#if loading}
+  {#if $highlightsLoading}
     <div class="text-center py-8 text-muted-foreground">
       <p>Loading highlights...</p>
     </div>
@@ -269,14 +198,14 @@
       <p class="font-medium">Error</p>
       <p class="text-sm">{error}</p>
     </div>
-  {:else if orderedHighlights.length === 0}
+  {:else if $orderedHighlights.length === 0}
     <div class="text-center py-8 text-muted-foreground">
       <p class="text-lg">No highlights yet</p>
       <p class="text-sm">Create highlights in your video transcriptions to see them here</p>
     </div>
   {:else}
     <div class="space-y-2">
-      {#each orderedHighlights as highlight, index}
+      {#each $orderedHighlights as highlight, index}
         <div
           class="highlight-card group relative flex items-start gap-3 p-4 rounded-lg border transition-all duration-200 cursor-move
                  {dragOverItem === index ? 'border-primary shadow-lg' : 'border-border hover:border-primary/50 hover:shadow-md'}
@@ -345,7 +274,7 @@
   {/if}
   
   <!-- Etro Video Player -->
-  <EtroVideoPlayer highlights={orderedHighlights} />
+  <EtroVideoPlayer highlights={$orderedHighlights} {projectId} />
 </div>
 
 <!-- Video Player Dialog -->
