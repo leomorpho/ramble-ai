@@ -5,13 +5,14 @@
   import { Play, Pause, SkipForward, SkipBack, Square } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
   import { updateHighlightOrder } from "$lib/stores/projectHighlights.js";
-  import * as etro from "etro";
+  import { browser } from "$app/environment";
 
   let { highlights = [], projectId = null } = $props();
 
   // Core state
   let canvasElement = $state(null);
   let movie = $state(null);
+  let etro = $state(null);
   let isPlaying = $state(false);
   let currentTime = $state(0);
   let totalDuration = $state(0);
@@ -39,6 +40,21 @@
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, "0")}`;
+  }
+
+  // Load etro library dynamically (client-side only)
+  async function loadEtro() {
+    if (!browser || etro) return etro;
+    
+    try {
+      const etroModule = await import("etro");
+      etro = etroModule;
+      return etro;
+    } catch (err) {
+      console.error("Failed to load etro library:", err);
+      toast.error("Failed to load video library");
+      return null;
+    }
   }
 
   // Load video URLs from backend
@@ -190,6 +206,13 @@
       return false;
     }
 
+    // Load etro library if not already loaded
+    const etroLib = await loadEtro();
+    if (!etroLib) {
+      console.error("Failed to load etro library");
+      return false;
+    }
+
     try {
       console.log(
         "Creating Etro movie with",
@@ -214,7 +237,7 @@
       console.log("Video dimensions:", videoDimensions);
 
       // Create movie first (Etro determines dimensions from canvas)
-      movie = new etro.Movie({
+      movie = new etroLib.Movie({
         canvas: canvasElement,
       });
 
@@ -262,7 +285,7 @@
         });
 
         // Create video layer with proper destination sizing
-        const videoLayer = new etro.layer.Video({
+        const videoLayer = new etroLib.layer.Video({
           startTime: currentStartTime,
           duration: segmentDuration,
           source: videoURL,
@@ -624,6 +647,13 @@
       return false;
     }
 
+    // Load etro library if not already loaded
+    const etroLib = await loadEtro();
+    if (!etroLib) {
+      console.error("Failed to load etro library");
+      return false;
+    }
+
     try {
       console.log(
         "Creating Etro movie with",
@@ -648,7 +678,7 @@
       console.log("Video dimensions:", videoDimensions);
 
       // Create movie first (Etro determines dimensions from canvas)
-      movie = new etro.Movie({
+      movie = new etroLib.Movie({
         canvas: canvasElement,
       });
 
@@ -688,7 +718,7 @@
         );
 
         // Create video layer with proper destination sizing
-        const videoLayer = new etro.layer.Video({
+        const videoLayer = new etroLib.layer.Video({
           startTime: currentStartTime,
           duration: segmentDuration,
           source: videoURL,
@@ -722,6 +752,7 @@
   // Watch for when videos are loaded to initialize
   $effect(() => {
     if (
+      browser &&
       allVideosLoaded &&
       highlights.length > 0 &&
       !isInitialized &&
@@ -738,7 +769,7 @@
 
   // Watch for highlights changes and reinitialize if needed
   $effect(() => {
-    if (highlights.length > 0) {
+    if (browser && highlights.length > 0) {
       console.log("Effect: Highlights changed, checking initialization state");
       console.log(
         "Current state - allVideosLoaded:",
@@ -762,7 +793,7 @@
 
   // Force update of isPlaying state when movie state changes
   $effect(() => {
-    if (movie) {
+    if (browser && movie) {
       const interval = setInterval(() => {
         if (movie) {
           const shouldBePlaying = !movie.paused && !movie.ended;

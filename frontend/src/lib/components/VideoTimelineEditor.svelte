@@ -201,7 +201,7 @@
     event.stopPropagation();
     isDraggingMarker = true;
     dragMarkerType = markerType;
-    
+
     // Initialize temporary drag values with current values
     draggedStart = editedStart;
     draggedEnd = editedEnd;
@@ -233,7 +233,7 @@
       editedStart = draggedStart;
       editedEnd = draggedEnd;
     }
-    
+
     isDraggingMarker = false;
     dragMarkerType = "";
 
@@ -362,15 +362,6 @@
   <!-- Simplified Timeline -->
   <div class="border rounded-lg">
     <div class="p-4">
-      <h3 class="text-sm font-medium mb-2">
-        Video Timeline with Transcription
-        <span class="text-xs text-muted-foreground">
-          (Words: {transcriptionWords.length}, Current Time: {currentTime.toFixed(
-            2
-          )}s, Loading: {loadingWords})
-        </span>
-      </h3>
-
       <!-- Basic timeline bar -->
       <div
         bind:this={timelineContainer}
