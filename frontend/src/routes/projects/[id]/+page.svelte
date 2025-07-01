@@ -23,6 +23,7 @@
   import TextHighlighter from "$lib/components/TextHighlighter.svelte";
   import ProjectHighlights from "$lib/components/ProjectHighlights.svelte";
   import ThemeSwitcher from "$lib/components/ui/theme-switcher/theme-switcher.svelte";
+  import { Captions, Mic, Video } from "@lucide/svelte";
 
   let project = $state(null);
   let loading = $state(false);
@@ -759,9 +760,7 @@
                         disabled={!clip.exists}
                         class="w-full"
                       >
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h8m-5-9v-.5a2.5 2.5 0 015 0V4a2 2 0 012 2v6.5" />
-                        </svg>
+                        <Video/>
                         {clip.exists ? 'Preview Video' : 'File Missing'}
                       </Button>
 
@@ -774,9 +773,7 @@
                             onclick={() => viewTranscription(clip)}
                             class="flex-1"
                           >
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
+                            <Captions/>
                             View Transcript
                           </Button>
                           <Button 
@@ -805,9 +802,7 @@
                               </svg>
                               Transcribing...
                             {:else}
-                              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                              </svg>
+                              <Mic/>
                               Start Transcription
                             {/if}
                           </Button>
