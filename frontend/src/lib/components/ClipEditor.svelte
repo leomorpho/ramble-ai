@@ -2,7 +2,8 @@
   import { onMount, onDestroy } from 'svelte';
   import { GetVideoURL, UpdateVideoClipHighlights } from '$lib/wailsjs/go/main/App';
   import { toast } from 'svelte-sonner';
-  import { Edit3, Save, X, RotateCcw, Play, Pause, SkipBack, SkipForward, ZoomIn, ZoomOut, RotateCw } from '@lucide/svelte';
+  import { Edit3, Save, X, RotateCcw, RotateCw } from '@lucide/svelte';
+  import VideoTimelineEditor from '$lib/components/VideoTimelineEditor.svelte';
   import { 
     Dialog, 
     DialogContent, 
@@ -17,6 +18,7 @@
   let { 
     open = $bindable(false), 
     highlight = null, 
+    projectId = null,
     onSave = () => {} 
   } = $props();
 
@@ -376,7 +378,7 @@
 </script>
 
 <Dialog bind:open>
-  <DialogContent class="sm:max-w-[1000px] max-h-[90vh] overflow-y-auto">
+  <DialogContent class="sm:max-w-[1200px] max-h-[95vh] overflow-y-auto">
     <DialogHeader>
       <DialogTitle class="flex items-center gap-2">
         <Edit3 class="w-5 h-5" />
@@ -459,190 +461,18 @@
 
         <!-- Timeline Visualization -->
         {#if videoURL && !videoLoading && duration > 0}
-          <div class="space-y-3">
-            <div class="flex items-center justify-between text-sm text-muted-foreground">
-              <span>Video Timeline</span>
-              <div class="flex items-center gap-2">
-                <span>Zoom: {zoomLevel.toFixed(1)}x</span>
-                <div class="flex gap-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onclick={zoomOut}
-                    disabled={zoomLevel <= 1}
-                    title="Zoom out"
-                  >
-                    <ZoomOut class="w-3 h-3" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onclick={zoomIn}
-                    disabled={zoomLevel >= 20}
-                    title="Zoom in"
-                  >
-                    <ZoomIn class="w-3 h-3" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onclick={resetZoom}
-                    disabled={zoomLevel === 1}
-                    title="Reset zoom"
-                  >
-                    <RotateCw class="w-3 h-3" />
-                  </Button>
-                </div>
-                <span>Total: {formatTime(duration)}</span>
-              </div>
-            </div>
-            
-            <!-- Timeline Bar -->
-            <div 
-              bind:this={timelineRef}
-              class="relative w-full h-12 bg-secondary rounded-lg overflow-hidden cursor-pointer hover:bg-secondary/80 transition-colors"
-              onclick={handleTimelineClick}
-              onmousemove={handleTimelineMouseMove}
-              onmouseup={handleTimelineMouseUp}
-              onmouseleave={handleTimelineMouseUp}
-              title="Click to seek to position"
-            >
-              <!-- Full video background -->
-              <div class="absolute inset-0 bg-secondary"></div>
-              
-              <!-- Highlight segment -->
-              {#if duration > 0}
-                {@const visibleRange = getVisibleRange()}
-                {@const highlightStartPos = timeToTimelinePosition(editedStart) * 100}
-                {@const highlightEndPos = timeToTimelinePosition(editedEnd) * 100}
-                {@const highlightWidth = Math.max(0, highlightEndPos - highlightStartPos)}
-                
-                {#if highlightWidth > 0 && highlightStartPos >= 0 && highlightStartPos <= 100}
-                  <div 
-                    class="absolute top-0 h-full rounded transition-all duration-200"
-                    style="left: {Math.max(0, highlightStartPos)}%; width: {Math.min(100 - Math.max(0, highlightStartPos), highlightWidth)}%; background-color: {highlight.color};"
-                    title="Highlight segment: {formatTime(editedStart)} - {formatTime(editedEnd)}"
-                  ></div>
-                {/if}
-              {/if}
-              
-              <!-- Current playhead -->
-              {#if duration > 0}
-                {@const playheadPosition = timeToTimelinePosition(currentTime) * 100}
-                {#if playheadPosition >= 0 && playheadPosition <= 100}
-                  <div 
-                    class="absolute top-0 w-0.5 h-full bg-white shadow-lg z-10 transition-all duration-75"
-                    style="left: {playheadPosition}%;"
-                  ></div>
-                {/if}
-              {/if}
-              
-              <!-- Start/End markers (draggable) -->
-              {#if duration > 0}
-                {@const startPosition = timeToTimelinePosition(editedStart) * 100}
-                {@const endPosition = timeToTimelinePosition(editedEnd) * 100}
-                
-                <!-- Start marker -->
-                {#if startPosition >= 0 && startPosition <= 100}
-                  <div 
-                    class="absolute top-0 w-2 h-full bg-green-500 z-20 transition-all duration-200 cursor-ew-resize hover:bg-green-400 hover:w-3"
-                    style="left: calc({startPosition}% - 4px);"
-                    title="Drag to adjust start time: {formatTime(editedStart)}"
-                    onmousedown={(e) => handleMarkerMouseDown(e, 'start')}
-                  ></div>
-                {/if}
-                
-                <!-- End marker -->
-                {#if endPosition >= 0 && endPosition <= 100}
-                  <div 
-                    class="absolute top-0 w-2 h-full bg-red-500 z-20 transition-all duration-200 cursor-ew-resize hover:bg-red-400 hover:w-3"
-                    style="left: calc({endPosition}% - 4px);"
-                    title="Drag to adjust end time: {formatTime(editedEnd)}"
-                    onmousedown={(e) => handleMarkerMouseDown(e, 'end')}
-                  ></div>
-                {/if}
-              {/if}
-              
-              <!-- Time labels -->
-              {#if duration > 0}
-                {@const visibleRange = getVisibleRange()}
-                <div class="absolute inset-0 flex items-center justify-between px-2 text-xs text-white/80 font-mono pointer-events-none">
-                  <span>{formatTime(visibleRange.start)}</span>
-                  <span class="bg-black/50 px-1 rounded">
-                    {formatTime(currentTime)}
-                  </span>
-                  <span>{formatTime(visibleRange.end)}</span>
-                </div>
-              {/if}
-            </div>
-            
-            <!-- Video Controls -->
-            <div class="flex items-center justify-center gap-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onclick={() => seekTo(Math.max(0, currentTime - 10))}
-                title="Skip back 10 seconds"
-              >
-                <SkipBack class="w-4 h-4" />
-                -10s
-              </Button>
-              
-              <Button
-                variant="default"
-                size="sm"
-                onclick={togglePlayPause}
-                class="px-6"
-              >
-                {#if isPlaying}
-                  <Pause class="w-4 h-4 mr-2" />
-                  Pause
-                {:else}
-                  <Play class="w-4 h-4 mr-2" />
-                  Play
-                {/if}
-              </Button>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onclick={() => seekTo(Math.min(duration, currentTime + 10))}
-                title="Skip forward 10 seconds"
-              >
-                <SkipForward class="w-4 h-4" />
-                +10s
-              </Button>
-            </div>
-
-            <!-- Timeline Legend -->
-            <div class="flex items-center justify-center gap-6 text-xs text-muted-foreground">
-              <div class="flex items-center gap-1">
-                <div class="w-3 h-3 rounded" style="background-color: {highlight.color};"></div>
-                <span>Highlight Segment</span>
-              </div>
-              <div class="flex items-center gap-1">
-                <div class="w-2 h-3 bg-green-500 cursor-ew-resize"></div>
-                <span>Start ({formatTime(editedStart)}) - Drag to adjust</span>
-              </div>
-              <div class="flex items-center gap-1">
-                <div class="w-2 h-3 bg-red-500 cursor-ew-resize"></div>
-                <span>End ({formatTime(editedEnd)}) - Drag to adjust</span>
-              </div>
-              <div class="flex items-center gap-1">
-                <div class="w-0.5 h-3 bg-white"></div>
-                <span>Playhead</span>
-              </div>
-            </div>
-            
-            <!-- Zoom Instructions -->
-            {#if zoomLevel > 1}
-              <div class="text-center text-xs text-muted-foreground bg-secondary/20 p-2 rounded">
-                <span class="font-medium">Zoomed View</span> - Showing {formatTime(getVisibleRange().start)} to {formatTime(getVisibleRange().end)}
-                <br />
-                Drag the green and red markers for precise timing adjustment
-              </div>
-            {/if}
-          </div>
+          <VideoTimelineEditor 
+            {highlight}
+            {projectId}
+            {videoElement}
+            {currentTime}
+            {duration}
+            {isPlaying}
+            bind:editedStart
+            bind:editedEnd
+            onSeek={seekTo}
+            onTogglePlay={togglePlayPause}
+          />
         {/if}
 
 

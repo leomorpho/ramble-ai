@@ -651,6 +651,7 @@
 <ClipEditor 
   bind:open={clipEditorOpen}
   highlight={editingHighlight}
+  {projectId}
   onSave={handleHighlightSave}
 />
 
