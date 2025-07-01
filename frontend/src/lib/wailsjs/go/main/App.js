@@ -18,6 +18,10 @@ export function CreateVideoClip(arg1, arg2) {
   return window['go']['main']['App']['CreateVideoClip'](arg1, arg2);
 }
 
+export function DeleteHighlight(arg1, arg2) {
+  return window['go']['main']['App']['DeleteHighlight'](arg1, arg2);
+}
+
 export function DeleteOpenAIApiKey() {
   return window['go']['main']['App']['DeleteOpenAIApiKey']();
 }

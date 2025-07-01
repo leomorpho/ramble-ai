@@ -1,5 +1,5 @@
 import { writable, derived, get } from 'svelte/store';
-import { GetProjectHighlights, GetProjectHighlightOrder, UpdateProjectHighlightOrder } from '$lib/wailsjs/go/main/App';
+import { GetProjectHighlights, GetProjectHighlightOrder, UpdateProjectHighlightOrder, DeleteHighlight } from '$lib/wailsjs/go/main/App';
 import { toast } from 'svelte-sonner';
 
 // Store for the raw highlights data from the database
@@ -158,4 +158,38 @@ export function clearHighlights() {
   highlightOrder.set([]);
   currentProjectId.set(null);
   highlightsLoading.set(false);
+}
+
+// Function to delete a highlight
+export async function deleteHighlight(highlightId, videoClipId) {
+  const projectId = get(currentProjectId);
+  
+  if (!projectId) {
+    console.warn('No project ID available for deleting highlight');
+    return false;
+  }
+  
+  try {
+    // Call backend to delete the highlight
+    await DeleteHighlight(videoClipId, highlightId);
+    
+    // Remove from highlight order if it exists
+    const currentOrder = get(highlightOrder);
+    const updatedOrder = currentOrder.filter(id => id !== highlightId);
+    if (updatedOrder.length !== currentOrder.length) {
+      highlightOrder.set(updatedOrder);
+      // Save updated order to database
+      await UpdateProjectHighlightOrder(projectId, updatedOrder);
+    }
+    
+    // Refresh highlights from database to get updated state
+    await loadProjectHighlights(projectId);
+    
+    toast.success('Highlight deleted successfully');
+    return true;
+  } catch (error) {
+    console.error('Failed to delete highlight:', error);
+    toast.error('Failed to delete highlight');
+    return false;
+  }
 }

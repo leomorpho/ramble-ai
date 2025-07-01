@@ -3,7 +3,7 @@
   import { GetVideoURL } from '$lib/wailsjs/go/main/App';
   import { draggable } from '@neodrag/svelte';
   import { toast } from 'svelte-sonner';
-  import { Play, Film, GripVertical, X, Edit3 } from '@lucide/svelte';
+  import { Play, Film, GripVertical, X, Edit3, Trash2 } from '@lucide/svelte';
   import { 
     Dialog, 
     DialogContent, 
@@ -19,7 +19,8 @@
     highlightsLoading, 
     loadProjectHighlights, 
     updateHighlightOrder, 
-    clearHighlights 
+    clearHighlights,
+    deleteHighlight
   } from '$lib/stores/projectHighlights.js';
 
   let { projectId, onHighlightClick = () => {} } = $props();
@@ -39,6 +40,11 @@
   // Clip editor state
   let clipEditorOpen = $state(false);
   let editingHighlight = $state(null);
+
+  // Delete confirmation state
+  let deleteDialogOpen = $state(false);
+  let highlightToDelete = $state(null);
+  let deleting = $state(false);
 
   // Initialize on mount and watch for project changes
   onMount(() => {
@@ -196,6 +202,39 @@
     });
   }
 
+  // Handle delete confirmation
+  function handleDeleteConfirm(event, highlight) {
+    event.stopPropagation();
+    highlightToDelete = highlight;
+    deleteDialogOpen = true;
+  }
+
+  // Handle delete highlight
+  async function handleDeleteHighlight() {
+    if (!highlightToDelete) return;
+    
+    deleting = true;
+    
+    try {
+      const success = await deleteHighlight(highlightToDelete.id, highlightToDelete.videoClipId);
+      
+      if (success) {
+        deleteDialogOpen = false;
+        highlightToDelete = null;
+      }
+    } catch (error) {
+      console.error('Error deleting highlight:', error);
+    } finally {
+      deleting = false;
+    }
+  }
+
+  // Cancel delete
+  function cancelDelete() {
+    deleteDialogOpen = false;
+    highlightToDelete = null;
+  }
+
 
   // Expose refresh method
   export function refresh() {
@@ -274,6 +313,13 @@
                   title="Edit highlight times"
                 >
                   <Edit3 class="w-4 h-4" />
+                </button>
+                <button
+                  class="flex-shrink-0 p-1 rounded hover:bg-destructive/10 hover:text-destructive transition-colors"
+                  onclick={(e) => handleDeleteConfirm(e, highlight)}
+                  title="Delete this highlight"
+                >
+                  <Trash2 class="w-4 h-4" />
                 </button>
                 <button
                   class="flex-shrink-0 p-1 rounded hover:bg-secondary/50 transition-colors"
@@ -406,6 +452,48 @@
   highlight={editingHighlight}
   onSave={handleHighlightSave}
 />
+
+<!-- Delete Confirmation Dialog -->
+<Dialog bind:open={deleteDialogOpen}>
+  <DialogContent class="sm:max-w-[425px]">
+    <DialogHeader>
+      <DialogTitle>Delete Highlight</DialogTitle>
+      <DialogDescription>
+        Are you sure you want to delete this highlight? This action cannot be undone.
+      </DialogDescription>
+    </DialogHeader>
+    
+    {#if highlightToDelete}
+      <div class="space-y-3">
+        <div class="flex items-center gap-3 p-3 rounded-lg border" style="background-color: {highlightToDelete.color}20; border-left: 4px solid {highlightToDelete.color};">
+          <Film class="w-6 h-6 flex-shrink-0" style="color: {highlightToDelete.color}" />
+          <div class="flex-1 min-w-0">
+            <h3 class="font-medium truncate">{highlightToDelete.videoClipName}</h3>
+            <p class="text-sm text-muted-foreground">
+              {formatTimeRange(highlightToDelete.start, highlightToDelete.end)}
+            </p>
+            {#if highlightToDelete.text}
+              <p class="text-sm mt-1 italic line-clamp-2">"{highlightToDelete.text}"</p>
+            {/if}
+          </div>
+        </div>
+      </div>
+    {/if}
+    
+    <div class="flex justify-end gap-2 mt-4">
+      <Button variant="outline" onclick={cancelDelete} disabled={deleting}>
+        Cancel
+      </Button>
+      <Button variant="destructive" onclick={handleDeleteHighlight} disabled={deleting}>
+        {#if deleting}
+          Deleting...
+        {:else}
+          Delete Highlight
+        {/if}
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
 
 <style>
   .highlight-card {

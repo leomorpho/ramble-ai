@@ -1369,6 +1369,39 @@ func (a *App) UpdateVideoClipHighlights(clipID int, highlights []Highlight) erro
 	return nil
 }
 
+// DeleteHighlight removes a specific highlight from a video clip by highlight ID
+func (a *App) DeleteHighlight(clipID int, highlightID string) error {
+	// Get the current video clip with its highlights
+	clip, err := a.client.VideoClip.
+		Query().
+		Where(videoclip.ID(clipID)).
+		Only(a.ctx)
+	
+	if err != nil {
+		return fmt.Errorf("failed to get video clip: %w", err)
+	}
+
+	// Filter out the highlight to delete
+	var updatedHighlights []schema.Highlight
+	for _, highlight := range clip.Highlights {
+		if highlight.ID != highlightID {
+			updatedHighlights = append(updatedHighlights, highlight)
+		}
+	}
+
+	// Update the video clip with the filtered highlights
+	_, err = a.client.VideoClip.
+		UpdateOneID(clipID).
+		SetHighlights(updatedHighlights).
+		Save(a.ctx)
+	
+	if err != nil {
+		return fmt.Errorf("failed to update video clip highlights: %w", err)
+	}
+
+	return nil
+}
+
 // HighlightWithText represents a highlight with its text content
 type HighlightWithText struct {
 	ID    string  `json:"id"`

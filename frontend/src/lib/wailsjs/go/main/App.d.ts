@@ -10,6 +10,8 @@ export function CreateProject(arg1:string,arg2:string):Promise<main.ProjectRespo
 
 export function CreateVideoClip(arg1:number,arg2:string):Promise<main.VideoClipResponse>;
 
+export function DeleteHighlight(arg1:number,arg2:string):Promise<void>;
+
 export function DeleteOpenAIApiKey():Promise<void>;
 
 export function DeleteProject(arg1:number):Promise<void>;
