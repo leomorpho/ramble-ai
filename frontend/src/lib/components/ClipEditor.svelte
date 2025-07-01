@@ -464,7 +464,6 @@
           <VideoTimelineEditor 
             {highlight}
             {projectId}
-            {videoElement}
             {currentTime}
             {duration}
             {isPlaying}
