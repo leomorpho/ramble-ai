@@ -475,11 +475,12 @@
     const rect = event.currentTarget.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
-    
+
     // Define drag handle area (upper right corner, 16x16 pixels)
     const dragHandleSize = 16;
-    const isDragHandle = x >= rect.width - dragHandleSize && y <= dragHandleSize;
-    
+    const isDragHandle =
+      x >= rect.width - dragHandleSize && y <= dragHandleSize;
+
     if (isDragHandle) {
       // This is a drag handle click, don't seek
       return;
@@ -487,21 +488,24 @@
 
     // Calculate the click position within the segment as a percentage
     const clickPercentage = x / rect.width;
-    
+
     // Calculate the start time for this segment
     let segmentStartTime = 0;
     for (let i = 0; i < segmentIndex; i++) {
       segmentStartTime += highlights[i].end - highlights[i].start;
     }
-    
+
     // Calculate the duration of the clicked segment
-    const segmentDuration = highlights[segmentIndex].end - highlights[segmentIndex].start;
-    
+    const segmentDuration =
+      highlights[segmentIndex].end - highlights[segmentIndex].start;
+
     // Calculate the target time within the segment
-    const targetTime = segmentStartTime + (clickPercentage * segmentDuration);
-    
-    console.log(`Segment click: index=${segmentIndex}, clickPos=${clickPercentage.toFixed(2)}, targetTime=${targetTime.toFixed(2)}s`);
-    
+    const targetTime = segmentStartTime + clickPercentage * segmentDuration;
+
+    console.log(
+      `Segment click: index=${segmentIndex}, clickPos=${clickPercentage.toFixed(2)}, targetTime=${targetTime.toFixed(2)}s`
+    );
+
     // Seek to the calculated time
     handleTimelineSeek(targetTime);
   }
@@ -517,11 +521,12 @@
     const rect = event.currentTarget.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
-    
+
     // Define drag handle area (upper right corner, 16x16 pixels)
     const dragHandleSize = 16;
-    const isDragHandle = x >= rect.width - dragHandleSize && y <= dragHandleSize;
-    
+    const isDragHandle =
+      x >= rect.width - dragHandleSize && y <= dragHandleSize;
+
     if (!isDragHandle) {
       // Prevent drag if not started from the handle
       event.preventDefault();
@@ -543,12 +548,12 @@
   function handleDragOver(event, targetIndex) {
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
-    
+
     // Calculate insertion point based on mouse position within the target
     const rect = event.currentTarget.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const isLeftHalf = x < rect.width / 2;
-    
+
     // Determine where the item would be inserted
     let insertionIndex;
     if (isLeftHalf) {
@@ -556,12 +561,12 @@
     } else {
       insertionIndex = targetIndex + 1;
     }
-    
+
     // Adjust for the dragged item being removed first
     if (dragStartIndex !== -1 && dragStartIndex < insertionIndex) {
       insertionIndex--;
     }
-    
+
     dragOverIndex = insertionIndex;
   }
 
@@ -914,7 +919,7 @@
 
             <!-- Drop indicator before this segment -->
             {#if isDragging && dragOverIndex === index}
-              <div class="w-0.5 h-8 bg-black flex-shrink-0"></div>
+              {@render dropIndicator()}
             {/if}
 
             <button
@@ -926,7 +931,9 @@
               style="width: {segmentWidth}%; background-color: {highlight.color}; min-width: 20px;"
               title="{highlight.videoClipName}: {formatTime(
                 highlight.start
-              )} - {formatTime(highlight.end)} (click to seek, drag handle to reorder)"
+              )} - {formatTime(
+                highlight.end
+              )} (click to seek, drag handle to reorder)"
               draggable="true"
               ondragstart={(e) => handleDragStart(e, index)}
               ondragend={handleDragEnd}
@@ -935,7 +942,7 @@
               onclick={(e) => handleSegmentClick(e, index)}
             >
               <!-- Progress indicator for active segment -->
-              {#if isActive }
+              {#if isActive}
                 {@const segmentStartTime = highlights
                   .slice(0, index)
                   .reduce((sum, h) => sum + (h.end - h.start), 0)}
@@ -970,7 +977,7 @@
 
             <!-- Drop indicator after the last segment -->
             {#if index === highlights.length - 1 && isDragging && dragOverIndex === highlights.length}
-              <div class="w-0.5 h-8 bg-black flex-shrink-0"></div>
+              {@render dropIndicator()}
             {/if}
           {/each}
         </div>
@@ -1033,3 +1040,7 @@
     </div>
   </div>
 {/if}
+
+{#snippet dropIndicator()}
+  <div class="w-0.5 h-8 bg-black dark:bg-white rounded flex-shrink-0"></div>
+{/snippet}
