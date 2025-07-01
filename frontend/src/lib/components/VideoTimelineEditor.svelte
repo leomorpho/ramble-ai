@@ -256,9 +256,9 @@
     }, 500);
   }
 
-  // Auto-scroll to current word
+  // Auto-scroll to current word only when playing
   $effect(() => {
-    if (currentWordIndex >= 0 && wordsContainer && !autoScrolling) {
+    if (currentWordIndex >= 0 && wordsContainer && !autoScrolling && isPlaying) {
       scrollToWordIndex(currentWordIndex);
     }
   });
@@ -427,8 +427,13 @@
                   <span class="flex-1 {isCurrentWord ? 'text-orange-900 dark:text-orange-100' : ''}">{word.word}</span>
                   <button 
                     class="opacity-50 hover:opacity-100"
-                    onclick={() => onSeek(word.start)}
-                    title="Seek to word"
+                    onclick={() => {
+                      onSeek(word.start);
+                      if (!isPlaying) {
+                        onTogglePlay();
+                      }
+                    }}
+                    title="Play from this word"
                   >
                     <Play class="w-3 h-3" />
                   </button>
