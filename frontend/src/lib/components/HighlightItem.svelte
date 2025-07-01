@@ -1,5 +1,5 @@
 <script>
-  import { Eye, Edit3, Play, Trash2 } from '@lucide/svelte';
+  import { Eye, Edit3, Trash2 } from '@lucide/svelte';
   import { Popover, PopoverContent, PopoverTrigger } from "$lib/components/ui/popover";
 
   let { 
@@ -15,7 +15,6 @@
     onDragOver = () => {},
     onDrop = () => {},
     onEdit = () => {},
-    onPlay = () => {},
     onDelete = () => {},
     popoverOpen = false,
     onPopoverOpenChange = () => {}
@@ -63,14 +62,6 @@
           <Edit3 class="w-4 h-4" />
           Edit Times
         </button>
-        <button
-          class="w-full flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-secondary rounded transition-colors"
-          onclick={() => onPlay(highlight)}
-        >
-          <Play class="w-4 h-4" />
-          Play Highlight
-        </button>
-        <div class="border-t border-border my-1"></div>
         <button
           class="w-full flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-destructive/10 hover:text-destructive rounded transition-colors"
           onclick={() => onDelete(null, highlight)}

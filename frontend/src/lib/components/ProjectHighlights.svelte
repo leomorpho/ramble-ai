@@ -530,7 +530,6 @@
               onDragOver={handleSpanDragOver}
               onDrop={handleSpanDrop}
               onEdit={handleEditHighlight}
-              onPlay={handleHighlightClick}
               onDelete={handleDeleteConfirm}
               popoverOpen={isPopoverOpen(highlight.id)}
               onPopoverOpenChange={(open) => {
