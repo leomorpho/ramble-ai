@@ -1,8 +1,8 @@
 <script>
   import { onMount } from 'svelte';
-  import { GetVideoURL, UpdateVideoClipHighlights } from '$lib/wailsjs/go/main/App';
+  import { GetVideoURL, UpdateVideoClipHighlights, GetVideoClipsByProject } from '$lib/wailsjs/go/main/App';
   import { toast } from 'svelte-sonner';
-  import { Edit3, Save, X, RotateCcw, Play, Pause, SkipBack, SkipForward } from '@lucide/svelte';
+  import { Edit3, Save, X, RotateCcw, Play, Pause, SkipBack, SkipForward, ZoomIn, ZoomOut, RotateCw } from '@lucide/svelte';
   import { 
     Dialog, 
     DialogContent, 
@@ -37,11 +37,24 @@
   let duration = $state(0);
   let isPlaying = $state(false);
 
+  // Timeline zoom state
+  let zoomLevel = $state(1); // 1 = full timeline, higher = more zoomed
+  let zoomCenter = $state(0); // Center point of zoom (in seconds)
+  let isDraggingMarker = $state(false);
+  let dragMarkerType = $state(''); // 'start' or 'end'
+
+  // Transcript state
+  let transcriptWords = $state([]);
+  let transcriptLoading = $state(false);
+  let editableTranscript = $state('');
+
   // Watch for highlight changes
   $effect(() => {
     if (highlight && open) {
       loadVideo();
+      loadTranscript();
       resetValues();
+      setDefaultZoom();
     }
   });
 
@@ -89,6 +102,33 @@
       videoURL = '';
     } finally {
       videoLoading = false;
+    }
+  }
+
+  // Load transcript words
+  async function loadTranscript() {
+    if (!highlight || !highlight.videoClipId) return;
+    
+    transcriptLoading = true;
+    try {
+      // Get video clips for the project to find our specific clip
+      const clips = await GetVideoClipsByProject(highlight.projectId || 1);
+      const currentClip = clips.find(clip => clip.id === highlight.videoClipId);
+      
+      if (currentClip && currentClip.transcriptionWords) {
+        transcriptWords = currentClip.transcriptionWords;
+        // Create editable transcript text from words
+        editableTranscript = transcriptWords.map(word => word.word).join(' ');
+      } else {
+        transcriptWords = [];
+        editableTranscript = '';
+      }
+    } catch (err) {
+      console.error('Failed to load transcript:', err);
+      transcriptWords = [];
+      editableTranscript = '';
+    } finally {
+      transcriptLoading = false;
     }
   }
 
@@ -212,16 +252,119 @@
            Math.abs(editedEnd - originalEnd) > 0.001;
   }
 
+  // Calculate visible timeline range based on zoom
+  function getVisibleRange() {
+    if (zoomLevel === 1) {
+      return { start: 0, end: duration };
+    }
+    
+    const visibleDuration = duration / zoomLevel;
+    const halfVisible = visibleDuration / 2;
+    
+    let rangeStart = zoomCenter - halfVisible;
+    let rangeEnd = zoomCenter + halfVisible;
+    
+    // Clamp to video bounds
+    if (rangeStart < 0) {
+      rangeStart = 0;
+      rangeEnd = visibleDuration;
+    }
+    if (rangeEnd > duration) {
+      rangeEnd = duration;
+      rangeStart = duration - visibleDuration;
+    }
+    
+    return { start: Math.max(0, rangeStart), end: Math.min(duration, rangeEnd) };
+  }
+
+  // Convert timeline position to time based on zoom
+  function timelinePositionToTime(percentage) {
+    const { start, end } = getVisibleRange();
+    return start + (percentage * (end - start));
+  }
+
+  // Convert time to timeline position based on zoom
+  function timeToTimelinePosition(time) {
+    const { start, end } = getVisibleRange();
+    if (end === start) return 0;
+    return (time - start) / (end - start);
+  }
+
   // Handle timeline click for seeking
   function handleTimelineClick(event) {
-    if (!videoElement || duration === 0) return;
+    if (!videoElement || duration === 0 || isDraggingMarker) return;
     
     const rect = event.currentTarget.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const clickPercentage = x / rect.width;
-    const targetTime = clickPercentage * duration;
+    const targetTime = timelinePositionToTime(clickPercentage);
     
     seekTo(targetTime);
+  }
+
+  // Zoom functions
+  function zoomIn() {
+    zoomLevel = Math.min(zoomLevel * 2, 20); // Max 20x zoom
+    // Center zoom on current highlight midpoint
+    zoomCenter = (editedStart + editedEnd) / 2;
+  }
+
+  function zoomOut() {
+    zoomLevel = Math.max(zoomLevel / 2, 1); // Min 1x (full timeline)
+    if (zoomLevel === 1) {
+      zoomCenter = duration / 2;
+    }
+  }
+
+  function resetZoom() {
+    zoomLevel = 1;
+    zoomCenter = duration / 2;
+  }
+
+  // Handle marker dragging
+  function startMarkerDrag(event, markerType) {
+    event.stopPropagation();
+    isDraggingMarker = true;
+    dragMarkerType = markerType;
+    
+    const handleMouseMove = (e) => {
+      if (!isDraggingMarker) return;
+      
+      const rect = event.currentTarget.parentElement.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const percentage = Math.max(0, Math.min(1, x / rect.width));
+      const newTime = timelinePositionToTime(percentage);
+      
+      if (markerType === 'start') {
+        editedStart = Math.max(0, Math.min(newTime, editedEnd - 0.1));
+      } else if (markerType === 'end') {
+        editedEnd = Math.min(duration, Math.max(newTime, editedStart + 0.1));
+      }
+    };
+    
+    const handleMouseUp = () => {
+      isDraggingMarker = false;
+      dragMarkerType = '';
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }
+
+  // Set default zoom to focus on highlight segment
+  function setDefaultZoom() {
+    if (!highlight || !duration) return;
+    
+    const highlightDuration = editedEnd - editedStart;
+    
+    // Calculate zoom level to make highlight take up about 80% of timeline width
+    // This leaves some padding on both sides for context
+    const targetZoom = Math.min(duration / (highlightDuration / 0.8), 20);
+    
+    zoomLevel = Math.max(1, targetZoom);
+    zoomCenter = (editedStart + editedEnd) / 2;
   }
 
   // Close dialog
@@ -320,7 +463,39 @@
           <div class="space-y-3">
             <div class="flex items-center justify-between text-sm text-muted-foreground">
               <span>Video Timeline</span>
-              <span>Total: {formatTime(duration)}</span>
+              <div class="flex items-center gap-2">
+                <span>Zoom: {zoomLevel.toFixed(1)}x</span>
+                <div class="flex gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onclick={zoomOut}
+                    disabled={zoomLevel <= 1}
+                    title="Zoom out"
+                  >
+                    <ZoomOut class="w-3 h-3" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onclick={zoomIn}
+                    disabled={zoomLevel >= 20}
+                    title="Zoom in"
+                  >
+                    <ZoomIn class="w-3 h-3" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onclick={resetZoom}
+                    disabled={zoomLevel === 1}
+                    title="Reset zoom"
+                  >
+                    <RotateCw class="w-3 h-3" />
+                  </Button>
+                </div>
+                <span>Total: {formatTime(duration)}</span>
+              </div>
             </div>
             
             <!-- Timeline Bar -->
@@ -334,52 +509,68 @@
               
               <!-- Highlight segment -->
               {#if duration > 0}
-                {@const highlightStart = (editedStart / duration) * 100}
-                {@const highlightWidth = ((editedEnd - editedStart) / duration) * 100}
-                <div 
-                  class="absolute top-0 h-full rounded transition-all duration-200"
-                  style="left: {highlightStart}%; width: {highlightWidth}%; background-color: {highlight.color};"
-                  title="Highlight segment: {formatTime(editedStart)} - {formatTime(editedEnd)}"
-                ></div>
+                {@const visibleRange = getVisibleRange()}
+                {@const highlightStartPos = timeToTimelinePosition(editedStart) * 100}
+                {@const highlightEndPos = timeToTimelinePosition(editedEnd) * 100}
+                {@const highlightWidth = Math.max(0, highlightEndPos - highlightStartPos)}
+                
+                {#if highlightWidth > 0 && highlightStartPos >= 0 && highlightStartPos <= 100}
+                  <div 
+                    class="absolute top-0 h-full rounded transition-all duration-200"
+                    style="left: {Math.max(0, highlightStartPos)}%; width: {Math.min(100 - Math.max(0, highlightStartPos), highlightWidth)}%; background-color: {highlight.color};"
+                    title="Highlight segment: {formatTime(editedStart)} - {formatTime(editedEnd)}"
+                  ></div>
+                {/if}
               {/if}
               
               <!-- Current playhead -->
               {#if duration > 0}
-                {@const playheadPosition = (currentTime / duration) * 100}
-                <div 
-                  class="absolute top-0 w-0.5 h-full bg-white shadow-lg z-10 transition-all duration-75"
-                  style="left: {playheadPosition}%;"
-                ></div>
+                {@const playheadPosition = timeToTimelinePosition(currentTime) * 100}
+                {#if playheadPosition >= 0 && playheadPosition <= 100}
+                  <div 
+                    class="absolute top-0 w-0.5 h-full bg-white shadow-lg z-10 transition-all duration-75"
+                    style="left: {playheadPosition}%;"
+                  ></div>
+                {/if}
               {/if}
               
-              <!-- Start/End markers -->
+              <!-- Start/End markers (draggable) -->
               {#if duration > 0}
-                {@const startPosition = (editedStart / duration) * 100}
-                {@const endPosition = (editedEnd / duration) * 100}
+                {@const startPosition = timeToTimelinePosition(editedStart) * 100}
+                {@const endPosition = timeToTimelinePosition(editedEnd) * 100}
                 
                 <!-- Start marker -->
-                <div 
-                  class="absolute top-0 w-1 h-full bg-green-500 z-20 transition-all duration-200"
-                  style="left: {startPosition}%;"
-                  title="Start: {formatTime(editedStart)}"
-                ></div>
+                {#if startPosition >= 0 && startPosition <= 100}
+                  <div 
+                    class="absolute top-0 w-2 h-full bg-green-500 z-20 transition-all duration-200 cursor-ew-resize hover:bg-green-400 hover:w-3"
+                    style="left: calc({startPosition}% - 4px);"
+                    title="Drag to adjust start time: {formatTime(editedStart)}"
+                    onmousedown={(e) => startMarkerDrag(e, 'start')}
+                  ></div>
+                {/if}
                 
                 <!-- End marker -->
-                <div 
-                  class="absolute top-0 w-1 h-full bg-red-500 z-20 transition-all duration-200"
-                  style="left: {endPosition}%;"
-                  title="End: {formatTime(editedEnd)}"
-                ></div>
+                {#if endPosition >= 0 && endPosition <= 100}
+                  <div 
+                    class="absolute top-0 w-2 h-full bg-red-500 z-20 transition-all duration-200 cursor-ew-resize hover:bg-red-400 hover:w-3"
+                    style="left: calc({endPosition}% - 4px);"
+                    title="Drag to adjust end time: {formatTime(editedEnd)}"
+                    onmousedown={(e) => startMarkerDrag(e, 'end')}
+                  ></div>
+                {/if}
               {/if}
               
               <!-- Time labels -->
-              <div class="absolute inset-0 flex items-center justify-between px-2 text-xs text-white/80 font-mono pointer-events-none">
-                <span>0:00</span>
-                <span class="bg-black/50 px-1 rounded">
-                  {formatTime(currentTime)}
-                </span>
-                <span>{formatTime(duration)}</span>
-              </div>
+              {#if duration > 0}
+                {@const visibleRange = getVisibleRange()}
+                <div class="absolute inset-0 flex items-center justify-between px-2 text-xs text-white/80 font-mono pointer-events-none">
+                  <span>{formatTime(visibleRange.start)}</span>
+                  <span class="bg-black/50 px-1 rounded">
+                    {formatTime(currentTime)}
+                  </span>
+                  <span>{formatTime(visibleRange.end)}</span>
+                </div>
+              {/if}
             </div>
             
             <!-- Video Controls -->
@@ -427,18 +618,51 @@
                 <span>Highlight Segment</span>
               </div>
               <div class="flex items-center gap-1">
-                <div class="w-1 h-3 bg-green-500"></div>
-                <span>Start ({formatTime(editedStart)})</span>
+                <div class="w-2 h-3 bg-green-500 cursor-ew-resize"></div>
+                <span>Start ({formatTime(editedStart)}) - Drag to adjust</span>
               </div>
               <div class="flex items-center gap-1">
-                <div class="w-1 h-3 bg-red-500"></div>
-                <span>End ({formatTime(editedEnd)})</span>
+                <div class="w-2 h-3 bg-red-500 cursor-ew-resize"></div>
+                <span>End ({formatTime(editedEnd)}) - Drag to adjust</span>
               </div>
               <div class="flex items-center gap-1">
                 <div class="w-0.5 h-3 bg-white"></div>
                 <span>Playhead</span>
               </div>
             </div>
+            
+            <!-- Zoom Instructions -->
+            {#if zoomLevel > 1}
+              <div class="text-center text-xs text-muted-foreground bg-secondary/20 p-2 rounded">
+                <span class="font-medium">Zoomed View</span> - Showing {formatTime(getVisibleRange().start)} to {formatTime(getVisibleRange().end)}
+                <br />
+                Drag the green and red markers for precise timing adjustment
+              </div>
+            {/if}
+          </div>
+        {/if}
+
+        <!-- Transcript editing -->
+        {#if transcriptWords.length > 0}
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <Label for="transcript-edit" class="text-sm font-medium">Edit Transcript Text</Label>
+            </div>
+            <textarea
+              id="transcript-edit"
+              bind:value={editableTranscript}
+              class="w-full h-20 p-3 text-sm border rounded-lg bg-background resize-none"
+              placeholder="Edit the transcript text here..."
+            ></textarea>
+          </div>
+        {:else if transcriptLoading}
+          <div class="text-center py-4 text-muted-foreground">
+            <div class="animate-spin w-6 h-6 border-2 border-current border-t-transparent rounded-full mx-auto mb-2"></div>
+            Loading transcript...
+          </div>
+        {:else}
+          <div class="text-center py-4 text-muted-foreground">
+            <p>No transcript available for this video</p>
           </div>
         {/if}
 
