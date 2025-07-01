@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { GetVideoURL, UpdateVideoClipHighlights, GetVideoClipsByProject } from '$lib/wailsjs/go/main/App';
+  import { GetVideoURL, UpdateVideoClipHighlights } from '$lib/wailsjs/go/main/App';
   import { toast } from 'svelte-sonner';
   import { Edit3, Save, X, RotateCcw, Play, Pause, SkipBack, SkipForward, ZoomIn, ZoomOut, RotateCw } from '@lucide/svelte';
   import { 
@@ -43,20 +43,18 @@
   let isDraggingMarker = $state(false);
   let dragMarkerType = $state(''); // 'start' or 'end'
 
-  // Transcript state
-  let transcriptWords = $state([]);
-  let transcriptLoading = $state(false);
-  let editableTranscript = $state('');
-
-  // Watch for highlight changes
+  // Only reset when a new highlight is loaded (track the highlight ID to prevent constant resets)
+  let lastHighlightId = $state(null);
+  
   $effect(() => {
-    if (highlight && open) {
+    if (highlight && open && highlight.id !== lastHighlightId) {
+      lastHighlightId = highlight.id;
       loadVideo();
-      loadTranscript();
       resetValues();
       setDefaultZoom();
     }
   });
+
 
   // Format time for display (MM:SS)
   function formatTime(seconds) {
@@ -105,32 +103,6 @@
     }
   }
 
-  // Load transcript words
-  async function loadTranscript() {
-    if (!highlight || !highlight.videoClipId) return;
-    
-    transcriptLoading = true;
-    try {
-      // Get video clips for the project to find our specific clip
-      const clips = await GetVideoClipsByProject(highlight.projectId || 1);
-      const currentClip = clips.find(clip => clip.id === highlight.videoClipId);
-      
-      if (currentClip && currentClip.transcriptionWords) {
-        transcriptWords = currentClip.transcriptionWords;
-        // Create editable transcript text from words
-        editableTranscript = transcriptWords.map(word => word.word).join(' ');
-      } else {
-        transcriptWords = [];
-        editableTranscript = '';
-      }
-    } catch (err) {
-      console.error('Failed to load transcript:', err);
-      transcriptWords = [];
-      editableTranscript = '';
-    } finally {
-      transcriptLoading = false;
-    }
-  }
 
   // Handle video loaded
   function handleVideoLoaded() {
@@ -321,36 +293,46 @@
     zoomCenter = duration / 2;
   }
 
-  // Handle marker dragging
-  function startMarkerDrag(event, markerType) {
+  // Handle marker dragging with simpler approach
+  let timelineRef = $state(null);
+  
+  function handleMarkerMouseDown(event, markerType) {
     event.stopPropagation();
     isDraggingMarker = true;
     dragMarkerType = markerType;
+  }
+  
+  function handleTimelineMouseMove(event) {
+    if (!isDraggingMarker || !timelineRef) return;
     
-    const handleMouseMove = (e) => {
-      if (!isDraggingMarker) return;
-      
-      const rect = event.currentTarget.parentElement.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const percentage = Math.max(0, Math.min(1, x / rect.width));
-      const newTime = timelinePositionToTime(percentage);
-      
-      if (markerType === 'start') {
-        editedStart = Math.max(0, Math.min(newTime, editedEnd - 0.1));
-      } else if (markerType === 'end') {
-        editedEnd = Math.min(duration, Math.max(newTime, editedStart + 0.1));
-      }
-    };
+    const rect = timelineRef.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const percentage = Math.max(0, Math.min(1, x / rect.width));
+    const newTime = timelinePositionToTime(percentage);
     
-    const handleMouseUp = () => {
-      isDraggingMarker = false;
-      dragMarkerType = '';
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-    
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    if (dragMarkerType === 'start') {
+      editedStart = Math.max(0, Math.min(newTime, editedEnd - 0.1));
+    } else if (dragMarkerType === 'end') {
+      editedEnd = Math.min(duration, Math.max(newTime, editedStart + 0.1));
+    }
+  }
+  
+  function handleTimelineMouseUp() {
+    isDraggingMarker = false;
+    dragMarkerType = '';
+  }
+
+  // Simple direct input handlers
+  function handleStartTimeChange(e) {
+    const newValue = parseTimeFromInput(e.target.value);
+    editedStart = Math.max(0, Math.min(newValue, duration));
+    console.log('Start time changed to:', editedStart);
+  }
+
+  function handleEndTimeChange(e) {
+    const newValue = parseTimeFromInput(e.target.value);
+    editedEnd = Math.max(0, Math.min(newValue, duration));
+    console.log('End time changed to:', editedEnd);
   }
 
   // Set default zoom to focus on highlight segment
@@ -500,8 +482,12 @@
             
             <!-- Timeline Bar -->
             <div 
+              bind:this={timelineRef}
               class="relative w-full h-12 bg-secondary rounded-lg overflow-hidden cursor-pointer hover:bg-secondary/80 transition-colors"
               onclick={handleTimelineClick}
+              onmousemove={handleTimelineMouseMove}
+              onmouseup={handleTimelineMouseUp}
+              onmouseleave={handleTimelineMouseUp}
               title="Click to seek to position"
             >
               <!-- Full video background -->
@@ -545,7 +531,7 @@
                     class="absolute top-0 w-2 h-full bg-green-500 z-20 transition-all duration-200 cursor-ew-resize hover:bg-green-400 hover:w-3"
                     style="left: calc({startPosition}% - 4px);"
                     title="Drag to adjust start time: {formatTime(editedStart)}"
-                    onmousedown={(e) => startMarkerDrag(e, 'start')}
+                    onmousedown={(e) => handleMarkerMouseDown(e, 'start')}
                   ></div>
                 {/if}
                 
@@ -555,7 +541,7 @@
                     class="absolute top-0 w-2 h-full bg-red-500 z-20 transition-all duration-200 cursor-ew-resize hover:bg-red-400 hover:w-3"
                     style="left: calc({endPosition}% - 4px);"
                     title="Drag to adjust end time: {formatTime(editedEnd)}"
-                    onmousedown={(e) => startMarkerDrag(e, 'end')}
+                    onmousedown={(e) => handleMarkerMouseDown(e, 'end')}
                   ></div>
                 {/if}
               {/if}
@@ -642,29 +628,6 @@
           </div>
         {/if}
 
-        <!-- Transcript editing -->
-        {#if transcriptWords.length > 0}
-          <div class="space-y-2">
-            <div class="flex items-center justify-between">
-              <Label for="transcript-edit" class="text-sm font-medium">Edit Transcript Text</Label>
-            </div>
-            <textarea
-              id="transcript-edit"
-              bind:value={editableTranscript}
-              class="w-full h-20 p-3 text-sm border rounded-lg bg-background resize-none"
-              placeholder="Edit the transcript text here..."
-            ></textarea>
-          </div>
-        {:else if transcriptLoading}
-          <div class="text-center py-4 text-muted-foreground">
-            <div class="animate-spin w-6 h-6 border-2 border-current border-t-transparent rounded-full mx-auto mb-2"></div>
-            Loading transcript...
-          </div>
-        {:else}
-          <div class="text-center py-4 text-muted-foreground">
-            <p>No transcript available for this video</p>
-          </div>
-        {/if}
 
         <!-- Current Time Info -->
         {#if videoURL && !videoLoading}
@@ -700,7 +663,7 @@
                 min="0"
                 max={duration}
                 value={formatTimeForInput(editedStart)}
-                oninput={(e) => editedStart = parseTimeFromInput(e.target.value)}
+                onchange={handleStartTimeChange}
                 class="font-mono"
               />
               <div class="flex gap-2">
@@ -738,7 +701,7 @@
                 min="0"
                 max={duration}
                 value={formatTimeForInput(editedEnd)}
-                oninput={(e) => editedEnd = parseTimeFromInput(e.target.value)}
+                onchange={handleEndTimeChange}
                 class="font-mono"
               />
               <div class="flex gap-2">
