@@ -614,7 +614,7 @@
         variant="outline"
         onclick={resetValues}
         disabled={!hasChanges()}
-        class="flex items-center gap-2"
+        class="flex items-center gap-2 invisible"
       >
         <RotateCcw class="w-4 h-4" />
         Reset to Original
