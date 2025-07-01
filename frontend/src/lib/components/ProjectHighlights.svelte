@@ -199,7 +199,7 @@
 
   // Expose refresh method
   export function refresh() {
-    loadHighlights();
+    loadProjectHighlights(projectId);
   }
 </script>
 
