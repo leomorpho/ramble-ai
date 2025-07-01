@@ -525,7 +525,7 @@
             <span 
               class="highlight-span
                      {selectedHighlights.has(highlight.id) ? 'highlight-selected' : ''}
-                     {draggedHighlights.includes(highlight.id) ? 'highlight-dragging' : ''}"
+                     {isDragging && draggedHighlights.includes(highlight.id) && draggedHighlights[0] === highlight.id ? 'highlight-dragging' : ''}"
               style="background-color: {highlight.color}40;"
               draggable="true"
               ondragstart={(e) => handleNewDragStart(e, highlight, index)}
