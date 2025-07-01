@@ -98,18 +98,12 @@
     return closestDistance <= 2 ? closestIndex : -1;
   }
   
-  // Update current word index with throttling
-  let lastUpdateTime = 0;
+  // Update current word index
   $effect(() => {
     if (transcriptionWords.length === 0) {
       currentWordIndex = -1;
       return;
     }
-    
-    // Throttle updates to every 100ms to avoid excessive reactivity
-    const now = Date.now();
-    if (now - lastUpdateTime < 100) return;
-    lastUpdateTime = now;
     
     currentWordIndex = findCurrentWordIndex(currentTime, transcriptionWords);
   });
@@ -294,9 +288,23 @@
     return currentTime >= word.start && currentTime <= word.end;
   }
 
+  // Handle keyboard events
+  function handleKeyDown(event) {
+    if (event.code === 'Space') {
+      event.preventDefault(); // Prevent page scrolling
+      onTogglePlay();
+    }
+  }
+
+  // Add keyboard event listener when component mounts
+  onMount(() => {
+    document.addEventListener('keydown', handleKeyDown);
+  });
+
   onDestroy(() => {
     document.removeEventListener('mousemove', handleGlobalMouseMove);
     document.removeEventListener('mouseup', handleGlobalMouseUp);
+    document.removeEventListener('keydown', handleKeyDown);
   });
 </script>
 
