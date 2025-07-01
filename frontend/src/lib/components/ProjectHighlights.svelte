@@ -53,6 +53,9 @@
   let highlightToDelete = $state(null);
   let deleting = $state(false);
 
+  // Popover state management
+  let popoverStates = $state(new Map());
+
   // Initialize on mount and watch for project changes
   onMount(() => {
     if (projectId) {
@@ -90,6 +93,7 @@
 
   // Handle highlight click
   async function handleHighlightClick(highlight) {
+    closePopover(highlight.id);
     currentHighlight = highlight;
     videoLoading = true;
     videoDialogOpen = true;
@@ -148,9 +152,29 @@
     videoURL = '';
   }
 
+  // Helper functions for popover state management
+  function openPopover(highlightId) {
+    const newStates = new Map(popoverStates);
+    newStates.set(highlightId, true);
+    popoverStates = newStates;
+  }
+
+  function closePopover(highlightId) {
+    const newStates = new Map(popoverStates);
+    newStates.set(highlightId, false);
+    popoverStates = newStates;
+  }
+
+  function isPopoverOpen(highlightId) {
+    return popoverStates.get(highlightId) || false;
+  }
+
   // Handle edit highlight
   function handleEditHighlight(event, highlight) {
-    event.stopPropagation();
+    if (event) {
+      event.stopPropagation();
+    }
+    closePopover(highlight.id);
     editingHighlight = highlight;
     clipEditorOpen = true;
   }
@@ -167,7 +191,10 @@
 
   // Handle delete confirmation
   function handleDeleteConfirm(event, highlight) {
-    event.stopPropagation();
+    if (event) {
+      event.stopPropagation();
+    }
+    closePopover(highlight.id);
     highlightToDelete = highlight;
     deleteDialogOpen = true;
   }
@@ -494,12 +521,12 @@
               <span class="drop-indicator">|</span>
             {/if}
             
-            <!-- Highlight as inline text span -->
+            <!-- Highlight as inline text span with embedded eye icon -->
             <span 
               class="highlight-span
                      {selectedHighlights.has(highlight.id) ? 'highlight-selected' : ''}
                      {draggedHighlights.includes(highlight.id) ? 'highlight-dragging' : ''}"
-              style="background-color: {highlight.color}40; color: {highlight.color};"
+              style="background-color: {highlight.color}40;"
               draggable="true"
               ondragstart={(e) => handleNewDragStart(e, highlight, index)}
               ondragend={handleNewDragEnd}
@@ -508,16 +535,24 @@
               ondrop={(e) => handleSpanDrop(e, index)}
               role="button"
               tabindex="0"
-            >{highlight.text || highlight.videoClipName}</span><!--
-            
-            --><!-- Inline Eye icon --><!--
-            --><span class="inline-eye-icon">
-              <Popover>
+            >{highlight.text || highlight.videoClipName}<!--
+            --><!-- Eye icon inside highlight --><!--
+            --><span class="inline-flex items-center ml-1">
+              <Popover 
+                open={isPopoverOpen(highlight.id)}
+                onOpenChange={(open) => {
+                  if (open) {
+                    openPopover(highlight.id);
+                  } else {
+                    closePopover(highlight.id);
+                  }
+                }}
+              >
                 <PopoverTrigger 
-                  class="inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-background/50 transition-colors ml-1"
+                  class="inline-flex items-center justify-center w-3 h-3 rounded-full hover:bg-black/10 hover:bg-white/20 transition-all duration-200"
                   onclick={(e) => e.stopPropagation()}
                 >
-                  <Eye class="w-2.5 h-2.5 text-muted-foreground hover:text-foreground" />
+                  <Eye class="w-2 h-2 text-foreground/50 hover:text-foreground transition-all duration-200" />
                 </PopoverTrigger>
                 <PopoverContent align="start" class="w-48 p-1">
                   <div class="space-y-1">
@@ -546,7 +581,7 @@
                   </div>
                 </PopoverContent>
               </Popover>
-            </span>{#if index < $orderedHighlights.length - 1} {/if}
+            </span></span>{#if index < $orderedHighlights.length - 1} {/if}
           {/each}
           
           <!-- Drop indicator at the end -->
@@ -714,6 +749,7 @@
     transition: all 0.2s ease;
     font-weight: 500;
     position: relative;
+    color: hsl(var(--foreground));
   }
   
   .highlight-span:hover {
@@ -737,12 +773,7 @@
     transform: scale(0.95);
   }
   
-  /* Inline eye icon styling */
-  .inline-eye-icon {
-    display: inline-flex;
-    vertical-align: baseline;
-    margin-left: 2px;
-  }
+  /* Inline eye icon styling handled by Tailwind */
   
   /* Drop indicator styling */
   .drop-indicator {
