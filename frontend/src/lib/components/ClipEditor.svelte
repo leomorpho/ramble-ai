@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { GetVideoURL, UpdateVideoClipHighlights } from '$lib/wailsjs/go/main/App';
   import { toast } from 'svelte-sonner';
   import { Edit3, Save, X, RotateCcw, Play, Pause, SkipBack, SkipForward, ZoomIn, ZoomOut, RotateCw } from '@lucide/svelte';
@@ -20,11 +20,11 @@
     onSave = () => {} 
   } = $props();
 
+
   // Local state
   let videoURL = $state('');
   let videoElement = $state(null);
   let videoLoading = $state(false);
-  let saving = $state(false);
   
   // Editable values
   let editedStart = $state(0);
@@ -138,11 +138,13 @@
   // Set start time to current playback time
   function setStartToCurrent() {
     editedStart = Math.min(currentTime, editedEnd - 0.1); // Ensure start is before end
+    scheduleAutoSave();
   }
 
   // Set end time to current playback time
   function setEndToCurrent() {
     editedEnd = Math.max(currentTime, editedStart + 0.1); // Ensure end is after start
+    scheduleAutoSave();
   }
 
   // Play/pause video
@@ -158,65 +160,6 @@
     }
   }
 
-  // Save changes
-  async function saveChanges() {
-    if (!highlight) return;
-
-    // Validate times
-    if (editedStart >= editedEnd) {
-      toast.error('Invalid time range', {
-        description: 'Start time must be before end time'
-      });
-      return;
-    }
-
-    if (editedStart < 0 || editedEnd > duration) {
-      toast.error('Invalid time range', {
-        description: 'Times must be within video duration'
-      });
-      return;
-    }
-
-    saving = true;
-    try {
-      // Create the updated highlight object
-      const updatedHighlight = {
-        id: highlight.id,
-        start: editedStart,
-        end: editedEnd,
-        color: highlight.color
-      };
-
-      // Get the video clip ID from the highlight
-      const videoClipId = highlight.videoClipId;
-
-      // For now, we'll update just this highlight
-      // In a production system, you might want to fetch all highlights for this clip
-      // and update the specific one, but this simpler approach should work
-      await UpdateVideoClipHighlights(videoClipId, [updatedHighlight]);
-
-      toast.success('Highlight updated', {
-        description: 'Start and end times have been saved'
-      });
-
-      // Call the onSave callback with updated highlight
-      onSave({
-        ...highlight,
-        start: editedStart,
-        end: editedEnd
-      });
-
-      // Close the dialog
-      open = false;
-    } catch (err) {
-      console.error('Failed to save highlight:', err);
-      toast.error('Failed to save changes', {
-        description: 'Could not update the highlight times'
-      });
-    } finally {
-      saving = false;
-    }
-  }
 
   // Check if values have changed
   function hasChanges() {
@@ -318,21 +261,25 @@
   }
   
   function handleTimelineMouseUp() {
+    if (isDraggingMarker) {
+      // Trigger auto-save when user finishes dragging
+      scheduleAutoSave();
+    }
     isDraggingMarker = false;
     dragMarkerType = '';
   }
 
-  // Simple direct input handlers
+  // Input handlers with auto-save
   function handleStartTimeChange(e) {
     const newValue = parseTimeFromInput(e.target.value);
     editedStart = Math.max(0, Math.min(newValue, duration));
-    console.log('Start time changed to:', editedStart);
+    scheduleAutoSave();
   }
 
   function handleEndTimeChange(e) {
     const newValue = parseTimeFromInput(e.target.value);
     editedEnd = Math.max(0, Math.min(newValue, duration));
-    console.log('End time changed to:', editedEnd);
+    scheduleAutoSave();
   }
 
   // Set default zoom to focus on highlight segment
@@ -349,6 +296,10 @@
     zoomCenter = (editedStart + editedEnd) / 2;
   }
 
+  // Auto-save state
+  let autoSaveTimeout = $state(null);
+  let isAutoSaving = $state(false);
+
   // Close dialog
   function closeDialog() {
     if (videoElement) {
@@ -356,6 +307,72 @@
     }
     open = false;
   }
+
+  // Auto-save changes with debouncing
+  function scheduleAutoSave() {
+    // Clear existing timeout
+    if (autoSaveTimeout) {
+      clearTimeout(autoSaveTimeout);
+    }
+    
+    // Schedule auto-save after 1 second of no changes
+    autoSaveTimeout = setTimeout(() => {
+      if (hasChanges()) {
+        autoSaveChanges();
+      }
+    }, 1000);
+  }
+
+  // Auto-save the changes
+  async function autoSaveChanges() {
+    if (!highlight || isAutoSaving) return;
+
+    // Validate times before saving
+    if (editedStart >= editedEnd) {
+      return; // Don't auto-save invalid ranges
+    }
+
+    if (editedStart < 0 || editedEnd > duration) {
+      return; // Don't auto-save out-of-bounds times
+    }
+
+    isAutoSaving = true;
+    try {
+      const updatedHighlight = {
+        id: highlight.id,
+        start: editedStart,
+        end: editedEnd,
+        color: highlight.color
+      };
+
+      const videoClipId = highlight.videoClipId;
+      await UpdateVideoClipHighlights(videoClipId, [updatedHighlight]);
+
+      // Update original values to reflect saved state
+      originalStart = editedStart;
+      originalEnd = editedEnd;
+
+      // Call the onSave callback with updated highlight
+      onSave({
+        ...highlight,
+        start: editedStart,
+        end: editedEnd
+      });
+
+    } catch (err) {
+      console.error('Auto-save failed:', err);
+      // Don't show error toast for auto-save failures to avoid being intrusive
+    } finally {
+      isAutoSaving = false;
+    }
+  }
+
+  // Cleanup timeout on component destroy
+  onDestroy(() => {
+    if (autoSaveTimeout) {
+      clearTimeout(autoSaveTimeout);
+    }
+  });
 </script>
 
 <Dialog bind:open>
@@ -738,14 +755,25 @@
                 Original: {formatTime(originalStart)} - {formatTime(originalEnd)}
               </p>
               <p class="text-sm font-medium">
-                Updated: {formatTime(editedStart)} - {formatTime(editedEnd)}
+                Current: {formatTime(editedStart)} - {formatTime(editedEnd)}
               </p>
             </div>
-            {#if hasChanges()}
-              <div class="text-sm text-amber-600 dark:text-amber-400">
-                ● Changes pending
-              </div>
-            {/if}
+            <div class="text-sm">
+              {#if isAutoSaving}
+                <div class="text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                  <div class="w-3 h-3 animate-spin rounded-full border border-current border-t-transparent"></div>
+                  Saving...
+                </div>
+              {:else if hasChanges()}
+                <div class="text-amber-600 dark:text-amber-400">
+                  ● Auto-save pending
+                </div>
+              {:else}
+                <div class="text-green-600 dark:text-green-400">
+                  ✓ Saved
+                </div>
+              {/if}
+            </div>
           </div>
         </div>
       </div>
@@ -760,26 +788,12 @@
         class="flex items-center gap-2"
       >
         <RotateCcw class="w-4 h-4" />
-        Reset
+        Reset to Original
       </Button>
       
-      <div class="flex gap-2">
-        <Button variant="outline" onclick={closeDialog}>
-          Cancel
-        </Button>
-        <Button
-          onclick={saveChanges}
-          disabled={saving || !hasChanges()}
-          class="flex items-center gap-2"
-        >
-          {#if saving}
-            <div class="w-4 h-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
-          {:else}
-            <Save class="w-4 h-4" />
-          {/if}
-          Save Changes
-        </Button>
-      </div>
+      <Button variant="outline" onclick={closeDialog}>
+        Close
+      </Button>
     </div>
   </DialogContent>
 </Dialog>
