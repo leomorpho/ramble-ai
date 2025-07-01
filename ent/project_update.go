@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"MYAPP/ent/exportjob"
 	"MYAPP/ent/predicate"
 	"MYAPP/ent/project"
 	"MYAPP/ent/videoclip"
@@ -112,6 +113,21 @@ func (pu *ProjectUpdate) AddVideoClips(v ...*VideoClip) *ProjectUpdate {
 	return pu.AddVideoClipIDs(ids...)
 }
 
+// AddExportJobIDs adds the "export_jobs" edge to the ExportJob entity by IDs.
+func (pu *ProjectUpdate) AddExportJobIDs(ids ...int) *ProjectUpdate {
+	pu.mutation.AddExportJobIDs(ids...)
+	return pu
+}
+
+// AddExportJobs adds the "export_jobs" edges to the ExportJob entity.
+func (pu *ProjectUpdate) AddExportJobs(e ...*ExportJob) *ProjectUpdate {
+	ids := make([]int, len(e))
+	for i := range e {
+		ids[i] = e[i].ID
+	}
+	return pu.AddExportJobIDs(ids...)
+}
+
 // Mutation returns the ProjectMutation object of the builder.
 func (pu *ProjectUpdate) Mutation() *ProjectMutation {
 	return pu.mutation
@@ -136,6 +152,27 @@ func (pu *ProjectUpdate) RemoveVideoClips(v ...*VideoClip) *ProjectUpdate {
 		ids[i] = v[i].ID
 	}
 	return pu.RemoveVideoClipIDs(ids...)
+}
+
+// ClearExportJobs clears all "export_jobs" edges to the ExportJob entity.
+func (pu *ProjectUpdate) ClearExportJobs() *ProjectUpdate {
+	pu.mutation.ClearExportJobs()
+	return pu
+}
+
+// RemoveExportJobIDs removes the "export_jobs" edge to ExportJob entities by IDs.
+func (pu *ProjectUpdate) RemoveExportJobIDs(ids ...int) *ProjectUpdate {
+	pu.mutation.RemoveExportJobIDs(ids...)
+	return pu
+}
+
+// RemoveExportJobs removes "export_jobs" edges to ExportJob entities.
+func (pu *ProjectUpdate) RemoveExportJobs(e ...*ExportJob) *ProjectUpdate {
+	ids := make([]int, len(e))
+	for i := range e {
+		ids[i] = e[i].ID
+	}
+	return pu.RemoveExportJobIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -264,6 +301,51 @@ func (pu *ProjectUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if pu.mutation.ExportJobsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ExportJobsTable,
+			Columns: []string{project.ExportJobsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(exportjob.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := pu.mutation.RemovedExportJobsIDs(); len(nodes) > 0 && !pu.mutation.ExportJobsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ExportJobsTable,
+			Columns: []string{project.ExportJobsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(exportjob.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := pu.mutation.ExportJobsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ExportJobsTable,
+			Columns: []string{project.ExportJobsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(exportjob.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if n, err = sqlgraph.UpdateNodes(ctx, pu.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{project.Label}
@@ -367,6 +449,21 @@ func (puo *ProjectUpdateOne) AddVideoClips(v ...*VideoClip) *ProjectUpdateOne {
 	return puo.AddVideoClipIDs(ids...)
 }
 
+// AddExportJobIDs adds the "export_jobs" edge to the ExportJob entity by IDs.
+func (puo *ProjectUpdateOne) AddExportJobIDs(ids ...int) *ProjectUpdateOne {
+	puo.mutation.AddExportJobIDs(ids...)
+	return puo
+}
+
+// AddExportJobs adds the "export_jobs" edges to the ExportJob entity.
+func (puo *ProjectUpdateOne) AddExportJobs(e ...*ExportJob) *ProjectUpdateOne {
+	ids := make([]int, len(e))
+	for i := range e {
+		ids[i] = e[i].ID
+	}
+	return puo.AddExportJobIDs(ids...)
+}
+
 // Mutation returns the ProjectMutation object of the builder.
 func (puo *ProjectUpdateOne) Mutation() *ProjectMutation {
 	return puo.mutation
@@ -391,6 +488,27 @@ func (puo *ProjectUpdateOne) RemoveVideoClips(v ...*VideoClip) *ProjectUpdateOne
 		ids[i] = v[i].ID
 	}
 	return puo.RemoveVideoClipIDs(ids...)
+}
+
+// ClearExportJobs clears all "export_jobs" edges to the ExportJob entity.
+func (puo *ProjectUpdateOne) ClearExportJobs() *ProjectUpdateOne {
+	puo.mutation.ClearExportJobs()
+	return puo
+}
+
+// RemoveExportJobIDs removes the "export_jobs" edge to ExportJob entities by IDs.
+func (puo *ProjectUpdateOne) RemoveExportJobIDs(ids ...int) *ProjectUpdateOne {
+	puo.mutation.RemoveExportJobIDs(ids...)
+	return puo
+}
+
+// RemoveExportJobs removes "export_jobs" edges to ExportJob entities.
+func (puo *ProjectUpdateOne) RemoveExportJobs(e ...*ExportJob) *ProjectUpdateOne {
+	ids := make([]int, len(e))
+	for i := range e {
+		ids[i] = e[i].ID
+	}
+	return puo.RemoveExportJobIDs(ids...)
 }
 
 // Where appends a list predicates to the ProjectUpdate builder.
@@ -542,6 +660,51 @@ func (puo *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err e
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(videoclip.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if puo.mutation.ExportJobsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ExportJobsTable,
+			Columns: []string{project.ExportJobsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(exportjob.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := puo.mutation.RemovedExportJobsIDs(); len(nodes) > 0 && !puo.mutation.ExportJobsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ExportJobsTable,
+			Columns: []string{project.ExportJobsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(exportjob.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := puo.mutation.ExportJobsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ExportJobsTable,
+			Columns: []string{project.ExportJobsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(exportjob.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

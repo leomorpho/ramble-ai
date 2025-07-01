@@ -11,6 +11,7 @@ import (
 
 	"MYAPP/ent/migrate"
 
+	"MYAPP/ent/exportjob"
 	"MYAPP/ent/project"
 	"MYAPP/ent/settings"
 	"MYAPP/ent/videoclip"
@@ -26,6 +27,8 @@ type Client struct {
 	config
 	// Schema is the client for creating, migrating and dropping schema.
 	Schema *migrate.Schema
+	// ExportJob is the client for interacting with the ExportJob builders.
+	ExportJob *ExportJobClient
 	// Project is the client for interacting with the Project builders.
 	Project *ProjectClient
 	// Settings is the client for interacting with the Settings builders.
@@ -43,6 +46,7 @@ func NewClient(opts ...Option) *Client {
 
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
+	c.ExportJob = NewExportJobClient(c.config)
 	c.Project = NewProjectClient(c.config)
 	c.Settings = NewSettingsClient(c.config)
 	c.VideoClip = NewVideoClipClient(c.config)
@@ -138,6 +142,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	return &Tx{
 		ctx:       ctx,
 		config:    cfg,
+		ExportJob: NewExportJobClient(cfg),
 		Project:   NewProjectClient(cfg),
 		Settings:  NewSettingsClient(cfg),
 		VideoClip: NewVideoClipClient(cfg),
@@ -160,6 +165,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	return &Tx{
 		ctx:       ctx,
 		config:    cfg,
+		ExportJob: NewExportJobClient(cfg),
 		Project:   NewProjectClient(cfg),
 		Settings:  NewSettingsClient(cfg),
 		VideoClip: NewVideoClipClient(cfg),
@@ -169,7 +175,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 // Debug returns a new debug-client. It's used to get verbose logging on specific operations.
 //
 //	client.Debug().
-//		Project.
+//		ExportJob.
 //		Query().
 //		Count(ctx)
 func (c *Client) Debug() *Client {
@@ -191,6 +197,7 @@ func (c *Client) Close() error {
 // Use adds the mutation hooks to all the entity clients.
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
+	c.ExportJob.Use(hooks...)
 	c.Project.Use(hooks...)
 	c.Settings.Use(hooks...)
 	c.VideoClip.Use(hooks...)
@@ -199,6 +206,7 @@ func (c *Client) Use(hooks ...Hook) {
 // Intercept adds the query interceptors to all the entity clients.
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
+	c.ExportJob.Intercept(interceptors...)
 	c.Project.Intercept(interceptors...)
 	c.Settings.Intercept(interceptors...)
 	c.VideoClip.Intercept(interceptors...)
@@ -207,6 +215,8 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 // Mutate implements the ent.Mutator interface.
 func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
+	case *ExportJobMutation:
+		return c.ExportJob.mutate(ctx, m)
 	case *ProjectMutation:
 		return c.Project.mutate(ctx, m)
 	case *SettingsMutation:
@@ -215,6 +225,155 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.VideoClip.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
+	}
+}
+
+// ExportJobClient is a client for the ExportJob schema.
+type ExportJobClient struct {
+	config
+}
+
+// NewExportJobClient returns a client for the ExportJob from the given config.
+func NewExportJobClient(c config) *ExportJobClient {
+	return &ExportJobClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `exportjob.Hooks(f(g(h())))`.
+func (c *ExportJobClient) Use(hooks ...Hook) {
+	c.hooks.ExportJob = append(c.hooks.ExportJob, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `exportjob.Intercept(f(g(h())))`.
+func (c *ExportJobClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ExportJob = append(c.inters.ExportJob, interceptors...)
+}
+
+// Create returns a builder for creating a ExportJob entity.
+func (c *ExportJobClient) Create() *ExportJobCreate {
+	mutation := newExportJobMutation(c.config, OpCreate)
+	return &ExportJobCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ExportJob entities.
+func (c *ExportJobClient) CreateBulk(builders ...*ExportJobCreate) *ExportJobCreateBulk {
+	return &ExportJobCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ExportJobClient) MapCreateBulk(slice any, setFunc func(*ExportJobCreate, int)) *ExportJobCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ExportJobCreateBulk{err: fmt.Errorf("calling to ExportJobClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ExportJobCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ExportJobCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ExportJob.
+func (c *ExportJobClient) Update() *ExportJobUpdate {
+	mutation := newExportJobMutation(c.config, OpUpdate)
+	return &ExportJobUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ExportJobClient) UpdateOne(ej *ExportJob) *ExportJobUpdateOne {
+	mutation := newExportJobMutation(c.config, OpUpdateOne, withExportJob(ej))
+	return &ExportJobUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ExportJobClient) UpdateOneID(id int) *ExportJobUpdateOne {
+	mutation := newExportJobMutation(c.config, OpUpdateOne, withExportJobID(id))
+	return &ExportJobUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ExportJob.
+func (c *ExportJobClient) Delete() *ExportJobDelete {
+	mutation := newExportJobMutation(c.config, OpDelete)
+	return &ExportJobDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ExportJobClient) DeleteOne(ej *ExportJob) *ExportJobDeleteOne {
+	return c.DeleteOneID(ej.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ExportJobClient) DeleteOneID(id int) *ExportJobDeleteOne {
+	builder := c.Delete().Where(exportjob.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ExportJobDeleteOne{builder}
+}
+
+// Query returns a query builder for ExportJob.
+func (c *ExportJobClient) Query() *ExportJobQuery {
+	return &ExportJobQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeExportJob},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ExportJob entity by its id.
+func (c *ExportJobClient) Get(ctx context.Context, id int) (*ExportJob, error) {
+	return c.Query().Where(exportjob.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ExportJobClient) GetX(ctx context.Context, id int) *ExportJob {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryProject queries the project edge of a ExportJob.
+func (c *ExportJobClient) QueryProject(ej *ExportJob) *ProjectQuery {
+	query := (&ProjectClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := ej.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(exportjob.Table, exportjob.FieldID, id),
+			sqlgraph.To(project.Table, project.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, exportjob.ProjectTable, exportjob.ProjectColumn),
+		)
+		fromV = sqlgraph.Neighbors(ej.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ExportJobClient) Hooks() []Hook {
+	return c.hooks.ExportJob
+}
+
+// Interceptors returns the client interceptors.
+func (c *ExportJobClient) Interceptors() []Interceptor {
+	return c.inters.ExportJob
+}
+
+func (c *ExportJobClient) mutate(ctx context.Context, m *ExportJobMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ExportJobCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ExportJobUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ExportJobUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ExportJobDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ExportJob mutation op: %q", m.Op())
 	}
 }
 
@@ -335,6 +494,22 @@ func (c *ProjectClient) QueryVideoClips(pr *Project) *VideoClipQuery {
 			sqlgraph.From(project.Table, project.FieldID, id),
 			sqlgraph.To(videoclip.Table, videoclip.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, project.VideoClipsTable, project.VideoClipsColumn),
+		)
+		fromV = sqlgraph.Neighbors(pr.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryExportJobs queries the export_jobs edge of a Project.
+func (c *ProjectClient) QueryExportJobs(pr *Project) *ExportJobQuery {
+	query := (&ExportJobClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := pr.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, id),
+			sqlgraph.To(exportjob.Table, exportjob.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, project.ExportJobsTable, project.ExportJobsColumn),
 		)
 		fromV = sqlgraph.Neighbors(pr.driver.Dialect(), step)
 		return fromV, nil
@@ -652,9 +827,9 @@ func (c *VideoClipClient) mutate(ctx context.Context, m *VideoClipMutation) (Val
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Project, Settings, VideoClip []ent.Hook
+		ExportJob, Project, Settings, VideoClip []ent.Hook
 	}
 	inters struct {
-		Project, Settings, VideoClip []ent.Interceptor
+		ExportJob, Project, Settings, VideoClip []ent.Interceptor
 	}
 )

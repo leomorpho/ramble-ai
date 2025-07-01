@@ -40,5 +40,7 @@ func (Project) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("video_clips", VideoClip.Type).
 			Comment("Video clips in this project"),
+		edge.To("export_jobs", ExportJob.Type).
+			Comment("Export jobs for this project"),
 	}
 }

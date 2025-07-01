@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"MYAPP/ent/exportjob"
 	"MYAPP/ent/predicate"
 	"MYAPP/ent/project"
 	"MYAPP/ent/videoclip"
@@ -25,6 +26,7 @@ type ProjectQuery struct {
 	inters         []Interceptor
 	predicates     []predicate.Project
 	withVideoClips *VideoClipQuery
+	withExportJobs *ExportJobQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -76,6 +78,28 @@ func (pq *ProjectQuery) QueryVideoClips() *VideoClipQuery {
 			sqlgraph.From(project.Table, project.FieldID, selector),
 			sqlgraph.To(videoclip.Table, videoclip.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, project.VideoClipsTable, project.VideoClipsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(pq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryExportJobs chains the current query on the "export_jobs" edge.
+func (pq *ProjectQuery) QueryExportJobs() *ExportJobQuery {
+	query := (&ExportJobClient{config: pq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := pq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := pq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, selector),
+			sqlgraph.To(exportjob.Table, exportjob.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, project.ExportJobsTable, project.ExportJobsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(pq.driver.Dialect(), step)
 		return fromU, nil
@@ -276,6 +300,7 @@ func (pq *ProjectQuery) Clone() *ProjectQuery {
 		inters:         append([]Interceptor{}, pq.inters...),
 		predicates:     append([]predicate.Project{}, pq.predicates...),
 		withVideoClips: pq.withVideoClips.Clone(),
+		withExportJobs: pq.withExportJobs.Clone(),
 		// clone intermediate query.
 		sql:  pq.sql.Clone(),
 		path: pq.path,
@@ -290,6 +315,17 @@ func (pq *ProjectQuery) WithVideoClips(opts ...func(*VideoClipQuery)) *ProjectQu
 		opt(query)
 	}
 	pq.withVideoClips = query
+	return pq
+}
+
+// WithExportJobs tells the query-builder to eager-load the nodes that are connected to
+// the "export_jobs" edge. The optional arguments are used to configure the query builder of the edge.
+func (pq *ProjectQuery) WithExportJobs(opts ...func(*ExportJobQuery)) *ProjectQuery {
+	query := (&ExportJobClient{config: pq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	pq.withExportJobs = query
 	return pq
 }
 
@@ -371,8 +407,9 @@ func (pq *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 	var (
 		nodes       = []*Project{}
 		_spec       = pq.querySpec()
-		loadedTypes = [1]bool{
+		loadedTypes = [2]bool{
 			pq.withVideoClips != nil,
+			pq.withExportJobs != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -397,6 +434,13 @@ func (pq *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 		if err := pq.loadVideoClips(ctx, query, nodes,
 			func(n *Project) { n.Edges.VideoClips = []*VideoClip{} },
 			func(n *Project, e *VideoClip) { n.Edges.VideoClips = append(n.Edges.VideoClips, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := pq.withExportJobs; query != nil {
+		if err := pq.loadExportJobs(ctx, query, nodes,
+			func(n *Project) { n.Edges.ExportJobs = []*ExportJob{} },
+			func(n *Project, e *ExportJob) { n.Edges.ExportJobs = append(n.Edges.ExportJobs, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -429,6 +473,37 @@ func (pq *ProjectQuery) loadVideoClips(ctx context.Context, query *VideoClipQuer
 		node, ok := nodeids[*fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "project_video_clips" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (pq *ProjectQuery) loadExportJobs(ctx context.Context, query *ExportJobQuery, nodes []*Project, init func(*Project), assign func(*Project, *ExportJob)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Project)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	query.withFKs = true
+	query.Where(predicate.ExportJob(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(project.ExportJobsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.project_export_jobs
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "project_export_jobs" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "project_export_jobs" returned %v for node %v`, *fk, n.ID)
 		}
 		assign(node, n)
 	}

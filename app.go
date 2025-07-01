@@ -8,6 +8,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"bufio"
+	"regexp"
 	"io"
 	"log"
 	"mime/multipart"
@@ -18,9 +20,11 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"MYAPP/ent"
+	"MYAPP/ent/exportjob"
 	"MYAPP/ent/project"
 	"MYAPP/ent/schema"
 	"MYAPP/ent/settings"
@@ -139,6 +143,11 @@ func (a *App) startup(ctx context.Context) {
 	}
 
 	log.Println("Database initialized and migrations applied")
+	
+	// Recover any incomplete export jobs
+	if err := a.RecoverActiveExportJobs(); err != nil {
+		log.Printf("Failed to recover active export jobs: %v", err)
+	}
 }
 
 // shutdown is called when the app shuts down
@@ -1532,4 +1541,917 @@ func (a *App) GetProjectHighlightOrder(projectID int) ([]string, error) {
 	}
 
 	return order, nil
+}
+
+// Export-related types and structs
+type ExportProgress struct {
+	JobID       string  `json:"jobId"`
+	Stage       string  `json:"stage"`
+	Progress    float64 `json:"progress"`
+	CurrentFile string  `json:"currentFile"`
+	TotalFiles  int     `json:"totalFiles"`
+	ProcessedFiles int  `json:"processedFiles"`
+	IsComplete  bool    `json:"isComplete"`
+	HasError    bool    `json:"hasError"`
+	ErrorMessage string `json:"errorMessage"`
+	IsCancelled bool    `json:"isCancelled"`
+}
+
+type ActiveExportJob struct {
+	JobID      string
+	Cancel     chan bool
+	IsActive   bool
+}
+
+// Global active job manager (for cancellation and in-memory tracking)
+var (
+	activeJobs = make(map[string]*ActiveExportJob)
+	activeJobsMutex = sync.RWMutex{}
+)
+
+// FFmpeg progress tracking
+type FFmpegProgress struct {
+	Frame    int64
+	FPS      float64
+	Bitrate  string
+	Time     float64
+	Duration float64
+	Progress float64
+}
+
+// HighlightSegment represents a single highlight segment for export
+type HighlightSegment struct {
+	ID            string  `json:"id"`
+	VideoClipID   int     `json:"videoClipId"`
+	VideoClipName string  `json:"videoClipName"`
+	FilePath      string  `json:"filePath"`
+	StartTime     float64 `json:"startTime"`
+	EndTime       float64 `json:"endTime"`
+	Color         string  `json:"color"`
+	Text          string  `json:"text"`
+}
+
+// SelectExportFolder opens a dialog for the user to select an export folder
+func (a *App) SelectExportFolder() (string, error) {
+	options := runtime.OpenDialogOptions{
+		Title: "Select Export Folder",
+		Filters: []runtime.FileFilter{},
+	}
+	
+	folder, err := runtime.OpenDirectoryDialog(a.ctx, options)
+	if err != nil {
+		return "", fmt.Errorf("failed to open directory dialog: %w", err)
+	}
+	
+	return folder, nil
+}
+
+// ExportStitchedHighlights exports all highlights as a single stitched video
+func (a *App) ExportStitchedHighlights(projectID int, outputFolder string) (string, error) {
+	jobID := fmt.Sprintf("stitched_%d_%d", projectID, time.Now().UnixNano())
+	
+	// Get project info for directory naming
+	project, err := a.client.Project.Get(a.ctx, projectID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get project: %w", err)
+	}
+	
+	// Create timestamped directory
+	timestamp := time.Now().Format("2006-01-02_15-04-05")
+	projectDirName := fmt.Sprintf("%s_%s", sanitizeFilename(project.Name), timestamp)
+	projectDir := filepath.Join(outputFolder, projectDirName)
+	
+	if err := os.MkdirAll(projectDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create project directory: %w", err)
+	}
+	
+	// Create database record with project directory path
+	dbJob, err := a.client.ExportJob.Create().
+		SetJobID(jobID).
+		SetExportType("stitched").
+		SetOutputPath(projectDir).
+		SetStage("starting").
+		SetProgress(0.0).
+		SetProjectID(projectID).
+		Save(a.ctx)
+	
+	if err != nil {
+		return "", fmt.Errorf("failed to create export job: %w", err)
+	}
+	
+	// Create active job for cancellation tracking
+	activeJob := &ActiveExportJob{
+		JobID:    jobID,
+		Cancel:   make(chan bool, 1),
+		IsActive: true,
+	}
+	
+	activeJobsMutex.Lock()
+	activeJobs[jobID] = activeJob
+	activeJobsMutex.Unlock()
+	
+	// Start export job in goroutine
+	go a.performStitchedExport(dbJob, activeJob)
+	
+	return jobID, nil
+}
+
+// ExportIndividualHighlights exports each highlight as a separate file
+func (a *App) ExportIndividualHighlights(projectID int, outputFolder string) (string, error) {
+	jobID := fmt.Sprintf("individual_%d_%d", projectID, time.Now().UnixNano())
+	
+	// Get project info for directory naming
+	project, err := a.client.Project.Get(a.ctx, projectID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get project: %w", err)
+	}
+	
+	// Create timestamped directory
+	timestamp := time.Now().Format("2006-01-02_15-04-05")
+	projectDirName := fmt.Sprintf("%s_%s", sanitizeFilename(project.Name), timestamp)
+	projectDir := filepath.Join(outputFolder, projectDirName)
+	
+	if err := os.MkdirAll(projectDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create project directory: %w", err)
+	}
+	
+	// Create database record with project directory path
+	dbJob, err := a.client.ExportJob.Create().
+		SetJobID(jobID).
+		SetExportType("individual").
+		SetOutputPath(projectDir).
+		SetStage("starting").
+		SetProgress(0.0).
+		SetProjectID(projectID).
+		Save(a.ctx)
+	
+	if err != nil {
+		return "", fmt.Errorf("failed to create export job: %w", err)
+	}
+	
+	// Create active job for cancellation tracking
+	activeJob := &ActiveExportJob{
+		JobID:    jobID,
+		Cancel:   make(chan bool, 1),
+		IsActive: true,
+	}
+	
+	activeJobsMutex.Lock()
+	activeJobs[jobID] = activeJob
+	activeJobsMutex.Unlock()
+	
+	// Start export job in goroutine
+	go a.performIndividualExport(dbJob, activeJob)
+	
+	return jobID, nil
+}
+
+// GetExportProgress returns the current progress of an export job
+func (a *App) GetExportProgress(jobID string) (*ExportProgress, error) {
+	// Get job from database
+	dbJob, err := a.client.ExportJob.
+		Query().
+		Where(exportjob.JobID(jobID)).
+		First(a.ctx)
+	
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, fmt.Errorf("export job not found: %s", jobID)
+		}
+		return nil, fmt.Errorf("failed to get export job: %w", err)
+	}
+	
+	return &ExportProgress{
+		JobID:          dbJob.JobID,
+		Stage:          dbJob.Stage,
+		Progress:       dbJob.Progress,
+		CurrentFile:    dbJob.CurrentFile,
+		TotalFiles:     dbJob.TotalFiles,
+		ProcessedFiles: dbJob.ProcessedFiles,
+		IsComplete:     dbJob.IsComplete,
+		HasError:       dbJob.HasError,
+		ErrorMessage:   dbJob.ErrorMessage,
+		IsCancelled:    dbJob.IsCancelled,
+	}, nil
+}
+
+// CancelExport cancels an ongoing export job
+func (a *App) CancelExport(jobID string) error {
+	// Update database to mark as cancelled
+	_, err := a.client.ExportJob.
+		Update().
+		Where(exportjob.JobID(jobID)).
+		SetIsCancelled(true).
+		SetStage("cancelled").
+		SetUpdatedAt(time.Now()).
+		Save(a.ctx)
+	
+	if err != nil {
+		return fmt.Errorf("failed to cancel export job in database: %w", err)
+	}
+	
+	// Signal active job to cancel
+	activeJobsMutex.RLock()
+	activeJob, exists := activeJobs[jobID]
+	activeJobsMutex.RUnlock()
+	
+	if exists && activeJob.IsActive {
+		select {
+		case activeJob.Cancel <- true:
+		default:
+		}
+	}
+	
+	return nil
+}
+
+// performStitchedExport performs the actual stitched video export
+func (a *App) performStitchedExport(dbJob *ent.ExportJob, activeJob *ActiveExportJob) {
+	defer func() {
+		// Mark job as complete and clean up
+		activeJobsMutex.Lock()
+		delete(activeJobs, dbJob.JobID)
+		activeJobsMutex.Unlock()
+		
+		// Update database with completion status
+		a.client.ExportJob.
+			UpdateOne(dbJob).
+			SetIsComplete(true).
+			SetCompletedAt(time.Now()).
+			SetUpdatedAt(time.Now()).
+			Save(a.ctx)
+	}()
+	
+	// Update stage to preparing
+	a.updateJobProgress(dbJob.JobID, "preparing", 0.0, "", 0, 0)
+	
+	// Get project ID from job
+	project, err := dbJob.QueryProject().First(a.ctx)
+	if err != nil {
+		a.updateJobError(dbJob.JobID, fmt.Sprintf("Failed to get project: %v", err))
+		return
+	}
+	
+	// Get all highlight segments for this project (in proper order)
+	segments, err := a.getProjectHighlightsForExport(project.ID)
+	if err != nil {
+		a.updateJobError(dbJob.JobID, fmt.Sprintf("Failed to get highlight segments: %v", err))
+		return
+	}
+	
+	if len(segments) == 0 {
+		a.updateJobError(dbJob.JobID, "No highlight segments found")
+		return
+	}
+	
+	// Update total files count
+	a.updateJobProgress(dbJob.JobID, "preparing", 0.0, "", len(segments), 0)
+	
+	// Create temp directory for clips
+	tempDir := filepath.Join("temp_export", dbJob.JobID)
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		a.updateJobError(dbJob.JobID, fmt.Sprintf("Failed to create temp directory: %v", err))
+		return
+	}
+	defer os.RemoveAll(tempDir)
+	
+	// Extract individual segments with progress tracking
+	var segmentPaths []string
+	for i, segment := range segments {
+		// Check for cancellation
+		select {
+		case <-activeJob.Cancel:
+			a.updateJobCancelled(dbJob.JobID)
+			return
+		default:
+		}
+		
+		// Update progress
+		progress := float64(i) / float64(len(segments)) * 0.8 // 80% for extraction
+		fileName := fmt.Sprintf("%s (%.1fs-%.1fs)", segment.VideoClipName, segment.StartTime, segment.EndTime)
+		a.updateJobProgress(dbJob.JobID, "extracting", progress, fileName, len(segments), i)
+		
+		segmentPath, err := a.extractHighlightSegmentWithProgress(segment, tempDir, i+1, dbJob.JobID, activeJob.Cancel)
+		if err != nil {
+			a.updateJobError(dbJob.JobID, fmt.Sprintf("Failed to extract segment %s: %v", fileName, err))
+			return
+		}
+		segmentPaths = append(segmentPaths, segmentPath)
+	}
+	
+	// Stitch segments together with progress tracking
+	a.updateJobProgress(dbJob.JobID, "stitching", 0.8, "Combining highlight segments", len(segments), len(segments))
+	
+	// Create output file in the project directory
+	outputFileName := fmt.Sprintf("%s_highlights_stitched.mp4", sanitizeFilename(project.Name))
+	outputFile := filepath.Join(dbJob.OutputPath, outputFileName)
+	err = a.stitchVideoClipsWithProgress(segmentPaths, outputFile, dbJob.JobID, activeJob.Cancel)
+	if err != nil {
+		a.updateJobError(dbJob.JobID, fmt.Sprintf("Failed to stitch segments: %v", err))
+		return
+	}
+	
+	// Mark as complete with directory info
+	completionMessage := fmt.Sprintf("Exported to: %s", filepath.Base(dbJob.OutputPath))
+	a.updateJobProgress(dbJob.JobID, "complete", 1.0, completionMessage, len(segments), len(segments))
+}
+
+// performIndividualExport performs the individual clips export
+func (a *App) performIndividualExport(dbJob *ent.ExportJob, activeJob *ActiveExportJob) {
+	defer func() {
+		// Mark job as complete and clean up
+		activeJobsMutex.Lock()
+		delete(activeJobs, dbJob.JobID)
+		activeJobsMutex.Unlock()
+		
+		// Update database with completion status
+		a.client.ExportJob.
+			UpdateOne(dbJob).
+			SetIsComplete(true).
+			SetCompletedAt(time.Now()).
+			SetUpdatedAt(time.Now()).
+			Save(a.ctx)
+	}()
+	
+	// Get project ID from job
+	project, err := dbJob.QueryProject().First(a.ctx)
+	if err != nil {
+		a.updateJobError(dbJob.JobID, fmt.Sprintf("Failed to get project: %v", err))
+		return
+	}
+	
+	// Get all highlight segments for this project (in proper order)
+	segments, err := a.getProjectHighlightsForExport(project.ID)
+	if err != nil {
+		a.updateJobError(dbJob.JobID, fmt.Sprintf("Failed to get highlight segments: %v", err))
+		return
+	}
+	
+	if len(segments) == 0 {
+		a.updateJobError(dbJob.JobID, "No highlight segments found")
+		return
+	}
+	
+	// Update stage and total files
+	a.updateJobProgress(dbJob.JobID, "extracting", 0.0, "", len(segments), 0)
+	
+	// Extract individual segments with progress tracking
+	for i, segment := range segments {
+		// Check for cancellation
+		select {
+		case <-activeJob.Cancel:
+			a.updateJobCancelled(dbJob.JobID)
+			return
+		default:
+		}
+		
+		// Update progress
+		progress := float64(i) / float64(len(segments))
+		fileName := fmt.Sprintf("%s (%.1fs-%.1fs)", segment.VideoClipName, segment.StartTime, segment.EndTime)
+		a.updateJobProgress(dbJob.JobID, "extracting", progress, fileName, len(segments), i)
+		
+		// Create descriptive filename with segment info
+		segmentName := fmt.Sprintf("%s_%.1fs-%.1fs", 
+			sanitizeFilename(strings.TrimSuffix(segment.VideoClipName, filepath.Ext(segment.VideoClipName))),
+			segment.StartTime, segment.EndTime)
+		outputFile := filepath.Join(dbJob.OutputPath, fmt.Sprintf("%03d_%s.mp4", i+1, segmentName))
+		
+		err := a.extractHighlightSegmentDirectWithProgress(segment, outputFile, dbJob.JobID, activeJob.Cancel)
+		if err != nil {
+			a.updateJobError(dbJob.JobID, fmt.Sprintf("Failed to extract segment %s: %v", fileName, err))
+			return
+		}
+	}
+	
+	// Mark as complete with directory info
+	completionMessage := fmt.Sprintf("Exported to: %s", filepath.Base(dbJob.OutputPath))
+	a.updateJobProgress(dbJob.JobID, "complete", 1.0, completionMessage, len(segments), len(segments))
+}
+
+// getProjectHighlightsForExport gets all highlights across all clips in the proper order
+func (a *App) getProjectHighlightsForExport(projectID int) ([]HighlightSegment, error) {
+	// Get project highlights using the same logic as the frontend
+	projectHighlights, err := a.GetProjectHighlights(projectID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project highlights: %w", err)
+	}
+	
+	// Flatten highlights into segments, preserving order
+	var segments []HighlightSegment
+	for _, ph := range projectHighlights {
+		for _, highlight := range ph.Highlights {
+			segment := HighlightSegment{
+				ID:            highlight.ID,
+				VideoClipID:   ph.VideoClipID,
+				VideoClipName: ph.VideoClipName,
+				FilePath:      ph.FilePath,
+				StartTime:     highlight.Start,
+				EndTime:       highlight.End,
+				Color:         highlight.Color,
+				Text:          highlight.Text,
+			}
+			segments = append(segments, segment)
+		}
+	}
+	
+	// Apply custom ordering if it exists
+	order, err := a.GetProjectHighlightOrder(projectID)
+	if err == nil && len(order) > 0 {
+		segments = a.applyHighlightOrder(segments, order)
+	}
+	
+	return segments, nil
+}
+
+// applyHighlightOrder reorders segments according to custom order
+func (a *App) applyHighlightOrder(segments []HighlightSegment, order []string) []HighlightSegment {
+	if len(order) == 0 {
+		return segments
+	}
+	
+	// Create a map for quick lookup
+	segmentMap := make(map[string]HighlightSegment)
+	for _, segment := range segments {
+		segmentMap[segment.ID] = segment
+	}
+	
+	// Build ordered list
+	var orderedSegments []HighlightSegment
+	for _, id := range order {
+		if segment, exists := segmentMap[id]; exists {
+			orderedSegments = append(orderedSegments, segment)
+			delete(segmentMap, id) // Remove from map to track used segments
+		}
+	}
+	
+	// Add any remaining segments that weren't in the order list
+	for _, segment := range segmentMap {
+		orderedSegments = append(orderedSegments, segment)
+	}
+	
+	return orderedSegments
+}
+
+// extractHighlightSegment extracts a single highlight segment to a temp file
+func (a *App) extractHighlightSegment(segment HighlightSegment, tempDir string, index int) (string, error) {
+	outputPath := filepath.Join(tempDir, fmt.Sprintf("segment_%03d.mp4", index))
+	
+	// Use ffmpeg to extract the segment
+	cmd := exec.Command("ffmpeg",
+		"-i", segment.FilePath,
+		"-ss", fmt.Sprintf("%.3f", segment.StartTime),
+		"-to", fmt.Sprintf("%.3f", segment.EndTime),
+		"-c:v", "libx264",
+		"-c:a", "aac",
+		"-y",
+		outputPath,
+	)
+	
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("ffmpeg failed: %w, output: %s", err, string(output))
+	}
+	
+	return outputPath, nil
+}
+
+// extractHighlightSegmentDirect extracts a highlight segment directly to the output file
+func (a *App) extractHighlightSegmentDirect(segment HighlightSegment, outputPath string) error {
+	// Use ffmpeg to extract the segment
+	cmd := exec.Command("ffmpeg",
+		"-i", segment.FilePath,
+		"-ss", fmt.Sprintf("%.3f", segment.StartTime),
+		"-to", fmt.Sprintf("%.3f", segment.EndTime),
+		"-c:v", "libx264",
+		"-c:a", "aac",
+		"-y",
+		outputPath,
+	)
+	
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("ffmpeg failed: %w, output: %s", err, string(output))
+	}
+	
+	return nil
+}
+
+// stitchVideoClips combines multiple video clips into one
+func (a *App) stitchVideoClips(clipPaths []string, outputPath string) error {
+	if len(clipPaths) == 0 {
+		return fmt.Errorf("no clips to stitch")
+	}
+	
+	// Create concat file for ffmpeg
+	concatFile := filepath.Join(filepath.Dir(outputPath), "concat_list.txt")
+	defer os.Remove(concatFile)
+	
+	file, err := os.Create(concatFile)
+	if err != nil {
+		return fmt.Errorf("failed to create concat file: %w", err)
+	}
+	defer file.Close()
+	
+	for _, clipPath := range clipPaths {
+		_, err := file.WriteString(fmt.Sprintf("file '%s'\n", clipPath))
+		if err != nil {
+			return fmt.Errorf("failed to write to concat file: %w", err)
+		}
+	}
+	
+	// Use ffmpeg to concatenate clips
+	cmd := exec.Command("ffmpeg",
+		"-f", "concat",
+		"-safe", "0",
+		"-i", concatFile,
+		"-c", "copy",
+		"-y",
+		outputPath,
+	)
+	
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("ffmpeg concat failed: %w, output: %s", err, string(output))
+	}
+	
+	return nil
+}
+
+// sanitizeFilename removes invalid characters from filename
+func sanitizeFilename(filename string) string {
+	// Replace invalid characters with underscores
+	invalidChars := []string{"/", "\\", ":", "*", "?", "\"", "<", ">", "|"}
+	result := filename
+	for _, char := range invalidChars {
+		result = strings.ReplaceAll(result, char, "_")
+	}
+	return result
+}
+
+// Database update helper functions
+func (a *App) updateJobProgress(jobID, stage string, progress float64, currentFile string, totalFiles, processedFiles int) {
+	a.client.ExportJob.
+		Update().
+		Where(exportjob.JobID(jobID)).
+		SetStage(stage).
+		SetProgress(progress).
+		SetCurrentFile(currentFile).
+		SetTotalFiles(totalFiles).
+		SetProcessedFiles(processedFiles).
+		SetUpdatedAt(time.Now()).
+		Save(a.ctx)
+}
+
+func (a *App) updateJobError(jobID, errorMessage string) {
+	a.client.ExportJob.
+		Update().
+		Where(exportjob.JobID(jobID)).
+		SetHasError(true).
+		SetErrorMessage(errorMessage).
+		SetIsComplete(true).
+		SetCompletedAt(time.Now()).
+		SetUpdatedAt(time.Now()).
+		Save(a.ctx)
+}
+
+func (a *App) updateJobCancelled(jobID string) {
+	a.client.ExportJob.
+		Update().
+		Where(exportjob.JobID(jobID)).
+		SetIsCancelled(true).
+		SetStage("cancelled").
+		SetIsComplete(true).
+		SetCompletedAt(time.Now()).
+		SetUpdatedAt(time.Now()).
+		Save(a.ctx)
+}
+
+// FFmpeg progress tracking functions
+func (a *App) parseFFmpegProgress(line string) *FFmpegProgress {
+	// FFmpeg progress line format: frame=   123 fps= 12 q=28.0 size=    1234kB time=00:01:23.45 bitrate= 567.8kbits/s speed=1.23x
+	frameRegex := regexp.MustCompile(`frame=\s*(\d+)`)
+	fpsRegex := regexp.MustCompile(`fps=\s*([\d.]+)`)
+	timeRegex := regexp.MustCompile(`time=(\d{2}):(\d{2}):([\d.]+)`)
+	bitrateRegex := regexp.MustCompile(`bitrate=\s*([\d.]+)kbits/s`)
+
+	progress := &FFmpegProgress{}
+
+	if match := frameRegex.FindStringSubmatch(line); len(match) > 1 {
+		if frame, err := strconv.ParseInt(match[1], 10, 64); err == nil {
+			progress.Frame = frame
+		}
+	}
+
+	if match := fpsRegex.FindStringSubmatch(line); len(match) > 1 {
+		if fps, err := strconv.ParseFloat(match[1], 64); err == nil {
+			progress.FPS = fps
+		}
+	}
+
+	if match := timeRegex.FindStringSubmatch(line); len(match) > 3 {
+		hours, _ := strconv.ParseFloat(match[1], 64)
+		minutes, _ := strconv.ParseFloat(match[2], 64)
+		seconds, _ := strconv.ParseFloat(match[3], 64)
+		progress.Time = hours*3600 + minutes*60 + seconds
+	}
+
+	if match := bitrateRegex.FindStringSubmatch(line); len(match) > 1 {
+		progress.Bitrate = match[1] + "kbits/s"
+	}
+
+	return progress
+}
+
+func (a *App) getVideoDuration(videoPath string) (float64, error) {
+	cmd := exec.Command("ffprobe",
+		"-v", "quiet",
+		"-show_entries", "format=duration",
+		"-of", "csv=p=0",
+		videoPath,
+	)
+
+	output, err := cmd.Output()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get video duration: %w", err)
+	}
+
+	duration, err := strconv.ParseFloat(strings.TrimSpace(string(output)), 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse duration: %w", err)
+	}
+
+	return duration, nil
+}
+
+// Enhanced ffmpeg functions with progress tracking
+func (a *App) extractHighlightSegmentWithProgress(segment HighlightSegment, tempDir string, index int, jobID string, cancel chan bool) (string, error) {
+	outputPath := filepath.Join(tempDir, fmt.Sprintf("segment_%03d.mp4", index))
+
+	// Get video duration for the highlight segment
+	duration := segment.EndTime - segment.StartTime
+
+	cmd := exec.Command("ffmpeg",
+		"-i", segment.FilePath,
+		"-ss", fmt.Sprintf("%.3f", segment.StartTime),
+		"-to", fmt.Sprintf("%.3f", segment.EndTime),
+		"-c:v", "libx264",
+		"-c:a", "aac",
+		"-progress", "pipe:1",
+		"-y",
+		outputPath,
+	)
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return "", fmt.Errorf("failed to create stdout pipe: %w", err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		return "", fmt.Errorf("failed to start ffmpeg: %w", err)
+	}
+
+	// Monitor progress
+	scanner := bufio.NewScanner(stdout)
+	go func() {
+		for scanner.Scan() {
+			line := scanner.Text()
+			if strings.Contains(line, "time=") {
+				if progress := a.parseFFmpegProgress(line); progress.Time > 0 && duration > 0 {
+					clipProgress := progress.Time / duration
+					if clipProgress > 1.0 {
+						clipProgress = 1.0
+					}
+					// Update progress for this specific clip extraction
+					// This is a sub-progress within the overall job
+				}
+			}
+		}
+	}()
+
+	// Wait for completion or cancellation
+	done := make(chan error, 1)
+	go func() {
+		done <- cmd.Wait()
+	}()
+
+	select {
+	case <-cancel:
+		cmd.Process.Kill()
+		return "", fmt.Errorf("extraction cancelled")
+	case err := <-done:
+		if err != nil {
+			return "", fmt.Errorf("ffmpeg failed: %w", err)
+		}
+	}
+
+	return outputPath, nil
+}
+
+func (a *App) extractHighlightSegmentDirectWithProgress(segment HighlightSegment, outputPath, jobID string, cancel chan bool) error {
+	duration := segment.EndTime - segment.StartTime
+
+	cmd := exec.Command("ffmpeg",
+		"-i", segment.FilePath,
+		"-ss", fmt.Sprintf("%.3f", segment.StartTime),
+		"-to", fmt.Sprintf("%.3f", segment.EndTime),
+		"-c:v", "libx264",
+		"-c:a", "aac",
+		"-progress", "pipe:1",
+		"-y",
+		outputPath,
+	)
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stdout pipe: %w", err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start ffmpeg: %w", err)
+	}
+
+	// Monitor progress
+	scanner := bufio.NewScanner(stdout)
+	go func() {
+		for scanner.Scan() {
+			line := scanner.Text()
+			if strings.Contains(line, "time=") {
+				if progress := a.parseFFmpegProgress(line); progress.Time > 0 && duration > 0 {
+					clipProgress := progress.Time / duration
+					if clipProgress > 1.0 {
+						clipProgress = 1.0
+					}
+					// Could update sub-progress here if needed
+				}
+			}
+		}
+	}()
+
+	// Wait for completion or cancellation
+	done := make(chan error, 1)
+	go func() {
+		done <- cmd.Wait()
+	}()
+
+	select {
+	case <-cancel:
+		cmd.Process.Kill()
+		return fmt.Errorf("extraction cancelled")
+	case err := <-done:
+		if err != nil {
+			return fmt.Errorf("ffmpeg failed: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (a *App) stitchVideoClipsWithProgress(clipPaths []string, outputPath, jobID string, cancel chan bool) error {
+	if len(clipPaths) == 0 {
+		return fmt.Errorf("no clips to stitch")
+	}
+
+	// Calculate total duration for progress tracking
+	var totalDuration float64
+	for _, clipPath := range clipPaths {
+		if duration, err := a.getVideoDuration(clipPath); err == nil {
+			totalDuration += duration
+		}
+	}
+
+	// Create concat file for ffmpeg
+	concatFile := filepath.Join(filepath.Dir(outputPath), "concat_list.txt")
+	defer os.Remove(concatFile)
+
+	file, err := os.Create(concatFile)
+	if err != nil {
+		return fmt.Errorf("failed to create concat file: %w", err)
+	}
+	defer file.Close()
+
+	for _, clipPath := range clipPaths {
+		_, err := file.WriteString(fmt.Sprintf("file '%s'\n", clipPath))
+		if err != nil {
+			return fmt.Errorf("failed to write to concat file: %w", err)
+		}
+	}
+
+	cmd := exec.Command("ffmpeg",
+		"-f", "concat",
+		"-safe", "0",
+		"-i", concatFile,
+		"-c", "copy",
+		"-progress", "pipe:1",
+		"-y",
+		outputPath,
+	)
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stdout pipe: %w", err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start ffmpeg: %w", err)
+	}
+
+	// Monitor progress
+	scanner := bufio.NewScanner(stdout)
+	go func() {
+		for scanner.Scan() {
+			line := scanner.Text()
+			if strings.Contains(line, "time=") {
+				if progress := a.parseFFmpegProgress(line); progress.Time > 0 && totalDuration > 0 {
+					stitchProgress := progress.Time / totalDuration
+					if stitchProgress > 1.0 {
+						stitchProgress = 1.0
+					}
+					// Update stitching progress (80% + 20% of stitching progress)
+					overallProgress := 0.8 + (stitchProgress * 0.2)
+					a.updateJobProgress(jobID, "stitching", overallProgress, "Combining clips", 0, 0)
+				}
+			}
+		}
+	}()
+
+	// Wait for completion or cancellation
+	done := make(chan error, 1)
+	go func() {
+		done <- cmd.Wait()
+	}()
+
+	select {
+	case <-cancel:
+		cmd.Process.Kill()
+		return fmt.Errorf("stitching cancelled")
+	case err := <-done:
+		if err != nil {
+			return fmt.Errorf("ffmpeg concat failed: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// GetProjectExportJobs returns all export jobs for a project
+func (a *App) GetProjectExportJobs(projectID int) ([]*ExportProgress, error) {
+	jobs, err := a.client.ExportJob.
+		Query().
+		Where(exportjob.HasProjectWith(project.ID(projectID))).
+		Order(ent.Desc(exportjob.FieldCreatedAt)).
+		All(a.ctx)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get export jobs: %w", err)
+	}
+
+	var progress []*ExportProgress
+	for _, job := range jobs {
+		progress = append(progress, &ExportProgress{
+			JobID:          job.JobID,
+			Stage:          job.Stage,
+			Progress:       job.Progress,
+			CurrentFile:    job.CurrentFile,
+			TotalFiles:     job.TotalFiles,
+			ProcessedFiles: job.ProcessedFiles,
+			IsComplete:     job.IsComplete,
+			HasError:       job.HasError,
+			ErrorMessage:   job.ErrorMessage,
+			IsCancelled:    job.IsCancelled,
+		})
+	}
+
+	return progress, nil
+}
+
+// RecoverActiveExportJobs restores export jobs that were running when the app was closed
+func (a *App) RecoverActiveExportJobs() error {
+	// Find jobs that are not complete and not cancelled
+	activeJobs, err := a.client.ExportJob.
+		Query().
+		Where(
+			exportjob.IsComplete(false),
+			exportjob.IsCancelled(false),
+		).
+		All(a.ctx)
+
+	if err != nil {
+		return fmt.Errorf("failed to get active export jobs: %w", err)
+	}
+
+	// Mark incomplete jobs as cancelled since we can't resume them
+	for _, job := range activeJobs {
+		log.Printf("Marking incomplete export job %s as cancelled", job.JobID)
+		a.client.ExportJob.
+			UpdateOne(job).
+			SetIsCancelled(true).
+			SetStage("cancelled").
+			SetErrorMessage("Application was restarted during export").
+			SetIsComplete(true).
+			SetCompletedAt(time.Now()).
+			SetUpdatedAt(time.Now()).
+			Save(a.ctx)
+	}
+
+	return nil
 }

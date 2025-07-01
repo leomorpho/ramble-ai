@@ -388,6 +388,29 @@ func HasVideoClipsWith(preds ...predicate.VideoClip) predicate.Project {
 	})
 }
 
+// HasExportJobs applies the HasEdge predicate on the "export_jobs" edge.
+func HasExportJobs() predicate.Project {
+	return predicate.Project(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ExportJobsTable, ExportJobsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasExportJobsWith applies the HasEdge predicate on the "export_jobs" edge with a given conditions (other predicates).
+func HasExportJobsWith(preds ...predicate.ExportJob) predicate.Project {
+	return predicate.Project(func(s *sql.Selector) {
+		step := newExportJobsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.Project) predicate.Project {
 	return predicate.Project(sql.AndPredicates(predicates...))

@@ -37,9 +37,11 @@ type Project struct {
 type ProjectEdges struct {
 	// Video clips in this project
 	VideoClips []*VideoClip `json:"video_clips,omitempty"`
+	// Export jobs for this project
+	ExportJobs []*ExportJob `json:"export_jobs,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [2]bool
 }
 
 // VideoClipsOrErr returns the VideoClips value or an error if the edge
@@ -49,6 +51,15 @@ func (e ProjectEdges) VideoClipsOrErr() ([]*VideoClip, error) {
 		return e.VideoClips, nil
 	}
 	return nil, &NotLoadedError{edge: "video_clips"}
+}
+
+// ExportJobsOrErr returns the ExportJobs value or an error if the edge
+// was not loaded in eager-loading.
+func (e ProjectEdges) ExportJobsOrErr() ([]*ExportJob, error) {
+	if e.loadedTypes[1] {
+		return e.ExportJobs, nil
+	}
+	return nil, &NotLoadedError{edge: "export_jobs"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -129,6 +140,11 @@ func (pr *Project) Value(name string) (ent.Value, error) {
 // QueryVideoClips queries the "video_clips" edge of the Project entity.
 func (pr *Project) QueryVideoClips() *VideoClipQuery {
 	return NewProjectClient(pr.config).QueryVideoClips(pr)
+}
+
+// QueryExportJobs queries the "export_jobs" edge of the Project entity.
+func (pr *Project) QueryExportJobs() *ExportJobQuery {
+	return NewProjectClient(pr.config).QueryExportJobs(pr)
 }
 
 // Update returns a builder for updating this Project.

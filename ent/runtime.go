@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"MYAPP/ent/exportjob"
 	"MYAPP/ent/project"
 	"MYAPP/ent/schema"
 	"MYAPP/ent/settings"
@@ -14,6 +15,58 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	exportjobFields := schema.ExportJob{}.Fields()
+	_ = exportjobFields
+	// exportjobDescJobID is the schema descriptor for job_id field.
+	exportjobDescJobID := exportjobFields[0].Descriptor()
+	// exportjob.JobIDValidator is a validator for the "job_id" field. It is called by the builders before save.
+	exportjob.JobIDValidator = exportjobDescJobID.Validators[0].(func(string) error)
+	// exportjobDescExportType is the schema descriptor for export_type field.
+	exportjobDescExportType := exportjobFields[1].Descriptor()
+	// exportjob.ExportTypeValidator is a validator for the "export_type" field. It is called by the builders before save.
+	exportjob.ExportTypeValidator = exportjobDescExportType.Validators[0].(func(string) error)
+	// exportjobDescOutputPath is the schema descriptor for output_path field.
+	exportjobDescOutputPath := exportjobFields[2].Descriptor()
+	// exportjob.OutputPathValidator is a validator for the "output_path" field. It is called by the builders before save.
+	exportjob.OutputPathValidator = exportjobDescOutputPath.Validators[0].(func(string) error)
+	// exportjobDescStage is the schema descriptor for stage field.
+	exportjobDescStage := exportjobFields[3].Descriptor()
+	// exportjob.DefaultStage holds the default value on creation for the stage field.
+	exportjob.DefaultStage = exportjobDescStage.Default.(string)
+	// exportjobDescProgress is the schema descriptor for progress field.
+	exportjobDescProgress := exportjobFields[4].Descriptor()
+	// exportjob.DefaultProgress holds the default value on creation for the progress field.
+	exportjob.DefaultProgress = exportjobDescProgress.Default.(float64)
+	// exportjobDescTotalFiles is the schema descriptor for total_files field.
+	exportjobDescTotalFiles := exportjobFields[6].Descriptor()
+	// exportjob.DefaultTotalFiles holds the default value on creation for the total_files field.
+	exportjob.DefaultTotalFiles = exportjobDescTotalFiles.Default.(int)
+	// exportjobDescProcessedFiles is the schema descriptor for processed_files field.
+	exportjobDescProcessedFiles := exportjobFields[7].Descriptor()
+	// exportjob.DefaultProcessedFiles holds the default value on creation for the processed_files field.
+	exportjob.DefaultProcessedFiles = exportjobDescProcessedFiles.Default.(int)
+	// exportjobDescIsComplete is the schema descriptor for is_complete field.
+	exportjobDescIsComplete := exportjobFields[8].Descriptor()
+	// exportjob.DefaultIsComplete holds the default value on creation for the is_complete field.
+	exportjob.DefaultIsComplete = exportjobDescIsComplete.Default.(bool)
+	// exportjobDescHasError is the schema descriptor for has_error field.
+	exportjobDescHasError := exportjobFields[9].Descriptor()
+	// exportjob.DefaultHasError holds the default value on creation for the has_error field.
+	exportjob.DefaultHasError = exportjobDescHasError.Default.(bool)
+	// exportjobDescIsCancelled is the schema descriptor for is_cancelled field.
+	exportjobDescIsCancelled := exportjobFields[11].Descriptor()
+	// exportjob.DefaultIsCancelled holds the default value on creation for the is_cancelled field.
+	exportjob.DefaultIsCancelled = exportjobDescIsCancelled.Default.(bool)
+	// exportjobDescCreatedAt is the schema descriptor for created_at field.
+	exportjobDescCreatedAt := exportjobFields[12].Descriptor()
+	// exportjob.DefaultCreatedAt holds the default value on creation for the created_at field.
+	exportjob.DefaultCreatedAt = exportjobDescCreatedAt.Default.(func() time.Time)
+	// exportjobDescUpdatedAt is the schema descriptor for updated_at field.
+	exportjobDescUpdatedAt := exportjobFields[13].Descriptor()
+	// exportjob.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	exportjob.DefaultUpdatedAt = exportjobDescUpdatedAt.Default.(func() time.Time)
+	// exportjob.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	exportjob.UpdateDefaultUpdatedAt = exportjobDescUpdatedAt.UpdateDefault.(func() time.Time)
 	projectFields := schema.Project{}.Fields()
 	_ = projectFields
 	// projectDescName is the schema descriptor for name field.

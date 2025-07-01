@@ -26,6 +26,8 @@ const (
 	FieldUpdatedAt = "updated_at"
 	// EdgeVideoClips holds the string denoting the video_clips edge name in mutations.
 	EdgeVideoClips = "video_clips"
+	// EdgeExportJobs holds the string denoting the export_jobs edge name in mutations.
+	EdgeExportJobs = "export_jobs"
 	// Table holds the table name of the project in the database.
 	Table = "projects"
 	// VideoClipsTable is the table that holds the video_clips relation/edge.
@@ -35,6 +37,13 @@ const (
 	VideoClipsInverseTable = "video_clips"
 	// VideoClipsColumn is the table column denoting the video_clips relation/edge.
 	VideoClipsColumn = "project_video_clips"
+	// ExportJobsTable is the table that holds the export_jobs relation/edge.
+	ExportJobsTable = "export_jobs"
+	// ExportJobsInverseTable is the table name for the ExportJob entity.
+	// It exists in this package in order to avoid circular dependency with the "exportjob" package.
+	ExportJobsInverseTable = "export_jobs"
+	// ExportJobsColumn is the table column denoting the export_jobs relation/edge.
+	ExportJobsColumn = "project_export_jobs"
 )
 
 // Columns holds all SQL columns for project fields.
@@ -116,10 +125,31 @@ func ByVideoClips(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newVideoClipsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByExportJobsCount orders the results by export_jobs count.
+func ByExportJobsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newExportJobsStep(), opts...)
+	}
+}
+
+// ByExportJobs orders the results by export_jobs terms.
+func ByExportJobs(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newExportJobsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newVideoClipsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(VideoClipsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, VideoClipsTable, VideoClipsColumn),
+	)
+}
+func newExportJobsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ExportJobsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, ExportJobsTable, ExportJobsColumn),
 	)
 }

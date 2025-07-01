@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"MYAPP/ent/exportjob"
 	"MYAPP/ent/project"
 	"MYAPP/ent/videoclip"
 	"context"
@@ -88,6 +89,21 @@ func (pc *ProjectCreate) AddVideoClips(v ...*VideoClip) *ProjectCreate {
 		ids[i] = v[i].ID
 	}
 	return pc.AddVideoClipIDs(ids...)
+}
+
+// AddExportJobIDs adds the "export_jobs" edge to the ExportJob entity by IDs.
+func (pc *ProjectCreate) AddExportJobIDs(ids ...int) *ProjectCreate {
+	pc.mutation.AddExportJobIDs(ids...)
+	return pc
+}
+
+// AddExportJobs adds the "export_jobs" edges to the ExportJob entity.
+func (pc *ProjectCreate) AddExportJobs(e ...*ExportJob) *ProjectCreate {
+	ids := make([]int, len(e))
+	for i := range e {
+		ids[i] = e[i].ID
+	}
+	return pc.AddExportJobIDs(ids...)
 }
 
 // Mutation returns the ProjectMutation object of the builder.
@@ -214,6 +230,22 @@ func (pc *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(videoclip.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := pc.mutation.ExportJobsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ExportJobsTable,
+			Columns: []string{project.ExportJobsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(exportjob.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

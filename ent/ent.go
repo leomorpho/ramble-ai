@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"MYAPP/ent/exportjob"
 	"MYAPP/ent/project"
 	"MYAPP/ent/settings"
 	"MYAPP/ent/videoclip"
@@ -75,6 +76,7 @@ var (
 func checkColumn(table, column string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
+			exportjob.Table: exportjob.ValidColumn,
 			project.Table:   project.ValidColumn,
 			settings.Table:  settings.ValidColumn,
 			videoclip.Table: videoclip.ValidColumn,

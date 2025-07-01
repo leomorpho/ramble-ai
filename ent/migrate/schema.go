@@ -8,6 +8,40 @@ import (
 )
 
 var (
+	// ExportJobsColumns holds the columns for the "export_jobs" table.
+	ExportJobsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "job_id", Type: field.TypeString, Unique: true},
+		{Name: "export_type", Type: field.TypeString},
+		{Name: "output_path", Type: field.TypeString},
+		{Name: "stage", Type: field.TypeString, Default: "starting"},
+		{Name: "progress", Type: field.TypeFloat64, Default: 0},
+		{Name: "current_file", Type: field.TypeString, Nullable: true},
+		{Name: "total_files", Type: field.TypeInt, Default: 0},
+		{Name: "processed_files", Type: field.TypeInt, Default: 0},
+		{Name: "is_complete", Type: field.TypeBool, Default: false},
+		{Name: "has_error", Type: field.TypeBool, Default: false},
+		{Name: "error_message", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "is_cancelled", Type: field.TypeBool, Default: false},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "completed_at", Type: field.TypeTime, Nullable: true},
+		{Name: "project_export_jobs", Type: field.TypeInt, Nullable: true},
+	}
+	// ExportJobsTable holds the schema information for the "export_jobs" table.
+	ExportJobsTable = &schema.Table{
+		Name:       "export_jobs",
+		Columns:    ExportJobsColumns,
+		PrimaryKey: []*schema.Column{ExportJobsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "export_jobs_projects_export_jobs",
+				Columns:    []*schema.Column{ExportJobsColumns[16]},
+				RefColumns: []*schema.Column{ProjectsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+	}
 	// ProjectsColumns holds the columns for the "projects" table.
 	ProjectsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -73,6 +107,7 @@ var (
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
+		ExportJobsTable,
 		ProjectsTable,
 		SettingsTable,
 		VideoClipsTable,
@@ -80,5 +115,6 @@ var (
 )
 
 func init() {
+	ExportJobsTable.ForeignKeys[0].RefTable = ProjectsTable
 	VideoClipsTable.ForeignKeys[0].RefTable = ProjectsTable
 }
