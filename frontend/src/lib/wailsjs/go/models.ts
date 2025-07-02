@@ -166,6 +166,22 @@ export namespace main {
 	        this.model = source["model"];
 	    }
 	}
+	export class TestOpenRouterApiKeyResponse {
+	    valid: boolean;
+	    message: string;
+	    model?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TestOpenRouterApiKeyResponse(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.valid = source["valid"];
+	        this.message = source["message"];
+	        this.model = source["model"];
+	    }
+	}
 	export class Word {
 	    word: string;
 	    start: number;

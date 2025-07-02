@@ -14,6 +14,8 @@ export function DeleteHighlight(arg1:number,arg2:string):Promise<void>;
 
 export function DeleteOpenAIApiKey():Promise<void>;
 
+export function DeleteOpenRouterApiKey():Promise<void>;
+
 export function DeleteProject(arg1:number):Promise<void>;
 
 export function DeleteSetting(arg1:string):Promise<void>;
@@ -27,6 +29,8 @@ export function ExportStitchedHighlights(arg1:number,arg2:string):Promise<string
 export function GetExportProgress(arg1:string):Promise<main.ExportProgress>;
 
 export function GetOpenAIApiKey():Promise<string>;
+
+export function GetOpenRouterApiKey():Promise<string>;
 
 export function GetProjectByID(arg1:number):Promise<main.ProjectResponse>;
 
@@ -52,7 +56,11 @@ export function Greet(arg1:string):Promise<string>;
 
 export function RecoverActiveExportJobs():Promise<void>;
 
+export function ReorderHighlightsWithAI(arg1:number):Promise<Array<string>>;
+
 export function SaveOpenAIApiKey(arg1:string):Promise<void>;
+
+export function SaveOpenRouterApiKey(arg1:string):Promise<void>;
 
 export function SaveSetting(arg1:string,arg2:string):Promise<void>;
 
@@ -63,6 +71,8 @@ export function SelectExportFolder():Promise<string>;
 export function SelectVideoFiles():Promise<Array<main.LocalVideoFile>>;
 
 export function TestOpenAIApiKey():Promise<main.TestOpenAIApiKeyResponse>;
+
+export function TestOpenRouterApiKey():Promise<main.TestOpenRouterApiKeyResponse>;
 
 export function TranscribeVideoClip(arg1:number):Promise<main.TranscriptionResponse>;
 

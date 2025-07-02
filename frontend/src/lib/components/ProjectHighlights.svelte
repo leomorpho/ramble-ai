@@ -1,9 +1,9 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { GetVideoURL } from '$lib/wailsjs/go/main/App';
+  import { GetVideoURL, ReorderHighlightsWithAI } from '$lib/wailsjs/go/main/App';
   import { draggable } from '@neodrag/svelte';
   import { toast } from 'svelte-sonner';
-  import { Play, Film, X, Edit3, Trash2, Eye } from '@lucide/svelte';
+  import { Play, Film, X, Edit3, Trash2, Eye, Sparkles } from '@lucide/svelte';
   import { 
     Dialog, 
     DialogContent, 
@@ -54,6 +54,16 @@
   let deleteDialogOpen = $state(false);
   let highlightToDelete = $state(null);
   let deleting = $state(false);
+
+  // AI reordering state
+  let aiReorderDialogOpen = $state(false);
+  let aiReorderLoading = $state(false);
+  let aiReorderedHighlights = $state([]);
+  let aiReorderError = $state('');
+  
+  // AI dialog drag state
+  let aiDragStartIndex = $state(-1);
+  let aiDragOverIndex = $state(-1);
 
   // Popover state management
   let popoverStates = $state(new Map());
@@ -473,6 +483,125 @@
     dragStartPosition = null;
   }
 
+  // Handle AI reordering
+  async function handleAIReorder() {
+    if (!projectId || $orderedHighlights.length === 0) {
+      toast.error('No highlights to reorder');
+      return;
+    }
+
+    aiReorderLoading = true;
+    aiReorderError = '';
+    aiReorderDialogOpen = true;
+
+    try {
+      // Call the AI reordering API
+      const reorderedIds = await ReorderHighlightsWithAI(projectId);
+      
+      // Reorder the highlights based on AI suggestion
+      const reorderedHighlights = [];
+      const highlightsMap = new Map();
+      
+      // Create a map for quick lookup
+      for (const highlight of $orderedHighlights) {
+        highlightsMap.set(highlight.id, highlight);
+      }
+      
+      // Build reordered array
+      for (const id of reorderedIds) {
+        const highlight = highlightsMap.get(id);
+        if (highlight) {
+          reorderedHighlights.push(highlight);
+        }
+      }
+      
+      // Add any highlights that weren't in the AI response
+      for (const highlight of $orderedHighlights) {
+        if (!reorderedIds.includes(highlight.id)) {
+          reorderedHighlights.push(highlight);
+        }
+      }
+      
+      aiReorderedHighlights = reorderedHighlights;
+      toast.success('AI reordering completed!');
+    } catch (error) {
+      console.error('AI reordering error:', error);
+      aiReorderError = error.message || 'Failed to reorder highlights with AI';
+      toast.error('Failed to reorder highlights with AI');
+    } finally {
+      aiReorderLoading = false;
+    }
+  }
+
+  // Apply AI reordering to global state
+  async function applyAIReordering() {
+    if (aiReorderedHighlights.length === 0) return;
+
+    try {
+      // Update via centralized store
+      const success = await updateHighlightOrder(aiReorderedHighlights);
+      
+      if (success) {
+        aiReorderDialogOpen = false;
+        toast.success('AI reordering applied successfully!');
+      }
+    } catch (error) {
+      console.error('Error applying AI reordering:', error);
+      toast.error('Failed to apply AI reordering');
+    }
+  }
+
+  // Cancel AI reordering
+  function cancelAIReordering() {
+    aiReorderDialogOpen = false;
+    aiReorderedHighlights = [];
+    aiReorderError = '';
+  }
+
+  // AI dialog drag handlers
+  function handleAIDragStart(event, index) {
+    aiDragStartIndex = index;
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", index.toString());
+  }
+
+  function handleAIDragEnd() {
+    aiDragStartIndex = -1;
+    aiDragOverIndex = -1;
+  }
+
+  function handleAIDragOver(event, targetIndex) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    aiDragOverIndex = targetIndex;
+  }
+
+  async function handleAIDrop(event, targetIndex) {
+    event.preventDefault();
+
+    if (aiDragStartIndex === -1 || aiDragStartIndex === targetIndex) {
+      handleAIDragEnd();
+      return;
+    }
+
+    // Reorder the AI highlights array
+    const newHighlights = [...aiReorderedHighlights];
+    const draggedItem = newHighlights[aiDragStartIndex];
+
+    // Remove dragged item
+    newHighlights.splice(aiDragStartIndex, 1);
+
+    // Insert at new position
+    const insertIndex =
+      aiDragStartIndex < targetIndex ? targetIndex - 1 : targetIndex;
+    newHighlights.splice(insertIndex, 0, draggedItem);
+
+    // Update the AI reordered highlights
+    aiReorderedHighlights = newHighlights;
+
+    handleAIDragEnd();
+  }
+
   // Expose refresh method
   export function refresh() {
     loadProjectHighlights(projectId);
@@ -487,8 +616,22 @@
 <div class="highlights-timeline space-y-4">
   <div class="flex items-center justify-between">
     <h2 class="text-xl font-semibold">Highlight Timeline</h2>
-    <div class="text-sm text-muted-foreground">
-      {$orderedHighlights.length} {$orderedHighlights.length === 1 ? 'highlight' : 'highlights'}
+    <div class="flex items-center gap-3">
+      {#if $orderedHighlights.length > 1}
+        <Button 
+          variant="outline" 
+          size="sm"
+          onclick={handleAIReorder}
+          disabled={aiReorderLoading}
+          class="flex items-center gap-2"
+        >
+          <Sparkles class="w-4 h-4" />
+          {aiReorderLoading ? 'AI Reordering...' : 'AI Reorder'}
+        </Button>
+      {/if}
+      <div class="text-sm text-muted-foreground">
+        {$orderedHighlights.length} {$orderedHighlights.length === 1 ? 'highlight' : 'highlights'}
+      </div>
     </div>
   </div>
 
@@ -697,6 +840,123 @@
           Delete Highlight
         {/if}
       </Button>
+    </div>
+  </DialogContent>
+</Dialog>
+
+<!-- AI Reordering Dialog -->
+<Dialog bind:open={aiReorderDialogOpen}>
+  <DialogContent class="sm:max-w-[900px] max-h-[90vh] overflow-hidden">
+    <DialogHeader>
+      <DialogTitle class="flex items-center gap-2">
+        <Sparkles class="w-5 h-5" />
+        AI Reordered Highlights
+      </DialogTitle>
+      <DialogDescription>
+        AI has suggested a new order for your highlights to improve narrative flow and engagement.
+      </DialogDescription>
+    </DialogHeader>
+    
+    {#if aiReorderLoading}
+      <div class="p-8 text-center">
+        <div class="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+        <p class="text-lg font-medium">AI is analyzing your highlights...</p>
+        <p class="text-sm text-muted-foreground">This may take a few moments</p>
+      </div>
+    {:else if aiReorderError}
+      <div class="p-6 text-center">
+        <div class="bg-destructive/10 text-destructive border border-destructive/20 rounded-lg p-4">
+          <p class="font-medium">Error</p>
+          <p class="text-sm">{aiReorderError}</p>
+        </div>
+      </div>
+    {:else if aiReorderedHighlights.length > 0}
+      <div class="space-y-4 max-h-[60vh] overflow-y-auto">
+        <!-- Preview Video Player -->
+        <div class="bg-card border rounded-lg p-4">
+          <h3 class="text-sm font-medium mb-3 flex items-center gap-2">
+            <Play class="w-4 h-4" />
+            Preview AI Arrangement
+          </h3>
+          <EtroVideoPlayer highlights={aiReorderedHighlights} {projectId} />
+        </div>
+        
+        <!-- Drag-and-drop reorderable list -->
+        <div class="bg-muted/30 rounded-lg p-4">
+          <h3 class="text-sm font-medium mb-3">AI Suggested Order (drag to reorder):</h3>
+          <div class="space-y-2">
+            {#each aiReorderedHighlights as highlight, index}
+              <div 
+                class="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 transition-colors cursor-move border border-dashed border-transparent hover:border-border"
+                draggable="true"
+                ondragstart={(e) => handleAIDragStart(e, index)}
+                ondragend={handleAIDragEnd}
+                ondragover={(e) => handleAIDragOver(e, index)}
+                ondrop={(e) => handleAIDrop(e, index)}
+              >
+                <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">
+                  {index + 1}
+                </span>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="w-2 h-2 rounded-full" style="background-color: {highlight.color}"></span>
+                    <span class="font-medium text-sm truncate">{highlight.videoClipName}</span>
+                    <span class="text-xs text-muted-foreground">
+                      {formatTimeRange(highlight.start, highlight.end)}
+                    </span>
+                  </div>
+                  {#if highlight.text}
+                    <p class="text-xs text-muted-foreground line-clamp-2">"{highlight.text}"</p>
+                  {/if}
+                </div>
+                <div class="text-muted-foreground hover:text-foreground transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                  </svg>
+                </div>
+              </div>
+            {/each}
+          </div>
+        </div>
+        
+        <!-- Comparison with original order -->
+        <div class="bg-secondary/30 rounded-lg p-4">
+          <h3 class="text-sm font-medium mb-3">Original Order:</h3>
+          <div class="space-y-2 max-h-40 overflow-y-auto">
+            {#each $orderedHighlights as highlight, index}
+              <div class="flex items-center gap-3 p-2 rounded-md">
+                <span class="w-6 h-6 rounded-full bg-muted text-muted-foreground text-xs flex items-center justify-center font-medium">
+                  {index + 1}
+                </span>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="w-2 h-2 rounded-full" style="background-color: {highlight.color}"></span>
+                    <span class="font-medium text-sm truncate">{highlight.videoClipName}</span>
+                    <span class="text-xs text-muted-foreground">
+                      {formatTimeRange(highlight.start, highlight.end)}
+                    </span>
+                  </div>
+                  {#if highlight.text}
+                    <p class="text-xs text-muted-foreground line-clamp-2">"{highlight.text}"</p>
+                  {/if}
+                </div>
+              </div>
+            {/each}
+          </div>
+        </div>
+      </div>
+    {/if}
+    
+    <div class="flex justify-end gap-2 mt-4">
+      <Button variant="outline" onclick={cancelAIReordering} disabled={aiReorderLoading}>
+        Cancel
+      </Button>
+      {#if aiReorderedHighlights.length > 0}
+        <Button onclick={applyAIReordering} class="flex items-center gap-2">
+          <Sparkles class="w-4 h-4" />
+          Apply AI Order
+        </Button>
+      {/if}
     </div>
   </DialogContent>
 </Dialog>

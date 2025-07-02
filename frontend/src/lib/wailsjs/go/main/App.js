@@ -26,6 +26,10 @@ export function DeleteOpenAIApiKey() {
   return window['go']['main']['App']['DeleteOpenAIApiKey']();
 }
 
+export function DeleteOpenRouterApiKey() {
+  return window['go']['main']['App']['DeleteOpenRouterApiKey']();
+}
+
 export function DeleteProject(arg1) {
   return window['go']['main']['App']['DeleteProject'](arg1);
 }
@@ -52,6 +56,10 @@ export function GetExportProgress(arg1) {
 
 export function GetOpenAIApiKey() {
   return window['go']['main']['App']['GetOpenAIApiKey']();
+}
+
+export function GetOpenRouterApiKey() {
+  return window['go']['main']['App']['GetOpenRouterApiKey']();
 }
 
 export function GetProjectByID(arg1) {
@@ -102,8 +110,16 @@ export function RecoverActiveExportJobs() {
   return window['go']['main']['App']['RecoverActiveExportJobs']();
 }
 
+export function ReorderHighlightsWithAI(arg1) {
+  return window['go']['main']['App']['ReorderHighlightsWithAI'](arg1);
+}
+
 export function SaveOpenAIApiKey(arg1) {
   return window['go']['main']['App']['SaveOpenAIApiKey'](arg1);
+}
+
+export function SaveOpenRouterApiKey(arg1) {
+  return window['go']['main']['App']['SaveOpenRouterApiKey'](arg1);
 }
 
 export function SaveSetting(arg1, arg2) {
@@ -124,6 +140,10 @@ export function SelectVideoFiles() {
 
 export function TestOpenAIApiKey() {
   return window['go']['main']['App']['TestOpenAIApiKey']();
+}
+
+export function TestOpenRouterApiKey() {
+  return window['go']['main']['App']['TestOpenRouterApiKey']();
 }
 
 export function TranscribeVideoClip(arg1) {

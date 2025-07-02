@@ -936,6 +936,21 @@ func (a *App) DeleteOpenAIApiKey() error {
 	return a.DeleteSetting("openai_api_key")
 }
 
+// SaveOpenRouterApiKey saves the OpenRouter API key securely
+func (a *App) SaveOpenRouterApiKey(apiKey string) error {
+	return a.SaveSetting("openrouter_api_key", apiKey)
+}
+
+// GetOpenRouterApiKey retrieves the OpenRouter API key
+func (a *App) GetOpenRouterApiKey() (string, error) {
+	return a.GetSetting("openrouter_api_key")
+}
+
+// DeleteOpenRouterApiKey removes the OpenRouter API key
+func (a *App) DeleteOpenRouterApiKey() error {
+	return a.DeleteSetting("openrouter_api_key")
+}
+
 // SaveThemePreference saves the user's preferred theme (light or dark)
 func (a *App) SaveThemePreference(theme string) error {
 	if theme != "light" && theme != "dark" {
@@ -958,6 +973,13 @@ func (a *App) GetThemePreference() (string, error) {
 
 // TestOpenAIApiKeyResponse represents the response from testing the API key
 type TestOpenAIApiKeyResponse struct {
+	Valid   bool   `json:"valid"`
+	Message string `json:"message"`
+	Model   string `json:"model,omitempty"`
+}
+
+// TestOpenRouterApiKeyResponse represents the response from testing the OpenRouter API key
+type TestOpenRouterApiKeyResponse struct {
 	Valid   bool   `json:"valid"`
 	Message string `json:"message"`
 	Model   string `json:"model,omitempty"`
@@ -1076,6 +1098,125 @@ func (a *App) testOpenAIConnection(apiKey string) (*TestOpenAIApiKeyResponse, er
 
 	default:
 		return &TestOpenAIApiKeyResponse{
+			Valid:   false,
+			Message: fmt.Sprintf("API test failed with status %d: %s", resp.StatusCode, string(body)),
+		}, nil
+	}
+}
+
+// TestOpenRouterApiKey tests if the stored OpenRouter API key is valid
+func (a *App) TestOpenRouterApiKey() (*TestOpenRouterApiKeyResponse, error) {
+	// Get the stored API key
+	apiKey, err := a.GetOpenRouterApiKey()
+	if err != nil {
+		return &TestOpenRouterApiKeyResponse{
+			Valid:   false,
+			Message: "Failed to retrieve API key from database",
+		}, nil
+	}
+
+	if apiKey == "" {
+		return &TestOpenRouterApiKeyResponse{
+			Valid:   false,
+			Message: "No API key found. Please set your OpenRouter API key first.",
+		}, nil
+	}
+
+	// Test the API key with a simple request to the models endpoint
+	return a.testOpenRouterConnection(apiKey)
+}
+
+// testOpenRouterConnection makes a test request to OpenRouter API
+func (a *App) testOpenRouterConnection(apiKey string) (*TestOpenRouterApiKeyResponse, error) {
+	// Create HTTP client with timeout
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	// Create request to list models (lightweight endpoint)
+	req, err := http.NewRequest("GET", "https://openrouter.ai/api/v1/models", nil)
+	if err != nil {
+		return &TestOpenRouterApiKeyResponse{
+			Valid:   false,
+			Message: "Failed to create test request",
+		}, nil
+	}
+
+	// Set headers
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	// Make the request
+	resp, err := client.Do(req)
+	if err != nil {
+		return &TestOpenRouterApiKeyResponse{
+			Valid:   false,
+			Message: "Failed to connect to OpenRouter API. Please check your internet connection.",
+		}, nil
+	}
+	defer resp.Body.Close()
+
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return &TestOpenRouterApiKeyResponse{
+			Valid:   false,
+			Message: "Failed to read API response",
+		}, nil
+	}
+
+	// Check response status
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// Parse response to get a model name
+		var modelsResp struct {
+			Data []struct {
+				ID string `json:"id"`
+			} `json:"data"`
+		}
+		
+		if err := json.Unmarshal(body, &modelsResp); err == nil && len(modelsResp.Data) > 0 {
+			// Find a suitable model or use first available
+			modelName := modelsResp.Data[0].ID
+			for _, model := range modelsResp.Data {
+				if strings.Contains(strings.ToLower(model.ID), "gpt") || strings.Contains(strings.ToLower(model.ID), "claude") {
+					modelName = model.ID
+					break
+				}
+			}
+			
+			return &TestOpenRouterApiKeyResponse{
+				Valid:   true,
+				Message: "API key is valid and working!",
+				Model:   modelName,
+			}, nil
+		}
+		
+		return &TestOpenRouterApiKeyResponse{
+			Valid:   true,
+			Message: "API key is valid and working!",
+		}, nil
+
+	case http.StatusUnauthorized:
+		return &TestOpenRouterApiKeyResponse{
+			Valid:   false,
+			Message: "Invalid API key. Please check your OpenRouter API key.",
+		}, nil
+
+	case http.StatusTooManyRequests:
+		return &TestOpenRouterApiKeyResponse{
+			Valid:   false,
+			Message: "Rate limit exceeded. Please try again later.",
+		}, nil
+
+	case http.StatusForbidden:
+		return &TestOpenRouterApiKeyResponse{
+			Valid:   false,
+			Message: "API key doesn't have sufficient permissions.",
+		}, nil
+
+	default:
+		return &TestOpenRouterApiKeyResponse{
 			Valid:   false,
 			Message: fmt.Sprintf("API test failed with status %d: %s", resp.StatusCode, string(body)),
 		}, nil
@@ -1574,6 +1715,246 @@ func (a *App) GetProjectHighlightOrder(projectID int) ([]string, error) {
 	}
 
 	return order, nil
+}
+
+// ReorderHighlightsWithAI uses OpenRouter API to intelligently reorder highlights
+func (a *App) ReorderHighlightsWithAI(projectID int) ([]string, error) {
+	// Get OpenRouter API key
+	apiKey, err := a.GetOpenRouterApiKey()
+	if err != nil || apiKey == "" {
+		return nil, fmt.Errorf("OpenRouter API key not configured")
+	}
+
+	// Get all project highlights
+	projectHighlights, err := a.GetProjectHighlights(projectID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project highlights: %w", err)
+	}
+
+	if len(projectHighlights) == 0 {
+		return []string{}, nil
+	}
+
+	// Flatten all highlights into a list for AI processing
+	var highlightData []map[string]interface{}
+	var highlightIDs []string
+	
+	for _, ph := range projectHighlights {
+		for _, highlight := range ph.Highlights {
+			highlightData = append(highlightData, map[string]interface{}{
+				"id":            highlight.ID,
+				"text":          highlight.Text,
+				"startTime":     highlight.Start,
+				"endTime":       highlight.End,
+				"duration":      highlight.End - highlight.Start,
+				"videoClipName": ph.VideoClipName,
+			})
+			highlightIDs = append(highlightIDs, highlight.ID)
+		}
+	}
+
+	if len(highlightData) == 0 {
+		return []string{}, nil
+	}
+
+	// Call OpenRouter API to get AI reordering
+	reorderedIDs, err := a.callOpenRouterForReordering(apiKey, highlightData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get AI reordering: %w", err)
+	}
+
+	// Validate that all IDs are present in the reordered list
+	if len(reorderedIDs) != len(highlightIDs) {
+		log.Printf("AI reordering returned %d IDs but expected %d", len(reorderedIDs), len(highlightIDs))
+		// Fallback to original order if counts don't match
+		return highlightIDs, nil
+	}
+
+	// Validate that all original IDs are present
+	originalIDSet := make(map[string]bool)
+	for _, id := range highlightIDs {
+		originalIDSet[id] = true
+	}
+
+	for _, id := range reorderedIDs {
+		if !originalIDSet[id] {
+			log.Printf("AI reordering returned unknown ID: %s", id)
+			// Fallback to original order if unknown IDs are present
+			return highlightIDs, nil
+		}
+	}
+
+	return reorderedIDs, nil
+}
+
+// OpenRouterRequest represents the request format for OpenRouter API
+type OpenRouterRequest struct {
+	Model    string    `json:"model"`
+	Messages []Message `json:"messages"`
+}
+
+// Message represents a chat message
+type Message struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+// OpenRouterResponse represents the response from OpenRouter API
+type OpenRouterResponse struct {
+	Choices []Choice `json:"choices"`
+	Error   *struct {
+		Message string `json:"message"`
+		Type    string `json:"type"`
+	} `json:"error,omitempty"`
+}
+
+// Choice represents a response choice
+type Choice struct {
+	Message Message `json:"message"`
+}
+
+// callOpenRouterForReordering calls the OpenRouter API to get intelligent highlight reordering
+func (a *App) callOpenRouterForReordering(apiKey string, highlights []map[string]interface{}) ([]string, error) {
+	// Create HTTP client with timeout
+	client := &http.Client{
+		Timeout: 60 * time.Second, // AI requests can take longer
+	}
+
+	// Build the prompt for AI reordering
+	prompt := a.buildReorderingPrompt(highlights)
+
+	// Create request payload
+	requestData := OpenRouterRequest{
+		Model: "anthropic/claude-3-haiku", // Use a fast, cost-effective model
+		Messages: []Message{
+			{
+				Role:    "user",
+				Content: prompt,
+			},
+		},
+	}
+
+	jsonData, err := json.Marshal(requestData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Create HTTP request
+	req, err := http.NewRequest("POST", "https://openrouter.ai/api/v1/chat/completions", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("HTTP-Referer", "https://github.com/yourusername/video-app") // Required by OpenRouter
+	req.Header.Set("X-Title", "Video Highlight Reordering") // Optional but recommended
+
+	// Make the request
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("OpenRouter API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	// Parse response
+	var openRouterResp OpenRouterResponse
+	err = json.Unmarshal(body, &openRouterResp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	if openRouterResp.Error != nil {
+		return nil, fmt.Errorf("OpenRouter API error: %s", openRouterResp.Error.Message)
+	}
+
+	if len(openRouterResp.Choices) == 0 {
+		return nil, fmt.Errorf("no response choices received from AI")
+	}
+
+	// Extract the reordered IDs from the AI response
+	aiResponse := openRouterResp.Choices[0].Message.Content
+	reorderedIDs, err := a.parseAIReorderingResponse(aiResponse)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse AI response: %w", err)
+	}
+
+	return reorderedIDs, nil
+}
+
+// buildReorderingPrompt creates a prompt for the AI to reorder highlights intelligently
+func (a *App) buildReorderingPrompt(highlights []map[string]interface{}) string {
+	prompt := `You are an expert video editor tasked with reordering video highlight segments to create the most engaging and coherent narrative flow.
+
+Here are the video highlight segments with their details:
+
+`
+
+	for i, highlight := range highlights {
+		prompt += fmt.Sprintf("%d. ID: %s\n", i+1, highlight["id"])
+		prompt += fmt.Sprintf("   Video: %s\n", highlight["videoClipName"])
+		prompt += fmt.Sprintf("   Text: %s\n", highlight["text"])
+		prompt += fmt.Sprintf("   Duration: %.1f seconds\n", highlight["duration"])
+		prompt += fmt.Sprintf("   Time: %.1fs - %.1fs\n\n", highlight["startTime"], highlight["endTime"])
+	}
+
+	prompt += `Please analyze these segments and reorder them to create the best possible narrative flow. Consider:
+
+1. Logical progression of ideas or topics
+2. Emotional arc and pacing
+3. Context and continuity between segments
+4. Natural transitions
+5. Engaging opening and strong conclusion
+
+Respond with ONLY a JSON array containing the highlight IDs in the new order. Do not include any explanation or additional text.
+
+Example format: ["id1", "id2", "id3", ...]`
+
+	return prompt
+}
+
+// parseAIReorderingResponse extracts the reordered highlight IDs from the AI response
+func (a *App) parseAIReorderingResponse(response string) ([]string, error) {
+	// Clean the response - remove any markdown formatting
+	cleanResponse := strings.TrimSpace(response)
+	cleanResponse = strings.Trim(cleanResponse, "`")
+	if strings.HasPrefix(cleanResponse, "json") {
+		cleanResponse = strings.TrimPrefix(cleanResponse, "json")
+		cleanResponse = strings.TrimSpace(cleanResponse)
+	}
+
+	// Try to parse as JSON array
+	var reorderedIDs []string
+	err := json.Unmarshal([]byte(cleanResponse), &reorderedIDs)
+	if err != nil {
+		// If direct parsing fails, try to extract JSON from the response
+		// Look for JSON array pattern
+		jsonStart := strings.Index(cleanResponse, "[")
+		jsonEnd := strings.LastIndex(cleanResponse, "]")
+		
+		if jsonStart >= 0 && jsonEnd > jsonStart {
+			jsonPart := cleanResponse[jsonStart : jsonEnd+1]
+			err = json.Unmarshal([]byte(jsonPart), &reorderedIDs)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse JSON array from AI response: %w", err)
+			}
+		} else {
+			return nil, fmt.Errorf("no valid JSON array found in AI response")
+		}
+	}
+
+	return reorderedIDs, nil
 }
 
 // Export-related types and structs
