@@ -486,6 +486,19 @@
     dragStartPosition = null;
   }
 
+  // Default YouTube expert prompt
+  const defaultPrompt = `You are an expert YouTuber and content creator with millions of subscribers, known for creating highly engaging videos that maximize viewer retention and satisfaction. Your task is to reorder these video highlight segments to create the highest quality video possible.
+
+Reorder these segments using your expertise in:
+- Hook creation and audience retention
+- Storytelling and narrative structure
+- Pacing and rhythm for maximum engagement
+- Building emotional connections with viewers
+- Creating viral-worthy content flow
+- Strategic placement of key moments
+
+Feel free to completely restructure the order - move any segment to any position if it will improve video quality and viewer experience.`;
+
   // Handle AI reordering - opens dialog
   function handleAIReorder() {
     if (!projectId || $orderedHighlights.length === 0) {
@@ -493,11 +506,11 @@
       return;
     }
 
-    // Reset state and open dialog
+    // Reset state and open dialog with default prompt
     aiReorderLoading = false;
     aiReorderError = '';
     aiReorderedHighlights = [];
-    customPrompt = '';
+    customPrompt = defaultPrompt;
     aiReorderDialogOpen = true;
   }
 
@@ -875,20 +888,27 @@
     {#if !aiReorderLoading && aiReorderedHighlights.length === 0 && !aiReorderError}
       <div class="space-y-4">
         <div class="space-y-2">
-          <Label for="custom-prompt">Custom Instructions (Optional)</Label>
+          <Label for="custom-prompt">AI Instructions</Label>
           <Textarea
             id="custom-prompt"
             bind:value={customPrompt}
-            placeholder="Enter custom instructions for AI reordering (e.g., 'Focus on creating suspense', 'Start with the most exciting moment', etc.). Leave empty to use default YouTube expert approach."
-            class="min-h-[100px] resize-none"
-            rows="4"
+            placeholder="AI instructions for reordering highlights..."
+            class="min-h-[120px] resize-none"
+            rows="6"
           />
           <p class="text-xs text-muted-foreground">
-            Default: Expert YouTuber approach focused on maximum engagement and retention
+            Modify the prompt above to customize how AI reorders your highlights. The default focuses on YouTube best practices for maximum engagement.
           </p>
         </div>
         
-        <div class="flex justify-end">
+        <div class="flex justify-between">
+          <Button 
+            variant="outline"
+            onclick={() => { customPrompt = defaultPrompt; }}
+            disabled={customPrompt === defaultPrompt}
+          >
+            Reset to Default
+          </Button>
           <Button onclick={startAIReordering} class="flex items-center gap-2">
             <Sparkles class="w-4 h-4" />
             Generate AI Suggestions
@@ -910,8 +930,8 @@
           <p class="text-sm">{aiReorderError}</p>
         </div>
         <div class="flex justify-center gap-2">
-          <Button variant="outline" onclick={() => { aiReorderError = ''; }}>
-            Try Again
+          <Button variant="outline" onclick={() => { aiReorderError = ''; aiReorderedHighlights = []; }}>
+            Modify Prompt & Try Again
           </Button>
           <Button variant="outline" onclick={cancelAIReordering}>
             Cancel
