@@ -1,5 +1,5 @@
 import { writable, derived, get } from 'svelte/store';
-import { GetProjectHighlights, GetProjectHighlightOrder, UpdateProjectHighlightOrder, DeleteHighlight } from '$lib/wailsjs/go/main/App';
+import { GetProjectHighlights, GetProjectHighlightOrder, UpdateProjectHighlightOrder, DeleteHighlight, UpdateVideoClipHighlights } from '$lib/wailsjs/go/main/App';
 import { toast } from 'svelte-sonner';
 
 // Store for the raw highlights data from the database
@@ -158,6 +158,32 @@ export function clearHighlights() {
   highlightOrder.set([]);
   currentProjectId.set(null);
   highlightsLoading.set(false);
+}
+
+// Function to edit a highlight
+export async function editHighlight(highlightId, videoClipId, updates) {
+  const projectId = get(currentProjectId);
+  
+  if (!projectId) {
+    console.warn('No project ID available for editing highlight');
+    return false;
+  }
+  
+  try {
+    // Update backend first
+    await UpdateVideoClipHighlights(videoClipId, [updates]);
+    
+    // Update local store by refreshing from database
+    // This ensures both timeline and video player react to changes
+    await loadProjectHighlights(projectId);
+    
+    toast.success('Highlight updated successfully');
+    return true;
+  } catch (error) {
+    console.error('Failed to edit highlight:', error);
+    toast.error('Failed to update highlight');
+    return false;
+  }
 }
 
 // Function to delete a highlight

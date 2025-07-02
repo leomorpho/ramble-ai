@@ -22,7 +22,8 @@
     loadProjectHighlights, 
     updateHighlightOrder, 
     clearHighlights,
-    deleteHighlight
+    deleteHighlight,
+    editHighlight
   } from '$lib/stores/projectHighlights.js';
 
   let { projectId, onHighlightClick = () => {} } = $props();
@@ -181,13 +182,16 @@
   }
 
   // Handle highlight save from editor
-  function handleHighlightSave(updatedHighlight) {
-    // Refresh the highlights to get the updated data
-    loadProjectHighlights(projectId);
+  async function handleHighlightSave(updatedHighlight) {
+    // Use the store's editHighlight function to ensure both components react
+    const updates = {
+      id: updatedHighlight.id,
+      start: updatedHighlight.start,
+      end: updatedHighlight.end,
+      color: updatedHighlight.color
+    };
     
-    toast.success('Highlight updated', {
-      description: `Updated timing for "${updatedHighlight.videoClipName}"`
-    });
+    await editHighlight(updatedHighlight.id, updatedHighlight.videoClipId, updates);
   }
 
   // Handle delete confirmation

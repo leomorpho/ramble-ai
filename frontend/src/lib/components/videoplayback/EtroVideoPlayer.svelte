@@ -4,8 +4,18 @@
   import { toast } from "svelte-sonner";
   import { Play, Pause, SkipForward, SkipBack, Square } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
-  import { updateHighlightOrder } from "$lib/stores/projectHighlights.js";
+  import { updateHighlightOrder, deleteHighlight, editHighlight } from "$lib/stores/projectHighlights.js";
   import { browser } from "$app/environment";
+  import HighlightMenu from "$lib/components/HighlightMenu.svelte";
+  import ClipEditor from "$lib/components/ClipEditor.svelte";
+  import { 
+    Dialog, 
+    DialogContent, 
+    DialogDescription, 
+    DialogHeader, 
+    DialogTitle 
+  } from "$lib/components/ui/dialog";
+  import { Film, Trash2 } from '@lucide/svelte';
 
   let { highlights = [], projectId = null } = $props();
 
@@ -34,6 +44,18 @@
 
   // Animation frame for progress updates
   let animationFrame = null;
+
+  // Popover state management for eye icon menus
+  let popoverStates = $state(new Map());
+
+  // Clip editor state
+  let clipEditorOpen = $state(false);
+  let editingHighlight = $state(null);
+
+  // Delete confirmation state
+  let deleteDialogOpen = $state(false);
+  let highlightToDelete = $state(null);
+  let deleting = $state(false);
 
   // Format time for display
   function formatTime(seconds) {
@@ -538,6 +560,82 @@
     return totalDuration > 0 ? (currentTime / totalDuration) * 100 : 0;
   }
 
+  // Helper functions for popover state management
+  function openPopover(highlightId) {
+    const newStates = new Map(popoverStates);
+    newStates.set(highlightId, true);
+    popoverStates = newStates;
+  }
+
+  function closePopover(highlightId) {
+    const newStates = new Map(popoverStates);
+    newStates.set(highlightId, false);
+    popoverStates = newStates;
+  }
+
+  function isPopoverOpen(highlightId) {
+    return popoverStates.get(highlightId) || false;
+  }
+
+  // Handle edit highlight
+  function handleEditHighlight(event, highlight) {
+    if (event) {
+      event.stopPropagation();
+    }
+    closePopover(highlight.id);
+    editingHighlight = highlight;
+    clipEditorOpen = true;
+  }
+
+  // Handle highlight save from editor
+  async function handleHighlightSave(updatedHighlight) {
+    // Use the store's editHighlight function to ensure both components react
+    const updates = {
+      id: updatedHighlight.id,
+      start: updatedHighlight.start,
+      end: updatedHighlight.end,
+      color: updatedHighlight.color
+    };
+    
+    await editHighlight(updatedHighlight.id, updatedHighlight.videoClipId, updates);
+  }
+
+  // Handle delete confirmation
+  function handleDeleteConfirm(event, highlight) {
+    if (event) {
+      event.stopPropagation();
+    }
+    closePopover(highlight.id);
+    highlightToDelete = highlight;
+    deleteDialogOpen = true;
+  }
+
+  // Handle delete highlight
+  async function handleDeleteHighlight() {
+    if (!highlightToDelete) return;
+    
+    deleting = true;
+    
+    try {
+      const success = await deleteHighlight(highlightToDelete.id, highlightToDelete.videoClipId);
+      
+      if (success) {
+        deleteDialogOpen = false;
+        highlightToDelete = null;
+      }
+    } catch (error) {
+      console.error('Error deleting highlight:', error);
+    } finally {
+      deleting = false;
+    }
+  }
+
+  // Cancel delete
+  function cancelDelete() {
+    deleteDialogOpen = false;
+    highlightToDelete = null;
+  }
+
   // Drag and drop functions
   function handleDragStart(event, index) {
     // Check if the drag started from the drag handle
@@ -1025,11 +1123,31 @@
                 ></div>
               {/if}
 
-              <!-- Segment label -->
+              <!-- Segment label and eye icon -->
               <div
                 class="absolute inset-0 flex items-center justify-center text-xs font-medium text-white drop-shadow pointer-events-none"
               >
-                {index + 1}
+                <!-- Number label -->
+                <span>{index + 1}</span>
+                
+                <!-- Eye icon (only show on hover) -->
+                <span class="ml-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto">
+                  <HighlightMenu 
+                    {highlight}
+                    onEdit={handleEditHighlight}
+                    onDelete={handleDeleteConfirm}
+                    popoverOpen={isPopoverOpen(highlight.id)}
+                    onPopoverOpenChange={(open) => {
+                      if (open) {
+                        openPopover(highlight.id);
+                      } else {
+                        closePopover(highlight.id);
+                      }
+                    }}
+                    iconSize="w-2.5 h-2.5"
+                    triggerSize="w-4 h-4"
+                  />
+                </span>
               </div>
 
               <!-- Drag handle -->
@@ -1110,3 +1228,53 @@
 {#snippet dropIndicator()}
   <div class="w-0.5 h-8 bg-black dark:bg-white rounded flex-shrink-0"></div>
 {/snippet}
+
+<!-- Clip Editor -->
+<ClipEditor 
+  bind:open={clipEditorOpen}
+  highlight={editingHighlight}
+  {projectId}
+  onSave={handleHighlightSave}
+/>
+
+<!-- Delete Confirmation Dialog -->
+<Dialog bind:open={deleteDialogOpen}>
+  <DialogContent class="sm:max-w-[425px]">
+    <DialogHeader>
+      <DialogTitle>Delete Highlight</DialogTitle>
+      <DialogDescription>
+        Are you sure you want to delete this highlight? This action cannot be undone.
+      </DialogDescription>
+    </DialogHeader>
+    
+    {#if highlightToDelete}
+      <div class="space-y-3">
+        <div class="flex items-center gap-3 p-3 rounded-lg border" style="background-color: {highlightToDelete.color}20; border-left: 4px solid {highlightToDelete.color};">
+          <Film class="w-6 h-6 flex-shrink-0" style="color: {highlightToDelete.color}" />
+          <div class="flex-1 min-w-0">
+            <h3 class="font-medium truncate">{highlightToDelete.videoClipName}</h3>
+            <p class="text-sm text-muted-foreground">
+              {formatTime(highlightToDelete.start)} - {formatTime(highlightToDelete.end)}
+            </p>
+            {#if highlightToDelete.text}
+              <p class="text-sm mt-1 italic line-clamp-2">"{highlightToDelete.text}"</p>
+            {/if}
+          </div>
+        </div>
+      </div>
+    {/if}
+    
+    <div class="flex justify-end gap-2 mt-4">
+      <Button variant="outline" onclick={cancelDelete} disabled={deleting}>
+        Cancel
+      </Button>
+      <Button variant="destructive" onclick={handleDeleteHighlight} disabled={deleting}>
+        {#if deleting}
+          Deleting...
+        {:else}
+          Delete Highlight
+        {/if}
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
