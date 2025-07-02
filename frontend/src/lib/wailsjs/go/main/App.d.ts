@@ -4,6 +4,8 @@ import {main} from '../models';
 
 export function CancelExport(arg1:string):Promise<void>;
 
+export function ClearSuggestedHighlights(arg1:number):Promise<void>;
+
 export function Close():Promise<void>;
 
 export function CreateProject(arg1:string,arg2:string):Promise<main.ProjectResponse>;
@@ -49,6 +51,8 @@ export function GetProjectHighlights(arg1:number):Promise<Array<main.ProjectHigh
 export function GetProjects():Promise<Array<main.ProjectResponse>>;
 
 export function GetSetting(arg1:string):Promise<string>;
+
+export function GetSuggestedHighlights(arg1:number):Promise<Array<main.HighlightSuggestion>>;
 
 export function GetThemePreference():Promise<string>;
 

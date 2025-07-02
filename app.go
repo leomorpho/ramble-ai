@@ -3360,6 +3360,64 @@ func (a *App) saveSuggestedHighlights(videoID int, suggestions []HighlightSugges
 	return nil
 }
 
+// GetSuggestedHighlights retrieves saved suggested highlights for a video
+func (a *App) GetSuggestedHighlights(videoID int) ([]HighlightSuggestion, error) {
+	// Get video with suggested highlights
+	video, err := a.client.VideoClip.
+		Query().
+		Where(videoclip.ID(videoID)).
+		Only(a.ctx)
+	
+	if err != nil {
+		return nil, fmt.Errorf("failed to get video: %w", err)
+	}
+
+	// Convert saved highlights back to HighlightSuggestion format
+	var suggestions []HighlightSuggestion
+	for _, highlight := range video.SuggestedHighlights {
+		// Get transcript words to extract text
+		transcriptWords := video.TranscriptionWords
+		
+		// Find word indices based on time
+		startIdx := a.timeToWordIndex(highlight.Start, transcriptWords)
+		endIdx := a.timeToWordIndex(highlight.End, transcriptWords)
+		
+		// Extract text from transcript
+		var text strings.Builder
+		for i := startIdx; i <= endIdx && i < len(transcriptWords); i++ {
+			if i > startIdx {
+				text.WriteString(" ")
+			}
+			text.WriteString(transcriptWords[i].Word)
+		}
+		
+		suggestion := HighlightSuggestion{
+			ID:    highlight.ID,
+			Start: startIdx,
+			End:   endIdx,
+			Text:  text.String(),
+			Color: highlight.Color,
+		}
+		suggestions = append(suggestions, suggestion)
+	}
+	
+	return suggestions, nil
+}
+
+// ClearSuggestedHighlights removes all suggested highlights for a video
+func (a *App) ClearSuggestedHighlights(videoID int) error {
+	_, err := a.client.VideoClip.
+		UpdateOneID(videoID).
+		ClearSuggestedHighlights().
+		Save(a.ctx)
+	
+	if err != nil {
+		return fmt.Errorf("failed to clear suggested highlights: %w", err)
+	}
+	
+	return nil
+}
+
 // RecoverActiveExportJobs restores export jobs that were running when the app was closed
 func (a *App) RecoverActiveExportJobs() error {
 	// Find jobs that are not complete and not cancelled

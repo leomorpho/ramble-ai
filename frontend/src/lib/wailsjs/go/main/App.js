@@ -6,6 +6,10 @@ export function CancelExport(arg1) {
   return window['go']['main']['App']['CancelExport'](arg1);
 }
 
+export function ClearSuggestedHighlights(arg1) {
+  return window['go']['main']['App']['ClearSuggestedHighlights'](arg1);
+}
+
 export function Close() {
   return window['go']['main']['App']['Close']();
 }
@@ -96,6 +100,10 @@ export function GetProjects() {
 
 export function GetSetting(arg1) {
   return window['go']['main']['App']['GetSetting'](arg1);
+}
+
+export function GetSuggestedHighlights(arg1) {
+  return window['go']['main']['App']['GetSuggestedHighlights'](arg1);
 }
 
 export function GetThemePreference() {

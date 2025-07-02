@@ -6,7 +6,7 @@
 
   let {
     open = $bindable(false),
-    selectedModel = $bindable("anthropic/claude-sonnet-4"),
+    selectedModel = $bindable("google/gemini-2.5-flash-preview-05-20"),
     customModelValue = $bindable(""),
     customPrompt = $bindable(""),
     defaultPrompt = "",

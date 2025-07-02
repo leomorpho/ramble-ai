@@ -4,7 +4,7 @@
   import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
 
   let {
-    selectedModel = $bindable("anthropic/claude-sonnet-4"),
+    selectedModel = $bindable("google/gemini-2.0-flash-001"),
     customModelValue = $bindable(""),
     label = "AI Model",
     description = "Choose the AI model for processing. Different models have varying strengths in content analysis.",

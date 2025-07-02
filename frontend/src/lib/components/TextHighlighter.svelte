@@ -160,11 +160,9 @@
 
   // Find suggested highlight for a word index
   function findSuggestedHighlightForWord(wordIndex, suggestions) {
+    // Suggested highlights already use word indices, no conversion needed
     const found = suggestions.find(s => {
-      // Convert time-based suggestions to word indices for comparison
-      const startWordIndex = findWordIndexByTime(s.start);
-      const endWordIndex = findWordIndexByTime(s.end);
-      return wordIndex >= startWordIndex && wordIndex <= endWordIndex;
+      return wordIndex >= s.start && wordIndex <= s.end;
     });
     
     if (found && wordIndex === 0) { // Only log for first word to avoid spam

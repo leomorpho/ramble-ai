@@ -183,27 +183,14 @@ Return segments that would work well as standalone content pieces.`;
       console.log("📝 Raw AI suggestions received:", suggestions);
       console.log("📝 Suggestions type:", typeof suggestions, Array.isArray(suggestions));
 
-      // AI suggestions come back with word indices, convert to time-based for TextHighlighter
+      // AI suggestions come back with word indices, keep them as indices for TextHighlighter
       const newSuggestions = suggestions.map((suggestion, index) => {
         console.log(`🔄 Processing suggestion ${index}:`, suggestion);
         
-        let startTime = 0;
-        let endTime = 0;
-        
-        // Convert word indices to time using transcription words
-        if (video.transcriptionWords && video.transcriptionWords.length > 0) {
-          if (suggestion.start < video.transcriptionWords.length) {
-            startTime = video.transcriptionWords[suggestion.start].start;
-          }
-          if (suggestion.end < video.transcriptionWords.length) {
-            endTime = video.transcriptionWords[suggestion.end].end;
-          }
-        }
-        
         const converted = {
           id: `suggestion_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          start: startTime, // Convert to time
-          end: endTime,     // Convert to time
+          start: suggestion.start, // Keep as word index
+          end: suggestion.end,     // Keep as word index
           color: suggestion.color,
           text: suggestion.text,
           isSuggestion: true
@@ -240,11 +227,23 @@ Return segments that would work well as standalone content pieces.`;
     if (!suggestion || !video) return;
 
     try {
-      // Convert suggestion to regular highlight (already in time-based format)
+      // Convert suggestion from word indices to time-based format
+      let startTime = 0;
+      let endTime = 0;
+      
+      if (video.transcriptionWords && video.transcriptionWords.length > 0) {
+        if (suggestion.start < video.transcriptionWords.length) {
+          startTime = video.transcriptionWords[suggestion.start].start;
+        }
+        if (suggestion.end < video.transcriptionWords.length) {
+          endTime = video.transcriptionWords[suggestion.end].end;
+        }
+      }
+      
       const newHighlight = {
         id: `highlight_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        start: suggestion.start,
-        end: suggestion.end,
+        start: startTime,
+        end: endTime,
         color: suggestion.color
       };
 
