@@ -32,6 +32,8 @@ export function GetOpenAIApiKey():Promise<string>;
 
 export function GetOpenRouterApiKey():Promise<string>;
 
+export function GetProjectAISettings(arg1:number):Promise<main.ProjectAISettings>;
+
 export function GetProjectByID(arg1:number):Promise<main.ProjectResponse>;
 
 export function GetProjectExportJobs(arg1:number):Promise<Array<main.ExportProgress>>;
@@ -61,6 +63,8 @@ export function ReorderHighlightsWithAI(arg1:number,arg2:string):Promise<Array<s
 export function SaveOpenAIApiKey(arg1:string):Promise<void>;
 
 export function SaveOpenRouterApiKey(arg1:string):Promise<void>;
+
+export function SaveProjectAISettings(arg1:number,arg2:main.ProjectAISettings):Promise<void>;
 
 export function SaveSetting(arg1:string,arg2:string):Promise<void>;
 

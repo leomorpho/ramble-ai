@@ -87,6 +87,10 @@ func init() {
 	project.DefaultUpdatedAt = projectDescUpdatedAt.Default.(func() time.Time)
 	// project.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
 	project.UpdateDefaultUpdatedAt = projectDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// projectDescAiModel is the schema descriptor for ai_model field.
+	projectDescAiModel := projectFields[5].Descriptor()
+	// project.DefaultAiModel holds the default value on creation for the ai_model field.
+	project.DefaultAiModel = projectDescAiModel.Default.(string)
 	settingsFields := schema.Settings{}.Fields()
 	_ = settingsFields
 	// settingsDescKey is the schema descriptor for key field.

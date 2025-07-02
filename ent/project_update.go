@@ -98,6 +98,46 @@ func (pu *ProjectUpdate) SetUpdatedAt(t time.Time) *ProjectUpdate {
 	return pu
 }
 
+// SetAiModel sets the "ai_model" field.
+func (pu *ProjectUpdate) SetAiModel(s string) *ProjectUpdate {
+	pu.mutation.SetAiModel(s)
+	return pu
+}
+
+// SetNillableAiModel sets the "ai_model" field if the given value is not nil.
+func (pu *ProjectUpdate) SetNillableAiModel(s *string) *ProjectUpdate {
+	if s != nil {
+		pu.SetAiModel(*s)
+	}
+	return pu
+}
+
+// ClearAiModel clears the value of the "ai_model" field.
+func (pu *ProjectUpdate) ClearAiModel() *ProjectUpdate {
+	pu.mutation.ClearAiModel()
+	return pu
+}
+
+// SetAiPrompt sets the "ai_prompt" field.
+func (pu *ProjectUpdate) SetAiPrompt(s string) *ProjectUpdate {
+	pu.mutation.SetAiPrompt(s)
+	return pu
+}
+
+// SetNillableAiPrompt sets the "ai_prompt" field if the given value is not nil.
+func (pu *ProjectUpdate) SetNillableAiPrompt(s *string) *ProjectUpdate {
+	if s != nil {
+		pu.SetAiPrompt(*s)
+	}
+	return pu
+}
+
+// ClearAiPrompt clears the value of the "ai_prompt" field.
+func (pu *ProjectUpdate) ClearAiPrompt() *ProjectUpdate {
+	pu.mutation.ClearAiPrompt()
+	return pu
+}
+
 // AddVideoClipIDs adds the "video_clips" edge to the VideoClip entity by IDs.
 func (pu *ProjectUpdate) AddVideoClipIDs(ids ...int) *ProjectUpdate {
 	pu.mutation.AddVideoClipIDs(ids...)
@@ -255,6 +295,18 @@ func (pu *ProjectUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := pu.mutation.UpdatedAt(); ok {
 		_spec.SetField(project.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if value, ok := pu.mutation.AiModel(); ok {
+		_spec.SetField(project.FieldAiModel, field.TypeString, value)
+	}
+	if pu.mutation.AiModelCleared() {
+		_spec.ClearField(project.FieldAiModel, field.TypeString)
+	}
+	if value, ok := pu.mutation.AiPrompt(); ok {
+		_spec.SetField(project.FieldAiPrompt, field.TypeString, value)
+	}
+	if pu.mutation.AiPromptCleared() {
+		_spec.ClearField(project.FieldAiPrompt, field.TypeString)
 	}
 	if pu.mutation.VideoClipsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -431,6 +483,46 @@ func (puo *ProjectUpdateOne) SetNillableCreatedAt(t *time.Time) *ProjectUpdateOn
 // SetUpdatedAt sets the "updated_at" field.
 func (puo *ProjectUpdateOne) SetUpdatedAt(t time.Time) *ProjectUpdateOne {
 	puo.mutation.SetUpdatedAt(t)
+	return puo
+}
+
+// SetAiModel sets the "ai_model" field.
+func (puo *ProjectUpdateOne) SetAiModel(s string) *ProjectUpdateOne {
+	puo.mutation.SetAiModel(s)
+	return puo
+}
+
+// SetNillableAiModel sets the "ai_model" field if the given value is not nil.
+func (puo *ProjectUpdateOne) SetNillableAiModel(s *string) *ProjectUpdateOne {
+	if s != nil {
+		puo.SetAiModel(*s)
+	}
+	return puo
+}
+
+// ClearAiModel clears the value of the "ai_model" field.
+func (puo *ProjectUpdateOne) ClearAiModel() *ProjectUpdateOne {
+	puo.mutation.ClearAiModel()
+	return puo
+}
+
+// SetAiPrompt sets the "ai_prompt" field.
+func (puo *ProjectUpdateOne) SetAiPrompt(s string) *ProjectUpdateOne {
+	puo.mutation.SetAiPrompt(s)
+	return puo
+}
+
+// SetNillableAiPrompt sets the "ai_prompt" field if the given value is not nil.
+func (puo *ProjectUpdateOne) SetNillableAiPrompt(s *string) *ProjectUpdateOne {
+	if s != nil {
+		puo.SetAiPrompt(*s)
+	}
+	return puo
+}
+
+// ClearAiPrompt clears the value of the "ai_prompt" field.
+func (puo *ProjectUpdateOne) ClearAiPrompt() *ProjectUpdateOne {
+	puo.mutation.ClearAiPrompt()
 	return puo
 }
 
@@ -621,6 +713,18 @@ func (puo *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err e
 	}
 	if value, ok := puo.mutation.UpdatedAt(); ok {
 		_spec.SetField(project.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if value, ok := puo.mutation.AiModel(); ok {
+		_spec.SetField(project.FieldAiModel, field.TypeString, value)
+	}
+	if puo.mutation.AiModelCleared() {
+		_spec.ClearField(project.FieldAiModel, field.TypeString)
+	}
+	if value, ok := puo.mutation.AiPrompt(); ok {
+		_spec.SetField(project.FieldAiPrompt, field.TypeString, value)
+	}
+	if puo.mutation.AiPromptCleared() {
+		_spec.ClearField(project.FieldAiPrompt, field.TypeString)
 	}
 	if puo.mutation.VideoClipsCleared() {
 		edge := &sqlgraph.EdgeSpec{

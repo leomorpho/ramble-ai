@@ -50,6 +50,8 @@ var (
 		{Name: "path", Type: field.TypeString},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "ai_model", Type: field.TypeString, Nullable: true, Default: "anthropic/claude-3-haiku-20240307"},
+		{Name: "ai_prompt", Type: field.TypeString, Nullable: true, Size: 2147483647},
 	}
 	// ProjectsTable holds the schema information for the "projects" table.
 	ProjectsTable = &schema.Table{

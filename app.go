@@ -81,6 +81,12 @@ type LocalVideoFile struct {
 	Exists   bool   `json:"exists"`
 }
 
+// ProjectAISettings represents AI settings for a project
+type ProjectAISettings struct {
+	AIModel  string `json:"aiModel"`
+	AIPrompt string `json:"aiPrompt"`
+}
+
 // App struct
 type App struct {
 	ctx    context.Context
@@ -1726,6 +1732,18 @@ func (a *App) ReorderHighlightsWithAI(projectID int, customPrompt string) ([]str
 		return nil, fmt.Errorf("OpenRouter API key not configured")
 	}
 
+	// Get project AI settings
+	aiSettings, err := a.GetProjectAISettings(projectID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project AI settings: %w", err)
+	}
+
+	// Use custom prompt if provided, otherwise use project's saved prompt
+	prompt := customPrompt
+	if prompt == "" {
+		prompt = aiSettings.AIPrompt
+	}
+
 	// Get all project highlights
 	projectHighlights, err := a.GetProjectHighlights(projectID)
 	if err != nil {
@@ -1752,7 +1770,7 @@ func (a *App) ReorderHighlightsWithAI(projectID int, customPrompt string) ([]str
 	}
 
 	// Call OpenRouter API to get AI reordering
-	reorderedIDs, err := a.callOpenRouterForReordering(apiKey, highlightMap, customPrompt)
+	reorderedIDs, err := a.callOpenRouterForReordering(apiKey, aiSettings.AIModel, highlightMap, prompt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get AI reordering: %w", err)
 	}
@@ -1808,7 +1826,7 @@ type Choice struct {
 }
 
 // callOpenRouterForReordering calls the OpenRouter API to get intelligent highlight reordering
-func (a *App) callOpenRouterForReordering(apiKey string, highlightMap map[string]string, customPrompt string) ([]string, error) {
+func (a *App) callOpenRouterForReordering(apiKey string, model string, highlightMap map[string]string, customPrompt string) ([]string, error) {
 	// Create HTTP client with timeout
 	client := &http.Client{
 		Timeout: 60 * time.Second, // AI requests can take longer
@@ -1819,7 +1837,7 @@ func (a *App) callOpenRouterForReordering(apiKey string, highlightMap map[string
 
 	// Create request payload
 	requestData := OpenRouterRequest{
-		Model: "anthropic/claude-3-haiku", // Use a fast, cost-effective model
+		Model: model, // Use the project-specific model
 		Messages: []Message{
 			{
 				Role:    "user",
@@ -2856,6 +2874,45 @@ func (a *App) GetProjectExportJobs(projectID int) ([]*ExportProgress, error) {
 	}
 
 	return progress, nil
+}
+
+// GetProjectAISettings gets the AI settings for a specific project
+func (a *App) GetProjectAISettings(projectID int) (*ProjectAISettings, error) {
+	project, err := a.client.Project.
+		Query().
+		Where(project.ID(projectID)).
+		Only(a.ctx)
+	
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project: %w", err)
+	}
+
+	aiModel := project.AiModel
+	if aiModel == "" {
+		aiModel = "anthropic/claude-3-haiku-20240307"
+	}
+
+	aiPrompt := project.AiPrompt
+
+	return &ProjectAISettings{
+		AIModel:  aiModel,
+		AIPrompt: aiPrompt,
+	}, nil
+}
+
+// SaveProjectAISettings saves the AI settings for a specific project  
+func (a *App) SaveProjectAISettings(projectID int, settings ProjectAISettings) error {
+	_, err := a.client.Project.
+		UpdateOneID(projectID).
+		SetAiModel(settings.AIModel).
+		SetAiPrompt(settings.AIPrompt).
+		Save(a.ctx)
+	
+	if err != nil {
+		return fmt.Errorf("failed to save project AI settings: %w", err)
+	}
+
+	return nil
 }
 
 // RecoverActiveExportJobs restores export jobs that were running when the app was closed

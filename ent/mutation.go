@@ -1356,6 +1356,8 @@ type ProjectMutation struct {
 	_path              *string
 	created_at         *time.Time
 	updated_at         *time.Time
+	ai_model           *string
+	ai_prompt          *string
 	clearedFields      map[string]struct{}
 	video_clips        map[int]struct{}
 	removedvideo_clips map[int]struct{}
@@ -1659,6 +1661,104 @@ func (m *ProjectMutation) ResetUpdatedAt() {
 	m.updated_at = nil
 }
 
+// SetAiModel sets the "ai_model" field.
+func (m *ProjectMutation) SetAiModel(s string) {
+	m.ai_model = &s
+}
+
+// AiModel returns the value of the "ai_model" field in the mutation.
+func (m *ProjectMutation) AiModel() (r string, exists bool) {
+	v := m.ai_model
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAiModel returns the old "ai_model" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldAiModel(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAiModel is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAiModel requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAiModel: %w", err)
+	}
+	return oldValue.AiModel, nil
+}
+
+// ClearAiModel clears the value of the "ai_model" field.
+func (m *ProjectMutation) ClearAiModel() {
+	m.ai_model = nil
+	m.clearedFields[project.FieldAiModel] = struct{}{}
+}
+
+// AiModelCleared returns if the "ai_model" field was cleared in this mutation.
+func (m *ProjectMutation) AiModelCleared() bool {
+	_, ok := m.clearedFields[project.FieldAiModel]
+	return ok
+}
+
+// ResetAiModel resets all changes to the "ai_model" field.
+func (m *ProjectMutation) ResetAiModel() {
+	m.ai_model = nil
+	delete(m.clearedFields, project.FieldAiModel)
+}
+
+// SetAiPrompt sets the "ai_prompt" field.
+func (m *ProjectMutation) SetAiPrompt(s string) {
+	m.ai_prompt = &s
+}
+
+// AiPrompt returns the value of the "ai_prompt" field in the mutation.
+func (m *ProjectMutation) AiPrompt() (r string, exists bool) {
+	v := m.ai_prompt
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAiPrompt returns the old "ai_prompt" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldAiPrompt(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAiPrompt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAiPrompt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAiPrompt: %w", err)
+	}
+	return oldValue.AiPrompt, nil
+}
+
+// ClearAiPrompt clears the value of the "ai_prompt" field.
+func (m *ProjectMutation) ClearAiPrompt() {
+	m.ai_prompt = nil
+	m.clearedFields[project.FieldAiPrompt] = struct{}{}
+}
+
+// AiPromptCleared returns if the "ai_prompt" field was cleared in this mutation.
+func (m *ProjectMutation) AiPromptCleared() bool {
+	_, ok := m.clearedFields[project.FieldAiPrompt]
+	return ok
+}
+
+// ResetAiPrompt resets all changes to the "ai_prompt" field.
+func (m *ProjectMutation) ResetAiPrompt() {
+	m.ai_prompt = nil
+	delete(m.clearedFields, project.FieldAiPrompt)
+}
+
 // AddVideoClipIDs adds the "video_clips" edge to the VideoClip entity by ids.
 func (m *ProjectMutation) AddVideoClipIDs(ids ...int) {
 	if m.video_clips == nil {
@@ -1801,7 +1901,7 @@ func (m *ProjectMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProjectMutation) Fields() []string {
-	fields := make([]string, 0, 5)
+	fields := make([]string, 0, 7)
 	if m.name != nil {
 		fields = append(fields, project.FieldName)
 	}
@@ -1816,6 +1916,12 @@ func (m *ProjectMutation) Fields() []string {
 	}
 	if m.updated_at != nil {
 		fields = append(fields, project.FieldUpdatedAt)
+	}
+	if m.ai_model != nil {
+		fields = append(fields, project.FieldAiModel)
+	}
+	if m.ai_prompt != nil {
+		fields = append(fields, project.FieldAiPrompt)
 	}
 	return fields
 }
@@ -1835,6 +1941,10 @@ func (m *ProjectMutation) Field(name string) (ent.Value, bool) {
 		return m.CreatedAt()
 	case project.FieldUpdatedAt:
 		return m.UpdatedAt()
+	case project.FieldAiModel:
+		return m.AiModel()
+	case project.FieldAiPrompt:
+		return m.AiPrompt()
 	}
 	return nil, false
 }
@@ -1854,6 +1964,10 @@ func (m *ProjectMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldCreatedAt(ctx)
 	case project.FieldUpdatedAt:
 		return m.OldUpdatedAt(ctx)
+	case project.FieldAiModel:
+		return m.OldAiModel(ctx)
+	case project.FieldAiPrompt:
+		return m.OldAiPrompt(ctx)
 	}
 	return nil, fmt.Errorf("unknown Project field %s", name)
 }
@@ -1898,6 +2012,20 @@ func (m *ProjectMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetUpdatedAt(v)
 		return nil
+	case project.FieldAiModel:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAiModel(v)
+		return nil
+	case project.FieldAiPrompt:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAiPrompt(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Project field %s", name)
 }
@@ -1931,6 +2059,12 @@ func (m *ProjectMutation) ClearedFields() []string {
 	if m.FieldCleared(project.FieldDescription) {
 		fields = append(fields, project.FieldDescription)
 	}
+	if m.FieldCleared(project.FieldAiModel) {
+		fields = append(fields, project.FieldAiModel)
+	}
+	if m.FieldCleared(project.FieldAiPrompt) {
+		fields = append(fields, project.FieldAiPrompt)
+	}
 	return fields
 }
 
@@ -1947,6 +2081,12 @@ func (m *ProjectMutation) ClearField(name string) error {
 	switch name {
 	case project.FieldDescription:
 		m.ClearDescription()
+		return nil
+	case project.FieldAiModel:
+		m.ClearAiModel()
+		return nil
+	case project.FieldAiPrompt:
+		m.ClearAiPrompt()
 		return nil
 	}
 	return fmt.Errorf("unknown Project nullable field %s", name)
@@ -1970,6 +2110,12 @@ func (m *ProjectMutation) ResetField(name string) error {
 		return nil
 	case project.FieldUpdatedAt:
 		m.ResetUpdatedAt()
+		return nil
+	case project.FieldAiModel:
+		m.ResetAiModel()
+		return nil
+	case project.FieldAiPrompt:
+		m.ResetAiPrompt()
 		return nil
 	}
 	return fmt.Errorf("unknown Project field %s", name)

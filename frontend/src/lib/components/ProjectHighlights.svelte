@@ -1,6 +1,6 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { GetVideoURL, ReorderHighlightsWithAI } from '$lib/wailsjs/go/main/App';
+  import { GetVideoURL, ReorderHighlightsWithAI, GetProjectAISettings, SaveProjectAISettings } from '$lib/wailsjs/go/main/App';
   import { draggable } from '@neodrag/svelte';
   import { toast } from 'svelte-sonner';
   import { Play, Film, X, Edit3, Trash2, Eye, Sparkles } from '@lucide/svelte';
@@ -15,6 +15,7 @@
   import { Popover, PopoverContent, PopoverTrigger } from "$lib/components/ui/popover";
   import { Textarea } from "$lib/components/ui/textarea";
   import { Label } from "$lib/components/ui/label";
+  import { Select } from "$lib/components/ui/select";
   import EtroVideoPlayer from "$lib/components/videoplayback/EtroVideoPlayer.svelte";
   import ClipEditor from "$lib/components/ClipEditor.svelte";
   import HighlightItem from "$lib/components/HighlightItem.svelte";
@@ -63,6 +64,7 @@
   let aiReorderedHighlights = $state([]);
   let aiReorderError = $state('');
   let customPrompt = $state('');
+  let selectedModel = $state('anthropic/claude-3-haiku-20240307');
   
   // AI dialog drag state
   let aiDragStartIndex = $state(-1);
@@ -70,6 +72,21 @@
 
   // Popover state management
   let popoverStates = $state(new Map());
+
+  // Available AI models
+  const availableModels = [
+    { value: 'anthropic/claude-sonnet-4', label: 'Claude Sonnet 4 (Latest)' },
+    { value: 'google/gemini-2.0-flash-001', label: 'Gemini 2.0 Flash' },
+    { value: 'google/gemini-2.5-flash-preview-05-20', label: 'Gemini 2.5 Flash Preview' },
+    { value: 'deepseek/deepseek-chat-v3-0324:free', label: 'DeepSeek Chat v3 (Free)' },
+    { value: 'anthropic/claude-3.7-sonnet', label: 'Claude 3.7 Sonnet' },
+    { value: 'anthropic/claude-3-haiku-20240307', label: 'Claude 3 Haiku (Fast)' },
+    { value: 'openai/gpt-4o-mini', label: 'GPT-4o Mini' },
+    { value: 'mistralai/mistral-nemo', label: 'Mistral Nemo' },
+    { value: 'custom', label: 'Custom Model' }
+  ];
+  
+  let customModelValue = $state('');
 
   // Initialize on mount and watch for project changes
   onMount(() => {
@@ -500,17 +517,34 @@ Reorder these segments using your expertise in:
 Feel free to completely restructure the order - move any segment to any position if it will improve video quality and viewer experience.`;
 
   // Handle AI reordering - opens dialog
-  function handleAIReorder() {
+  async function handleAIReorder() {
     if (!projectId || $orderedHighlights.length === 0) {
       toast.error('No highlights to reorder');
       return;
     }
 
-    // Reset state and open dialog with default prompt
+    // Reset state and open dialog
     aiReorderLoading = false;
     aiReorderError = '';
     aiReorderedHighlights = [];
-    customPrompt = defaultPrompt;
+    
+    // Load project AI settings
+    try {
+      const aiSettings = await GetProjectAISettings(projectId);
+      selectedModel = aiSettings.aiModel || 'anthropic/claude-3-haiku-20240307';
+      customPrompt = aiSettings.aiPrompt || defaultPrompt;
+      
+      // If using custom model, extract the value
+      if (!availableModels.find(m => m.value === selectedModel)) {
+        customModelValue = selectedModel;
+        selectedModel = 'custom';
+      }
+    } catch (error) {
+      console.error('Failed to load AI settings:', error);
+      selectedModel = 'anthropic/claude-3-haiku-20240307';
+      customPrompt = defaultPrompt;
+    }
+    
     aiReorderDialogOpen = true;
   }
 
@@ -520,6 +554,13 @@ Feel free to completely restructure the order - move any segment to any position
     aiReorderError = '';
 
     try {
+      // Save AI settings before processing
+      const modelToSave = selectedModel === 'custom' ? customModelValue : selectedModel;
+      await SaveProjectAISettings(projectId, {
+        aiModel: modelToSave,
+        aiPrompt: customPrompt
+      });
+
       // Call the AI reordering API
       const reorderedIds = await ReorderHighlightsWithAI(projectId, customPrompt);
       
@@ -884,9 +925,34 @@ Feel free to completely restructure the order - move any segment to any position
       </DialogDescription>
     </DialogHeader>
     
-    <!-- Custom Prompt Input -->
+    <!-- AI Settings -->
     {#if !aiReorderLoading && aiReorderedHighlights.length === 0 && !aiReorderError}
       <div class="space-y-4">
+        <!-- Model Selection -->
+        <div class="space-y-2">
+          <Label for="ai-model">AI Model</Label>
+          <Select
+            bind:value={selectedModel}
+            options={availableModels}
+            placeholder="Select AI model..."
+            class="w-full"
+          />
+          
+          {#if selectedModel === 'custom'}
+            <input
+              type="text"
+              bind:value={customModelValue}
+              placeholder="Enter custom model (e.g., anthropic/claude-3-5-sonnet)"
+              class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          {/if}
+          
+          <p class="text-xs text-muted-foreground">
+            Choose the AI model for highlight reordering. Different models have varying strengths in content analysis and reasoning.
+          </p>
+        </div>
+        
+        <!-- Custom Prompt Input -->
         <div class="space-y-2">
           <Label for="custom-prompt">AI Instructions</Label>
           <Textarea

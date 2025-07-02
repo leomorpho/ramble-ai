@@ -76,6 +76,34 @@ func (pc *ProjectCreate) SetNillableUpdatedAt(t *time.Time) *ProjectCreate {
 	return pc
 }
 
+// SetAiModel sets the "ai_model" field.
+func (pc *ProjectCreate) SetAiModel(s string) *ProjectCreate {
+	pc.mutation.SetAiModel(s)
+	return pc
+}
+
+// SetNillableAiModel sets the "ai_model" field if the given value is not nil.
+func (pc *ProjectCreate) SetNillableAiModel(s *string) *ProjectCreate {
+	if s != nil {
+		pc.SetAiModel(*s)
+	}
+	return pc
+}
+
+// SetAiPrompt sets the "ai_prompt" field.
+func (pc *ProjectCreate) SetAiPrompt(s string) *ProjectCreate {
+	pc.mutation.SetAiPrompt(s)
+	return pc
+}
+
+// SetNillableAiPrompt sets the "ai_prompt" field if the given value is not nil.
+func (pc *ProjectCreate) SetNillableAiPrompt(s *string) *ProjectCreate {
+	if s != nil {
+		pc.SetAiPrompt(*s)
+	}
+	return pc
+}
+
 // AddVideoClipIDs adds the "video_clips" edge to the VideoClip entity by IDs.
 func (pc *ProjectCreate) AddVideoClipIDs(ids ...int) *ProjectCreate {
 	pc.mutation.AddVideoClipIDs(ids...)
@@ -149,6 +177,10 @@ func (pc *ProjectCreate) defaults() {
 		v := project.DefaultUpdatedAt()
 		pc.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := pc.mutation.AiModel(); !ok {
+		v := project.DefaultAiModel
+		pc.mutation.SetAiModel(v)
+	}
 }
 
 // check runs all checks and user-defined validators on the builder.
@@ -220,6 +252,14 @@ func (pc *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 	if value, ok := pc.mutation.UpdatedAt(); ok {
 		_spec.SetField(project.FieldUpdatedAt, field.TypeTime, value)
 		_node.UpdatedAt = value
+	}
+	if value, ok := pc.mutation.AiModel(); ok {
+		_spec.SetField(project.FieldAiModel, field.TypeString, value)
+		_node.AiModel = value
+	}
+	if value, ok := pc.mutation.AiPrompt(); ok {
+		_spec.SetField(project.FieldAiPrompt, field.TypeString, value)
+		_node.AiPrompt = value
 	}
 	if nodes := pc.mutation.VideoClipsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

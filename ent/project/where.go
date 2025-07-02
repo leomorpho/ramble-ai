@@ -80,6 +80,16 @@ func UpdatedAt(v time.Time) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldUpdatedAt, v))
 }
 
+// AiModel applies equality check predicate on the "ai_model" field. It's identical to AiModelEQ.
+func AiModel(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldAiModel, v))
+}
+
+// AiPrompt applies equality check predicate on the "ai_prompt" field. It's identical to AiPromptEQ.
+func AiPrompt(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldAiPrompt, v))
+}
+
 // NameEQ applies the EQ predicate on the "name" field.
 func NameEQ(v string) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldName, v))
@@ -363,6 +373,156 @@ func UpdatedAtLT(v time.Time) predicate.Project {
 // UpdatedAtLTE applies the LTE predicate on the "updated_at" field.
 func UpdatedAtLTE(v time.Time) predicate.Project {
 	return predicate.Project(sql.FieldLTE(FieldUpdatedAt, v))
+}
+
+// AiModelEQ applies the EQ predicate on the "ai_model" field.
+func AiModelEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldAiModel, v))
+}
+
+// AiModelNEQ applies the NEQ predicate on the "ai_model" field.
+func AiModelNEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldNEQ(FieldAiModel, v))
+}
+
+// AiModelIn applies the In predicate on the "ai_model" field.
+func AiModelIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldIn(FieldAiModel, vs...))
+}
+
+// AiModelNotIn applies the NotIn predicate on the "ai_model" field.
+func AiModelNotIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldNotIn(FieldAiModel, vs...))
+}
+
+// AiModelGT applies the GT predicate on the "ai_model" field.
+func AiModelGT(v string) predicate.Project {
+	return predicate.Project(sql.FieldGT(FieldAiModel, v))
+}
+
+// AiModelGTE applies the GTE predicate on the "ai_model" field.
+func AiModelGTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldGTE(FieldAiModel, v))
+}
+
+// AiModelLT applies the LT predicate on the "ai_model" field.
+func AiModelLT(v string) predicate.Project {
+	return predicate.Project(sql.FieldLT(FieldAiModel, v))
+}
+
+// AiModelLTE applies the LTE predicate on the "ai_model" field.
+func AiModelLTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldLTE(FieldAiModel, v))
+}
+
+// AiModelContains applies the Contains predicate on the "ai_model" field.
+func AiModelContains(v string) predicate.Project {
+	return predicate.Project(sql.FieldContains(FieldAiModel, v))
+}
+
+// AiModelHasPrefix applies the HasPrefix predicate on the "ai_model" field.
+func AiModelHasPrefix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasPrefix(FieldAiModel, v))
+}
+
+// AiModelHasSuffix applies the HasSuffix predicate on the "ai_model" field.
+func AiModelHasSuffix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasSuffix(FieldAiModel, v))
+}
+
+// AiModelIsNil applies the IsNil predicate on the "ai_model" field.
+func AiModelIsNil() predicate.Project {
+	return predicate.Project(sql.FieldIsNull(FieldAiModel))
+}
+
+// AiModelNotNil applies the NotNil predicate on the "ai_model" field.
+func AiModelNotNil() predicate.Project {
+	return predicate.Project(sql.FieldNotNull(FieldAiModel))
+}
+
+// AiModelEqualFold applies the EqualFold predicate on the "ai_model" field.
+func AiModelEqualFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldEqualFold(FieldAiModel, v))
+}
+
+// AiModelContainsFold applies the ContainsFold predicate on the "ai_model" field.
+func AiModelContainsFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldContainsFold(FieldAiModel, v))
+}
+
+// AiPromptEQ applies the EQ predicate on the "ai_prompt" field.
+func AiPromptEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldAiPrompt, v))
+}
+
+// AiPromptNEQ applies the NEQ predicate on the "ai_prompt" field.
+func AiPromptNEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldNEQ(FieldAiPrompt, v))
+}
+
+// AiPromptIn applies the In predicate on the "ai_prompt" field.
+func AiPromptIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldIn(FieldAiPrompt, vs...))
+}
+
+// AiPromptNotIn applies the NotIn predicate on the "ai_prompt" field.
+func AiPromptNotIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldNotIn(FieldAiPrompt, vs...))
+}
+
+// AiPromptGT applies the GT predicate on the "ai_prompt" field.
+func AiPromptGT(v string) predicate.Project {
+	return predicate.Project(sql.FieldGT(FieldAiPrompt, v))
+}
+
+// AiPromptGTE applies the GTE predicate on the "ai_prompt" field.
+func AiPromptGTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldGTE(FieldAiPrompt, v))
+}
+
+// AiPromptLT applies the LT predicate on the "ai_prompt" field.
+func AiPromptLT(v string) predicate.Project {
+	return predicate.Project(sql.FieldLT(FieldAiPrompt, v))
+}
+
+// AiPromptLTE applies the LTE predicate on the "ai_prompt" field.
+func AiPromptLTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldLTE(FieldAiPrompt, v))
+}
+
+// AiPromptContains applies the Contains predicate on the "ai_prompt" field.
+func AiPromptContains(v string) predicate.Project {
+	return predicate.Project(sql.FieldContains(FieldAiPrompt, v))
+}
+
+// AiPromptHasPrefix applies the HasPrefix predicate on the "ai_prompt" field.
+func AiPromptHasPrefix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasPrefix(FieldAiPrompt, v))
+}
+
+// AiPromptHasSuffix applies the HasSuffix predicate on the "ai_prompt" field.
+func AiPromptHasSuffix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasSuffix(FieldAiPrompt, v))
+}
+
+// AiPromptIsNil applies the IsNil predicate on the "ai_prompt" field.
+func AiPromptIsNil() predicate.Project {
+	return predicate.Project(sql.FieldIsNull(FieldAiPrompt))
+}
+
+// AiPromptNotNil applies the NotNil predicate on the "ai_prompt" field.
+func AiPromptNotNil() predicate.Project {
+	return predicate.Project(sql.FieldNotNull(FieldAiPrompt))
+}
+
+// AiPromptEqualFold applies the EqualFold predicate on the "ai_prompt" field.
+func AiPromptEqualFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldEqualFold(FieldAiPrompt, v))
+}
+
+// AiPromptContainsFold applies the ContainsFold predicate on the "ai_prompt" field.
+func AiPromptContainsFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldContainsFold(FieldAiPrompt, v))
 }
 
 // HasVideoClips applies the HasEdge predicate on the "video_clips" edge.

@@ -90,6 +90,20 @@ export namespace main {
 	        this.exists = source["exists"];
 	    }
 	}
+	export class ProjectAISettings {
+	    aiModel: string;
+	    aiPrompt: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectAISettings(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.aiModel = source["aiModel"];
+	        this.aiPrompt = source["aiPrompt"];
+	    }
+	}
 	export class ProjectHighlight {
 	    videoClipId: number;
 	    videoClipName: string;

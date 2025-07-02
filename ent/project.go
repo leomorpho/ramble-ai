@@ -27,6 +27,10 @@ type Project struct {
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Last update timestamp
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
+	// Preferred OpenRouter AI model for this project
+	AiModel string `json:"ai_model,omitempty"`
+	// Custom AI prompt for segment reordering
+	AiPrompt string `json:"ai_prompt,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ProjectQuery when eager-loading is set.
 	Edges        ProjectEdges `json:"edges"`
@@ -69,7 +73,7 @@ func (*Project) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case project.FieldID:
 			values[i] = new(sql.NullInt64)
-		case project.FieldName, project.FieldDescription, project.FieldPath:
+		case project.FieldName, project.FieldDescription, project.FieldPath, project.FieldAiModel, project.FieldAiPrompt:
 			values[i] = new(sql.NullString)
 		case project.FieldCreatedAt, project.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -123,6 +127,18 @@ func (pr *Project) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field updated_at", values[i])
 			} else if value.Valid {
 				pr.UpdatedAt = value.Time
+			}
+		case project.FieldAiModel:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field ai_model", values[i])
+			} else if value.Valid {
+				pr.AiModel = value.String
+			}
+		case project.FieldAiPrompt:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field ai_prompt", values[i])
+			} else if value.Valid {
+				pr.AiPrompt = value.String
 			}
 		default:
 			pr.selectValues.Set(columns[i], values[i])
@@ -184,6 +200,12 @@ func (pr *Project) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("updated_at=")
 	builder.WriteString(pr.UpdatedAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("ai_model=")
+	builder.WriteString(pr.AiModel)
+	builder.WriteString(", ")
+	builder.WriteString("ai_prompt=")
+	builder.WriteString(pr.AiPrompt)
 	builder.WriteByte(')')
 	return builder.String()
 }

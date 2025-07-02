@@ -62,6 +62,10 @@ export function GetOpenRouterApiKey() {
   return window['go']['main']['App']['GetOpenRouterApiKey']();
 }
 
+export function GetProjectAISettings(arg1) {
+  return window['go']['main']['App']['GetProjectAISettings'](arg1);
+}
+
 export function GetProjectByID(arg1) {
   return window['go']['main']['App']['GetProjectByID'](arg1);
 }
@@ -120,6 +124,10 @@ export function SaveOpenAIApiKey(arg1) {
 
 export function SaveOpenRouterApiKey(arg1) {
   return window['go']['main']['App']['SaveOpenRouterApiKey'](arg1);
+}
+
+export function SaveProjectAISettings(arg1, arg2) {
+  return window['go']['main']['App']['SaveProjectAISettings'](arg1, arg2);
 }
 
 export function SaveSetting(arg1, arg2) {
