@@ -15,6 +15,7 @@
     TabsList, 
     TabsTrigger 
   } from "$lib/components/ui/tabs";
+  import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
   import { GetProjectByID, UpdateProject, DeleteProject, CreateVideoClip, GetVideoClipsByProject, UpdateVideoClip, DeleteVideoClip, SelectVideoFiles, GetVideoFileInfo, GetVideoURL, TranscribeVideoClip, UpdateVideoClipHighlights, GetOpenAIApiKey, SelectExportFolder, ExportStitchedHighlights, ExportIndividualHighlights, GetExportProgress, CancelExport, GetProjectExportJobs } from "$lib/wailsjs/go/main/App";
   import { OnFileDrop, OnFileDropOff, EventsOn, EventsOff } from "$lib/wailsjs/runtime/runtime";
   import { onMount, onDestroy } from "svelte";
@@ -1442,28 +1443,21 @@
       </DialogDescription>
     </DialogHeader>
     
-    <div class="flex-1 overflow-y-auto pr-2">
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
+    <ScrollArea class="h-[70vh]">
+      {#snippet children()}
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pr-4 pb-4">
         <!-- Video Player Column -->
         <div class="space-y-4">
           {#if transcriptionVideo}
-            <div class="flex items-center gap-3 p-3 bg-secondary/30 rounded-lg">
-              <svg class="w-6 h-6 text-muted-foreground flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-              <div class="flex-1 min-w-0">
-                <p class="font-medium truncate">{transcriptionVideo.name}</p>
-                <p class="text-sm text-muted-foreground truncate">{transcriptionVideo.fileName}</p>
-              </div>
-            </div>
-            
             <!-- Video Player -->
             <div class="bg-background border rounded-lg p-4">
               <h3 class="font-medium mb-3">Video Preview</h3>
-              <EtroVideoPlayer 
-                highlights={formattedTranscriptHighlights}
-                projectId={projectId}
-              />
+              <div class="aspect-video">
+                <EtroVideoPlayer 
+                  highlights={formattedTranscriptHighlights}
+                  projectId={projectId}
+                />
+              </div>
             </div>
           {/if}
         </div>
@@ -1474,34 +1468,34 @@
             <!-- Transcript content with tabs -->
           {#if transcriptionVideo.transcription}
             <div class="space-y-3">
-              <div class="flex items-center justify-between">
-                <h3 class="font-medium">Transcript</h3>
-                <div class="flex gap-2">
-                  {#if transcriptionVideo.transcriptionLanguage}
-                    <span class="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-md">
-                      {transcriptionVideo.transcriptionLanguage.toUpperCase()}
-                    </span>
-                  {/if}
-                  {#if transcriptionVideo.transcriptionDuration}
-                    <span class="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-md">
-                      {formatTimestamp(transcriptionVideo.transcriptionDuration)}
-                    </span>
-                  {/if}
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onclick={() => navigator.clipboard.writeText(transcriptionVideo.transcription)}
-                    class="text-xs"
-                  >
-                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                    Copy
-                  </Button>
-                </div>
-              </div>
+                  <div class="flex items-center justify-between">
+                    <h3 class="font-medium">Transcript</h3>
+                    <div class="flex gap-2">
+                      {#if transcriptionVideo.transcriptionLanguage}
+                        <span class="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-md">
+                          {transcriptionVideo.transcriptionLanguage.toUpperCase()}
+                        </span>
+                      {/if}
+                      {#if transcriptionVideo.transcriptionDuration}
+                        <span class="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-md">
+                          {formatTimestamp(transcriptionVideo.transcriptionDuration)}
+                        </span>
+                      {/if}
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onclick={() => navigator.clipboard.writeText(transcriptionVideo.transcription)}
+                        class="text-xs"
+                      >
+                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Copy
+                      </Button>
+                    </div>
+                  </div>
 
-              <Tabs value="full-text" class="w-full">
+                  <Tabs value="full-text" class="w-full">
                 <TabsList class="grid w-full grid-cols-2">
                   <TabsTrigger value="full-text">Full Text</TabsTrigger>
                   <TabsTrigger value="word-by-word" disabled={!transcriptionVideo.transcriptionWords || transcriptionVideo.transcriptionWords.length === 0}>
@@ -1510,16 +1504,18 @@
                 </TabsList>
                 
                 <TabsContent value="full-text" class="space-y-3">
-                  <div class="max-h-64 overflow-y-auto p-4 bg-background border rounded-lg">
-                    <div class="text-sm leading-relaxed">
-                      <TextHighlighter 
-                        text={transcriptionVideo.transcription} 
-                        words={transcriptionVideo.transcriptionWords || []} 
-                        initialHighlights={transcriptionVideo.highlights || []}
-                        onHighlightsChange={handleHighlightsChange}
-                      />
-                    </div>
-                  </div>
+                  <ScrollArea class="h-80 bg-background border rounded-lg">
+                    {#snippet children()}
+                      <div class="p-4 text-sm leading-relaxed">
+                        <TextHighlighter 
+                          text={transcriptionVideo.transcription} 
+                          words={transcriptionVideo.transcriptionWords || []} 
+                          initialHighlights={transcriptionVideo.highlights || []}
+                          onHighlightsChange={handleHighlightsChange}
+                        />
+                      </div>
+                    {/snippet}
+                  </ScrollArea>
                   <div class="text-xs text-muted-foreground">
                     Character count: {transcriptionVideo.transcription.length}
                   </div>
@@ -1527,21 +1523,25 @@
                 
                 <TabsContent value="word-by-word" class="space-y-3">
                   {#if transcriptionVideo.transcriptionWords && transcriptionVideo.transcriptionWords.length > 0}
-                    <div class="max-h-64 overflow-y-auto p-4 bg-background border rounded-lg space-y-1">
-                      {#each transcriptionVideo.transcriptionWords as word, index}
-                        <div class="flex items-center gap-3 p-2 hover:bg-secondary/30 rounded-md group">
-                          <div class="flex-shrink-0 text-xs text-muted-foreground font-mono bg-secondary px-2 py-1 rounded">
-                            {formatTimestamp(word.start)}
-                          </div>
-                          <div class="flex-1">
-                            <span class="text-sm">{word.word.trim()}</span>
-                          </div>
-                          <div class="flex-shrink-0 text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                            {(word.end - word.start).toFixed(1)}s
-                          </div>
+                    <ScrollArea class="h-80 bg-background border rounded-lg">
+                      {#snippet children()}
+                        <div class="p-4 space-y-1">
+                          {#each transcriptionVideo.transcriptionWords as word, index}
+                            <div class="flex items-center gap-3 p-2 hover:bg-secondary/30 rounded-md group">
+                              <div class="flex-shrink-0 text-xs text-muted-foreground font-mono bg-secondary px-2 py-1 rounded">
+                                {formatTimestamp(word.start)}
+                              </div>
+                              <div class="flex-1">
+                                <span class="text-sm">{word.word.trim()}</span>
+                              </div>
+                              <div class="flex-shrink-0 text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                                {(word.end - word.start).toFixed(1)}s
+                              </div>
+                            </div>
+                          {/each}
                         </div>
-                      {/each}
-                    </div>
+                      {/snippet}
+                    </ScrollArea>
                     <div class="text-xs text-muted-foreground flex-shrink-0">
                       Word count: {transcriptionVideo.transcriptionWords.length}
                     </div>
@@ -1572,8 +1572,9 @@
           {/if}
           {/if}
         </div>
-      </div>
-    </div>
+        </div>
+      {/snippet}
+    </ScrollArea>
     
     <!-- Fixed footer buttons -->
     <div class="flex justify-end gap-2 pt-4 border-t flex-shrink-0">
