@@ -1,5 +1,6 @@
 <!--
 	Installed from @ieedan/shadcn-svelte-extras
+	Enhanced for Wails v2 drag and drop support
 -->
 
 <script lang="ts">
@@ -7,6 +8,8 @@
 	import { UploadIcon } from '@lucide/svelte';
 	import { displaySize } from '.';
 	import { useId } from 'bits-ui';
+	import { EventsOn, EventsOff } from '$lib/wailsjs/runtime/runtime';
+	import { onMount, onDestroy } from 'svelte';
 	import type { FileDropZoneProps, FileRejectedReason } from './types';
 
 	let {
@@ -30,6 +33,69 @@
 	}
 
 	let uploading = $state(false);
+	
+	onMount(() => {
+		// Set up Wails file drop listener
+		EventsOn("files-dropped", handleWailsFileDrop);
+	});
+	
+	onDestroy(() => {
+		// Clean up event listeners
+		EventsOff("files-dropped");
+	});
+
+	async function handleWailsFileDrop(data: any) {
+		if (disabled || !canUploadFiles) return;
+		
+		if (!data || !data.paths || data.paths.length === 0) return;
+		
+		// Convert file paths to File objects for compatibility
+		const filePromises = data.paths.map(async (path: string) => {
+			try {
+				// Create a File-like object with the path information
+				const fileName = path.split('/').pop() || path.split('\\').pop() || 'unknown';
+				const fileExtension = fileName.split('.').pop()?.toLowerCase() || '';
+				
+				// Mock File object for validation
+				return {
+					name: fileName,
+					type: getFileTypeFromExtension(fileExtension),
+					size: 0, // We don't have size info from Wails drop
+					path: path
+				} as File;
+			} catch (err) {
+				console.error('Failed to process dropped file:', path, err);
+				return null;
+			}
+		});
+		
+		const files = (await Promise.all(filePromises)).filter(Boolean) as File[];
+		await upload(files);
+	}
+	
+	function getFileTypeFromExtension(ext: string): string {
+		const mimeTypes: Record<string, string> = {
+			'mp4': 'video/mp4',
+			'mov': 'video/quicktime',
+			'avi': 'video/x-msvideo',
+			'mkv': 'video/x-matroska',
+			'webm': 'video/webm',
+			'flv': 'video/x-flv',
+			'wmv': 'video/x-ms-wmv',
+			'm4v': 'video/x-m4v',
+			'mpg': 'video/mpeg',
+			'mpeg': 'video/mpeg',
+			'jpg': 'image/jpeg',
+			'jpeg': 'image/jpeg',
+			'png': 'image/png',
+			'gif': 'image/gif',
+			'pdf': 'application/pdf',
+			'txt': 'text/plain',
+			'doc': 'application/msword',
+			'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+		};
+		return mimeTypes[ext] || 'application/octet-stream';
+	}
 
 	const drop = async (
 		e: DragEvent & {
@@ -125,8 +191,6 @@
 </script>
 
 <label
-	ondragover={(e) => e.preventDefault()}
-	ondrop={drop}
 	for={id}
 	aria-disabled={!canUploadFiles}
 	class={cn(
@@ -145,7 +209,7 @@
 			</div>
 			<div class="flex flex-col gap-0.5 text-center">
 				<span class="text-muted-foreground font-medium">
-					Drag 'n' drop files here, or click to select files
+					Drop files anywhere in the window, or click to select files
 				</span>
 				{#if maxFiles || maxFileSize}
 					<span class="text-muted-foreground/75 text-sm">

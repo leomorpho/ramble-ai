@@ -16,7 +16,8 @@
     TabsTrigger 
   } from "$lib/components/ui/tabs";
   import { GetProjectByID, UpdateProject, DeleteProject, CreateVideoClip, GetVideoClipsByProject, UpdateVideoClip, DeleteVideoClip, SelectVideoFiles, GetVideoFileInfo, GetVideoURL, TranscribeVideoClip, UpdateVideoClipHighlights, GetOpenAIApiKey, SelectExportFolder, ExportStitchedHighlights, ExportIndividualHighlights, GetExportProgress, CancelExport, GetProjectExportJobs } from "$lib/wailsjs/go/main/App";
-  import { onMount } from "svelte";
+  import { OnFileDrop, OnFileDropOff, EventsOn, EventsOff } from "$lib/wailsjs/runtime/runtime";
+  import { onMount, onDestroy } from "svelte";
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
   import { toast } from "svelte-sonner";
@@ -75,6 +76,42 @@
     
     // Check if there are any active exports to resume tracking
     await checkForActiveExports();
+    
+    // Set up Wails drag and drop listeners
+    OnFileDrop(handleWailsFileDrop, true);
+    EventsOn("files-dropped", handleFilesDroppedEvent);
+    
+    // Watch for Wails drop target class changes
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+          const target = mutation.target;
+          if (target.classList.contains('wails-drop-target-active')) {
+            dragActive = true;
+          } else {
+            dragActive = false;
+          }
+        }
+      });
+    });
+    
+    // Observe the document for class changes
+    observer.observe(document.body, {
+      attributes: true,
+      subtree: true,
+      attributeFilter: ['class']
+    });
+  });
+  
+  onDestroy(() => {
+    // Clean up progress tracking if active
+    if (progressInterval) {
+      clearInterval(progressInterval);
+    }
+    
+    // Clean up Wails drag and drop listeners
+    OnFileDropOff();
+    EventsOff("files-dropped");
   });
 
   async function loadProject() {
@@ -169,6 +206,14 @@
     addingClip = true;
     clipError = "";
     
+    console.log("Processing files:", Array.from(files).map(f => ({ 
+      name: f.name, 
+      type: f.type, 
+      size: f.size, 
+      path: f.path,
+      webkitRelativePath: f.webkitRelativePath 
+    })));
+    
     const fileArray = Array.from(files);
     const videoFiles = fileArray.filter(isVideoFile);
     
@@ -178,32 +223,215 @@
       return;
     }
     
+    let successCount = 0;
+    
     for (const file of videoFiles) {
       try {
-        // In Wails, we can access the file path directly from the File object
-        // For drag & drop, we need to use the file path if available
-        let filePath = file.path || file.webkitRelativePath || file.name;
+        // In Wails desktop app, files should have a path property
+        let filePath = file.path;
         
-        // If we have a real path, use it directly
-        if (file.path) {
-          const newClip = await CreateVideoClip(projectId, file.path);
-          // Check if this clip is already in our list
-          if (!videoClips || !videoClips.some(clip => clip.id === newClip.id)) {
-            videoClips = [...(videoClips || []), newClip]; // Trigger reactivity
-          }
-        } else {
-          // For files without paths (browser drag & drop), show error
+        // If no path property, try webkitRelativePath (some browsers)
+        if (!filePath && file.webkitRelativePath) {
+          filePath = file.webkitRelativePath;
+        }
+        
+        // If still no path, try to construct from file name (fallback)
+        if (!filePath) {
+          console.warn(`No file path available for ${file.name}. This may happen in web browsers.`);
           clipError = `Cannot access file system path for ${file.name}. Please use "Select Video Files" button instead.`;
           break;
         }
+        
+        console.log(`Processing file: ${file.name} with path: ${filePath}`);
+        
+        const newClip = await CreateVideoClip(projectId, filePath);
+        // Check if this clip is already in our list
+        if (!videoClips || !videoClips.some(clip => clip.id === newClip.id)) {
+          videoClips = [...(videoClips || []), newClip]; // Trigger reactivity
+          successCount++;
+        }
       } catch (err) {
         console.error("Failed to add video clip:", err);
-        clipError = `Failed to add ${file.name}: ${err.message || err}`;
+        if (err.message && err.message.includes("already added")) {
+          clipError = `${file.name} is already added to this project`;
+        } else {
+          clipError = `Failed to add ${file.name}: ${err.message || err}`;
+        }
         break;
       }
     }
     
+    // Show success message if files were added
+    if (successCount > 0 && !clipError) {
+      toast.success(`Added ${successCount} video file${successCount === 1 ? '' : 's'}`, {
+        description: "Video files have been added to your project"
+      });
+    }
+    
     addingClip = false;
+  }
+
+  // Wails runtime drag and drop handlers
+  function handleWailsFileDrop(x, y, paths) {
+    console.log(`Wails OnFileDrop: Files dropped at (${x}, ${y}):`, paths);
+    
+    if (!paths || paths.length === 0) {
+      console.log("No paths received in Wails OnFileDrop");
+      return;
+    }
+    
+    // Set visual feedback
+    dragActive = false;
+    
+    // Process the dropped files directly with full paths
+    handleFilePathsFromWails(paths);
+  }
+  
+  function handleFilesDroppedEvent(data) {
+    console.log("Wails files-dropped event received:", data);
+    
+    if (!data || !data.paths || data.paths.length === 0) {
+      console.log("No paths in files-dropped event");
+      return;
+    }
+    
+    // Set visual feedback
+    dragActive = false;
+    
+    // Process the dropped files
+    handleFilePathsFromWails(data.paths);
+  }
+  
+  async function handleFilePathsFromWails(filePaths) {
+    console.log("Processing file paths from Wails:", filePaths);
+    
+    addingClip = true;
+    clipError = "";
+    
+    const videoFiles = filePaths.filter(path => {
+      const ext = path.toLowerCase().split('.').pop();
+      return ['mp4', 'mov', 'avi', 'mkv', 'wmv', 'flv', 'webm', 'm4v', 'mpg', 'mpeg'].includes(ext);
+    });
+    
+    if (videoFiles.length === 0) {
+      clipError = "No valid video files found. Please drop video files (MP4, MOV, AVI, etc.)";
+      addingClip = false;
+      return;
+    }
+    
+    console.log("Valid video files to process:", videoFiles);
+    
+    let successCount = 0;
+    
+    for (const filePath of videoFiles) {
+      try {
+        console.log(`Adding video clip: ${filePath}`);
+        const newClip = await CreateVideoClip(projectId, filePath);
+        
+        // Check if this clip is already in our list
+        if (!videoClips || !videoClips.some(clip => clip.id === newClip.id)) {
+          videoClips = [...(videoClips || []), newClip]; // Trigger reactivity
+          successCount++;
+          console.log(`Successfully added: ${newClip.name}`);
+        }
+      } catch (err) {
+        console.error("Failed to add video clip:", err);
+        if (err.message && err.message.includes("already added")) {
+          clipError = `${filePath.split('/').pop()} is already added to this project`;
+        } else {
+          clipError = `Failed to add ${filePath.split('/').pop()}: ${err.message || err}`;
+        }
+        break;
+      }
+    }
+    
+    // Show success message if files were added
+    if (successCount > 0 && !clipError) {
+      toast.success(`Added ${successCount} video file${successCount === 1 ? '' : 's'}`, {
+        description: "Video files have been added to your project"
+      });
+    }
+    
+    addingClip = false;
+  }
+
+  // Enhanced drag and drop handlers that work with Wails
+  function handleDrop(event) {
+    event.preventDefault();
+    dragActive = false;
+    
+    console.log("Drop event received:", event);
+    console.log("DataTransfer:", event.dataTransfer);
+    
+    const files = event.dataTransfer?.files;
+    if (files && files.length > 0) {
+      console.log("Files from drop:", Array.from(files).map(f => ({ 
+        name: f.name, 
+        type: f.type, 
+        size: f.size,
+        path: f.path,
+        webkitRelativePath: f.webkitRelativePath
+      })));
+      handleFiles(files);
+    } else {
+      console.log("No files in drop event");
+      
+      // Try alternative methods to get file information
+      const items = event.dataTransfer?.items;
+      if (items && items.length > 0) {
+        console.log("DataTransfer items:", Array.from(items).map(item => ({
+          kind: item.kind,
+          type: item.type
+        })));
+        
+        // Try to process items
+        const filePromises = [];
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          if (item.kind === 'file') {
+            const file = item.getAsFile();
+            if (file) {
+              filePromises.push(file);
+            }
+          }
+        }
+        
+        if (filePromises.length > 0) {
+          console.log("Files from items:", filePromises.map(f => ({ 
+            name: f.name, 
+            type: f.type, 
+            size: f.size,
+            path: f.path
+          })));
+          handleFiles(filePromises);
+          return;
+        }
+      }
+      
+      toast.error("No files detected in drop", {
+        description: "Please try using the 'Select Video Files' button instead."
+      });
+    }
+  }
+
+  function handleDragOver(event) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  }
+
+  function handleDragEnter(event) {
+    event.preventDefault();
+    dragActive = true;
+    console.log("Drag enter detected");
+  }
+
+  function handleDragLeave(event) {
+    event.preventDefault();
+    // Only hide drag state if we're leaving the drop zone completely
+    if (!event.currentTarget.contains(event.relatedTarget)) {
+      dragActive = false;
+      console.log("Drag leave detected");
+    }
   }
 
   async function selectVideoFiles() {
@@ -238,32 +466,6 @@
     }
   }
 
-  function handleDrop(event) {
-    event.preventDefault();
-    dragActive = false;
-    
-    const files = event.dataTransfer?.files;
-    if (files) {
-      handleFiles(files);
-    }
-  }
-
-  function handleDragOver(event) {
-    event.preventDefault();
-  }
-
-  function handleDragEnter(event) {
-    event.preventDefault();
-    dragActive = true;
-  }
-
-  function handleDragLeave(event) {
-    event.preventDefault();
-    // Only hide drag state if we're leaving the drop zone completely
-    if (!event.currentTarget.contains(event.relatedTarget)) {
-      dragActive = false;
-    }
-  }
 
   function handleFileInputChange(event) {
     const files = event.target?.files;
@@ -790,17 +992,14 @@
                 class="hidden"
               />
               
-              <!-- Drop zone -->
+              <!-- Drop zone with Wails drop target support -->
               <div
                 role="button"
                 tabindex="0"
-                aria-label="Drop video files here or click to browse"
-                ondrop={handleDrop}
-                ondragover={handleDragOver}
-                ondragenter={handleDragEnter}
-                ondragleave={handleDragLeave}
+                aria-label="Drop video files from file manager or click to browse"
                 onclick={openFileDialog}
                 onkeydown={handleKeyDown}
+                style="--wails-drop-target: drop"
                 class="border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 cursor-pointer
                        {dragActive ? 'border-primary bg-primary/5' : 'border-border hover:border-primary'}
                        {addingClip ? 'pointer-events-none opacity-50' : ''}"
@@ -823,7 +1022,11 @@
                       Supports MP4, MOV, AVI, MKV, WMV, FLV, WebM, and more
                     </p>
                     <p class="text-xs text-muted-foreground mt-1">
-                      Note: For drag & drop to work, files must be from a local file manager
+                      {#if dragActive}
+                        Release to add files to your project
+                      {:else}
+                        Drag video files from your file manager anywhere in this window
+                      {/if}
                     </p>
                   </div>
                 </div>

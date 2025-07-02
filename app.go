@@ -2488,3 +2488,23 @@ func (a *App) RecoverActiveExportJobs() error {
 
 	return nil
 }
+
+// onFileDrop handles file drops from the OS using Wails v2 drag and drop API
+func (a *App) onFileDrop(ctx context.Context, x, y int, paths []string) {
+	log.Printf("Files dropped at (%d, %d): %v", x, y, paths)
+	
+	// Filter for video files only
+	videoFiles := []string{}
+	for _, path := range paths {
+		if a.isVideoFile(path) {
+			videoFiles = append(videoFiles, path)
+		}
+	}
+	
+	// Emit event to frontend with dropped video files
+	runtime.EventsEmit(ctx, "files-dropped", map[string]interface{}{
+		"x":     x,
+		"y":     y,
+		"paths": videoFiles,
+	})
+}
