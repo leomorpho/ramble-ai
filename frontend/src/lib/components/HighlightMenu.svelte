@@ -1,5 +1,5 @@
 <script>
-  import { Eye, Edit3, Trash2 } from '@lucide/svelte';
+  import { Eye, Edit3, Trash2, Pencil, Pen } from '@lucide/svelte';
   import { Popover, PopoverContent, PopoverTrigger } from "$lib/components/ui/popover";
 
   let { 
@@ -8,8 +8,8 @@
     onDelete = () => {},
     popoverOpen = false,
     onPopoverOpenChange = () => {},
-    iconSize = "w-2 h-2",
-    triggerSize = "w-3 h-3"
+    iconSize = "w-4 h-4",
+    triggerSize = "w-5 h-5"
   } = $props();
 </script>
 
@@ -18,10 +18,10 @@
   onOpenChange={onPopoverOpenChange}
 >
   <PopoverTrigger 
-    class="inline-flex items-center justify-center {triggerSize} rounded-full hover:bg-black/10 hover:bg-white/20 transition-all duration-200"
+    class="inline-flex items-center justify-center {triggerSize} rounded-full hover:bg-white/20 transition-all duration-200"
     onclick={(e) => e.stopPropagation()}
   >
-    <Eye class="{iconSize} text-foreground/50 hover:text-foreground transition-all duration-200" />
+    <Pen class="{iconSize} text-foreground/50 hover:text-foreground transition-all duration-200" />
   </PopoverTrigger>
   <PopoverContent align="start" class="w-48 p-1">
     <div class="space-y-1">

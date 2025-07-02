@@ -1,11 +1,8 @@
 <script>
   import { onMount, onDestroy } from "svelte";
-  import {
-    GetVideoURL,
-  } from "$lib/wailsjs/go/main/App";
-  import { draggable } from "@neodrag/svelte";
+  import { GetVideoURL } from "$lib/wailsjs/go/main/App";
   import { toast } from "svelte-sonner";
-  import { Play, Film, X, Edit3, Trash2, Eye, Sparkles } from "@lucide/svelte";
+  import { Play, Film, Sparkles } from "@lucide/svelte";
   import {
     Dialog,
     DialogContent,
@@ -14,11 +11,7 @@
     DialogTitle,
   } from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button";
-  import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-  } from "$lib/components/ui/popover";
+
   import EtroVideoPlayer from "$lib/components/videoplayback/EtroVideoPlayer.svelte";
   import ClipEditor from "$lib/components/ClipEditor.svelte";
   import HighlightItem from "$lib/components/HighlightItem.svelte";
@@ -518,9 +511,12 @@
 
   // Handle AI reorder apply callback
   function handleAIApply(reorderedHighlights) {
-    console.log("AI reordering applied:", reorderedHighlights.length, "highlights");
+    console.log(
+      "AI reordering applied:",
+      reorderedHighlights.length,
+      "highlights"
+    );
   }
-
 
   // Expose refresh method
   export function refresh() {

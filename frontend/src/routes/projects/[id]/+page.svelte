@@ -1456,6 +1456,8 @@
                 <EtroVideoPlayer 
                   highlights={formattedTranscriptHighlights}
                   projectId={projectId}
+                  enableEyeButton={false}
+                  enableReordering={false}
                 />
               </div>
             </div>
@@ -1577,7 +1579,7 @@
     </ScrollArea>
     
     <!-- Fixed footer buttons -->
-    <div class="flex justify-end gap-2 pt-4 border-t flex-shrink-0">
+    <div class="flex justify-end gap-2 pt-1.5 border-t flex-shrink-0">
       <Button variant="outline" onclick={() => transcriptionDialogOpen = false}>
         Close
       </Button>

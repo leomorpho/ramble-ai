@@ -4,20 +4,30 @@
   import { toast } from "svelte-sonner";
   import { Play, Pause, SkipForward, SkipBack, Square } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
-  import { updateHighlightOrder, deleteHighlight, editHighlight } from "$lib/stores/projectHighlights.js";
+  import {
+    updateHighlightOrder,
+    deleteHighlight,
+    editHighlight,
+  } from "$lib/stores/projectHighlights.js";
   import { browser } from "$app/environment";
   import HighlightMenu from "$lib/components/HighlightMenu.svelte";
   import ClipEditor from "$lib/components/ClipEditor.svelte";
-  import { 
-    Dialog, 
-    DialogContent, 
-    DialogDescription, 
-    DialogHeader, 
-    DialogTitle 
+  import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
   } from "$lib/components/ui/dialog";
-  import { Film, Trash2 } from '@lucide/svelte';
+  import { Film, Trash2 } from "@lucide/svelte";
 
-  let { highlights = [], projectId = null, enableEyeButton = true, onReorder = null } = $props();
+  let {
+    highlights = [],
+    projectId = null,
+    enableEyeButton = true,
+    onReorder = null,
+    enableReordering = true,
+  } = $props();
 
   // Core state
   let canvasElement = $state(null);
@@ -46,7 +56,7 @@
   let animationFrame = null;
 
   // Track highlight order to detect external changes
-  let lastKnownOrder = $state('');
+  let lastKnownOrder = $state("");
   let isInternalReorder = $state(false);
 
   // Popover state management for eye icon menus
@@ -71,7 +81,7 @@
   // Load etro library dynamically (client-side only)
   async function loadEtro() {
     if (!browser || etro) return etro;
-    
+
     try {
       const etroModule = await import("etro");
       etro = etroModule;
@@ -598,10 +608,14 @@
       id: updatedHighlight.id,
       start: updatedHighlight.start,
       end: updatedHighlight.end,
-      color: updatedHighlight.color
+      color: updatedHighlight.color,
     };
-    
-    await editHighlight(updatedHighlight.id, updatedHighlight.videoClipId, updates);
+
+    await editHighlight(
+      updatedHighlight.id,
+      updatedHighlight.videoClipId,
+      updates
+    );
   }
 
   // Handle delete confirmation
@@ -617,18 +631,21 @@
   // Handle delete highlight
   async function handleDeleteHighlight() {
     if (!highlightToDelete) return;
-    
+
     deleting = true;
-    
+
     try {
-      const success = await deleteHighlight(highlightToDelete.id, highlightToDelete.videoClipId);
-      
+      const success = await deleteHighlight(
+        highlightToDelete.id,
+        highlightToDelete.videoClipId
+      );
+
       if (success) {
         deleteDialogOpen = false;
         highlightToDelete = null;
       }
     } catch (error) {
-      console.error('Error deleting highlight:', error);
+      console.error("Error deleting highlight:", error);
     } finally {
       deleting = false;
     }
@@ -642,6 +659,12 @@
 
   // Drag and drop functions
   function handleDragStart(event, index) {
+    // Check if reordering is enabled
+    if (!enableReordering) {
+      event.preventDefault();
+      return false;
+    }
+
     // Check if the drag started from the drag handle
     const rect = event.currentTarget.getBoundingClientRect();
     const x = event.clientX - rect.left;
@@ -716,9 +739,9 @@
 
     // Mark as internal reorder to prevent external change detection
     isInternalReorder = true;
-    
+
     let success = false;
-    
+
     if (onReorder) {
       // Use custom reorder handler (for preview mode)
       try {
@@ -735,11 +758,11 @@
 
     if (success) {
       // Update our known order
-      lastKnownOrder = newHighlights.map(h => h.id).join(',');
+      lastKnownOrder = newHighlights.map((h) => h.id).join(",");
       // Reinitialize the video player with new order (only if save was successful)
       await reinitializeWithNewOrder(newHighlights);
     }
-    
+
     // Reset the internal reorder flag
     isInternalReorder = false;
 
@@ -748,8 +771,11 @@
 
   // Reinitialize video player with new segment order
   async function reinitializeWithNewOrder(newHighlights = highlights) {
-    console.log("Reinitializing video player with new order:", newHighlights.map(h => h.id));
-    
+    console.log(
+      "Reinitializing video player with new order:",
+      newHighlights.map((h) => h.id)
+    );
+
     // Pause and clean up existing movie
     if (movie) {
       movie.pause();
@@ -804,12 +830,17 @@
       // Get video dimensions from the first video
       const firstHighlight = highlightOrder[0];
       console.log("First highlight in order:", firstHighlight);
-      console.log("Looking for video URL with filePath:", firstHighlight.filePath);
+      console.log(
+        "Looking for video URL with filePath:",
+        firstHighlight.filePath
+      );
       console.log("Available video URLs:", Array.from(videoURLs.keys()));
-      
+
       const firstVideoURL = videoURLs.get(firstHighlight.filePath);
       if (!firstVideoURL) {
-        throw new Error(`No video URL for first highlight. FilePath: ${firstHighlight.filePath}`);
+        throw new Error(
+          `No video URL for first highlight. FilePath: ${firstHighlight.filePath}`
+        );
       }
 
       console.log("Getting video dimensions from first video...");
@@ -920,8 +951,8 @@
       );
 
       // Check if we need to load video URLs for new highlights
-      const needsVideoURLs = highlights.some(h => !videoURLs.has(h.filePath));
-      
+      const needsVideoURLs = highlights.some((h) => !videoURLs.has(h.filePath));
+
       if (!allVideosLoaded || needsVideoURLs) {
         console.log(
           "Effect: Starting video URL loading for",
@@ -938,15 +969,23 @@
 
   // Watch for external highlight order changes (from timeline component)
   $effect(() => {
-    if (browser && highlights.length > 0 && isInitialized && allVideosLoaded && !isInternalReorder) {
-      const currentOrder = highlights.map(h => h.id).join(',');
-      
+    if (
+      browser &&
+      highlights.length > 0 &&
+      isInitialized &&
+      allVideosLoaded &&
+      !isInternalReorder
+    ) {
+      const currentOrder = highlights.map((h) => h.id).join(",");
+
       // If we have a previous order and it's different, refresh the video
       if (lastKnownOrder && lastKnownOrder !== currentOrder) {
-        console.log("External highlight order change detected, refreshing video");
+        console.log(
+          "External highlight order change detected, refreshing video"
+        );
         console.log("Previous order:", lastKnownOrder);
         console.log("New order:", currentOrder);
-        
+
         // Update our known order and refresh video
         lastKnownOrder = currentOrder;
         reinitializeWithNewOrder(highlights);
@@ -1018,15 +1057,9 @@
   <div class="video-player p-6 bg-card border rounded-lg">
     <!-- Header -->
     <div class="flex items-center justify-between mb-4">
-      <h3 class="text-lg font-semibold">Etro Video Player</h3>
       <div class="text-sm text-muted-foreground">
         {highlights.length} highlights • {formatTime(totalDuration)} total
         <br />
-        <span class="text-xs">
-          URLs: {videoURLs.size}/{highlights.length} • Ready: {allVideosLoaded
-            ? "Yes"
-            : "No"} • Init: {isInitialized ? "Yes" : "No"}
-        </span>
       </div>
     </div>
 
@@ -1096,9 +1129,15 @@
     <!-- Draggable Clip Timeline -->
     <div class="timeline-container mb-4">
       <div class="space-y-2">
-        <div class="text-xs text-muted-foreground mb-2">
-          💡 Click segments to seek, drag handle (⚫) to reorder
-        </div>
+        {#if enableReordering}
+          <div class="text-xs text-muted-foreground mb-2">
+            💡 Click segments to seek, drag handle (⚫) to reorder
+          </div>
+        {:else}
+          <div class="text-xs text-muted-foreground mb-2">
+            💡 Click segments to seek
+          </div>
+        {/if}
 
         <!-- Clip segments with drag and drop -->
         <div class="flex gap-1 w-full">
@@ -1115,7 +1154,7 @@
             {@const isActive = index === currentHighlightIndex}
 
             <!-- Drop indicator before this segment -->
-            {#if isDragging && dragOverIndex === index}
+            {#if enableReordering && isDragging && dragOverIndex === index}
               {@render dropIndicator()}
             {/if}
 
@@ -1128,14 +1167,19 @@
               style="width: {segmentWidth}%; background-color: {highlight.color}; min-width: 20px;"
               title="{highlight.videoClipName}: {formatTime(
                 highlight.start
-              )} - {formatTime(
-                highlight.end
-              )} (click to seek, drag handle to reorder)"
-              draggable="true"
-              ondragstart={(e) => handleDragStart(e, index)}
-              ondragend={handleDragEnd}
-              ondragover={(e) => handleDragOver(e, index)}
-              ondrop={(e) => handleDrop(e, index)}
+              )} - {formatTime(highlight.end)}{enableReordering
+                ? ' (click to seek, drag handle to reorder)'
+                : ' (click to seek)'}"
+              draggable={enableReordering}
+              ondragstart={(e) =>
+                enableReordering
+                  ? handleDragStart(e, index)
+                  : e.preventDefault()}
+              ondragend={enableReordering ? handleDragEnd : undefined}
+              ondragover={(e) =>
+                enableReordering ? handleDragOver(e, index) : undefined}
+              ondrop={(e) =>
+                enableReordering ? handleDrop(e, index) : undefined}
               onclick={(e) => handleSegmentClick(e, index)}
             >
               <!-- Progress indicator for active segment -->
@@ -1162,11 +1206,13 @@
               >
                 <!-- Number label -->
                 <span>{index + 1}</span>
-                
+
                 <!-- Eye icon (only show on hover and if enabled) -->
                 {#if enableEyeButton}
-                  <span class="ml-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto">
-                    <HighlightMenu 
+                  <span
+                    class="ml-1 opacity-0 group-hover:opacity-100 hidden group-hover:block transition-opacity pointer-events-auto"
+                  >
+                    <HighlightMenu
                       {highlight}
                       onEdit={handleEditHighlight}
                       onDelete={handleDeleteConfirm}
@@ -1178,24 +1224,26 @@
                           closePopover(highlight.id);
                         }
                       }}
-                      iconSize="w-2.5 h-2.5"
-                      triggerSize="w-4 h-4"
+                      iconSize="w-4 h-4"
+                      triggerSize="w-6 h-6"
                     />
                   </span>
                 {/if}
               </div>
 
               <!-- Drag handle -->
-              <div
-                class="absolute top-0 right-0 w-4 h-4 bg-black/80 rounded-bl rounded-tr opacity-0 group-hover:opacity-100 transition-opacity cursor-move flex items-center justify-center"
-                title="Drag to reorder"
-              >
-                <div class="w-1.5 h-1.5 bg-white rounded-full"></div>
-              </div>
+              {#if enableReordering}
+                <div
+                  class="absolute top-0 right-0 w-4 h-4 bg-black/80 rounded-bl rounded-tr opacity-0 group-hover:opacity-100 transition-opacity cursor-move flex items-center justify-center"
+                  title="Drag to reorder"
+                >
+                  <div class="w-1.5 h-1.5 bg-white rounded-full"></div>
+                </div>
+              {/if}
             </button>
 
             <!-- Drop indicator after the last segment -->
-            {#if index === highlights.length - 1 && isDragging && dragOverIndex === highlights.length}
+            {#if enableReordering && index === highlights.length - 1 && isDragging && dragOverIndex === highlights.length}
               {@render dropIndicator()}
             {/if}
           {/each}
@@ -1227,13 +1275,6 @@
           {/if}
         </Button>
       {/key}
-
-      <!-- Debug info -->
-      <div class="text-xs text-muted-foreground ml-4">
-        State: {isPlaying ? "Playing" : "Paused"} | Time: {currentTime.toFixed(
-          1
-        )}s / {totalDuration.toFixed(1)}s
-      </div>
     </div>
 
     <!-- Loading Progress -->
@@ -1265,7 +1306,7 @@
 {/snippet}
 
 <!-- Clip Editor -->
-<ClipEditor 
+<ClipEditor
   bind:open={clipEditorOpen}
   highlight={editingHighlight}
   {projectId}
@@ -1278,32 +1319,49 @@
     <DialogHeader>
       <DialogTitle>Delete Highlight</DialogTitle>
       <DialogDescription>
-        Are you sure you want to delete this highlight? This action cannot be undone.
+        Are you sure you want to delete this highlight? This action cannot be
+        undone.
       </DialogDescription>
     </DialogHeader>
-    
+
     {#if highlightToDelete}
       <div class="space-y-3">
-        <div class="flex items-center gap-3 p-3 rounded-lg border" style="background-color: {highlightToDelete.color}20; border-left: 4px solid {highlightToDelete.color};">
-          <Film class="w-6 h-6 flex-shrink-0" style="color: {highlightToDelete.color}" />
+        <div
+          class="flex items-center gap-3 p-3 rounded-lg border"
+          style="background-color: {highlightToDelete.color}20; border-left: 4px solid {highlightToDelete.color};"
+        >
+          <Film
+            class="w-6 h-6 flex-shrink-0"
+            style="color: {highlightToDelete.color}"
+          />
           <div class="flex-1 min-w-0">
-            <h3 class="font-medium truncate">{highlightToDelete.videoClipName}</h3>
+            <h3 class="font-medium truncate">
+              {highlightToDelete.videoClipName}
+            </h3>
             <p class="text-sm text-muted-foreground">
-              {formatTime(highlightToDelete.start)} - {formatTime(highlightToDelete.end)}
+              {formatTime(highlightToDelete.start)} - {formatTime(
+                highlightToDelete.end
+              )}
             </p>
             {#if highlightToDelete.text}
-              <p class="text-sm mt-1 italic line-clamp-2">"{highlightToDelete.text}"</p>
+              <p class="text-sm mt-1 italic line-clamp-2">
+                "{highlightToDelete.text}"
+              </p>
             {/if}
           </div>
         </div>
       </div>
     {/if}
-    
+
     <div class="flex justify-end gap-2 mt-4">
       <Button variant="outline" onclick={cancelDelete} disabled={deleting}>
         Cancel
       </Button>
-      <Button variant="destructive" onclick={handleDeleteHighlight} disabled={deleting}>
+      <Button
+        variant="destructive"
+        onclick={handleDeleteHighlight}
+        disabled={deleting}
+      >
         {#if deleting}
           Deleting...
         {:else}
