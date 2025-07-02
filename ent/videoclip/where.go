@@ -820,6 +820,16 @@ func HighlightsNotNil() predicate.VideoClip {
 	return predicate.VideoClip(sql.FieldNotNull(FieldHighlights))
 }
 
+// SuggestedHighlightsIsNil applies the IsNil predicate on the "suggested_highlights" field.
+func SuggestedHighlightsIsNil() predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldIsNull(FieldSuggestedHighlights))
+}
+
+// SuggestedHighlightsNotNil applies the NotNil predicate on the "suggested_highlights" field.
+func SuggestedHighlightsNotNil() predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldNotNull(FieldSuggestedHighlights))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.VideoClip {
 	return predicate.VideoClip(sql.FieldEQ(FieldCreatedAt, v))

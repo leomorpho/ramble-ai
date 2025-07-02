@@ -55,6 +55,8 @@ var (
 		{Name: "ai_suggestion_order", Type: field.TypeJSON, Nullable: true},
 		{Name: "ai_suggestion_model", Type: field.TypeString, Nullable: true},
 		{Name: "ai_suggestion_created_at", Type: field.TypeTime, Nullable: true},
+		{Name: "ai_highlight_model", Type: field.TypeString, Nullable: true, Default: "anthropic/claude-sonnet-4"},
+		{Name: "ai_highlight_prompt", Type: field.TypeString, Nullable: true, Size: 2147483647},
 	}
 	// ProjectsTable holds the schema information for the "projects" table.
 	ProjectsTable = &schema.Table{
@@ -92,6 +94,7 @@ var (
 		{Name: "transcription_language", Type: field.TypeString, Nullable: true},
 		{Name: "transcription_duration", Type: field.TypeFloat64, Nullable: true},
 		{Name: "highlights", Type: field.TypeJSON, Nullable: true},
+		{Name: "suggested_highlights", Type: field.TypeJSON, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
 		{Name: "project_video_clips", Type: field.TypeInt, Nullable: true},
@@ -104,7 +107,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "video_clips_projects_video_clips",
-				Columns:    []*schema.Column{VideoClipsColumns[16]},
+				Columns:    []*schema.Column{VideoClipsColumns[17]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},

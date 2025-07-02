@@ -10,7 +10,23 @@
     updateHighlight
   } from './TextHighlighter.utils.js';
   
-  let { text = '', words = [], initialHighlights = [], onHighlightsChange } = $props();
+  let { 
+    text = '', 
+    words = [], 
+    initialHighlights = [], 
+    suggestedHighlights = [],
+    onHighlightsChange,
+    onSuggestionAccept = () => {},
+    onSuggestionReject = () => {}
+  } = $props();
+
+  // Debug logging for suggested highlights
+  $effect(() => {
+    console.log("🎨 TextHighlighter: suggestedHighlights changed:", {
+      count: suggestedHighlights.length,
+      highlights: suggestedHighlights
+    });
+  });
   
   // === CORE STATE ===
   let highlights = $state([]);
@@ -140,6 +156,41 @@
     }
     
     return false;
+  }
+
+  // Find suggested highlight for a word index
+  function findSuggestedHighlightForWord(wordIndex, suggestions) {
+    const found = suggestions.find(s => {
+      // Convert time-based suggestions to word indices for comparison
+      const startWordIndex = findWordIndexByTime(s.start);
+      const endWordIndex = findWordIndexByTime(s.end);
+      return wordIndex >= startWordIndex && wordIndex <= endWordIndex;
+    });
+    
+    if (found && wordIndex === 0) { // Only log for first word to avoid spam
+      console.log("🔍 findSuggestedHighlightForWord:", {
+        wordIndex,
+        suggestionsCount: suggestions.length,
+        found: !!found,
+        foundSuggestion: found
+      });
+    }
+    
+    return found;
+  }
+
+  // Handle accepting a suggested highlight
+  function handleAcceptSuggestion(suggestion, event) {
+    event.preventDefault();
+    event.stopPropagation();
+    onSuggestionAccept(suggestion.id);
+  }
+
+  // Handle rejecting a suggested highlight
+  function handleRejectSuggestion(suggestion, event) {
+    event.preventDefault();
+    event.stopPropagation();
+    onSuggestionReject(suggestion.id);
   }
   
   // === EVENT HANDLERS ===
@@ -342,6 +393,7 @@
 <div class="leading-relaxed select-none" class:dragging={isDragging}>
   {#each displayWords as word, wordIndex}
     {@const highlight = findHighlightForWord(wordIndex, highlights)}
+    {@const suggestedHighlight = findSuggestedHighlightForWord(wordIndex, suggestedHighlights)}
     {@const inSelection = isWordInSelection(wordIndex, selectionStart, selectionEnd, isSelecting)}
     {@const inDragPreview = isDragging && dragTarget && isWordInDragPreview(wordIndex)}
     
@@ -371,6 +423,44 @@
       <!-- Selection preview -->
       <span class="inline px-1.5 py-0.5 rounded bg-gray-400/30">
         {word.word}
+      </span>
+    {:else if suggestedHighlight}
+      <!-- Suggested highlight -->
+      <span 
+        class="inline relative group cursor-pointer px-1.5 py-0.5 rounded border-2 border-dashed transition-all duration-200 hover:opacity-100"
+        style:background-color={`${suggestedHighlight.color}40`}
+        style:border-color={suggestedHighlight.color}
+        class:opacity-70={true}
+        onmousedown={(e) => handleWordMouseDown(wordIndex, e)}
+        onmouseenter={() => handleWordMouseEnter(wordIndex)}
+        onclick={(e) => handleWordClick(wordIndex, e)}
+        ondblclick={(e) => handleWordDoubleClick(wordIndex, e)}
+        onkeydown={(e) => handleWordKeydown(wordIndex, e)}
+        role="button"
+        tabindex="0"
+        aria-label="Suggested highlight: {word.word}"
+      >
+        {word.word}
+        
+        <!-- Accept/Reject buttons on hover (only show on first word of suggestion) -->
+        {#if wordIndex === suggestedHighlight.start}
+          <div class="absolute -top-8 left-0 hidden group-hover:flex items-center gap-1 bg-background border border-border rounded-md px-2 py-1 shadow-md z-10">
+            <button
+              class="w-5 h-5 rounded bg-green-500 hover:bg-green-600 text-white flex items-center justify-center text-xs transition-colors"
+              onclick={(e) => handleAcceptSuggestion(suggestedHighlight, e)}
+              title="Accept suggestion"
+            >
+              ✓
+            </button>
+            <button
+              class="w-5 h-5 rounded bg-red-500 hover:bg-red-600 text-white flex items-center justify-center text-xs transition-colors"
+              onclick={(e) => handleRejectSuggestion(suggestedHighlight, e)}
+              title="Reject suggestion"
+            >
+              ✕
+            </button>
+          </div>
+        {/if}
       </span>
     {:else}
       <!-- Regular word -->

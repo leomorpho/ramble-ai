@@ -172,6 +172,12 @@ func (vcc *VideoClipCreate) SetHighlights(s []schema.Highlight) *VideoClipCreate
 	return vcc
 }
 
+// SetSuggestedHighlights sets the "suggested_highlights" field.
+func (vcc *VideoClipCreate) SetSuggestedHighlights(s []schema.Highlight) *VideoClipCreate {
+	vcc.mutation.SetSuggestedHighlights(s)
+	return vcc
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (vcc *VideoClipCreate) SetCreatedAt(t time.Time) *VideoClipCreate {
 	vcc.mutation.SetCreatedAt(t)
@@ -365,6 +371,10 @@ func (vcc *VideoClipCreate) createSpec() (*VideoClip, *sqlgraph.CreateSpec) {
 	if value, ok := vcc.mutation.Highlights(); ok {
 		_spec.SetField(videoclip.FieldHighlights, field.TypeJSON, value)
 		_node.Highlights = value
+	}
+	if value, ok := vcc.mutation.SuggestedHighlights(); ok {
+		_spec.SetField(videoclip.FieldSuggestedHighlights, field.TypeJSON, value)
+		_node.SuggestedHighlights = value
 	}
 	if value, ok := vcc.mutation.CreatedAt(); ok {
 		_spec.SetField(videoclip.FieldCreatedAt, field.TypeTime, value)

@@ -48,6 +48,26 @@ export namespace main {
 	        this.color = source["color"];
 	    }
 	}
+	export class HighlightSuggestion {
+	    id: string;
+	    start: number;
+	    end: number;
+	    text: string;
+	    color: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new HighlightSuggestion(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.start = source["start"];
+	        this.end = source["end"];
+	        this.text = source["text"];
+	        this.color = source["color"];
+	    }
+	}
 	export class HighlightWithText {
 	    id: string;
 	    start: number;
@@ -176,6 +196,20 @@ export namespace main {
 		    }
 		    return a;
 		}
+	}
+	export class ProjectHighlightAISettings {
+	    aiModel: string;
+	    aiPrompt: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectHighlightAISettings(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.aiModel = source["aiModel"];
+	        this.aiPrompt = source["aiPrompt"];
+	    }
 	}
 	export class ProjectResponse {
 	    id: number;

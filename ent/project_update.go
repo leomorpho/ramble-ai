@@ -197,6 +197,46 @@ func (pu *ProjectUpdate) ClearAiSuggestionCreatedAt() *ProjectUpdate {
 	return pu
 }
 
+// SetAiHighlightModel sets the "ai_highlight_model" field.
+func (pu *ProjectUpdate) SetAiHighlightModel(s string) *ProjectUpdate {
+	pu.mutation.SetAiHighlightModel(s)
+	return pu
+}
+
+// SetNillableAiHighlightModel sets the "ai_highlight_model" field if the given value is not nil.
+func (pu *ProjectUpdate) SetNillableAiHighlightModel(s *string) *ProjectUpdate {
+	if s != nil {
+		pu.SetAiHighlightModel(*s)
+	}
+	return pu
+}
+
+// ClearAiHighlightModel clears the value of the "ai_highlight_model" field.
+func (pu *ProjectUpdate) ClearAiHighlightModel() *ProjectUpdate {
+	pu.mutation.ClearAiHighlightModel()
+	return pu
+}
+
+// SetAiHighlightPrompt sets the "ai_highlight_prompt" field.
+func (pu *ProjectUpdate) SetAiHighlightPrompt(s string) *ProjectUpdate {
+	pu.mutation.SetAiHighlightPrompt(s)
+	return pu
+}
+
+// SetNillableAiHighlightPrompt sets the "ai_highlight_prompt" field if the given value is not nil.
+func (pu *ProjectUpdate) SetNillableAiHighlightPrompt(s *string) *ProjectUpdate {
+	if s != nil {
+		pu.SetAiHighlightPrompt(*s)
+	}
+	return pu
+}
+
+// ClearAiHighlightPrompt clears the value of the "ai_highlight_prompt" field.
+func (pu *ProjectUpdate) ClearAiHighlightPrompt() *ProjectUpdate {
+	pu.mutation.ClearAiHighlightPrompt()
+	return pu
+}
+
 // AddVideoClipIDs adds the "video_clips" edge to the VideoClip entity by IDs.
 func (pu *ProjectUpdate) AddVideoClipIDs(ids ...int) *ProjectUpdate {
 	pu.mutation.AddVideoClipIDs(ids...)
@@ -389,6 +429,18 @@ func (pu *ProjectUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if pu.mutation.AiSuggestionCreatedAtCleared() {
 		_spec.ClearField(project.FieldAiSuggestionCreatedAt, field.TypeTime)
+	}
+	if value, ok := pu.mutation.AiHighlightModel(); ok {
+		_spec.SetField(project.FieldAiHighlightModel, field.TypeString, value)
+	}
+	if pu.mutation.AiHighlightModelCleared() {
+		_spec.ClearField(project.FieldAiHighlightModel, field.TypeString)
+	}
+	if value, ok := pu.mutation.AiHighlightPrompt(); ok {
+		_spec.SetField(project.FieldAiHighlightPrompt, field.TypeString, value)
+	}
+	if pu.mutation.AiHighlightPromptCleared() {
+		_spec.ClearField(project.FieldAiHighlightPrompt, field.TypeString)
 	}
 	if pu.mutation.VideoClipsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -666,6 +718,46 @@ func (puo *ProjectUpdateOne) ClearAiSuggestionCreatedAt() *ProjectUpdateOne {
 	return puo
 }
 
+// SetAiHighlightModel sets the "ai_highlight_model" field.
+func (puo *ProjectUpdateOne) SetAiHighlightModel(s string) *ProjectUpdateOne {
+	puo.mutation.SetAiHighlightModel(s)
+	return puo
+}
+
+// SetNillableAiHighlightModel sets the "ai_highlight_model" field if the given value is not nil.
+func (puo *ProjectUpdateOne) SetNillableAiHighlightModel(s *string) *ProjectUpdateOne {
+	if s != nil {
+		puo.SetAiHighlightModel(*s)
+	}
+	return puo
+}
+
+// ClearAiHighlightModel clears the value of the "ai_highlight_model" field.
+func (puo *ProjectUpdateOne) ClearAiHighlightModel() *ProjectUpdateOne {
+	puo.mutation.ClearAiHighlightModel()
+	return puo
+}
+
+// SetAiHighlightPrompt sets the "ai_highlight_prompt" field.
+func (puo *ProjectUpdateOne) SetAiHighlightPrompt(s string) *ProjectUpdateOne {
+	puo.mutation.SetAiHighlightPrompt(s)
+	return puo
+}
+
+// SetNillableAiHighlightPrompt sets the "ai_highlight_prompt" field if the given value is not nil.
+func (puo *ProjectUpdateOne) SetNillableAiHighlightPrompt(s *string) *ProjectUpdateOne {
+	if s != nil {
+		puo.SetAiHighlightPrompt(*s)
+	}
+	return puo
+}
+
+// ClearAiHighlightPrompt clears the value of the "ai_highlight_prompt" field.
+func (puo *ProjectUpdateOne) ClearAiHighlightPrompt() *ProjectUpdateOne {
+	puo.mutation.ClearAiHighlightPrompt()
+	return puo
+}
+
 // AddVideoClipIDs adds the "video_clips" edge to the VideoClip entity by IDs.
 func (puo *ProjectUpdateOne) AddVideoClipIDs(ids ...int) *ProjectUpdateOne {
 	puo.mutation.AddVideoClipIDs(ids...)
@@ -888,6 +980,18 @@ func (puo *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err e
 	}
 	if puo.mutation.AiSuggestionCreatedAtCleared() {
 		_spec.ClearField(project.FieldAiSuggestionCreatedAt, field.TypeTime)
+	}
+	if value, ok := puo.mutation.AiHighlightModel(); ok {
+		_spec.SetField(project.FieldAiHighlightModel, field.TypeString, value)
+	}
+	if puo.mutation.AiHighlightModelCleared() {
+		_spec.ClearField(project.FieldAiHighlightModel, field.TypeString)
+	}
+	if value, ok := puo.mutation.AiHighlightPrompt(); ok {
+		_spec.SetField(project.FieldAiHighlightPrompt, field.TypeString, value)
+	}
+	if puo.mutation.AiHighlightPromptCleared() {
+		_spec.ClearField(project.FieldAiHighlightPrompt, field.TypeString)
 	}
 	if puo.mutation.VideoClipsCleared() {
 		edge := &sqlgraph.EdgeSpec{

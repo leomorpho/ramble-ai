@@ -34,6 +34,10 @@ const (
 	FieldAiSuggestionModel = "ai_suggestion_model"
 	// FieldAiSuggestionCreatedAt holds the string denoting the ai_suggestion_created_at field in the database.
 	FieldAiSuggestionCreatedAt = "ai_suggestion_created_at"
+	// FieldAiHighlightModel holds the string denoting the ai_highlight_model field in the database.
+	FieldAiHighlightModel = "ai_highlight_model"
+	// FieldAiHighlightPrompt holds the string denoting the ai_highlight_prompt field in the database.
+	FieldAiHighlightPrompt = "ai_highlight_prompt"
 	// EdgeVideoClips holds the string denoting the video_clips edge name in mutations.
 	EdgeVideoClips = "video_clips"
 	// EdgeExportJobs holds the string denoting the export_jobs edge name in mutations.
@@ -69,6 +73,8 @@ var Columns = []string{
 	FieldAiSuggestionOrder,
 	FieldAiSuggestionModel,
 	FieldAiSuggestionCreatedAt,
+	FieldAiHighlightModel,
+	FieldAiHighlightPrompt,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -94,6 +100,8 @@ var (
 	UpdateDefaultUpdatedAt func() time.Time
 	// DefaultAiModel holds the default value on creation for the "ai_model" field.
 	DefaultAiModel string
+	// DefaultAiHighlightModel holds the default value on creation for the "ai_highlight_model" field.
+	DefaultAiHighlightModel string
 )
 
 // OrderOption defines the ordering options for the Project queries.
@@ -147,6 +155,16 @@ func ByAiSuggestionModel(opts ...sql.OrderTermOption) OrderOption {
 // ByAiSuggestionCreatedAt orders the results by the ai_suggestion_created_at field.
 func ByAiSuggestionCreatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAiSuggestionCreatedAt, opts...).ToFunc()
+}
+
+// ByAiHighlightModel orders the results by the ai_highlight_model field.
+func ByAiHighlightModel(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAiHighlightModel, opts...).ToFunc()
+}
+
+// ByAiHighlightPrompt orders the results by the ai_highlight_prompt field.
+func ByAiHighlightPrompt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAiHighlightPrompt, opts...).ToFunc()
 }
 
 // ByVideoClipsCount orders the results by video_clips count.

@@ -9,11 +9,7 @@
   import { toast } from "svelte-sonner";
   import { Play, Sparkles } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
-  import { Textarea } from "$lib/components/ui/textarea";
-  import { Label } from "$lib/components/ui/label";
-  import * as Select from "$lib/components/ui/select/index.js";
-  import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
-  import * as Collapsible from "$lib/components/ui/collapsible/index.js";
+  import AISettings from "$lib/components/ui/AISettings.svelte";
   import CustomSheet from "$lib/components/ui/CustomSheet.svelte";
   import EtroVideoPlayer from "$lib/components/videoplayback/EtroVideoPlayer.svelte";
   import HighlightItem from "$lib/components/HighlightItem.svelte";
@@ -33,7 +29,7 @@
   let aiReorderedHighlights = $state([]);
   let aiReorderError = $state("");
   let customPrompt = $state("");
-  let selectedModel = $state("anthropic/claude-3-haiku-20240307");
+  let selectedModel = $state("anthropic/claude-sonnet-4");
   let hasCachedSuggestion = $state(false);
   let cachedSuggestionDate = $state(null);
   let cachedSuggestionModel = $state("");
@@ -53,7 +49,12 @@
   let aiDragStartIndex = $state(-1);
   let aiDragOverIndex = $state(-1);
 
-  // Available AI models
+  let customModelValue = $state("");
+
+  // Collapsible state for AI instructions
+  let instructionsOpen = $state(false);
+
+  // Available AI models (needed for logic in this component)
   const availableModels = [
     { value: "anthropic/claude-sonnet-4", label: "Claude Sonnet 4 (Latest)" },
     { value: "google/gemini-2.0-flash-001", label: "Gemini 2.0 Flash" },
@@ -74,16 +75,6 @@
     { value: "mistralai/mistral-nemo", label: "Mistral Nemo" },
     { value: "custom", label: "Custom Model" },
   ];
-
-  let customModelValue = $state("");
-
-  // Collapsible state for AI instructions
-  let instructionsOpen = $state(false);
-
-  // Derived value for model selection display
-  const selectedModelDisplay = $derived(
-    availableModels.find((m) => m.value === selectedModel)?.label ?? "Select a model"
-  );
 
   // Default YouTube expert prompt
   const defaultPrompt = `You are an expert YouTuber and content creator with millions of subscribers, known for creating highly engaging videos that maximize viewer retention and satisfaction. Your task is to reorder these video highlight segments to create the highest quality video possible.
@@ -130,7 +121,7 @@ Feel free to completely restructure the order - move any segment to any position
     // Load project AI settings
     try {
       const aiSettings = await GetProjectAISettings(projectId);
-      selectedModel = aiSettings.aiModel || "anthropic/claude-3-haiku-20240307";
+      selectedModel = aiSettings.aiModel || "anthropic/claude-sonnet-4";
       customPrompt = aiSettings.aiPrompt || defaultPrompt;
 
       // If using custom model, extract the value
@@ -140,7 +131,7 @@ Feel free to completely restructure the order - move any segment to any position
       }
     } catch (error) {
       console.error("Failed to load AI settings:", error);
-      selectedModel = "anthropic/claude-3-haiku-20240307";
+      selectedModel = "anthropic/claude-sonnet-4";
       customPrompt = defaultPrompt;
     }
 
@@ -402,76 +393,19 @@ Feel free to completely restructure the order - move any segment to any position
     <!-- Content -->
     <div class="p-6 space-y-6">
       <!-- AI Instructions Collapsible -->
-      <Collapsible.Root bind:open={instructionsOpen}>
-        <Collapsible.Trigger class="flex w-full justify-between items-center p-3 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground">
-          <span class="flex items-center gap-2">
-            <Sparkles class="w-4 h-4" />
-            AI Instructions & Settings
-          </span>
-          <svg
-            class="w-4 h-4 transition-transform duration-200"
-            class:rotate-180={instructionsOpen}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-          </svg>
-        </Collapsible.Trigger>
-        <Collapsible.Content class="space-y-4 mt-4">
-          <!-- Model Selection -->
-          <div class="space-y-2">
-            <Label for="ai-model">AI Model</Label>
-            <Select.Root type="single" name="aiModel" bind:value={selectedModel}>
-              <Select.Trigger class="w-full">
-                {selectedModelDisplay}
-              </Select.Trigger>
-              <Select.Content>
-                <ScrollArea class="h-72">
-                  <Select.Group>
-                    <Select.Label>Available Models</Select.Label>
-                    {#each availableModels as model (model.value)}
-                      <Select.Item value={model.value} label={model.label}>
-                        {model.label}
-                      </Select.Item>
-                    {/each}
-                  </Select.Group>
-                </ScrollArea>
-              </Select.Content>
-            </Select.Root>
-
-            {#if selectedModel === "custom"}
-              <input
-                type="text"
-                bind:value={customModelValue}
-                placeholder="Enter custom model (e.g., anthropic/claude-3-5-sonnet)"
-                class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-              />
-            {/if}
-
-            <p class="text-xs text-muted-foreground">
-              Choose the AI model for highlight reordering. Different models have
-              varying strengths in content analysis and reasoning.
-            </p>
-          </div>
-
-          <!-- Custom Prompt Input -->
-          <div class="space-y-2">
-            <Label for="custom-prompt">AI Instructions</Label>
-            <Textarea
-              id="custom-prompt"
-              bind:value={customPrompt}
-              placeholder="AI instructions for reordering highlights..."
-              class="min-h-[120px] resize-none"
-              rows="6"
-            />
-            <p class="text-xs text-muted-foreground">
-              Modify the prompt above to customize how AI reorders your
-              highlights. The default focuses on YouTube best practices for
-              maximum engagement.
-            </p>
-          </div>
-
+      <AISettings
+        bind:open={instructionsOpen}
+        bind:selectedModel
+        bind:customModelValue
+        bind:customPrompt
+        {defaultPrompt}
+        title="AI Instructions & Settings"
+        modelDescription="Choose the AI model for highlight reordering. Different models have varying strengths in content analysis and reasoning."
+        promptDescription="Modify the prompt above to customize how AI reorders your highlights. The default focuses on YouTube best practices for maximum engagement."
+        promptPlaceholder="AI instructions for reordering highlights..."
+        {availableModels}
+      >
+        {#snippet children()}
           {#if hasCachedSuggestion && cachedSuggestionDate}
             <div class="p-3 bg-secondary rounded-lg">
               <p class="text-sm text-muted-foreground">
@@ -486,15 +420,7 @@ Feel free to completely restructure the order - move any segment to any position
           {/if}
 
           <div class="flex justify-between">
-            <Button
-              variant="outline"
-              onclick={() => {
-                customPrompt = defaultPrompt;
-              }}
-              disabled={customPrompt === defaultPrompt}
-            >
-              Reset to Default
-            </Button>
+            <div></div>
             <div class="flex gap-2">
               {#if hasCachedSuggestion}
                 <Button
@@ -519,8 +445,8 @@ Feel free to completely restructure the order - move any segment to any position
               </Button>
             </div>
           </div>
-        </Collapsible.Content>
-      </Collapsible.Root>
+        {/snippet}
+      </AISettings>
 
       <!-- Results Section -->
       <div class="space-y-6">

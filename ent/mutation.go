@@ -1362,6 +1362,8 @@ type ProjectMutation struct {
 	appendai_suggestion_order []string
 	ai_suggestion_model       *string
 	ai_suggestion_created_at  *time.Time
+	ai_highlight_model        *string
+	ai_highlight_prompt       *string
 	clearedFields             map[string]struct{}
 	video_clips               map[int]struct{}
 	removedvideo_clips        map[int]struct{}
@@ -1926,6 +1928,104 @@ func (m *ProjectMutation) ResetAiSuggestionCreatedAt() {
 	delete(m.clearedFields, project.FieldAiSuggestionCreatedAt)
 }
 
+// SetAiHighlightModel sets the "ai_highlight_model" field.
+func (m *ProjectMutation) SetAiHighlightModel(s string) {
+	m.ai_highlight_model = &s
+}
+
+// AiHighlightModel returns the value of the "ai_highlight_model" field in the mutation.
+func (m *ProjectMutation) AiHighlightModel() (r string, exists bool) {
+	v := m.ai_highlight_model
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAiHighlightModel returns the old "ai_highlight_model" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldAiHighlightModel(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAiHighlightModel is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAiHighlightModel requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAiHighlightModel: %w", err)
+	}
+	return oldValue.AiHighlightModel, nil
+}
+
+// ClearAiHighlightModel clears the value of the "ai_highlight_model" field.
+func (m *ProjectMutation) ClearAiHighlightModel() {
+	m.ai_highlight_model = nil
+	m.clearedFields[project.FieldAiHighlightModel] = struct{}{}
+}
+
+// AiHighlightModelCleared returns if the "ai_highlight_model" field was cleared in this mutation.
+func (m *ProjectMutation) AiHighlightModelCleared() bool {
+	_, ok := m.clearedFields[project.FieldAiHighlightModel]
+	return ok
+}
+
+// ResetAiHighlightModel resets all changes to the "ai_highlight_model" field.
+func (m *ProjectMutation) ResetAiHighlightModel() {
+	m.ai_highlight_model = nil
+	delete(m.clearedFields, project.FieldAiHighlightModel)
+}
+
+// SetAiHighlightPrompt sets the "ai_highlight_prompt" field.
+func (m *ProjectMutation) SetAiHighlightPrompt(s string) {
+	m.ai_highlight_prompt = &s
+}
+
+// AiHighlightPrompt returns the value of the "ai_highlight_prompt" field in the mutation.
+func (m *ProjectMutation) AiHighlightPrompt() (r string, exists bool) {
+	v := m.ai_highlight_prompt
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAiHighlightPrompt returns the old "ai_highlight_prompt" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldAiHighlightPrompt(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAiHighlightPrompt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAiHighlightPrompt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAiHighlightPrompt: %w", err)
+	}
+	return oldValue.AiHighlightPrompt, nil
+}
+
+// ClearAiHighlightPrompt clears the value of the "ai_highlight_prompt" field.
+func (m *ProjectMutation) ClearAiHighlightPrompt() {
+	m.ai_highlight_prompt = nil
+	m.clearedFields[project.FieldAiHighlightPrompt] = struct{}{}
+}
+
+// AiHighlightPromptCleared returns if the "ai_highlight_prompt" field was cleared in this mutation.
+func (m *ProjectMutation) AiHighlightPromptCleared() bool {
+	_, ok := m.clearedFields[project.FieldAiHighlightPrompt]
+	return ok
+}
+
+// ResetAiHighlightPrompt resets all changes to the "ai_highlight_prompt" field.
+func (m *ProjectMutation) ResetAiHighlightPrompt() {
+	m.ai_highlight_prompt = nil
+	delete(m.clearedFields, project.FieldAiHighlightPrompt)
+}
+
 // AddVideoClipIDs adds the "video_clips" edge to the VideoClip entity by ids.
 func (m *ProjectMutation) AddVideoClipIDs(ids ...int) {
 	if m.video_clips == nil {
@@ -2068,7 +2168,7 @@ func (m *ProjectMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProjectMutation) Fields() []string {
-	fields := make([]string, 0, 10)
+	fields := make([]string, 0, 12)
 	if m.name != nil {
 		fields = append(fields, project.FieldName)
 	}
@@ -2099,6 +2199,12 @@ func (m *ProjectMutation) Fields() []string {
 	if m.ai_suggestion_created_at != nil {
 		fields = append(fields, project.FieldAiSuggestionCreatedAt)
 	}
+	if m.ai_highlight_model != nil {
+		fields = append(fields, project.FieldAiHighlightModel)
+	}
+	if m.ai_highlight_prompt != nil {
+		fields = append(fields, project.FieldAiHighlightPrompt)
+	}
 	return fields
 }
 
@@ -2127,6 +2233,10 @@ func (m *ProjectMutation) Field(name string) (ent.Value, bool) {
 		return m.AiSuggestionModel()
 	case project.FieldAiSuggestionCreatedAt:
 		return m.AiSuggestionCreatedAt()
+	case project.FieldAiHighlightModel:
+		return m.AiHighlightModel()
+	case project.FieldAiHighlightPrompt:
+		return m.AiHighlightPrompt()
 	}
 	return nil, false
 }
@@ -2156,6 +2266,10 @@ func (m *ProjectMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldAiSuggestionModel(ctx)
 	case project.FieldAiSuggestionCreatedAt:
 		return m.OldAiSuggestionCreatedAt(ctx)
+	case project.FieldAiHighlightModel:
+		return m.OldAiHighlightModel(ctx)
+	case project.FieldAiHighlightPrompt:
+		return m.OldAiHighlightPrompt(ctx)
 	}
 	return nil, fmt.Errorf("unknown Project field %s", name)
 }
@@ -2235,6 +2349,20 @@ func (m *ProjectMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetAiSuggestionCreatedAt(v)
 		return nil
+	case project.FieldAiHighlightModel:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAiHighlightModel(v)
+		return nil
+	case project.FieldAiHighlightPrompt:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAiHighlightPrompt(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Project field %s", name)
 }
@@ -2283,6 +2411,12 @@ func (m *ProjectMutation) ClearedFields() []string {
 	if m.FieldCleared(project.FieldAiSuggestionCreatedAt) {
 		fields = append(fields, project.FieldAiSuggestionCreatedAt)
 	}
+	if m.FieldCleared(project.FieldAiHighlightModel) {
+		fields = append(fields, project.FieldAiHighlightModel)
+	}
+	if m.FieldCleared(project.FieldAiHighlightPrompt) {
+		fields = append(fields, project.FieldAiHighlightPrompt)
+	}
 	return fields
 }
 
@@ -2314,6 +2448,12 @@ func (m *ProjectMutation) ClearField(name string) error {
 		return nil
 	case project.FieldAiSuggestionCreatedAt:
 		m.ClearAiSuggestionCreatedAt()
+		return nil
+	case project.FieldAiHighlightModel:
+		m.ClearAiHighlightModel()
+		return nil
+	case project.FieldAiHighlightPrompt:
+		m.ClearAiHighlightPrompt()
 		return nil
 	}
 	return fmt.Errorf("unknown Project nullable field %s", name)
@@ -2352,6 +2492,12 @@ func (m *ProjectMutation) ResetField(name string) error {
 		return nil
 	case project.FieldAiSuggestionCreatedAt:
 		m.ResetAiSuggestionCreatedAt()
+		return nil
+	case project.FieldAiHighlightModel:
+		m.ResetAiHighlightModel()
+		return nil
+	case project.FieldAiHighlightPrompt:
+		m.ResetAiHighlightPrompt()
 		return nil
 	}
 	return fmt.Errorf("unknown Project field %s", name)
@@ -2980,37 +3126,39 @@ func (m *SettingsMutation) ResetEdge(name string) error {
 // VideoClipMutation represents an operation that mutates the VideoClip nodes in the graph.
 type VideoClipMutation struct {
 	config
-	op                        Op
-	typ                       string
-	id                        *int
-	name                      *string
-	description               *string
-	file_path                 *string
-	duration                  *float64
-	addduration               *float64
-	format                    *string
-	width                     *int
-	addwidth                  *int
-	height                    *int
-	addheight                 *int
-	file_size                 *int64
-	addfile_size              *int64
-	transcription             *string
-	transcription_words       *[]schema.Word
-	appendtranscription_words []schema.Word
-	transcription_language    *string
-	transcription_duration    *float64
-	addtranscription_duration *float64
-	highlights                *[]schema.Highlight
-	appendhighlights          []schema.Highlight
-	created_at                *time.Time
-	updated_at                *time.Time
-	clearedFields             map[string]struct{}
-	project                   *int
-	clearedproject            bool
-	done                      bool
-	oldValue                  func(context.Context) (*VideoClip, error)
-	predicates                []predicate.VideoClip
+	op                         Op
+	typ                        string
+	id                         *int
+	name                       *string
+	description                *string
+	file_path                  *string
+	duration                   *float64
+	addduration                *float64
+	format                     *string
+	width                      *int
+	addwidth                   *int
+	height                     *int
+	addheight                  *int
+	file_size                  *int64
+	addfile_size               *int64
+	transcription              *string
+	transcription_words        *[]schema.Word
+	appendtranscription_words  []schema.Word
+	transcription_language     *string
+	transcription_duration     *float64
+	addtranscription_duration  *float64
+	highlights                 *[]schema.Highlight
+	appendhighlights           []schema.Highlight
+	suggested_highlights       *[]schema.Highlight
+	appendsuggested_highlights []schema.Highlight
+	created_at                 *time.Time
+	updated_at                 *time.Time
+	clearedFields              map[string]struct{}
+	project                    *int
+	clearedproject             bool
+	done                       bool
+	oldValue                   func(context.Context) (*VideoClip, error)
+	predicates                 []predicate.VideoClip
 }
 
 var _ ent.Mutation = (*VideoClipMutation)(nil)
@@ -3859,6 +4007,71 @@ func (m *VideoClipMutation) ResetHighlights() {
 	delete(m.clearedFields, videoclip.FieldHighlights)
 }
 
+// SetSuggestedHighlights sets the "suggested_highlights" field.
+func (m *VideoClipMutation) SetSuggestedHighlights(s []schema.Highlight) {
+	m.suggested_highlights = &s
+	m.appendsuggested_highlights = nil
+}
+
+// SuggestedHighlights returns the value of the "suggested_highlights" field in the mutation.
+func (m *VideoClipMutation) SuggestedHighlights() (r []schema.Highlight, exists bool) {
+	v := m.suggested_highlights
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSuggestedHighlights returns the old "suggested_highlights" field's value of the VideoClip entity.
+// If the VideoClip object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *VideoClipMutation) OldSuggestedHighlights(ctx context.Context) (v []schema.Highlight, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSuggestedHighlights is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSuggestedHighlights requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSuggestedHighlights: %w", err)
+	}
+	return oldValue.SuggestedHighlights, nil
+}
+
+// AppendSuggestedHighlights adds s to the "suggested_highlights" field.
+func (m *VideoClipMutation) AppendSuggestedHighlights(s []schema.Highlight) {
+	m.appendsuggested_highlights = append(m.appendsuggested_highlights, s...)
+}
+
+// AppendedSuggestedHighlights returns the list of values that were appended to the "suggested_highlights" field in this mutation.
+func (m *VideoClipMutation) AppendedSuggestedHighlights() ([]schema.Highlight, bool) {
+	if len(m.appendsuggested_highlights) == 0 {
+		return nil, false
+	}
+	return m.appendsuggested_highlights, true
+}
+
+// ClearSuggestedHighlights clears the value of the "suggested_highlights" field.
+func (m *VideoClipMutation) ClearSuggestedHighlights() {
+	m.suggested_highlights = nil
+	m.appendsuggested_highlights = nil
+	m.clearedFields[videoclip.FieldSuggestedHighlights] = struct{}{}
+}
+
+// SuggestedHighlightsCleared returns if the "suggested_highlights" field was cleared in this mutation.
+func (m *VideoClipMutation) SuggestedHighlightsCleared() bool {
+	_, ok := m.clearedFields[videoclip.FieldSuggestedHighlights]
+	return ok
+}
+
+// ResetSuggestedHighlights resets all changes to the "suggested_highlights" field.
+func (m *VideoClipMutation) ResetSuggestedHighlights() {
+	m.suggested_highlights = nil
+	m.appendsuggested_highlights = nil
+	delete(m.clearedFields, videoclip.FieldSuggestedHighlights)
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (m *VideoClipMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
@@ -4004,7 +4217,7 @@ func (m *VideoClipMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *VideoClipMutation) Fields() []string {
-	fields := make([]string, 0, 15)
+	fields := make([]string, 0, 16)
 	if m.name != nil {
 		fields = append(fields, videoclip.FieldName)
 	}
@@ -4043,6 +4256,9 @@ func (m *VideoClipMutation) Fields() []string {
 	}
 	if m.highlights != nil {
 		fields = append(fields, videoclip.FieldHighlights)
+	}
+	if m.suggested_highlights != nil {
+		fields = append(fields, videoclip.FieldSuggestedHighlights)
 	}
 	if m.created_at != nil {
 		fields = append(fields, videoclip.FieldCreatedAt)
@@ -4084,6 +4300,8 @@ func (m *VideoClipMutation) Field(name string) (ent.Value, bool) {
 		return m.TranscriptionDuration()
 	case videoclip.FieldHighlights:
 		return m.Highlights()
+	case videoclip.FieldSuggestedHighlights:
+		return m.SuggestedHighlights()
 	case videoclip.FieldCreatedAt:
 		return m.CreatedAt()
 	case videoclip.FieldUpdatedAt:
@@ -4123,6 +4341,8 @@ func (m *VideoClipMutation) OldField(ctx context.Context, name string) (ent.Valu
 		return m.OldTranscriptionDuration(ctx)
 	case videoclip.FieldHighlights:
 		return m.OldHighlights(ctx)
+	case videoclip.FieldSuggestedHighlights:
+		return m.OldSuggestedHighlights(ctx)
 	case videoclip.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	case videoclip.FieldUpdatedAt:
@@ -4226,6 +4446,13 @@ func (m *VideoClipMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetHighlights(v)
+		return nil
+	case videoclip.FieldSuggestedHighlights:
+		v, ok := value.([]schema.Highlight)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSuggestedHighlights(v)
 		return nil
 	case videoclip.FieldCreatedAt:
 		v, ok := value.(time.Time)
@@ -4367,6 +4594,9 @@ func (m *VideoClipMutation) ClearedFields() []string {
 	if m.FieldCleared(videoclip.FieldHighlights) {
 		fields = append(fields, videoclip.FieldHighlights)
 	}
+	if m.FieldCleared(videoclip.FieldSuggestedHighlights) {
+		fields = append(fields, videoclip.FieldSuggestedHighlights)
+	}
 	return fields
 }
 
@@ -4414,6 +4644,9 @@ func (m *VideoClipMutation) ClearField(name string) error {
 	case videoclip.FieldHighlights:
 		m.ClearHighlights()
 		return nil
+	case videoclip.FieldSuggestedHighlights:
+		m.ClearSuggestedHighlights()
+		return nil
 	}
 	return fmt.Errorf("unknown VideoClip nullable field %s", name)
 }
@@ -4460,6 +4693,9 @@ func (m *VideoClipMutation) ResetField(name string) error {
 		return nil
 	case videoclip.FieldHighlights:
 		m.ResetHighlights()
+		return nil
+	case videoclip.FieldSuggestedHighlights:
+		m.ResetSuggestedHighlights()
 		return nil
 	case videoclip.FieldCreatedAt:
 		m.ResetCreatedAt()

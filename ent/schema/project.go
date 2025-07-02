@@ -48,6 +48,13 @@ func (Project) Fields() []ent.Field {
 		field.Time("ai_suggestion_created_at").
 			Optional().
 			Comment("When the AI suggestion was created"),
+		field.String("ai_highlight_model").
+			Optional().
+			Default("anthropic/claude-sonnet-4").
+			Comment("Preferred OpenRouter AI model for highlight suggestions"),
+		field.Text("ai_highlight_prompt").
+			Optional().
+			Comment("Custom AI prompt for highlight suggestions"),
 	}
 }
 

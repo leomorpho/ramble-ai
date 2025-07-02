@@ -46,6 +46,8 @@ type VideoClip struct {
 	TranscriptionDuration float64 `json:"transcription_duration,omitempty"`
 	// Highlighted text regions with timestamps
 	Highlights []schema.Highlight `json:"highlights,omitempty"`
+	// AI-suggested highlights pending user confirmation
+	SuggestedHighlights []schema.Highlight `json:"suggested_highlights,omitempty"`
 	// Creation timestamp
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Last update timestamp
@@ -82,7 +84,7 @@ func (*VideoClip) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case videoclip.FieldTranscriptionWords, videoclip.FieldHighlights:
+		case videoclip.FieldTranscriptionWords, videoclip.FieldHighlights, videoclip.FieldSuggestedHighlights:
 			values[i] = new([]byte)
 		case videoclip.FieldDuration, videoclip.FieldTranscriptionDuration:
 			values[i] = new(sql.NullFloat64)
@@ -197,6 +199,14 @@ func (vc *VideoClip) assignValues(columns []string, values []any) error {
 					return fmt.Errorf("unmarshal field highlights: %w", err)
 				}
 			}
+		case videoclip.FieldSuggestedHighlights:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field suggested_highlights", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &vc.SuggestedHighlights); err != nil {
+					return fmt.Errorf("unmarshal field suggested_highlights: %w", err)
+				}
+			}
 		case videoclip.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field created_at", values[i])
@@ -295,6 +305,9 @@ func (vc *VideoClip) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("highlights=")
 	builder.WriteString(fmt.Sprintf("%v", vc.Highlights))
+	builder.WriteString(", ")
+	builder.WriteString("suggested_highlights=")
+	builder.WriteString(fmt.Sprintf("%v", vc.SuggestedHighlights))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(vc.CreatedAt.Format(time.ANSIC))

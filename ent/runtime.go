@@ -91,6 +91,10 @@ func init() {
 	projectDescAiModel := projectFields[5].Descriptor()
 	// project.DefaultAiModel holds the default value on creation for the ai_model field.
 	project.DefaultAiModel = projectDescAiModel.Default.(string)
+	// projectDescAiHighlightModel is the schema descriptor for ai_highlight_model field.
+	projectDescAiHighlightModel := projectFields[10].Descriptor()
+	// project.DefaultAiHighlightModel holds the default value on creation for the ai_highlight_model field.
+	project.DefaultAiHighlightModel = projectDescAiHighlightModel.Default.(string)
 	settingsFields := schema.Settings{}.Fields()
 	_ = settingsFields
 	// settingsDescKey is the schema descriptor for key field.
@@ -118,11 +122,11 @@ func init() {
 	// videoclip.FilePathValidator is a validator for the "file_path" field. It is called by the builders before save.
 	videoclip.FilePathValidator = videoclipDescFilePath.Validators[0].(func(string) error)
 	// videoclipDescCreatedAt is the schema descriptor for created_at field.
-	videoclipDescCreatedAt := videoclipFields[13].Descriptor()
+	videoclipDescCreatedAt := videoclipFields[14].Descriptor()
 	// videoclip.DefaultCreatedAt holds the default value on creation for the created_at field.
 	videoclip.DefaultCreatedAt = videoclipDescCreatedAt.Default.(func() time.Time)
 	// videoclipDescUpdatedAt is the schema descriptor for updated_at field.
-	videoclipDescUpdatedAt := videoclipFields[14].Descriptor()
+	videoclipDescUpdatedAt := videoclipFields[15].Descriptor()
 	// videoclip.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	videoclip.DefaultUpdatedAt = videoclipDescUpdatedAt.Default.(func() time.Time)
 	// videoclip.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

@@ -70,6 +70,9 @@ func (VideoClip) Fields() []ent.Field {
 		field.JSON("highlights", []Highlight{}).
 			Optional().
 			Comment("Highlighted text regions with timestamps"),
+		field.JSON("suggested_highlights", []Highlight{}).
+			Optional().
+			Comment("AI-suggested highlights pending user confirmation"),
 		field.Time("created_at").
 			Default(time.Now).
 			Comment("Creation timestamp"),

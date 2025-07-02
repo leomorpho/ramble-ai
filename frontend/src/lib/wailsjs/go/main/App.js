@@ -78,6 +78,10 @@ export function GetProjectExportJobs(arg1) {
   return window['go']['main']['App']['GetProjectExportJobs'](arg1);
 }
 
+export function GetProjectHighlightAISettings(arg1) {
+  return window['go']['main']['App']['GetProjectHighlightAISettings'](arg1);
+}
+
 export function GetProjectHighlightOrder(arg1) {
   return window['go']['main']['App']['GetProjectHighlightOrder'](arg1);
 }
@@ -134,6 +138,10 @@ export function SaveProjectAISettings(arg1, arg2) {
   return window['go']['main']['App']['SaveProjectAISettings'](arg1, arg2);
 }
 
+export function SaveProjectHighlightAISettings(arg1, arg2) {
+  return window['go']['main']['App']['SaveProjectHighlightAISettings'](arg1, arg2);
+}
+
 export function SaveSetting(arg1, arg2) {
   return window['go']['main']['App']['SaveSetting'](arg1, arg2);
 }
@@ -148,6 +156,10 @@ export function SelectExportFolder() {
 
 export function SelectVideoFiles() {
   return window['go']['main']['App']['SelectVideoFiles']();
+}
+
+export function SuggestHighlightsWithAI(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SuggestHighlightsWithAI'](arg1, arg2, arg3);
 }
 
 export function TestOpenAIApiKey() {

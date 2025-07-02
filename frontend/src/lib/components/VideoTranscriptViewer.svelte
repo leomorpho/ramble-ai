@@ -14,9 +14,16 @@
     TabsTrigger 
   } from "$lib/components/ui/tabs";
   import { ScrollArea } from "$lib/components/ui/scroll-area";
+  import AISettings from "$lib/components/ui/AISettings.svelte";
   import TextHighlighter from "$lib/components/TextHighlighter.svelte";
   import EtroVideoPlayer from "$lib/components/videoplayback/EtroVideoPlayer.svelte";
   import { toast } from "svelte-sonner";
+  import { Sparkles } from "@lucide/svelte";
+  import {
+    SuggestHighlightsWithAI,
+    GetProjectHighlightAISettings,
+    SaveProjectHighlightAISettings,
+  } from "$lib/wailsjs/go/main/App";
 
   let { 
     open = $bindable(false),
@@ -27,6 +34,29 @@
 
   // Transcript video player state (separate from main highlights)
   let transcriptPlayerHighlights = $state([]);
+  
+  // AI suggestion state
+  let aiSuggestLoading = $state(false);
+  let suggestedHighlights = $state([]);
+  
+  // AI settings state
+  let selectedModel = $state("anthropic/claude-sonnet-4");
+  let customPrompt = $state("");
+  let customModelValue = $state("");
+  let instructionsOpen = $state(false);
+
+  // Default highlight suggestion prompt
+  const defaultPrompt = `You are an expert content creator analyzing video transcripts to identify the most compelling and engaging moments. Your task is to suggest highlight segments that would be valuable for creating shorts, clips, or key moments.
+
+Analyze the transcript and identify segments that are:
+- Emotionally impactful or surprising
+- Information-dense or educational
+- Entertaining or humorous
+- Controversial or thought-provoking
+- Action-packed or visually interesting
+- Contains key insights or takeaways
+
+Return segments that would work well as standalone content pieces.`;
   
   // Derived highlights formatted for EtroVideoPlayer (adds filePath from video)
   let formattedTranscriptHighlights = $derived(
@@ -46,6 +76,32 @@
       transcriptPlayerHighlights = video.highlights ? [...video.highlights] : [];
     }
   });
+
+  // Load AI settings when dialog opens
+  $effect(() => {
+    if (open && projectId) {
+      loadAISettings();
+    }
+  });
+  
+  // Load AI settings from project
+  async function loadAISettings() {
+    try {
+      const aiSettings = await GetProjectHighlightAISettings(projectId);
+      selectedModel = aiSettings.aiModel || "anthropic/claude-sonnet-4";
+      customPrompt = aiSettings.aiPrompt || defaultPrompt;
+      
+      // If using custom model, extract the value
+      if (!availableModels.find((m) => m.value === selectedModel)) {
+        customModelValue = selectedModel;
+        selectedModel = "custom";
+      }
+    } catch (error) {
+      console.error("Failed to load AI settings:", error);
+      selectedModel = "anthropic/claude-sonnet-4";
+      customPrompt = defaultPrompt;
+    }
+  }
 
   async function handleHighlightsChangeInternal(highlights) {
     if (!video) return;
@@ -77,6 +133,146 @@
       await navigator.clipboard.writeText(video.transcription);
       toast.success("Copied to clipboard");
     }
+  }
+
+  // Suggest highlights inline
+  async function suggestHighlightsInline() {
+    console.log("🔍 AI Suggest button clicked");
+    console.log("📊 Current state:", {
+      hasVideo: !!video,
+      hasTranscription: !!video?.transcription,
+      transcriptionLength: video?.transcription?.length,
+      hasTranscriptionWords: !!video?.transcriptionWords,
+      transcriptionWordsCount: video?.transcriptionWords?.length,
+      projectId,
+      videoId: video?.id
+    });
+
+    if (!video?.transcription) {
+      console.log("❌ No transcription available");
+      toast.error("Video has no transcription available");
+      return;
+    }
+
+    aiSuggestLoading = true;
+    console.log("⏳ Setting loading state to true");
+    
+    try {
+      // Save current AI settings before processing
+      console.log("💾 Saving AI settings...");
+      const modelToSave = selectedModel === "custom" ? customModelValue : selectedModel;
+      await SaveProjectHighlightAISettings(projectId, {
+        aiModel: modelToSave,
+        aiPrompt: customPrompt,
+      });
+      console.log("✅ Saved AI settings:", { model: modelToSave, prompt: customPrompt });
+
+      console.log("🤖 Calling SuggestHighlightsWithAI...", {
+        projectId,
+        videoId: video.id,
+        prompt: customPrompt || "default"
+      });
+
+      // Call the AI highlight suggestion API
+      const suggestions = await SuggestHighlightsWithAI(
+        projectId,
+        video.id,
+        customPrompt || ""
+      );
+
+      console.log("📝 Raw AI suggestions received:", suggestions);
+      console.log("📝 Suggestions type:", typeof suggestions, Array.isArray(suggestions));
+
+      // AI suggestions come back with word indices, convert to time-based for TextHighlighter
+      const newSuggestions = suggestions.map((suggestion, index) => {
+        console.log(`🔄 Processing suggestion ${index}:`, suggestion);
+        
+        let startTime = 0;
+        let endTime = 0;
+        
+        // Convert word indices to time using transcription words
+        if (video.transcriptionWords && video.transcriptionWords.length > 0) {
+          if (suggestion.start < video.transcriptionWords.length) {
+            startTime = video.transcriptionWords[suggestion.start].start;
+          }
+          if (suggestion.end < video.transcriptionWords.length) {
+            endTime = video.transcriptionWords[suggestion.end].end;
+          }
+        }
+        
+        const converted = {
+          id: `suggestion_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          start: startTime, // Convert to time
+          end: endTime,     // Convert to time
+          color: suggestion.color,
+          text: suggestion.text,
+          isSuggestion: true
+        };
+        
+        console.log(`✨ Converted suggestion ${index}:`, converted);
+        return converted;
+      });
+
+      console.log("🎯 Final suggestions to set:", newSuggestions);
+      suggestedHighlights = newSuggestions;
+      console.log("📊 suggestedHighlights state after setting:", suggestedHighlights);
+      
+      toast.success(`Generated ${suggestions.length} AI highlight suggestions!`);
+    } catch (error) {
+      console.error("💥 AI highlight suggestion error:", error);
+      console.error("💥 Error details:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+      toast.error("Failed to generate highlight suggestions", {
+        description: error.message || "An error occurred while generating suggestions"
+      });
+    } finally {
+      aiSuggestLoading = false;
+      console.log("✅ Setting loading state to false");
+    }
+  }
+
+  // Accept a suggested highlight
+  async function acceptSuggestedHighlight(suggestionId) {
+    const suggestion = suggestedHighlights.find(s => s.id === suggestionId);
+    if (!suggestion || !video) return;
+
+    try {
+      // Convert suggestion to regular highlight (already in time-based format)
+      const newHighlight = {
+        id: `highlight_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        start: suggestion.start,
+        end: suggestion.end,
+        color: suggestion.color
+      };
+
+      // Add to existing highlights
+      const updatedHighlights = [...(video.highlights || []), newHighlight];
+      
+      // Update local state
+      transcriptPlayerHighlights = [...updatedHighlights];
+      
+      // Remove from suggestions
+      suggestedHighlights = suggestedHighlights.filter(s => s.id !== suggestionId);
+      
+      // Call the parent's handler
+      if (onHighlightsChange) {
+        await onHighlightsChange(updatedHighlights);
+      }
+      
+      toast.success("Highlight suggestion accepted!");
+    } catch (err) {
+      console.error("Failed to accept suggestion:", err);
+      toast.error("Failed to accept suggestion");
+    }
+  }
+
+  // Reject a suggested highlight
+  function rejectSuggestedHighlight(suggestionId) {
+    suggestedHighlights = suggestedHighlights.filter(s => s.id !== suggestionId);
+    toast.success("Highlight suggestion rejected");
   }
 </script>
 
@@ -134,6 +330,16 @@
                       <Button 
                         variant="outline" 
                         size="sm"
+                        onclick={suggestHighlightsInline}
+                        class="text-xs"
+                        disabled={!video.transcription || aiSuggestLoading}
+                      >
+                        <Sparkles class="w-3 h-3 mr-1" />
+                        {aiSuggestLoading ? "AI Analyzing..." : "AI Suggest"}
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
                         onclick={copyTranscript}
                         class="text-xs"
                       >
@@ -144,6 +350,19 @@
                       </Button>
                     </div>
                   </div>
+
+                  <!-- AI Settings -->
+                  <AISettings
+                    bind:open={instructionsOpen}
+                    bind:selectedModel
+                    bind:customModelValue
+                    bind:customPrompt
+                    {defaultPrompt}
+                    title="AI Settings"
+                    modelDescription="Choose the AI model for highlight suggestions. Different models have varying strengths in content analysis."
+                    promptDescription="Customize how AI identifies highlight-worthy segments in your transcript."
+                    promptPlaceholder="AI instructions for highlighting..."
+                  />
 
                   <Tabs value="full-text" class="w-full">
                     <TabsList class="grid w-full grid-cols-2">
@@ -161,7 +380,10 @@
                               text={video.transcription} 
                               words={video.transcriptionWords || []} 
                               initialHighlights={video.highlights || []}
+                              {suggestedHighlights}
                               onHighlightsChange={handleHighlightsChangeInternal}
+                              onSuggestionAccept={acceptSuggestedHighlight}
+                              onSuggestionReject={rejectSuggestedHighlight}
                             />
                           </div>
                         {/snippet}

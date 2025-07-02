@@ -138,6 +138,34 @@ func (pc *ProjectCreate) SetNillableAiSuggestionCreatedAt(t *time.Time) *Project
 	return pc
 }
 
+// SetAiHighlightModel sets the "ai_highlight_model" field.
+func (pc *ProjectCreate) SetAiHighlightModel(s string) *ProjectCreate {
+	pc.mutation.SetAiHighlightModel(s)
+	return pc
+}
+
+// SetNillableAiHighlightModel sets the "ai_highlight_model" field if the given value is not nil.
+func (pc *ProjectCreate) SetNillableAiHighlightModel(s *string) *ProjectCreate {
+	if s != nil {
+		pc.SetAiHighlightModel(*s)
+	}
+	return pc
+}
+
+// SetAiHighlightPrompt sets the "ai_highlight_prompt" field.
+func (pc *ProjectCreate) SetAiHighlightPrompt(s string) *ProjectCreate {
+	pc.mutation.SetAiHighlightPrompt(s)
+	return pc
+}
+
+// SetNillableAiHighlightPrompt sets the "ai_highlight_prompt" field if the given value is not nil.
+func (pc *ProjectCreate) SetNillableAiHighlightPrompt(s *string) *ProjectCreate {
+	if s != nil {
+		pc.SetAiHighlightPrompt(*s)
+	}
+	return pc
+}
+
 // AddVideoClipIDs adds the "video_clips" edge to the VideoClip entity by IDs.
 func (pc *ProjectCreate) AddVideoClipIDs(ids ...int) *ProjectCreate {
 	pc.mutation.AddVideoClipIDs(ids...)
@@ -214,6 +242,10 @@ func (pc *ProjectCreate) defaults() {
 	if _, ok := pc.mutation.AiModel(); !ok {
 		v := project.DefaultAiModel
 		pc.mutation.SetAiModel(v)
+	}
+	if _, ok := pc.mutation.AiHighlightModel(); !ok {
+		v := project.DefaultAiHighlightModel
+		pc.mutation.SetAiHighlightModel(v)
 	}
 }
 
@@ -306,6 +338,14 @@ func (pc *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 	if value, ok := pc.mutation.AiSuggestionCreatedAt(); ok {
 		_spec.SetField(project.FieldAiSuggestionCreatedAt, field.TypeTime, value)
 		_node.AiSuggestionCreatedAt = value
+	}
+	if value, ok := pc.mutation.AiHighlightModel(); ok {
+		_spec.SetField(project.FieldAiHighlightModel, field.TypeString, value)
+		_node.AiHighlightModel = value
+	}
+	if value, ok := pc.mutation.AiHighlightPrompt(); ok {
+		_spec.SetField(project.FieldAiHighlightPrompt, field.TypeString, value)
+		_node.AiHighlightPrompt = value
 	}
 	if nodes := pc.mutation.VideoClipsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

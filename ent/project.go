@@ -38,6 +38,10 @@ type Project struct {
 	AiSuggestionModel string `json:"ai_suggestion_model,omitempty"`
 	// When the AI suggestion was created
 	AiSuggestionCreatedAt time.Time `json:"ai_suggestion_created_at,omitempty"`
+	// Preferred OpenRouter AI model for highlight suggestions
+	AiHighlightModel string `json:"ai_highlight_model,omitempty"`
+	// Custom AI prompt for highlight suggestions
+	AiHighlightPrompt string `json:"ai_highlight_prompt,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ProjectQuery when eager-loading is set.
 	Edges        ProjectEdges `json:"edges"`
@@ -82,7 +86,7 @@ func (*Project) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case project.FieldID:
 			values[i] = new(sql.NullInt64)
-		case project.FieldName, project.FieldDescription, project.FieldPath, project.FieldAiModel, project.FieldAiPrompt, project.FieldAiSuggestionModel:
+		case project.FieldName, project.FieldDescription, project.FieldPath, project.FieldAiModel, project.FieldAiPrompt, project.FieldAiSuggestionModel, project.FieldAiHighlightModel, project.FieldAiHighlightPrompt:
 			values[i] = new(sql.NullString)
 		case project.FieldCreatedAt, project.FieldUpdatedAt, project.FieldAiSuggestionCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -169,6 +173,18 @@ func (pr *Project) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				pr.AiSuggestionCreatedAt = value.Time
 			}
+		case project.FieldAiHighlightModel:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field ai_highlight_model", values[i])
+			} else if value.Valid {
+				pr.AiHighlightModel = value.String
+			}
+		case project.FieldAiHighlightPrompt:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field ai_highlight_prompt", values[i])
+			} else if value.Valid {
+				pr.AiHighlightPrompt = value.String
+			}
 		default:
 			pr.selectValues.Set(columns[i], values[i])
 		}
@@ -244,6 +260,12 @@ func (pr *Project) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("ai_suggestion_created_at=")
 	builder.WriteString(pr.AiSuggestionCreatedAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("ai_highlight_model=")
+	builder.WriteString(pr.AiHighlightModel)
+	builder.WriteString(", ")
+	builder.WriteString("ai_highlight_prompt=")
+	builder.WriteString(pr.AiHighlightPrompt)
 	builder.WriteByte(')')
 	return builder.String()
 }

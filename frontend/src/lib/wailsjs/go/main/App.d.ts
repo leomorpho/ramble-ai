@@ -40,6 +40,8 @@ export function GetProjectByID(arg1:number):Promise<main.ProjectResponse>;
 
 export function GetProjectExportJobs(arg1:number):Promise<Array<main.ExportProgress>>;
 
+export function GetProjectHighlightAISettings(arg1:number):Promise<main.ProjectHighlightAISettings>;
+
 export function GetProjectHighlightOrder(arg1:number):Promise<Array<string>>;
 
 export function GetProjectHighlights(arg1:number):Promise<Array<main.ProjectHighlight>>;
@@ -68,6 +70,8 @@ export function SaveOpenRouterApiKey(arg1:string):Promise<void>;
 
 export function SaveProjectAISettings(arg1:number,arg2:main.ProjectAISettings):Promise<void>;
 
+export function SaveProjectHighlightAISettings(arg1:number,arg2:main.ProjectHighlightAISettings):Promise<void>;
+
 export function SaveSetting(arg1:string,arg2:string):Promise<void>;
 
 export function SaveThemePreference(arg1:string):Promise<void>;
@@ -75,6 +79,8 @@ export function SaveThemePreference(arg1:string):Promise<void>;
 export function SelectExportFolder():Promise<string>;
 
 export function SelectVideoFiles():Promise<Array<main.LocalVideoFile>>;
+
+export function SuggestHighlightsWithAI(arg1:number,arg2:number,arg3:string):Promise<Array<main.HighlightSuggestion>>;
 
 export function TestOpenAIApiKey():Promise<main.TestOpenAIApiKeyResponse>;
 
