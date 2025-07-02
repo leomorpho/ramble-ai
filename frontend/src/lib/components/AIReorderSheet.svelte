@@ -178,9 +178,11 @@ Feel free to completely restructure the order - move any segment to any position
 
         if (reorderedHighlights.length > 0) {
           aiDialogHighlights = reorderedHighlights;
+          aiReorderedHighlights = reorderedHighlights; // Set this to show the Apply button
           hasCachedSuggestion = true;
           cachedSuggestionDate = new Date(cachedSuggestion.createdAt);
           cachedSuggestionModel = cachedSuggestion.model || "";
+          showOriginalForm = true; // Show reset option when cached suggestion is loaded
 
           // Preselect the last used model if available
           if (cachedSuggestion.model) {
@@ -285,7 +287,7 @@ Feel free to completely restructure the order - move any segment to any position
       const success = await updateHighlightOrder(aiReorderedHighlights);
 
       if (success) {
-        closeSheet();
+        open = false; // Close the sheet
         toast.success("AI reordering applied successfully!");
         onApply(aiReorderedHighlights);
       }
@@ -355,6 +357,14 @@ Feel free to completely restructure the order - move any segment to any position
     aiReorderedHighlights = newHighlights;
 
     handleAIDragEnd();
+  }
+
+  // Handle reordering from the EtroVideoPlayer in AI preview mode
+  async function handleAIVideoReorder(newHighlights) {
+    // Update both AI dialog highlights and reordered highlights
+    aiDialogHighlights = newHighlights;
+    aiReorderedHighlights = newHighlights;
+    return Promise.resolve(); // Return resolved promise for success
   }
 
   // AI dialog container drag functions
@@ -560,7 +570,12 @@ Feel free to completely restructure the order - move any segment to any position
                         Current Highlight Order
                       {/if}
                     </h3>
-                    <EtroVideoPlayer highlights={aiReorderedHighlights.length > 0 ? aiReorderedHighlights : highlights} {projectId} />
+                    <EtroVideoPlayer 
+                      highlights={aiReorderedHighlights.length > 0 ? aiReorderedHighlights : highlights} 
+                      {projectId} 
+                      enableEyeButton={false}
+                      onReorder={handleAIVideoReorder}
+                    />
                   </div>
 
                   <!-- AI Dialog Timeline -->

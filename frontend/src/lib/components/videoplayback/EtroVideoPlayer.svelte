@@ -17,7 +17,7 @@
   } from "$lib/components/ui/dialog";
   import { Film, Trash2 } from '@lucide/svelte';
 
-  let { highlights = [], projectId = null } = $props();
+  let { highlights = [], projectId = null, enableEyeButton = true, onReorder = null } = $props();
 
   // Core state
   let canvasElement = $state(null);
@@ -717,8 +717,21 @@
     // Mark as internal reorder to prevent external change detection
     isInternalReorder = true;
     
-    // Update via centralized store (this handles database save and state updates)
-    const success = await updateHighlightOrder(newHighlights);
+    let success = false;
+    
+    if (onReorder) {
+      // Use custom reorder handler (for preview mode)
+      try {
+        await onReorder(newHighlights);
+        success = true;
+      } catch (error) {
+        console.error("Error in custom reorder handler:", error);
+        toast.error("Failed to reorder highlights");
+      }
+    } else {
+      // Update via centralized store (this handles database save and state updates)
+      success = await updateHighlightOrder(newHighlights);
+    }
 
     if (success) {
       // Update our known order
@@ -789,9 +802,14 @@
       canvasElement.height = canvasHeight;
 
       // Get video dimensions from the first video
-      const firstVideoURL = videoURLs.get(highlightOrder[0].filePath);
+      const firstHighlight = highlightOrder[0];
+      console.log("First highlight in order:", firstHighlight);
+      console.log("Looking for video URL with filePath:", firstHighlight.filePath);
+      console.log("Available video URLs:", Array.from(videoURLs.keys()));
+      
+      const firstVideoURL = videoURLs.get(firstHighlight.filePath);
       if (!firstVideoURL) {
-        throw new Error("No video URL for first highlight");
+        throw new Error(`No video URL for first highlight. FilePath: ${firstHighlight.filePath}`);
       }
 
       console.log("Getting video dimensions from first video...");
@@ -901,12 +919,18 @@
         videoURLs.size
       );
 
-      if (!allVideosLoaded) {
+      // Check if we need to load video URLs for new highlights
+      const needsVideoURLs = highlights.some(h => !videoURLs.has(h.filePath));
+      
+      if (!allVideosLoaded || needsVideoURLs) {
         console.log(
           "Effect: Starting video URL loading for",
           highlights.length,
-          "highlights"
+          "highlights",
+          needsVideoURLs ? "(missing URLs detected)" : ""
         );
+        // Reset the loaded state to force reload
+        allVideosLoaded = false;
         loadVideoURLs();
       }
     }
@@ -1139,24 +1163,26 @@
                 <!-- Number label -->
                 <span>{index + 1}</span>
                 
-                <!-- Eye icon (only show on hover) -->
-                <span class="ml-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto">
-                  <HighlightMenu 
-                    {highlight}
-                    onEdit={handleEditHighlight}
-                    onDelete={handleDeleteConfirm}
-                    popoverOpen={isPopoverOpen(highlight.id)}
-                    onPopoverOpenChange={(open) => {
-                      if (open) {
-                        openPopover(highlight.id);
-                      } else {
-                        closePopover(highlight.id);
-                      }
-                    }}
-                    iconSize="w-2.5 h-2.5"
-                    triggerSize="w-4 h-4"
-                  />
-                </span>
+                <!-- Eye icon (only show on hover and if enabled) -->
+                {#if enableEyeButton}
+                  <span class="ml-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto">
+                    <HighlightMenu 
+                      {highlight}
+                      onEdit={handleEditHighlight}
+                      onDelete={handleDeleteConfirm}
+                      popoverOpen={isPopoverOpen(highlight.id)}
+                      onPopoverOpenChange={(open) => {
+                        if (open) {
+                          openPopover(highlight.id);
+                        } else {
+                          closePopover(highlight.id);
+                        }
+                      }}
+                      iconSize="w-2.5 h-2.5"
+                      triggerSize="w-4 h-4"
+                    />
+                  </span>
+                {/if}
               </div>
 
               <!-- Drag handle -->
