@@ -23,6 +23,7 @@
     SuggestHighlightsWithAI,
     GetProjectHighlightAISettings,
     SaveProjectHighlightAISettings,
+    GetSuggestedHighlights,
   } from "$lib/wailsjs/go/main/App";
 
   let { 
@@ -35,15 +36,30 @@
   // Transcript video player state (separate from main highlights)
   let transcriptPlayerHighlights = $state([]);
   
-  // AI suggestion state
-  let aiSuggestLoading = $state(false);
+  // AI suggestion state - Map to track loading state per video ID
+  let aiSuggestLoadingMap = $state(new Map());
   let suggestedHighlights = $state([]);
+  let loadingSuggestedHighlights = $state(false);
   
   // AI settings state
   let selectedModel = $state("anthropic/claude-sonnet-4");
   let customPrompt = $state("");
   let customModelValue = $state("");
   let instructionsOpen = $state(false);
+
+  // Available AI models (same as in AISettings component)
+  const availableModels = [
+    { value: "anthropic/claude-3.5-haiku-20241022", label: "Claude 3.5 Haiku" },
+    { value: "anthropic/claude-3.5-sonnet-20241022", label: "Claude 3.5 Sonnet" },
+    { value: "anthropic/claude-3-5-sonnet-20241022", label: "Claude 3.5 Sonnet (Latest)" },
+    { value: "anthropic/claude-3-opus-20240229", label: "Claude 3 Opus" },
+    { value: "openai/gpt-4o", label: "GPT-4o" },
+    { value: "openai/gpt-4o-mini", label: "GPT-4o Mini" },
+    { value: "google/gemini-2.0-flash-exp", label: "Gemini 2.0 Flash" },
+    { value: "google/gemini-exp-1206", label: "Gemini Experimental" },
+    { value: "x-ai/grok-2-1212", label: "Grok 2" },
+    { value: "custom", label: "Custom Model (Enter Below)" }
+  ];
 
   // Default highlight suggestion prompt
   const defaultPrompt = `You are an expert content creator analyzing video transcripts to identify the most compelling and engaging moments. Your task is to suggest highlight segments that would be valuable for creating shorts, clips, or key moments.
@@ -77,10 +93,11 @@ Return segments that would work well as standalone content pieces.`;
     }
   });
 
-  // Load AI settings when dialog opens
+  // Load AI settings and suggested highlights when dialog opens
   $effect(() => {
-    if (open && projectId) {
+    if (open && projectId && video) {
       loadAISettings();
+      loadSuggestedHighlights();
     }
   });
   
@@ -100,6 +117,32 @@ Return segments that would work well as standalone content pieces.`;
       console.error("Failed to load AI settings:", error);
       selectedModel = "anthropic/claude-sonnet-4";
       customPrompt = defaultPrompt;
+    }
+  }
+
+  // Load suggested highlights from database
+  async function loadSuggestedHighlights() {
+    if (!video?.id) return;
+    
+    loadingSuggestedHighlights = true;
+    try {
+      const suggestions = await GetSuggestedHighlights(video.id);
+      console.log("📥 Loaded suggested highlights from DB:", suggestions);
+      
+      // Convert to frontend format (already have timestamps from backend)
+      suggestedHighlights = suggestions.map(suggestion => ({
+        id: suggestion.id,
+        start: suggestion.start,
+        end: suggestion.end,
+        color: suggestion.color,
+        text: suggestion.text,
+        isSuggestion: true
+      }));
+    } catch (error) {
+      console.error("Failed to load suggested highlights:", error);
+      // Silently fail - suggested highlights are optional
+    } finally {
+      loadingSuggestedHighlights = false;
     }
   }
 
@@ -154,8 +197,10 @@ Return segments that would work well as standalone content pieces.`;
       return;
     }
 
-    aiSuggestLoading = true;
-    console.log("⏳ Setting loading state to true");
+    // Set loading state for this specific video
+    aiSuggestLoadingMap.set(video.id, true);
+    aiSuggestLoadingMap = new Map(aiSuggestLoadingMap); // Trigger reactivity
+    console.log("⏳ Setting loading state to true for video:", video.id);
     
     try {
       // Save current AI settings before processing
@@ -183,14 +228,14 @@ Return segments that would work well as standalone content pieces.`;
       console.log("📝 Raw AI suggestions received:", suggestions);
       console.log("📝 Suggestions type:", typeof suggestions, Array.isArray(suggestions));
 
-      // AI suggestions come back with word indices, keep them as indices for TextHighlighter
+      // AI suggestions already come with timestamps from backend
       const newSuggestions = suggestions.map((suggestion, index) => {
         console.log(`🔄 Processing suggestion ${index}:`, suggestion);
         
         const converted = {
-          id: `suggestion_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          start: suggestion.start, // Keep as word index
-          end: suggestion.end,     // Keep as word index
+          id: suggestion.id,
+          start: suggestion.start, // Already in timestamp format
+          end: suggestion.end,     // Already in timestamp format
           color: suggestion.color,
           text: suggestion.text,
           isSuggestion: true
@@ -200,9 +245,10 @@ Return segments that would work well as standalone content pieces.`;
         return converted;
       });
 
-      console.log("🎯 Final suggestions to set:", newSuggestions);
-      suggestedHighlights = newSuggestions;
-      console.log("📊 suggestedHighlights state after setting:", suggestedHighlights);
+      console.log("🎯 AI generation complete, reloading from database");
+      
+      // Reload suggested highlights from database
+      await loadSuggestedHighlights();
       
       toast.success(`Generated ${suggestions.length} AI highlight suggestions!`);
     } catch (error) {
@@ -216,8 +262,10 @@ Return segments that would work well as standalone content pieces.`;
         description: error.message || "An error occurred while generating suggestions"
       });
     } finally {
-      aiSuggestLoading = false;
-      console.log("✅ Setting loading state to false");
+      // Clear loading state for this specific video
+      aiSuggestLoadingMap.delete(video.id);
+      aiSuggestLoadingMap = new Map(aiSuggestLoadingMap); // Trigger reactivity
+      console.log("✅ Setting loading state to false for video:", video.id);
     }
   }
 
@@ -227,23 +275,11 @@ Return segments that would work well as standalone content pieces.`;
     if (!suggestion || !video) return;
 
     try {
-      // Convert suggestion from word indices to time-based format
-      let startTime = 0;
-      let endTime = 0;
-      
-      if (video.transcriptionWords && video.transcriptionWords.length > 0) {
-        if (suggestion.start < video.transcriptionWords.length) {
-          startTime = video.transcriptionWords[suggestion.start].start;
-        }
-        if (suggestion.end < video.transcriptionWords.length) {
-          endTime = video.transcriptionWords[suggestion.end].end;
-        }
-      }
-      
+      // Suggestion already has timestamps from backend
       const newHighlight = {
         id: `highlight_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        start: startTime,
-        end: endTime,
+        start: suggestion.start,
+        end: suggestion.end,
         color: suggestion.color
       };
 
@@ -331,10 +367,10 @@ Return segments that would work well as standalone content pieces.`;
                         size="sm"
                         onclick={suggestHighlightsInline}
                         class="text-xs"
-                        disabled={!video.transcription || aiSuggestLoading}
+                        disabled={!video.transcription || aiSuggestLoadingMap.get(video.id)}
                       >
                         <Sparkles class="w-3 h-3 mr-1" />
-                        {aiSuggestLoading ? "AI Analyzing..." : "AI Suggest"}
+                        {aiSuggestLoadingMap.get(video.id) ? "AI Analyzing..." : "AI Suggest"}
                       </Button>
                       <Button 
                         variant="outline" 
