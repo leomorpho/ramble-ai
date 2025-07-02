@@ -13,7 +13,7 @@
   import { Label } from "$lib/components/ui/label";
   import * as Select from "$lib/components/ui/select/index.js";
   import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
-  import * as Tabs from "$lib/components/ui/tabs/index.js";
+  import * as Collapsible from "$lib/components/ui/collapsible/index.js";
   import CustomSheet from "$lib/components/ui/CustomSheet.svelte";
   import EtroVideoPlayer from "$lib/components/videoplayback/EtroVideoPlayer.svelte";
   import HighlightItem from "$lib/components/HighlightItem.svelte";
@@ -77,8 +77,8 @@
 
   let customModelValue = $state("");
 
-  // AI dialog tab state
-  let activeTab = $state("settings");
+  // Collapsible state for AI instructions
+  let instructionsOpen = $state(false);
 
   // Derived value for model selection display
   const selectedModelDisplay = $derived(
@@ -116,7 +116,6 @@ Feel free to completely restructure the order - move any segment to any position
     cachedSuggestionDate = null;
     cachedSuggestionModel = "";
     showOriginalForm = false;
-    activeTab = "settings";
 
     // Initialize AI dialog with independent copy of current highlights
     aiDialogHighlights = [...highlights];
@@ -218,7 +217,6 @@ Feel free to completely restructure the order - move any segment to any position
   async function startAIReordering() {
     aiReorderLoading = true;
     aiReorderError = "";
-    activeTab = "results"; // Switch to results tab
 
     try {
       // Save AI settings before processing
@@ -391,125 +389,131 @@ Feel free to completely restructure the order - move any segment to any position
     <Sparkles class="w-5 h-5" />
   {/snippet}
   {#snippet children()}
-    <!-- Tabs -->
-    <div class="flex-shrink-0 border-b px-6">
-      <Tabs.Root bind:value={activeTab} class="w-full">
-        <Tabs.List class="grid w-full grid-cols-2">
-          <Tabs.Trigger value="settings">Settings</Tabs.Trigger>
-          <Tabs.Trigger value="results">Results</Tabs.Trigger>
-        </Tabs.List>
-      </Tabs.Root>
-    </div>
-
     <!-- Content -->
-    <div class="p-6">
-          {#if activeTab === "settings"}
-            <!-- Settings Tab Content -->
-            <div class="space-y-6">
-              <!-- Model Selection -->
-              <div class="space-y-2">
-                <Label for="ai-model">AI Model</Label>
-                <Select.Root type="single" name="aiModel" bind:value={selectedModel}>
-                  <Select.Trigger class="w-full">
-                    {selectedModelDisplay}
-                  </Select.Trigger>
-                  <Select.Content>
-                    <ScrollArea class="h-72">
-                      <Select.Group>
-                        <Select.Label>Available Models</Select.Label>
-                        {#each availableModels as model (model.value)}
-                          <Select.Item value={model.value} label={model.label}>
-                            {model.label}
-                          </Select.Item>
-                        {/each}
-                      </Select.Group>
-                    </ScrollArea>
-                  </Select.Content>
-                </Select.Root>
+    <div class="p-6 space-y-6">
+      <!-- AI Instructions Collapsible -->
+      <Collapsible.Root bind:open={instructionsOpen}>
+        <Collapsible.Trigger class="flex w-full justify-between items-center p-3 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground">
+          <span class="flex items-center gap-2">
+            <Sparkles class="w-4 h-4" />
+            AI Instructions & Settings
+          </span>
+          <svg
+            class="w-4 h-4 transition-transform duration-200"
+            class:rotate-180={instructionsOpen}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </Collapsible.Trigger>
+        <Collapsible.Content class="space-y-4 mt-4">
+          <!-- Model Selection -->
+          <div class="space-y-2">
+            <Label for="ai-model">AI Model</Label>
+            <Select.Root type="single" name="aiModel" bind:value={selectedModel}>
+              <Select.Trigger class="w-full">
+                {selectedModelDisplay}
+              </Select.Trigger>
+              <Select.Content>
+                <ScrollArea class="h-72">
+                  <Select.Group>
+                    <Select.Label>Available Models</Select.Label>
+                    {#each availableModels as model (model.value)}
+                      <Select.Item value={model.value} label={model.label}>
+                        {model.label}
+                      </Select.Item>
+                    {/each}
+                  </Select.Group>
+                </ScrollArea>
+              </Select.Content>
+            </Select.Root>
 
-                {#if selectedModel === "custom"}
-                  <input
-                    type="text"
-                    bind:value={customModelValue}
-                    placeholder="Enter custom model (e.g., anthropic/claude-3-5-sonnet)"
-                    class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                  />
+            {#if selectedModel === "custom"}
+              <input
+                type="text"
+                bind:value={customModelValue}
+                placeholder="Enter custom model (e.g., anthropic/claude-3-5-sonnet)"
+                class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            {/if}
+
+            <p class="text-xs text-muted-foreground">
+              Choose the AI model for highlight reordering. Different models have
+              varying strengths in content analysis and reasoning.
+            </p>
+          </div>
+
+          <!-- Custom Prompt Input -->
+          <div class="space-y-2">
+            <Label for="custom-prompt">AI Instructions</Label>
+            <Textarea
+              id="custom-prompt"
+              bind:value={customPrompt}
+              placeholder="AI instructions for reordering highlights..."
+              class="min-h-[120px] resize-none"
+              rows="6"
+            />
+            <p class="text-xs text-muted-foreground">
+              Modify the prompt above to customize how AI reorders your
+              highlights. The default focuses on YouTube best practices for
+              maximum engagement.
+            </p>
+          </div>
+
+          {#if hasCachedSuggestion && cachedSuggestionDate}
+            <div class="p-3 bg-secondary rounded-lg">
+              <p class="text-sm text-muted-foreground">
+                <strong>Cached AI Suggestion:</strong> Loaded from {cachedSuggestionDate.toLocaleString()}
+                {#if cachedSuggestionModel}
+                  <br /><strong>Model used:</strong>
+                  {availableModels.find((m) => m.value === cachedSuggestionModel)
+                    ?.label || cachedSuggestionModel}
                 {/if}
+              </p>
+            </div>
+          {/if}
 
-                <p class="text-xs text-muted-foreground">
-                  Choose the AI model for highlight reordering. Different models have
-                  varying strengths in content analysis and reasoning.
-                </p>
-              </div>
-
-              <!-- Custom Prompt Input -->
-              <div class="space-y-2">
-                <Label for="custom-prompt">AI Instructions</Label>
-                <Textarea
-                  id="custom-prompt"
-                  bind:value={customPrompt}
-                  placeholder="AI instructions for reordering highlights..."
-                  class="min-h-[120px] resize-none"
-                  rows="6"
-                />
-                <p class="text-xs text-muted-foreground">
-                  Modify the prompt above to customize how AI reorders your
-                  highlights. The default focuses on YouTube best practices for
-                  maximum engagement.
-                </p>
-              </div>
-
-              {#if hasCachedSuggestion && cachedSuggestionDate}
-                <div class="p-3 bg-secondary rounded-lg">
-                  <p class="text-sm text-muted-foreground">
-                    <strong>Cached AI Suggestion:</strong> Loaded from {cachedSuggestionDate.toLocaleString()}
-                    {#if cachedSuggestionModel}
-                      <br /><strong>Model used:</strong>
-                      {availableModels.find((m) => m.value === cachedSuggestionModel)
-                        ?.label || cachedSuggestionModel}
-                    {/if}
-                  </p>
-                </div>
-              {/if}
-
-              <div class="flex justify-between">
+          <div class="flex justify-between">
+            <Button
+              variant="outline"
+              onclick={() => {
+                customPrompt = defaultPrompt;
+              }}
+              disabled={customPrompt === defaultPrompt}
+            >
+              Reset to Default
+            </Button>
+            <div class="flex gap-2">
+              {#if hasCachedSuggestion}
                 <Button
                   variant="outline"
-                  onclick={() => {
-                    customPrompt = defaultPrompt;
-                  }}
-                  disabled={customPrompt === defaultPrompt}
+                  onclick={startAIReordering}
+                  class="flex items-center gap-2"
+                  disabled={aiReorderLoading}
                 >
-                  Reset to Default
+                  <Sparkles class="w-4 h-4" />
+                  Re-run AI
                 </Button>
-                <div class="flex gap-2">
-                  {#if hasCachedSuggestion}
-                    <Button
-                      variant="outline"
-                      onclick={startAIReordering}
-                      class="flex items-center gap-2"
-                      disabled={aiReorderLoading}
-                    >
-                      <Sparkles class="w-4 h-4" />
-                      Re-run AI
-                    </Button>
-                  {/if}
-                  <Button
-                    onclick={startAIReordering}
-                    class="flex items-center gap-2"
-                    disabled={aiReorderLoading}
-                  >
-                    <Sparkles class="w-4 h-4" />
-                    {hasCachedSuggestion
-                      ? "Update AI Suggestions"
-                      : "Generate AI Suggestions"}
-                  </Button>
-                </div>
-              </div>
+              {/if}
+              <Button
+                onclick={startAIReordering}
+                class="flex items-center gap-2"
+                disabled={aiReorderLoading}
+              >
+                <Sparkles class="w-4 h-4" />
+                {hasCachedSuggestion
+                  ? "Update AI Suggestions"
+                  : "Generate AI Suggestions"}
+              </Button>
             </div>
-          {:else if activeTab === "results"}
-            <!-- Results Tab Content -->
-            <div class="space-y-6">
+          </div>
+        </Collapsible.Content>
+      </Collapsible.Root>
+
+      <!-- Results Section -->
+      <div class="space-y-6">
               {#if aiReorderLoading}
                 <div class="p-8 text-center">
                   <div
@@ -537,10 +541,10 @@ Feel free to completely restructure the order - move any segment to any position
                         aiReorderError = "";
                         aiReorderedHighlights = [];
                         aiDialogHighlights = [...highlights];
-                        activeTab = "settings";
+                        instructionsOpen = true;
                       }}
                     >
-                      Back to Settings
+                      Back to Instructions
                     </Button>
                   </div>
                 </div>
@@ -550,9 +554,13 @@ Feel free to completely restructure the order - move any segment to any position
                   <div class="bg-card border rounded-lg p-4">
                     <h3 class="text-sm font-medium mb-3 flex items-center gap-2">
                       <Play class="w-4 h-4" />
-                      Preview AI Arrangement
+                      {#if aiReorderedHighlights.length > 0}
+                        Preview AI Arrangement
+                      {:else}
+                        Current Highlight Order
+                      {/if}
                     </h3>
-                    <EtroVideoPlayer highlights={aiDialogHighlights} {projectId} />
+                    <EtroVideoPlayer highlights={aiReorderedHighlights.length > 0 ? aiReorderedHighlights : highlights} {projectId} />
                   </div>
 
                   <!-- AI Dialog Timeline -->
@@ -607,12 +615,11 @@ Feel free to completely restructure the order - move any segment to any position
                 <div class="p-8 text-center text-muted-foreground">
                   <p class="text-lg font-medium">No results yet</p>
                   <p class="text-sm">
-                    Generate AI suggestions in the Settings tab to see results here
+                    Generate AI suggestions using the instructions above to see results here
                   </p>
                 </div>
               {/if}
-            </div>
-          {/if}
+      </div>
     </div>
   {/snippet}
   
