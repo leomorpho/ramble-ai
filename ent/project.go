@@ -4,6 +4,7 @@ package ent
 
 import (
 	"MYAPP/ent/project"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -31,6 +32,10 @@ type Project struct {
 	AiModel string `json:"ai_model,omitempty"`
 	// Custom AI prompt for segment reordering
 	AiPrompt string `json:"ai_prompt,omitempty"`
+	// Cached AI-suggested highlight order (array of highlight IDs)
+	AiSuggestionOrder []string `json:"ai_suggestion_order,omitempty"`
+	// When the AI suggestion was created
+	AiSuggestionCreatedAt time.Time `json:"ai_suggestion_created_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ProjectQuery when eager-loading is set.
 	Edges        ProjectEdges `json:"edges"`
@@ -71,11 +76,13 @@ func (*Project) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case project.FieldAiSuggestionOrder:
+			values[i] = new([]byte)
 		case project.FieldID:
 			values[i] = new(sql.NullInt64)
 		case project.FieldName, project.FieldDescription, project.FieldPath, project.FieldAiModel, project.FieldAiPrompt:
 			values[i] = new(sql.NullString)
-		case project.FieldCreatedAt, project.FieldUpdatedAt:
+		case project.FieldCreatedAt, project.FieldUpdatedAt, project.FieldAiSuggestionCreatedAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -139,6 +146,20 @@ func (pr *Project) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field ai_prompt", values[i])
 			} else if value.Valid {
 				pr.AiPrompt = value.String
+			}
+		case project.FieldAiSuggestionOrder:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field ai_suggestion_order", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &pr.AiSuggestionOrder); err != nil {
+					return fmt.Errorf("unmarshal field ai_suggestion_order: %w", err)
+				}
+			}
+		case project.FieldAiSuggestionCreatedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field ai_suggestion_created_at", values[i])
+			} else if value.Valid {
+				pr.AiSuggestionCreatedAt = value.Time
 			}
 		default:
 			pr.selectValues.Set(columns[i], values[i])
@@ -206,6 +227,12 @@ func (pr *Project) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("ai_prompt=")
 	builder.WriteString(pr.AiPrompt)
+	builder.WriteString(", ")
+	builder.WriteString("ai_suggestion_order=")
+	builder.WriteString(fmt.Sprintf("%v", pr.AiSuggestionOrder))
+	builder.WriteString(", ")
+	builder.WriteString("ai_suggestion_created_at=")
+	builder.WriteString(pr.AiSuggestionCreatedAt.Format(time.ANSIC))
 	builder.WriteByte(')')
 	return builder.String()
 }

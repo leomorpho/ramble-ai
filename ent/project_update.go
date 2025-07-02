@@ -14,6 +14,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 )
 
@@ -135,6 +136,44 @@ func (pu *ProjectUpdate) SetNillableAiPrompt(s *string) *ProjectUpdate {
 // ClearAiPrompt clears the value of the "ai_prompt" field.
 func (pu *ProjectUpdate) ClearAiPrompt() *ProjectUpdate {
 	pu.mutation.ClearAiPrompt()
+	return pu
+}
+
+// SetAiSuggestionOrder sets the "ai_suggestion_order" field.
+func (pu *ProjectUpdate) SetAiSuggestionOrder(s []string) *ProjectUpdate {
+	pu.mutation.SetAiSuggestionOrder(s)
+	return pu
+}
+
+// AppendAiSuggestionOrder appends s to the "ai_suggestion_order" field.
+func (pu *ProjectUpdate) AppendAiSuggestionOrder(s []string) *ProjectUpdate {
+	pu.mutation.AppendAiSuggestionOrder(s)
+	return pu
+}
+
+// ClearAiSuggestionOrder clears the value of the "ai_suggestion_order" field.
+func (pu *ProjectUpdate) ClearAiSuggestionOrder() *ProjectUpdate {
+	pu.mutation.ClearAiSuggestionOrder()
+	return pu
+}
+
+// SetAiSuggestionCreatedAt sets the "ai_suggestion_created_at" field.
+func (pu *ProjectUpdate) SetAiSuggestionCreatedAt(t time.Time) *ProjectUpdate {
+	pu.mutation.SetAiSuggestionCreatedAt(t)
+	return pu
+}
+
+// SetNillableAiSuggestionCreatedAt sets the "ai_suggestion_created_at" field if the given value is not nil.
+func (pu *ProjectUpdate) SetNillableAiSuggestionCreatedAt(t *time.Time) *ProjectUpdate {
+	if t != nil {
+		pu.SetAiSuggestionCreatedAt(*t)
+	}
+	return pu
+}
+
+// ClearAiSuggestionCreatedAt clears the value of the "ai_suggestion_created_at" field.
+func (pu *ProjectUpdate) ClearAiSuggestionCreatedAt() *ProjectUpdate {
+	pu.mutation.ClearAiSuggestionCreatedAt()
 	return pu
 }
 
@@ -307,6 +346,23 @@ func (pu *ProjectUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if pu.mutation.AiPromptCleared() {
 		_spec.ClearField(project.FieldAiPrompt, field.TypeString)
+	}
+	if value, ok := pu.mutation.AiSuggestionOrder(); ok {
+		_spec.SetField(project.FieldAiSuggestionOrder, field.TypeJSON, value)
+	}
+	if value, ok := pu.mutation.AppendedAiSuggestionOrder(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, project.FieldAiSuggestionOrder, value)
+		})
+	}
+	if pu.mutation.AiSuggestionOrderCleared() {
+		_spec.ClearField(project.FieldAiSuggestionOrder, field.TypeJSON)
+	}
+	if value, ok := pu.mutation.AiSuggestionCreatedAt(); ok {
+		_spec.SetField(project.FieldAiSuggestionCreatedAt, field.TypeTime, value)
+	}
+	if pu.mutation.AiSuggestionCreatedAtCleared() {
+		_spec.ClearField(project.FieldAiSuggestionCreatedAt, field.TypeTime)
 	}
 	if pu.mutation.VideoClipsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -526,6 +582,44 @@ func (puo *ProjectUpdateOne) ClearAiPrompt() *ProjectUpdateOne {
 	return puo
 }
 
+// SetAiSuggestionOrder sets the "ai_suggestion_order" field.
+func (puo *ProjectUpdateOne) SetAiSuggestionOrder(s []string) *ProjectUpdateOne {
+	puo.mutation.SetAiSuggestionOrder(s)
+	return puo
+}
+
+// AppendAiSuggestionOrder appends s to the "ai_suggestion_order" field.
+func (puo *ProjectUpdateOne) AppendAiSuggestionOrder(s []string) *ProjectUpdateOne {
+	puo.mutation.AppendAiSuggestionOrder(s)
+	return puo
+}
+
+// ClearAiSuggestionOrder clears the value of the "ai_suggestion_order" field.
+func (puo *ProjectUpdateOne) ClearAiSuggestionOrder() *ProjectUpdateOne {
+	puo.mutation.ClearAiSuggestionOrder()
+	return puo
+}
+
+// SetAiSuggestionCreatedAt sets the "ai_suggestion_created_at" field.
+func (puo *ProjectUpdateOne) SetAiSuggestionCreatedAt(t time.Time) *ProjectUpdateOne {
+	puo.mutation.SetAiSuggestionCreatedAt(t)
+	return puo
+}
+
+// SetNillableAiSuggestionCreatedAt sets the "ai_suggestion_created_at" field if the given value is not nil.
+func (puo *ProjectUpdateOne) SetNillableAiSuggestionCreatedAt(t *time.Time) *ProjectUpdateOne {
+	if t != nil {
+		puo.SetAiSuggestionCreatedAt(*t)
+	}
+	return puo
+}
+
+// ClearAiSuggestionCreatedAt clears the value of the "ai_suggestion_created_at" field.
+func (puo *ProjectUpdateOne) ClearAiSuggestionCreatedAt() *ProjectUpdateOne {
+	puo.mutation.ClearAiSuggestionCreatedAt()
+	return puo
+}
+
 // AddVideoClipIDs adds the "video_clips" edge to the VideoClip entity by IDs.
 func (puo *ProjectUpdateOne) AddVideoClipIDs(ids ...int) *ProjectUpdateOne {
 	puo.mutation.AddVideoClipIDs(ids...)
@@ -725,6 +819,23 @@ func (puo *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err e
 	}
 	if puo.mutation.AiPromptCleared() {
 		_spec.ClearField(project.FieldAiPrompt, field.TypeString)
+	}
+	if value, ok := puo.mutation.AiSuggestionOrder(); ok {
+		_spec.SetField(project.FieldAiSuggestionOrder, field.TypeJSON, value)
+	}
+	if value, ok := puo.mutation.AppendedAiSuggestionOrder(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, project.FieldAiSuggestionOrder, value)
+		})
+	}
+	if puo.mutation.AiSuggestionOrderCleared() {
+		_spec.ClearField(project.FieldAiSuggestionOrder, field.TypeJSON)
+	}
+	if value, ok := puo.mutation.AiSuggestionCreatedAt(); ok {
+		_spec.SetField(project.FieldAiSuggestionCreatedAt, field.TypeTime, value)
+	}
+	if puo.mutation.AiSuggestionCreatedAtCleared() {
+		_spec.ClearField(project.FieldAiSuggestionCreatedAt, field.TypeTime)
 	}
 	if puo.mutation.VideoClipsCleared() {
 		edge := &sqlgraph.EdgeSpec{

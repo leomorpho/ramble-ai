@@ -66,6 +66,10 @@ export function GetProjectAISettings(arg1) {
   return window['go']['main']['App']['GetProjectAISettings'](arg1);
 }
 
+export function GetProjectAISuggestion(arg1) {
+  return window['go']['main']['App']['GetProjectAISuggestion'](arg1);
+}
+
 export function GetProjectByID(arg1) {
   return window['go']['main']['App']['GetProjectByID'](arg1);
 }

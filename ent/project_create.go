@@ -104,6 +104,26 @@ func (pc *ProjectCreate) SetNillableAiPrompt(s *string) *ProjectCreate {
 	return pc
 }
 
+// SetAiSuggestionOrder sets the "ai_suggestion_order" field.
+func (pc *ProjectCreate) SetAiSuggestionOrder(s []string) *ProjectCreate {
+	pc.mutation.SetAiSuggestionOrder(s)
+	return pc
+}
+
+// SetAiSuggestionCreatedAt sets the "ai_suggestion_created_at" field.
+func (pc *ProjectCreate) SetAiSuggestionCreatedAt(t time.Time) *ProjectCreate {
+	pc.mutation.SetAiSuggestionCreatedAt(t)
+	return pc
+}
+
+// SetNillableAiSuggestionCreatedAt sets the "ai_suggestion_created_at" field if the given value is not nil.
+func (pc *ProjectCreate) SetNillableAiSuggestionCreatedAt(t *time.Time) *ProjectCreate {
+	if t != nil {
+		pc.SetAiSuggestionCreatedAt(*t)
+	}
+	return pc
+}
+
 // AddVideoClipIDs adds the "video_clips" edge to the VideoClip entity by IDs.
 func (pc *ProjectCreate) AddVideoClipIDs(ids ...int) *ProjectCreate {
 	pc.mutation.AddVideoClipIDs(ids...)
@@ -260,6 +280,14 @@ func (pc *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 	if value, ok := pc.mutation.AiPrompt(); ok {
 		_spec.SetField(project.FieldAiPrompt, field.TypeString, value)
 		_node.AiPrompt = value
+	}
+	if value, ok := pc.mutation.AiSuggestionOrder(); ok {
+		_spec.SetField(project.FieldAiSuggestionOrder, field.TypeJSON, value)
+		_node.AiSuggestionOrder = value
+	}
+	if value, ok := pc.mutation.AiSuggestionCreatedAt(); ok {
+		_spec.SetField(project.FieldAiSuggestionCreatedAt, field.TypeTime, value)
+		_node.AiSuggestionCreatedAt = value
 	}
 	if nodes := pc.mutation.VideoClipsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

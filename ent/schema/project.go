@@ -39,6 +39,12 @@ func (Project) Fields() []ent.Field {
 		field.Text("ai_prompt").
 			Optional().
 			Comment("Custom AI prompt for segment reordering"),
+		field.JSON("ai_suggestion_order", []string{}).
+			Optional().
+			Comment("Cached AI-suggested highlight order (array of highlight IDs)"),
+		field.Time("ai_suggestion_created_at").
+			Optional().
+			Comment("When the AI suggestion was created"),
 	}
 }
 

@@ -34,6 +34,8 @@ export function GetOpenRouterApiKey():Promise<string>;
 
 export function GetProjectAISettings(arg1:number):Promise<main.ProjectAISettings>;
 
+export function GetProjectAISuggestion(arg1:number):Promise<main.ProjectAISuggestion>;
+
 export function GetProjectByID(arg1:number):Promise<main.ProjectResponse>;
 
 export function GetProjectExportJobs(arg1:number):Promise<Array<main.ExportProgress>>;

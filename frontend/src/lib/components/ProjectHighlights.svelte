@@ -1,6 +1,6 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { GetVideoURL, ReorderHighlightsWithAI, GetProjectAISettings, SaveProjectAISettings } from '$lib/wailsjs/go/main/App';
+  import { GetVideoURL, ReorderHighlightsWithAI, GetProjectAISettings, SaveProjectAISettings, GetProjectAISuggestion } from '$lib/wailsjs/go/main/App';
   import { draggable } from '@neodrag/svelte';
   import { toast } from 'svelte-sonner';
   import { Play, Film, X, Edit3, Trash2, Eye, Sparkles } from '@lucide/svelte';
@@ -65,6 +65,8 @@
   let aiReorderError = $state('');
   let customPrompt = $state('');
   let selectedModel = $state('anthropic/claude-3-haiku-20240307');
+  let hasCachedSuggestion = $state(false);
+  let cachedSuggestionDate = $state(null);
   
   // AI dialog independent state (separate from main page)
   let aiDialogHighlights = $state([]); // Independent copy of highlights for AI dialog
@@ -536,6 +538,8 @@ Feel free to completely restructure the order - move any segment to any position
     aiReorderLoading = false;
     aiReorderError = '';
     aiReorderedHighlights = [];
+    hasCachedSuggestion = false;
+    cachedSuggestionDate = null;
     
     // Initialize AI dialog with independent copy of current highlights
     aiDialogHighlights = [...$orderedHighlights];
@@ -561,6 +565,48 @@ Feel free to completely restructure the order - move any segment to any position
       console.error('Failed to load AI settings:', error);
       selectedModel = 'anthropic/claude-3-haiku-20240307';
       customPrompt = defaultPrompt;
+    }
+    
+    // Try to load cached AI suggestion
+    try {
+      const cachedSuggestion = await GetProjectAISuggestion(projectId);
+      if (cachedSuggestion && cachedSuggestion.order && cachedSuggestion.order.length > 0) {
+        // Reorder AI dialog highlights based on cached suggestion
+        const reorderedHighlights = [];
+        const highlightsMap = new Map();
+        
+        // Create a map for quick lookup from current highlights
+        for (const highlight of aiDialogHighlights) {
+          highlightsMap.set(highlight.id, highlight);
+        }
+        
+        // Reorder based on cached suggestion
+        for (const id of cachedSuggestion.order) {
+          const highlight = highlightsMap.get(id);
+          if (highlight) {
+            reorderedHighlights.push(highlight);
+          }
+        }
+        
+        // Add any highlights that weren't in the cached order
+        for (const highlight of aiDialogHighlights) {
+          if (!cachedSuggestion.order.includes(highlight.id)) {
+            reorderedHighlights.push(highlight);
+          }
+        }
+        
+        if (reorderedHighlights.length > 0) {
+          aiDialogHighlights = reorderedHighlights;
+          hasCachedSuggestion = true;
+          cachedSuggestionDate = new Date(cachedSuggestion.createdAt);
+          console.log('Loaded cached AI suggestion from', cachedSuggestionDate);
+        }
+      }
+    } catch (error) {
+      console.log('No cached AI suggestion found:', error);
+      // Not an error - just means no cached suggestion exists
+      hasCachedSuggestion = false;
+      cachedSuggestionDate = null;
     }
     
     aiReorderDialogOpen = true;
@@ -609,6 +655,11 @@ Feel free to completely restructure the order - move any segment to any position
       // Update AI dialog highlights with the reordered list
       aiDialogHighlights = reorderedHighlights;
       aiReorderedHighlights = reorderedHighlights; // Keep for backward compatibility with existing logic
+      
+      // Update cache state - we now have a fresh suggestion
+      hasCachedSuggestion = true;
+      cachedSuggestionDate = new Date();
+      
       toast.success('AI reordering completed!');
     } catch (error) {
       console.error('AI reordering error:', error);
@@ -1016,6 +1067,14 @@ Feel free to completely restructure the order - move any segment to any position
           </p>
         </div>
         
+        {#if hasCachedSuggestion && cachedSuggestionDate}
+          <div class="p-3 bg-secondary rounded-lg">
+            <p class="text-sm text-muted-foreground">
+              <strong>Cached AI Suggestion:</strong> Loaded from {cachedSuggestionDate.toLocaleString()}
+            </p>
+          </div>
+        {/if}
+        
         <div class="flex justify-between">
           <Button 
             variant="outline"
@@ -1024,10 +1083,27 @@ Feel free to completely restructure the order - move any segment to any position
           >
             Reset to Default
           </Button>
-          <Button onclick={startAIReordering} class="flex items-center gap-2">
-            <Sparkles class="w-4 h-4" />
-            Generate AI Suggestions
-          </Button>
+          <div class="flex gap-2">
+            {#if hasCachedSuggestion}
+              <Button 
+                variant="outline" 
+                onclick={startAIReordering} 
+                class="flex items-center gap-2"
+                disabled={aiReorderLoading}
+              >
+                <Sparkles class="w-4 h-4" />
+                Re-run AI
+              </Button>
+            {/if}
+            <Button 
+              onclick={startAIReordering} 
+              class="flex items-center gap-2"
+              disabled={aiReorderLoading}
+            >
+              <Sparkles class="w-4 h-4" />
+              {hasCachedSuggestion ? 'Update AI Suggestions' : 'Generate AI Suggestions'}
+            </Button>
+          </div>
         </div>
       </div>
     {/if}

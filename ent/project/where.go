@@ -90,6 +90,11 @@ func AiPrompt(v string) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldAiPrompt, v))
 }
 
+// AiSuggestionCreatedAt applies equality check predicate on the "ai_suggestion_created_at" field. It's identical to AiSuggestionCreatedAtEQ.
+func AiSuggestionCreatedAt(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldAiSuggestionCreatedAt, v))
+}
+
 // NameEQ applies the EQ predicate on the "name" field.
 func NameEQ(v string) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldName, v))
@@ -523,6 +528,66 @@ func AiPromptEqualFold(v string) predicate.Project {
 // AiPromptContainsFold applies the ContainsFold predicate on the "ai_prompt" field.
 func AiPromptContainsFold(v string) predicate.Project {
 	return predicate.Project(sql.FieldContainsFold(FieldAiPrompt, v))
+}
+
+// AiSuggestionOrderIsNil applies the IsNil predicate on the "ai_suggestion_order" field.
+func AiSuggestionOrderIsNil() predicate.Project {
+	return predicate.Project(sql.FieldIsNull(FieldAiSuggestionOrder))
+}
+
+// AiSuggestionOrderNotNil applies the NotNil predicate on the "ai_suggestion_order" field.
+func AiSuggestionOrderNotNil() predicate.Project {
+	return predicate.Project(sql.FieldNotNull(FieldAiSuggestionOrder))
+}
+
+// AiSuggestionCreatedAtEQ applies the EQ predicate on the "ai_suggestion_created_at" field.
+func AiSuggestionCreatedAtEQ(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldAiSuggestionCreatedAt, v))
+}
+
+// AiSuggestionCreatedAtNEQ applies the NEQ predicate on the "ai_suggestion_created_at" field.
+func AiSuggestionCreatedAtNEQ(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldNEQ(FieldAiSuggestionCreatedAt, v))
+}
+
+// AiSuggestionCreatedAtIn applies the In predicate on the "ai_suggestion_created_at" field.
+func AiSuggestionCreatedAtIn(vs ...time.Time) predicate.Project {
+	return predicate.Project(sql.FieldIn(FieldAiSuggestionCreatedAt, vs...))
+}
+
+// AiSuggestionCreatedAtNotIn applies the NotIn predicate on the "ai_suggestion_created_at" field.
+func AiSuggestionCreatedAtNotIn(vs ...time.Time) predicate.Project {
+	return predicate.Project(sql.FieldNotIn(FieldAiSuggestionCreatedAt, vs...))
+}
+
+// AiSuggestionCreatedAtGT applies the GT predicate on the "ai_suggestion_created_at" field.
+func AiSuggestionCreatedAtGT(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldGT(FieldAiSuggestionCreatedAt, v))
+}
+
+// AiSuggestionCreatedAtGTE applies the GTE predicate on the "ai_suggestion_created_at" field.
+func AiSuggestionCreatedAtGTE(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldGTE(FieldAiSuggestionCreatedAt, v))
+}
+
+// AiSuggestionCreatedAtLT applies the LT predicate on the "ai_suggestion_created_at" field.
+func AiSuggestionCreatedAtLT(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldLT(FieldAiSuggestionCreatedAt, v))
+}
+
+// AiSuggestionCreatedAtLTE applies the LTE predicate on the "ai_suggestion_created_at" field.
+func AiSuggestionCreatedAtLTE(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldLTE(FieldAiSuggestionCreatedAt, v))
+}
+
+// AiSuggestionCreatedAtIsNil applies the IsNil predicate on the "ai_suggestion_created_at" field.
+func AiSuggestionCreatedAtIsNil() predicate.Project {
+	return predicate.Project(sql.FieldIsNull(FieldAiSuggestionCreatedAt))
+}
+
+// AiSuggestionCreatedAtNotNil applies the NotNil predicate on the "ai_suggestion_created_at" field.
+func AiSuggestionCreatedAtNotNil() predicate.Project {
+	return predicate.Project(sql.FieldNotNull(FieldAiSuggestionCreatedAt))
 }
 
 // HasVideoClips applies the HasEdge predicate on the "video_clips" edge.

@@ -1796,6 +1796,13 @@ func (a *App) ReorderHighlightsWithAI(projectID int, customPrompt string) ([]str
 		}
 	}
 
+	// Save AI suggestion to database
+	err = a.saveAISuggestion(projectID, reorderedIDs)
+	if err != nil {
+		log.Printf("Failed to save AI suggestion to database: %v", err)
+		// Don't fail the request if saving fails, just log the error
+	}
+
 	return reorderedIDs, nil
 }
 
@@ -2913,6 +2920,49 @@ func (a *App) SaveProjectAISettings(projectID int, settings ProjectAISettings) e
 	}
 
 	return nil
+}
+
+// ProjectAISuggestion represents an AI suggestion for a project
+type ProjectAISuggestion struct {
+	Order     []string  `json:"order"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+// saveAISuggestion saves the AI suggestion to the database (internal helper)
+func (a *App) saveAISuggestion(projectID int, reorderedIDs []string) error {
+	_, err := a.client.Project.
+		UpdateOneID(projectID).
+		SetAiSuggestionOrder(reorderedIDs).
+		SetAiSuggestionCreatedAt(time.Now()).
+		Save(a.ctx)
+	
+	if err != nil {
+		return fmt.Errorf("failed to save AI suggestion: %w", err)
+	}
+
+	return nil
+}
+
+// GetProjectAISuggestion retrieves cached AI suggestion for a project
+func (a *App) GetProjectAISuggestion(projectID int) (*ProjectAISuggestion, error) {
+	project, err := a.client.Project.
+		Query().
+		Where(project.ID(projectID)).
+		Only(a.ctx)
+	
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project: %w", err)
+	}
+
+	// Check if there's a cached AI suggestion
+	if project.AiSuggestionOrder == nil || len(project.AiSuggestionOrder) == 0 {
+		return nil, nil // No cached suggestion
+	}
+
+	return &ProjectAISuggestion{
+		Order:     project.AiSuggestionOrder,
+		CreatedAt: project.AiSuggestionCreatedAt,
+	}, nil
 }
 
 // RecoverActiveExportJobs restores export jobs that were running when the app was closed
