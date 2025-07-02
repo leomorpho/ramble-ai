@@ -45,6 +45,10 @@
   // Animation frame for progress updates
   let animationFrame = null;
 
+  // Track highlight order to detect external changes
+  let lastKnownOrder = $state('');
+  let isInternalReorder = $state(false);
+
   // Popover state management for eye icon menus
   let popoverStates = $state(new Map());
 
@@ -710,13 +714,21 @@
       dragStartIndex < targetIndex ? targetIndex - 1 : targetIndex;
     newHighlights.splice(insertIndex, 0, draggedItem);
 
+    // Mark as internal reorder to prevent external change detection
+    isInternalReorder = true;
+    
     // Update via centralized store (this handles database save and state updates)
     const success = await updateHighlightOrder(newHighlights);
 
     if (success) {
+      // Update our known order
+      lastKnownOrder = newHighlights.map(h => h.id).join(',');
       // Reinitialize the video player with new order (only if save was successful)
       await reinitializeWithNewOrder(newHighlights);
     }
+    
+    // Reset the internal reorder flag
+    isInternalReorder = false;
 
     handleDragEnd();
   }
@@ -900,27 +912,24 @@
     }
   });
 
-  // Watch for highlight order changes and reinitialize video composition
-  let previousHighlightIds = $state([]);
+  // Watch for external highlight order changes (from timeline component)
   $effect(() => {
-    if (browser && highlights.length > 0 && isInitialized && allVideosLoaded) {
-      // Create a string of highlight IDs to detect order changes
-      const currentHighlightIds = highlights.map(h => h.id);
-      const currentIdsString = currentHighlightIds.join(',');
-      const previousIdsString = previousHighlightIds.join(',');
+    if (browser && highlights.length > 0 && isInitialized && allVideosLoaded && !isInternalReorder) {
+      const currentOrder = highlights.map(h => h.id).join(',');
       
-      // Check if the order has actually changed
-      if (previousIdsString !== '' && currentIdsString !== previousIdsString) {
-        console.log("Effect: Highlight order changed, reinitializing video player");
-        console.log("Previous order:", previousIdsString);
-        console.log("New order:", currentIdsString);
+      // If we have a previous order and it's different, refresh the video
+      if (lastKnownOrder && lastKnownOrder !== currentOrder) {
+        console.log("External highlight order change detected, refreshing video");
+        console.log("Previous order:", lastKnownOrder);
+        console.log("New order:", currentOrder);
         
-        // Reinitialize the video player with the new order
+        // Update our known order and refresh video
+        lastKnownOrder = currentOrder;
         reinitializeWithNewOrder(highlights);
+      } else if (!lastKnownOrder) {
+        // First time initialization - just record the order
+        lastKnownOrder = currentOrder;
       }
-      
-      // Update the previous IDs for next comparison
-      previousHighlightIds = [...currentHighlightIds];
     }
   });
 
