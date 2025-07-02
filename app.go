@@ -18,6 +18,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -1735,30 +1736,23 @@ func (a *App) ReorderHighlightsWithAI(projectID int) ([]string, error) {
 		return []string{}, nil
 	}
 
-	// Flatten all highlights into a list for AI processing
-	var highlightData []map[string]interface{}
+	// Create a minimal map of ID to highlight text for AI processing
+	highlightMap := make(map[string]string)
 	var highlightIDs []string
 	
 	for _, ph := range projectHighlights {
 		for _, highlight := range ph.Highlights {
-			highlightData = append(highlightData, map[string]interface{}{
-				"id":            highlight.ID,
-				"text":          highlight.Text,
-				"startTime":     highlight.Start,
-				"endTime":       highlight.End,
-				"duration":      highlight.End - highlight.Start,
-				"videoClipName": ph.VideoClipName,
-			})
+			highlightMap[highlight.ID] = highlight.Text
 			highlightIDs = append(highlightIDs, highlight.ID)
 		}
 	}
 
-	if len(highlightData) == 0 {
+	if len(highlightMap) == 0 {
 		return []string{}, nil
 	}
 
 	// Call OpenRouter API to get AI reordering
-	reorderedIDs, err := a.callOpenRouterForReordering(apiKey, highlightData)
+	reorderedIDs, err := a.callOpenRouterForReordering(apiKey, highlightMap)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get AI reordering: %w", err)
 	}
@@ -1814,14 +1808,14 @@ type Choice struct {
 }
 
 // callOpenRouterForReordering calls the OpenRouter API to get intelligent highlight reordering
-func (a *App) callOpenRouterForReordering(apiKey string, highlights []map[string]interface{}) ([]string, error) {
+func (a *App) callOpenRouterForReordering(apiKey string, highlightMap map[string]string) ([]string, error) {
 	// Create HTTP client with timeout
 	client := &http.Client{
 		Timeout: 60 * time.Second, // AI requests can take longer
 	}
 
 	// Build the prompt for AI reordering
-	prompt := a.buildReorderingPrompt(highlights)
+	prompt := a.buildReorderingPrompt(highlightMap)
 
 	// Create request payload
 	requestData := OpenRouterRequest{
@@ -1894,19 +1888,31 @@ func (a *App) callOpenRouterForReordering(apiKey string, highlights []map[string
 }
 
 // buildReorderingPrompt creates a prompt for the AI to reorder highlights intelligently
-func (a *App) buildReorderingPrompt(highlights []map[string]interface{}) string {
+func (a *App) buildReorderingPrompt(highlightMap map[string]string) string {
 	prompt := `You are an expert video editor tasked with reordering video highlight segments to create the most engaging and coherent narrative flow.
 
-Here are the video highlight segments with their details:
+Here are the video highlight segments:
 
 `
 
-	for i, highlight := range highlights {
-		prompt += fmt.Sprintf("%d. ID: %s\n", i+1, highlight["id"])
-		prompt += fmt.Sprintf("   Video: %s\n", highlight["videoClipName"])
-		prompt += fmt.Sprintf("   Text: %s\n", highlight["text"])
-		prompt += fmt.Sprintf("   Duration: %.1f seconds\n", highlight["duration"])
-		prompt += fmt.Sprintf("   Time: %.1fs - %.1fs\n\n", highlight["startTime"], highlight["endTime"])
+	// Convert map to sorted slice for consistent ordering in prompt
+	type highlightEntry struct {
+		id   string
+		text string
+	}
+	var entries []highlightEntry
+	for id, text := range highlightMap {
+		entries = append(entries, highlightEntry{id: id, text: text})
+	}
+	
+	// Sort entries by ID for consistent ordering
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].id < entries[j].id
+	})
+
+	for i, entry := range entries {
+		prompt += fmt.Sprintf("%d. ID: %s\n", i+1, entry.id)
+		prompt += fmt.Sprintf("   Content: %s\n\n", entry.text)
 	}
 
 	prompt += `Please analyze these segments and reorder them to create the best possible narrative flow. Consider:
