@@ -625,18 +625,29 @@
 
   // Reinitialize video player with new segment order
   async function reinitializeWithNewOrder(newHighlights = highlights) {
+    console.log("Reinitializing video player with new order:", newHighlights.map(h => h.id));
+    
+    // Pause and clean up existing movie
     if (movie) {
       movie.pause();
+      stopProgressTracking();
       movie = null;
     }
 
+    // Reset state
     isInitialized = false;
     currentTime = 0;
     currentHighlightIndex = 0;
+    initializationError = null;
 
     // Recreate the movie with the new order
     if (allVideosLoaded && newHighlights.length > 0 && canvasElement) {
-      await createEtroMovieWithOrder(newHighlights);
+      const success = await createEtroMovieWithOrder(newHighlights);
+      if (success) {
+        console.log("Video player successfully reinitialized with new order");
+      } else {
+        console.error("Failed to reinitialize video player with new order");
+      }
     }
   }
 
@@ -788,6 +799,30 @@
         );
         loadVideoURLs();
       }
+    }
+  });
+
+  // Watch for highlight order changes and reinitialize video composition
+  let previousHighlightIds = $state([]);
+  $effect(() => {
+    if (browser && highlights.length > 0 && isInitialized && allVideosLoaded) {
+      // Create a string of highlight IDs to detect order changes
+      const currentHighlightIds = highlights.map(h => h.id);
+      const currentIdsString = currentHighlightIds.join(',');
+      const previousIdsString = previousHighlightIds.join(',');
+      
+      // Check if the order has actually changed
+      if (previousIdsString !== '' && currentIdsString !== previousIdsString) {
+        console.log("Effect: Highlight order changed, reinitializing video player");
+        console.log("Previous order:", previousIdsString);
+        console.log("New order:", currentIdsString);
+        
+        // Reinitialize the video player with the new order
+        reinitializeWithNewOrder(highlights);
+      }
+      
+      // Update the previous IDs for next comparison
+      previousHighlightIds = [...currentHighlightIds];
     }
   });
 
