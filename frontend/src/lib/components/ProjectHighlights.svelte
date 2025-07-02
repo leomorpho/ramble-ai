@@ -13,6 +13,8 @@
   } from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button";
   import { Popover, PopoverContent, PopoverTrigger } from "$lib/components/ui/popover";
+  import { Textarea } from "$lib/components/ui/textarea";
+  import { Label } from "$lib/components/ui/label";
   import EtroVideoPlayer from "$lib/components/videoplayback/EtroVideoPlayer.svelte";
   import ClipEditor from "$lib/components/ClipEditor.svelte";
   import HighlightItem from "$lib/components/HighlightItem.svelte";
@@ -60,6 +62,7 @@
   let aiReorderLoading = $state(false);
   let aiReorderedHighlights = $state([]);
   let aiReorderError = $state('');
+  let customPrompt = $state('');
   
   // AI dialog drag state
   let aiDragStartIndex = $state(-1);
@@ -483,20 +486,29 @@
     dragStartPosition = null;
   }
 
-  // Handle AI reordering
-  async function handleAIReorder() {
+  // Handle AI reordering - opens dialog
+  function handleAIReorder() {
     if (!projectId || $orderedHighlights.length === 0) {
       toast.error('No highlights to reorder');
       return;
     }
 
+    // Reset state and open dialog
+    aiReorderLoading = false;
+    aiReorderError = '';
+    aiReorderedHighlights = [];
+    customPrompt = '';
+    aiReorderDialogOpen = true;
+  }
+
+  // Start the actual AI reordering process
+  async function startAIReordering() {
     aiReorderLoading = true;
     aiReorderError = '';
-    aiReorderDialogOpen = true;
 
     try {
       // Call the AI reordering API
-      const reorderedIds = await ReorderHighlightsWithAI(projectId);
+      const reorderedIds = await ReorderHighlightsWithAI(projectId, customPrompt);
       
       // Reorder the highlights based on AI suggestion
       const reorderedHighlights = [];
@@ -556,6 +568,7 @@
     aiReorderDialogOpen = false;
     aiReorderedHighlights = [];
     aiReorderError = '';
+    customPrompt = '';
   }
 
   // AI dialog drag handlers
@@ -654,6 +667,7 @@
     <div class="highlights-paragraph">
       <div 
         class="p-4 bg-muted/30 rounded-lg min-h-[80px] relative leading-relaxed text-base"
+        role="application"
         ondragover={(e) => handleContainerDragOver(e)}
         ondrop={(e) => handleContainerDrop(e)}
         ondragleave={handleContainerDragLeave}
@@ -853,9 +867,35 @@
         AI Reordered Highlights
       </DialogTitle>
       <DialogDescription>
-        AI has suggested a new order for your highlights to improve narrative flow and engagement.
+        Let AI suggest a new order for your highlights to maximize video quality and viewer engagement.
       </DialogDescription>
     </DialogHeader>
+    
+    <!-- Custom Prompt Input -->
+    {#if !aiReorderLoading && aiReorderedHighlights.length === 0 && !aiReorderError}
+      <div class="space-y-4">
+        <div class="space-y-2">
+          <Label for="custom-prompt">Custom Instructions (Optional)</Label>
+          <Textarea
+            id="custom-prompt"
+            bind:value={customPrompt}
+            placeholder="Enter custom instructions for AI reordering (e.g., 'Focus on creating suspense', 'Start with the most exciting moment', etc.). Leave empty to use default YouTube expert approach."
+            class="min-h-[100px] resize-none"
+            rows="4"
+          />
+          <p class="text-xs text-muted-foreground">
+            Default: Expert YouTuber approach focused on maximum engagement and retention
+          </p>
+        </div>
+        
+        <div class="flex justify-end">
+          <Button onclick={startAIReordering} class="flex items-center gap-2">
+            <Sparkles class="w-4 h-4" />
+            Generate AI Suggestions
+          </Button>
+        </div>
+      </div>
+    {/if}
     
     {#if aiReorderLoading}
       <div class="p-8 text-center">
@@ -864,10 +904,18 @@
         <p class="text-sm text-muted-foreground">This may take a few moments</p>
       </div>
     {:else if aiReorderError}
-      <div class="p-6 text-center">
+      <div class="p-6 text-center space-y-4">
         <div class="bg-destructive/10 text-destructive border border-destructive/20 rounded-lg p-4">
           <p class="font-medium">Error</p>
           <p class="text-sm">{aiReorderError}</p>
+        </div>
+        <div class="flex justify-center gap-2">
+          <Button variant="outline" onclick={() => { aiReorderError = ''; }}>
+            Try Again
+          </Button>
+          <Button variant="outline" onclick={cancelAIReordering}>
+            Cancel
+          </Button>
         </div>
       </div>
     {:else if aiReorderedHighlights.length > 0}
@@ -888,6 +936,8 @@
             {#each aiReorderedHighlights as highlight, index}
               <div 
                 class="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 transition-colors cursor-move border border-dashed border-transparent hover:border-border"
+                role="button"
+                tabindex="0"
                 draggable="true"
                 ondragstart={(e) => handleAIDragStart(e, index)}
                 ondragend={handleAIDragEnd}

@@ -110,8 +110,8 @@ export function RecoverActiveExportJobs() {
   return window['go']['main']['App']['RecoverActiveExportJobs']();
 }
 
-export function ReorderHighlightsWithAI(arg1) {
-  return window['go']['main']['App']['ReorderHighlightsWithAI'](arg1);
+export function ReorderHighlightsWithAI(arg1, arg2) {
+  return window['go']['main']['App']['ReorderHighlightsWithAI'](arg1, arg2);
 }
 
 export function SaveOpenAIApiKey(arg1) {

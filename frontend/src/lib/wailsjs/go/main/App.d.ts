@@ -56,7 +56,7 @@ export function Greet(arg1:string):Promise<string>;
 
 export function RecoverActiveExportJobs():Promise<void>;
 
-export function ReorderHighlightsWithAI(arg1:number):Promise<Array<string>>;
+export function ReorderHighlightsWithAI(arg1:number,arg2:string):Promise<Array<string>>;
 
 export function SaveOpenAIApiKey(arg1:string):Promise<void>;
 

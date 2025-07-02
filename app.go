@@ -1719,7 +1719,7 @@ func (a *App) GetProjectHighlightOrder(projectID int) ([]string, error) {
 }
 
 // ReorderHighlightsWithAI uses OpenRouter API to intelligently reorder highlights
-func (a *App) ReorderHighlightsWithAI(projectID int) ([]string, error) {
+func (a *App) ReorderHighlightsWithAI(projectID int, customPrompt string) ([]string, error) {
 	// Get OpenRouter API key
 	apiKey, err := a.GetOpenRouterApiKey()
 	if err != nil || apiKey == "" {
@@ -1752,7 +1752,7 @@ func (a *App) ReorderHighlightsWithAI(projectID int) ([]string, error) {
 	}
 
 	// Call OpenRouter API to get AI reordering
-	reorderedIDs, err := a.callOpenRouterForReordering(apiKey, highlightMap)
+	reorderedIDs, err := a.callOpenRouterForReordering(apiKey, highlightMap, customPrompt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get AI reordering: %w", err)
 	}
@@ -1808,14 +1808,14 @@ type Choice struct {
 }
 
 // callOpenRouterForReordering calls the OpenRouter API to get intelligent highlight reordering
-func (a *App) callOpenRouterForReordering(apiKey string, highlightMap map[string]string) ([]string, error) {
+func (a *App) callOpenRouterForReordering(apiKey string, highlightMap map[string]string, customPrompt string) ([]string, error) {
 	// Create HTTP client with timeout
 	client := &http.Client{
 		Timeout: 60 * time.Second, // AI requests can take longer
 	}
 
 	// Build the prompt for AI reordering
-	prompt := a.buildReorderingPrompt(highlightMap)
+	prompt := a.buildReorderingPrompt(highlightMap, customPrompt)
 
 	// Create request payload
 	requestData := OpenRouterRequest{
@@ -1888,8 +1888,26 @@ func (a *App) callOpenRouterForReordering(apiKey string, highlightMap map[string
 }
 
 // buildReorderingPrompt creates a prompt for the AI to reorder highlights intelligently
-func (a *App) buildReorderingPrompt(highlightMap map[string]string) string {
-	prompt := `You are an expert video editor tasked with reordering video highlight segments to create the most engaging and coherent narrative flow.
+func (a *App) buildReorderingPrompt(highlightMap map[string]string, customPrompt string) string {
+	// Use default YouTube expert prompt if no custom prompt provided
+	var basePrompt string
+	if customPrompt != "" {
+		basePrompt = customPrompt
+	} else {
+		basePrompt = `You are an expert YouTuber and content creator with millions of subscribers, known for creating highly engaging videos that maximize viewer retention and satisfaction. Your task is to reorder these video highlight segments to create the highest quality video possible.
+
+Reorder these segments using your expertise in:
+- Hook creation and audience retention
+- Storytelling and narrative structure
+- Pacing and rhythm for maximum engagement
+- Building emotional connections with viewers
+- Creating viral-worthy content flow
+- Strategic placement of key moments
+
+Feel free to completely restructure the order - move any segment to any position if it will improve video quality and viewer experience.`
+	}
+
+	prompt := basePrompt + `
 
 Here are the video highlight segments:
 
@@ -1915,15 +1933,11 @@ Here are the video highlight segments:
 		prompt += fmt.Sprintf("   Content: %s\n\n", entry.text)
 	}
 
-	prompt += `Please analyze these segments and reorder them to create the best possible narrative flow. Consider:
+	prompt += `
 
-1. Logical progression of ideas or topics
-2. Emotional arc and pacing
-3. Context and continuity between segments
-4. Natural transitions
-5. Engaging opening and strong conclusion
+Analyze these segments and reorder them to create the highest quality video possible for maximum viewer engagement and retention.
 
-Respond with ONLY a JSON array containing the highlight IDs in the new order. Do not include any explanation or additional text.
+IMPORTANT: Respond with ONLY a JSON array containing the highlight IDs in the new order. Do not include any explanation, reasoning, or additional text.
 
 Example format: ["id1", "id2", "id3", ...]`
 
