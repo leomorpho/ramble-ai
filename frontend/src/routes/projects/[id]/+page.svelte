@@ -25,6 +25,7 @@
   import ProjectHighlights from "$lib/components/ProjectHighlights.svelte";
   import ThemeSwitcher from "$lib/components/ui/theme-switcher/theme-switcher.svelte";
   import VideoClipCard from "$lib/components/VideoClipCard.svelte";
+  import EtroVideoPlayer from "$lib/components/videoplayback/EtroVideoPlayer.svelte";
   import { Captions, Mic, Video, Download, FolderOpen } from "@lucide/svelte";
 
   let project = $state(null);
@@ -53,6 +54,21 @@
   let transcriptionDialogOpen = $state(false);
   let transcriptionVideo = $state(null);
   let transcribingClips = $state(new Set());
+  
+  // Transcript video player state (separate from main highlights)
+  let transcriptPlayerHighlights = $state([]);
+  
+  // Derived highlights formatted for EtroVideoPlayer (adds filePath from transcriptionVideo)
+  let formattedTranscriptHighlights = $derived(
+    transcriptionVideo && transcriptPlayerHighlights.length > 0 
+      ? transcriptPlayerHighlights.map(highlight => ({
+          ...highlight,
+          filePath: transcriptionVideo.filePath,
+          videoClipId: transcriptionVideo.id,
+          videoClipName: transcriptionVideo.name
+        }))
+      : []
+  );
   
   // Highlights component reference
   let projectHighlightsComponent = $state(null);
@@ -601,6 +617,9 @@
 
   function viewTranscription(clip) {
     transcriptionVideo = clip;
+    // Initialize transcript player with the clip's highlights as a separate state
+    // This player will only show segments from highlights created in this specific transcript
+    transcriptPlayerHighlights = clip.highlights ? [...clip.highlights] : [];
     transcriptionDialogOpen = true;
   }
 
@@ -625,6 +644,9 @@
         ...transcriptionVideo,
         highlights: highlights
       };
+      
+      // Update the transcript player highlights (local state for the video player in this dialog)
+      transcriptPlayerHighlights = [...highlights];
       
       // Refresh the highlights timeline
       if (projectHighlightsComponent) {
@@ -1410,7 +1432,7 @@
 
 <!-- Transcription Viewer Dialog -->
 <Dialog bind:open={transcriptionDialogOpen}>
-  <DialogContent class="sm:max-w-[700px] max-h-[85vh]">
+  <DialogContent class="sm:max-w-[1200px] max-h-[90vh] flex flex-col">
     <DialogHeader>
       <DialogTitle>Video Transcript</DialogTitle>
       <DialogDescription>
@@ -1420,21 +1442,36 @@
       </DialogDescription>
     </DialogHeader>
     
-    <div class="overflow-y-auto max-h-[60vh]">
-      {#if transcriptionVideo}
+    <div class="flex-1 overflow-y-auto pr-2">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
+        <!-- Video Player Column -->
         <div class="space-y-4">
-          <!-- Video info -->
-          <div class="flex items-center gap-3 p-3 bg-secondary/30 rounded-lg">
-            <svg class="w-6 h-6 text-muted-foreground flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-            <div class="flex-1 min-w-0">
-              <p class="font-medium truncate">{transcriptionVideo.name}</p>
-              <p class="text-sm text-muted-foreground truncate">{transcriptionVideo.fileName}</p>
+          {#if transcriptionVideo}
+            <div class="flex items-center gap-3 p-3 bg-secondary/30 rounded-lg">
+              <svg class="w-6 h-6 text-muted-foreground flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              <div class="flex-1 min-w-0">
+                <p class="font-medium truncate">{transcriptionVideo.name}</p>
+                <p class="text-sm text-muted-foreground truncate">{transcriptionVideo.fileName}</p>
+              </div>
             </div>
-          </div>
+            
+            <!-- Video Player -->
+            <div class="bg-background border rounded-lg p-4">
+              <h3 class="font-medium mb-3">Video Preview</h3>
+              <EtroVideoPlayer 
+                highlights={formattedTranscriptHighlights}
+                projectId={projectId}
+              />
+            </div>
+          {/if}
+        </div>
         
-          <!-- Transcript content with tabs -->
+        <!-- Transcript Column -->
+        <div class="space-y-4">
+          {#if transcriptionVideo}
+            <!-- Transcript content with tabs -->
           {#if transcriptionVideo.transcription}
             <div class="space-y-3">
               <div class="flex items-center justify-between">
@@ -1533,8 +1570,9 @@
               </div>
             </div>
           {/if}
+          {/if}
         </div>
-      {/if}
+      </div>
     </div>
     
     <!-- Fixed footer buttons -->

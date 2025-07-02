@@ -106,6 +106,7 @@ export namespace main {
 	}
 	export class ProjectAISuggestion {
 	    order: string[];
+	    model: string;
 	    // Go type: time
 	    createdAt: any;
 	
@@ -116,6 +117,7 @@ export namespace main {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.order = source["order"];
+	        this.model = source["model"];
 	        this.createdAt = this.convertValues(source["createdAt"], null);
 	    }
 	

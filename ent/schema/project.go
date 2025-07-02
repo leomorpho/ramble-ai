@@ -42,6 +42,9 @@ func (Project) Fields() []ent.Field {
 		field.JSON("ai_suggestion_order", []string{}).
 			Optional().
 			Comment("Cached AI-suggested highlight order (array of highlight IDs)"),
+		field.String("ai_suggestion_model").
+			Optional().
+			Comment("AI model used for the cached suggestion"),
 		field.Time("ai_suggestion_created_at").
 			Optional().
 			Comment("When the AI suggestion was created"),

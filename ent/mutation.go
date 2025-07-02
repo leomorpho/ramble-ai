@@ -1360,6 +1360,7 @@ type ProjectMutation struct {
 	ai_prompt                 *string
 	ai_suggestion_order       *[]string
 	appendai_suggestion_order []string
+	ai_suggestion_model       *string
 	ai_suggestion_created_at  *time.Time
 	clearedFields             map[string]struct{}
 	video_clips               map[int]struct{}
@@ -1827,6 +1828,55 @@ func (m *ProjectMutation) ResetAiSuggestionOrder() {
 	delete(m.clearedFields, project.FieldAiSuggestionOrder)
 }
 
+// SetAiSuggestionModel sets the "ai_suggestion_model" field.
+func (m *ProjectMutation) SetAiSuggestionModel(s string) {
+	m.ai_suggestion_model = &s
+}
+
+// AiSuggestionModel returns the value of the "ai_suggestion_model" field in the mutation.
+func (m *ProjectMutation) AiSuggestionModel() (r string, exists bool) {
+	v := m.ai_suggestion_model
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAiSuggestionModel returns the old "ai_suggestion_model" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldAiSuggestionModel(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAiSuggestionModel is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAiSuggestionModel requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAiSuggestionModel: %w", err)
+	}
+	return oldValue.AiSuggestionModel, nil
+}
+
+// ClearAiSuggestionModel clears the value of the "ai_suggestion_model" field.
+func (m *ProjectMutation) ClearAiSuggestionModel() {
+	m.ai_suggestion_model = nil
+	m.clearedFields[project.FieldAiSuggestionModel] = struct{}{}
+}
+
+// AiSuggestionModelCleared returns if the "ai_suggestion_model" field was cleared in this mutation.
+func (m *ProjectMutation) AiSuggestionModelCleared() bool {
+	_, ok := m.clearedFields[project.FieldAiSuggestionModel]
+	return ok
+}
+
+// ResetAiSuggestionModel resets all changes to the "ai_suggestion_model" field.
+func (m *ProjectMutation) ResetAiSuggestionModel() {
+	m.ai_suggestion_model = nil
+	delete(m.clearedFields, project.FieldAiSuggestionModel)
+}
+
 // SetAiSuggestionCreatedAt sets the "ai_suggestion_created_at" field.
 func (m *ProjectMutation) SetAiSuggestionCreatedAt(t time.Time) {
 	m.ai_suggestion_created_at = &t
@@ -2018,7 +2068,7 @@ func (m *ProjectMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProjectMutation) Fields() []string {
-	fields := make([]string, 0, 9)
+	fields := make([]string, 0, 10)
 	if m.name != nil {
 		fields = append(fields, project.FieldName)
 	}
@@ -2042,6 +2092,9 @@ func (m *ProjectMutation) Fields() []string {
 	}
 	if m.ai_suggestion_order != nil {
 		fields = append(fields, project.FieldAiSuggestionOrder)
+	}
+	if m.ai_suggestion_model != nil {
+		fields = append(fields, project.FieldAiSuggestionModel)
 	}
 	if m.ai_suggestion_created_at != nil {
 		fields = append(fields, project.FieldAiSuggestionCreatedAt)
@@ -2070,6 +2123,8 @@ func (m *ProjectMutation) Field(name string) (ent.Value, bool) {
 		return m.AiPrompt()
 	case project.FieldAiSuggestionOrder:
 		return m.AiSuggestionOrder()
+	case project.FieldAiSuggestionModel:
+		return m.AiSuggestionModel()
 	case project.FieldAiSuggestionCreatedAt:
 		return m.AiSuggestionCreatedAt()
 	}
@@ -2097,6 +2152,8 @@ func (m *ProjectMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldAiPrompt(ctx)
 	case project.FieldAiSuggestionOrder:
 		return m.OldAiSuggestionOrder(ctx)
+	case project.FieldAiSuggestionModel:
+		return m.OldAiSuggestionModel(ctx)
 	case project.FieldAiSuggestionCreatedAt:
 		return m.OldAiSuggestionCreatedAt(ctx)
 	}
@@ -2164,6 +2221,13 @@ func (m *ProjectMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetAiSuggestionOrder(v)
 		return nil
+	case project.FieldAiSuggestionModel:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAiSuggestionModel(v)
+		return nil
 	case project.FieldAiSuggestionCreatedAt:
 		v, ok := value.(time.Time)
 		if !ok {
@@ -2213,6 +2277,9 @@ func (m *ProjectMutation) ClearedFields() []string {
 	if m.FieldCleared(project.FieldAiSuggestionOrder) {
 		fields = append(fields, project.FieldAiSuggestionOrder)
 	}
+	if m.FieldCleared(project.FieldAiSuggestionModel) {
+		fields = append(fields, project.FieldAiSuggestionModel)
+	}
 	if m.FieldCleared(project.FieldAiSuggestionCreatedAt) {
 		fields = append(fields, project.FieldAiSuggestionCreatedAt)
 	}
@@ -2241,6 +2308,9 @@ func (m *ProjectMutation) ClearField(name string) error {
 		return nil
 	case project.FieldAiSuggestionOrder:
 		m.ClearAiSuggestionOrder()
+		return nil
+	case project.FieldAiSuggestionModel:
+		m.ClearAiSuggestionModel()
 		return nil
 	case project.FieldAiSuggestionCreatedAt:
 		m.ClearAiSuggestionCreatedAt()
@@ -2276,6 +2346,9 @@ func (m *ProjectMutation) ResetField(name string) error {
 		return nil
 	case project.FieldAiSuggestionOrder:
 		m.ResetAiSuggestionOrder()
+		return nil
+	case project.FieldAiSuggestionModel:
+		m.ResetAiSuggestionModel()
 		return nil
 	case project.FieldAiSuggestionCreatedAt:
 		m.ResetAiSuggestionCreatedAt()

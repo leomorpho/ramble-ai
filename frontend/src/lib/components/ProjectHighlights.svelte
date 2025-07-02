@@ -67,6 +67,9 @@
   let selectedModel = $state('anthropic/claude-3-haiku-20240307');
   let hasCachedSuggestion = $state(false);
   let cachedSuggestionDate = $state(null);
+  let cachedSuggestionModel = $state('');
+  let showOriginalForm = $state(false);
+  let originalHighlights = $state([]);
   
   // AI dialog independent state (separate from main page)
   let aiDialogHighlights = $state([]); // Independent copy of highlights for AI dialog
@@ -540,9 +543,12 @@ Feel free to completely restructure the order - move any segment to any position
     aiReorderedHighlights = [];
     hasCachedSuggestion = false;
     cachedSuggestionDate = null;
+    cachedSuggestionModel = '';
+    showOriginalForm = false;
     
     // Initialize AI dialog with independent copy of current highlights
     aiDialogHighlights = [...$orderedHighlights];
+    originalHighlights = [...$orderedHighlights]; // Store original order
     aiSelectedHighlights.clear();
     aiIsDragging = false;
     aiDraggedHighlights = [];
@@ -599,7 +605,21 @@ Feel free to completely restructure the order - move any segment to any position
           aiDialogHighlights = reorderedHighlights;
           hasCachedSuggestion = true;
           cachedSuggestionDate = new Date(cachedSuggestion.createdAt);
-          console.log('Loaded cached AI suggestion from', cachedSuggestionDate);
+          cachedSuggestionModel = cachedSuggestion.model || '';
+          
+          // Preselect the last used model if available
+          if (cachedSuggestion.model) {
+            // Check if the cached model is in available models
+            if (availableModels.find(m => m.value === cachedSuggestion.model)) {
+              selectedModel = cachedSuggestion.model;
+            } else {
+              // It's a custom model
+              customModelValue = cachedSuggestion.model;
+              selectedModel = 'custom';
+            }
+          }
+          
+          console.log('Loaded cached AI suggestion from', cachedSuggestionDate, 'with model:', cachedSuggestion.model);
         }
       }
     } catch (error) {
@@ -607,6 +627,7 @@ Feel free to completely restructure the order - move any segment to any position
       // Not an error - just means no cached suggestion exists
       hasCachedSuggestion = false;
       cachedSuggestionDate = null;
+      cachedSuggestionModel = '';
     }
     
     aiReorderDialogOpen = true;
@@ -659,6 +680,7 @@ Feel free to completely restructure the order - move any segment to any position
       // Update cache state - we now have a fresh suggestion
       hasCachedSuggestion = true;
       cachedSuggestionDate = new Date();
+      showOriginalForm = true; // Show reset option after AI generation
       
       toast.success('AI reordering completed!');
     } catch (error) {
@@ -686,6 +708,17 @@ Feel free to completely restructure the order - move any segment to any position
       console.error('Error applying AI reordering:', error);
       toast.error('Failed to apply AI reordering');
     }
+  }
+
+  // Reset to original highlights before AI generation
+  function resetToOriginal() {
+    aiDialogHighlights = [...originalHighlights];
+    aiReorderedHighlights = [];
+    showOriginalForm = false;
+    hasCachedSuggestion = false;
+    cachedSuggestionDate = null;
+    cachedSuggestionModel = '';
+    toast.success('Reset to original highlight order');
   }
 
   // Cancel AI reordering
@@ -1014,7 +1047,7 @@ Feel free to completely restructure the order - move any segment to any position
 
 <!-- AI Reordering Dialog -->
 <Dialog bind:open={aiReorderDialogOpen}>
-  <DialogContent class="sm:max-w-[900px] max-h-[90vh] overflow-hidden">
+  <DialogContent class="sm:max-w-[900px] max-h-[90vh] flex flex-col">
     <DialogHeader>
       <DialogTitle class="flex items-center gap-2">
         <Sparkles class="w-5 h-5" />
@@ -1024,6 +1057,8 @@ Feel free to completely restructure the order - move any segment to any position
         Let AI suggest a new order for your highlights to maximize video quality and viewer engagement.
       </DialogDescription>
     </DialogHeader>
+    
+    <div class="flex-1 overflow-y-auto pr-2">
     
     <!-- AI Settings -->
     {#if !aiReorderLoading && aiReorderedHighlights.length === 0 && !aiReorderError}
@@ -1071,6 +1106,9 @@ Feel free to completely restructure the order - move any segment to any position
           <div class="p-3 bg-secondary rounded-lg">
             <p class="text-sm text-muted-foreground">
               <strong>Cached AI Suggestion:</strong> Loaded from {cachedSuggestionDate.toLocaleString()}
+              {#if cachedSuggestionModel}
+                <br><strong>Model used:</strong> {availableModels.find(m => m.value === cachedSuggestionModel)?.label || cachedSuggestionModel}
+              {/if}
             </p>
           </div>
         {/if}
@@ -1134,7 +1172,7 @@ Feel free to completely restructure the order - move any segment to any position
         </div>
       </div>
     {:else if aiDialogHighlights.length > 0}
-      <div class="space-y-4 max-h-[60vh] overflow-y-auto">
+      <div class="space-y-4">
         <!-- Preview Video Player -->
         <div class="bg-card border rounded-lg p-4">
           <h3 class="text-sm font-medium mb-3 flex items-center gap-2">
@@ -1189,16 +1227,27 @@ Feel free to completely restructure the order - move any segment to any position
       </div>
     {/if}
     
-    <div class="flex justify-end gap-2 mt-4">
-      <Button variant="outline" onclick={cancelAIReordering} disabled={aiReorderLoading}>
-        Cancel
-      </Button>
-      {#if aiReorderedHighlights.length > 0}
-        <Button onclick={applyAIReordering} class="flex items-center gap-2">
-          <Sparkles class="w-4 h-4" />
-          Apply AI Order
+    </div>
+    
+    <div class="flex justify-between gap-2 mt-4 pt-2 border-t">
+      <div class="flex gap-2">
+        {#if showOriginalForm}
+          <Button variant="outline" onclick={resetToOriginal} disabled={aiReorderLoading}>
+            Reset to Original
+          </Button>
+        {/if}
+      </div>
+      <div class="flex gap-2">
+        <Button variant="outline" onclick={cancelAIReordering} disabled={aiReorderLoading}>
+          Cancel
         </Button>
-      {/if}
+        {#if aiReorderedHighlights.length > 0}
+          <Button onclick={applyAIReordering} class="flex items-center gap-2">
+            <Sparkles class="w-4 h-4" />
+            Apply AI Order
+          </Button>
+        {/if}
+      </div>
     </div>
   </DialogContent>
 </Dialog>

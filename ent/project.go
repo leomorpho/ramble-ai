@@ -34,6 +34,8 @@ type Project struct {
 	AiPrompt string `json:"ai_prompt,omitempty"`
 	// Cached AI-suggested highlight order (array of highlight IDs)
 	AiSuggestionOrder []string `json:"ai_suggestion_order,omitempty"`
+	// AI model used for the cached suggestion
+	AiSuggestionModel string `json:"ai_suggestion_model,omitempty"`
 	// When the AI suggestion was created
 	AiSuggestionCreatedAt time.Time `json:"ai_suggestion_created_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -80,7 +82,7 @@ func (*Project) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case project.FieldID:
 			values[i] = new(sql.NullInt64)
-		case project.FieldName, project.FieldDescription, project.FieldPath, project.FieldAiModel, project.FieldAiPrompt:
+		case project.FieldName, project.FieldDescription, project.FieldPath, project.FieldAiModel, project.FieldAiPrompt, project.FieldAiSuggestionModel:
 			values[i] = new(sql.NullString)
 		case project.FieldCreatedAt, project.FieldUpdatedAt, project.FieldAiSuggestionCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -154,6 +156,12 @@ func (pr *Project) assignValues(columns []string, values []any) error {
 				if err := json.Unmarshal(*value, &pr.AiSuggestionOrder); err != nil {
 					return fmt.Errorf("unmarshal field ai_suggestion_order: %w", err)
 				}
+			}
+		case project.FieldAiSuggestionModel:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field ai_suggestion_model", values[i])
+			} else if value.Valid {
+				pr.AiSuggestionModel = value.String
 			}
 		case project.FieldAiSuggestionCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -230,6 +238,9 @@ func (pr *Project) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("ai_suggestion_order=")
 	builder.WriteString(fmt.Sprintf("%v", pr.AiSuggestionOrder))
+	builder.WriteString(", ")
+	builder.WriteString("ai_suggestion_model=")
+	builder.WriteString(pr.AiSuggestionModel)
 	builder.WriteString(", ")
 	builder.WriteString("ai_suggestion_created_at=")
 	builder.WriteString(pr.AiSuggestionCreatedAt.Format(time.ANSIC))

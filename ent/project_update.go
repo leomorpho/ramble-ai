@@ -157,6 +157,26 @@ func (pu *ProjectUpdate) ClearAiSuggestionOrder() *ProjectUpdate {
 	return pu
 }
 
+// SetAiSuggestionModel sets the "ai_suggestion_model" field.
+func (pu *ProjectUpdate) SetAiSuggestionModel(s string) *ProjectUpdate {
+	pu.mutation.SetAiSuggestionModel(s)
+	return pu
+}
+
+// SetNillableAiSuggestionModel sets the "ai_suggestion_model" field if the given value is not nil.
+func (pu *ProjectUpdate) SetNillableAiSuggestionModel(s *string) *ProjectUpdate {
+	if s != nil {
+		pu.SetAiSuggestionModel(*s)
+	}
+	return pu
+}
+
+// ClearAiSuggestionModel clears the value of the "ai_suggestion_model" field.
+func (pu *ProjectUpdate) ClearAiSuggestionModel() *ProjectUpdate {
+	pu.mutation.ClearAiSuggestionModel()
+	return pu
+}
+
 // SetAiSuggestionCreatedAt sets the "ai_suggestion_created_at" field.
 func (pu *ProjectUpdate) SetAiSuggestionCreatedAt(t time.Time) *ProjectUpdate {
 	pu.mutation.SetAiSuggestionCreatedAt(t)
@@ -357,6 +377,12 @@ func (pu *ProjectUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if pu.mutation.AiSuggestionOrderCleared() {
 		_spec.ClearField(project.FieldAiSuggestionOrder, field.TypeJSON)
+	}
+	if value, ok := pu.mutation.AiSuggestionModel(); ok {
+		_spec.SetField(project.FieldAiSuggestionModel, field.TypeString, value)
+	}
+	if pu.mutation.AiSuggestionModelCleared() {
+		_spec.ClearField(project.FieldAiSuggestionModel, field.TypeString)
 	}
 	if value, ok := pu.mutation.AiSuggestionCreatedAt(); ok {
 		_spec.SetField(project.FieldAiSuggestionCreatedAt, field.TypeTime, value)
@@ -600,6 +626,26 @@ func (puo *ProjectUpdateOne) ClearAiSuggestionOrder() *ProjectUpdateOne {
 	return puo
 }
 
+// SetAiSuggestionModel sets the "ai_suggestion_model" field.
+func (puo *ProjectUpdateOne) SetAiSuggestionModel(s string) *ProjectUpdateOne {
+	puo.mutation.SetAiSuggestionModel(s)
+	return puo
+}
+
+// SetNillableAiSuggestionModel sets the "ai_suggestion_model" field if the given value is not nil.
+func (puo *ProjectUpdateOne) SetNillableAiSuggestionModel(s *string) *ProjectUpdateOne {
+	if s != nil {
+		puo.SetAiSuggestionModel(*s)
+	}
+	return puo
+}
+
+// ClearAiSuggestionModel clears the value of the "ai_suggestion_model" field.
+func (puo *ProjectUpdateOne) ClearAiSuggestionModel() *ProjectUpdateOne {
+	puo.mutation.ClearAiSuggestionModel()
+	return puo
+}
+
 // SetAiSuggestionCreatedAt sets the "ai_suggestion_created_at" field.
 func (puo *ProjectUpdateOne) SetAiSuggestionCreatedAt(t time.Time) *ProjectUpdateOne {
 	puo.mutation.SetAiSuggestionCreatedAt(t)
@@ -830,6 +876,12 @@ func (puo *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err e
 	}
 	if puo.mutation.AiSuggestionOrderCleared() {
 		_spec.ClearField(project.FieldAiSuggestionOrder, field.TypeJSON)
+	}
+	if value, ok := puo.mutation.AiSuggestionModel(); ok {
+		_spec.SetField(project.FieldAiSuggestionModel, field.TypeString, value)
+	}
+	if puo.mutation.AiSuggestionModelCleared() {
+		_spec.ClearField(project.FieldAiSuggestionModel, field.TypeString)
 	}
 	if value, ok := puo.mutation.AiSuggestionCreatedAt(); ok {
 		_spec.SetField(project.FieldAiSuggestionCreatedAt, field.TypeTime, value)

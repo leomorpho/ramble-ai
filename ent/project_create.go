@@ -110,6 +110,20 @@ func (pc *ProjectCreate) SetAiSuggestionOrder(s []string) *ProjectCreate {
 	return pc
 }
 
+// SetAiSuggestionModel sets the "ai_suggestion_model" field.
+func (pc *ProjectCreate) SetAiSuggestionModel(s string) *ProjectCreate {
+	pc.mutation.SetAiSuggestionModel(s)
+	return pc
+}
+
+// SetNillableAiSuggestionModel sets the "ai_suggestion_model" field if the given value is not nil.
+func (pc *ProjectCreate) SetNillableAiSuggestionModel(s *string) *ProjectCreate {
+	if s != nil {
+		pc.SetAiSuggestionModel(*s)
+	}
+	return pc
+}
+
 // SetAiSuggestionCreatedAt sets the "ai_suggestion_created_at" field.
 func (pc *ProjectCreate) SetAiSuggestionCreatedAt(t time.Time) *ProjectCreate {
 	pc.mutation.SetAiSuggestionCreatedAt(t)
@@ -284,6 +298,10 @@ func (pc *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 	if value, ok := pc.mutation.AiSuggestionOrder(); ok {
 		_spec.SetField(project.FieldAiSuggestionOrder, field.TypeJSON, value)
 		_node.AiSuggestionOrder = value
+	}
+	if value, ok := pc.mutation.AiSuggestionModel(); ok {
+		_spec.SetField(project.FieldAiSuggestionModel, field.TypeString, value)
+		_node.AiSuggestionModel = value
 	}
 	if value, ok := pc.mutation.AiSuggestionCreatedAt(); ok {
 		_spec.SetField(project.FieldAiSuggestionCreatedAt, field.TypeTime, value)

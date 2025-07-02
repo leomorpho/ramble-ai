@@ -90,6 +90,11 @@ func AiPrompt(v string) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldAiPrompt, v))
 }
 
+// AiSuggestionModel applies equality check predicate on the "ai_suggestion_model" field. It's identical to AiSuggestionModelEQ.
+func AiSuggestionModel(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldAiSuggestionModel, v))
+}
+
 // AiSuggestionCreatedAt applies equality check predicate on the "ai_suggestion_created_at" field. It's identical to AiSuggestionCreatedAtEQ.
 func AiSuggestionCreatedAt(v time.Time) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldAiSuggestionCreatedAt, v))
@@ -538,6 +543,81 @@ func AiSuggestionOrderIsNil() predicate.Project {
 // AiSuggestionOrderNotNil applies the NotNil predicate on the "ai_suggestion_order" field.
 func AiSuggestionOrderNotNil() predicate.Project {
 	return predicate.Project(sql.FieldNotNull(FieldAiSuggestionOrder))
+}
+
+// AiSuggestionModelEQ applies the EQ predicate on the "ai_suggestion_model" field.
+func AiSuggestionModelEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldAiSuggestionModel, v))
+}
+
+// AiSuggestionModelNEQ applies the NEQ predicate on the "ai_suggestion_model" field.
+func AiSuggestionModelNEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldNEQ(FieldAiSuggestionModel, v))
+}
+
+// AiSuggestionModelIn applies the In predicate on the "ai_suggestion_model" field.
+func AiSuggestionModelIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldIn(FieldAiSuggestionModel, vs...))
+}
+
+// AiSuggestionModelNotIn applies the NotIn predicate on the "ai_suggestion_model" field.
+func AiSuggestionModelNotIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldNotIn(FieldAiSuggestionModel, vs...))
+}
+
+// AiSuggestionModelGT applies the GT predicate on the "ai_suggestion_model" field.
+func AiSuggestionModelGT(v string) predicate.Project {
+	return predicate.Project(sql.FieldGT(FieldAiSuggestionModel, v))
+}
+
+// AiSuggestionModelGTE applies the GTE predicate on the "ai_suggestion_model" field.
+func AiSuggestionModelGTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldGTE(FieldAiSuggestionModel, v))
+}
+
+// AiSuggestionModelLT applies the LT predicate on the "ai_suggestion_model" field.
+func AiSuggestionModelLT(v string) predicate.Project {
+	return predicate.Project(sql.FieldLT(FieldAiSuggestionModel, v))
+}
+
+// AiSuggestionModelLTE applies the LTE predicate on the "ai_suggestion_model" field.
+func AiSuggestionModelLTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldLTE(FieldAiSuggestionModel, v))
+}
+
+// AiSuggestionModelContains applies the Contains predicate on the "ai_suggestion_model" field.
+func AiSuggestionModelContains(v string) predicate.Project {
+	return predicate.Project(sql.FieldContains(FieldAiSuggestionModel, v))
+}
+
+// AiSuggestionModelHasPrefix applies the HasPrefix predicate on the "ai_suggestion_model" field.
+func AiSuggestionModelHasPrefix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasPrefix(FieldAiSuggestionModel, v))
+}
+
+// AiSuggestionModelHasSuffix applies the HasSuffix predicate on the "ai_suggestion_model" field.
+func AiSuggestionModelHasSuffix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasSuffix(FieldAiSuggestionModel, v))
+}
+
+// AiSuggestionModelIsNil applies the IsNil predicate on the "ai_suggestion_model" field.
+func AiSuggestionModelIsNil() predicate.Project {
+	return predicate.Project(sql.FieldIsNull(FieldAiSuggestionModel))
+}
+
+// AiSuggestionModelNotNil applies the NotNil predicate on the "ai_suggestion_model" field.
+func AiSuggestionModelNotNil() predicate.Project {
+	return predicate.Project(sql.FieldNotNull(FieldAiSuggestionModel))
+}
+
+// AiSuggestionModelEqualFold applies the EqualFold predicate on the "ai_suggestion_model" field.
+func AiSuggestionModelEqualFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldEqualFold(FieldAiSuggestionModel, v))
+}
+
+// AiSuggestionModelContainsFold applies the ContainsFold predicate on the "ai_suggestion_model" field.
+func AiSuggestionModelContainsFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldContainsFold(FieldAiSuggestionModel, v))
 }
 
 // AiSuggestionCreatedAtEQ applies the EQ predicate on the "ai_suggestion_created_at" field.

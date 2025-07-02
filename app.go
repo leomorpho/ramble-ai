@@ -1797,7 +1797,7 @@ func (a *App) ReorderHighlightsWithAI(projectID int, customPrompt string) ([]str
 	}
 
 	// Save AI suggestion to database
-	err = a.saveAISuggestion(projectID, reorderedIDs)
+	err = a.saveAISuggestion(projectID, reorderedIDs, aiSettings.AIModel)
 	if err != nil {
 		log.Printf("Failed to save AI suggestion to database: %v", err)
 		// Don't fail the request if saving fails, just log the error
@@ -2925,14 +2925,16 @@ func (a *App) SaveProjectAISettings(projectID int, settings ProjectAISettings) e
 // ProjectAISuggestion represents an AI suggestion for a project
 type ProjectAISuggestion struct {
 	Order     []string  `json:"order"`
+	Model     string    `json:"model"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
 // saveAISuggestion saves the AI suggestion to the database (internal helper)
-func (a *App) saveAISuggestion(projectID int, reorderedIDs []string) error {
+func (a *App) saveAISuggestion(projectID int, reorderedIDs []string, model string) error {
 	_, err := a.client.Project.
 		UpdateOneID(projectID).
 		SetAiSuggestionOrder(reorderedIDs).
+		SetAiSuggestionModel(model).
 		SetAiSuggestionCreatedAt(time.Now()).
 		Save(a.ctx)
 	
@@ -2961,6 +2963,7 @@ func (a *App) GetProjectAISuggestion(projectID int) (*ProjectAISuggestion, error
 
 	return &ProjectAISuggestion{
 		Order:     project.AiSuggestionOrder,
+		Model:     project.AiSuggestionModel,
 		CreatedAt: project.AiSuggestionCreatedAt,
 	}, nil
 }

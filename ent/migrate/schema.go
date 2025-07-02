@@ -53,6 +53,7 @@ var (
 		{Name: "ai_model", Type: field.TypeString, Nullable: true, Default: "anthropic/claude-3-haiku-20240307"},
 		{Name: "ai_prompt", Type: field.TypeString, Nullable: true, Size: 2147483647},
 		{Name: "ai_suggestion_order", Type: field.TypeJSON, Nullable: true},
+		{Name: "ai_suggestion_model", Type: field.TypeString, Nullable: true},
 		{Name: "ai_suggestion_created_at", Type: field.TypeTime, Nullable: true},
 	}
 	// ProjectsTable holds the schema information for the "projects" table.

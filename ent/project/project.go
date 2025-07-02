@@ -30,6 +30,8 @@ const (
 	FieldAiPrompt = "ai_prompt"
 	// FieldAiSuggestionOrder holds the string denoting the ai_suggestion_order field in the database.
 	FieldAiSuggestionOrder = "ai_suggestion_order"
+	// FieldAiSuggestionModel holds the string denoting the ai_suggestion_model field in the database.
+	FieldAiSuggestionModel = "ai_suggestion_model"
 	// FieldAiSuggestionCreatedAt holds the string denoting the ai_suggestion_created_at field in the database.
 	FieldAiSuggestionCreatedAt = "ai_suggestion_created_at"
 	// EdgeVideoClips holds the string denoting the video_clips edge name in mutations.
@@ -65,6 +67,7 @@ var Columns = []string{
 	FieldAiModel,
 	FieldAiPrompt,
 	FieldAiSuggestionOrder,
+	FieldAiSuggestionModel,
 	FieldAiSuggestionCreatedAt,
 }
 
@@ -134,6 +137,11 @@ func ByAiModel(opts ...sql.OrderTermOption) OrderOption {
 // ByAiPrompt orders the results by the ai_prompt field.
 func ByAiPrompt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAiPrompt, opts...).ToFunc()
+}
+
+// ByAiSuggestionModel orders the results by the ai_suggestion_model field.
+func ByAiSuggestionModel(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAiSuggestionModel, opts...).ToFunc()
 }
 
 // ByAiSuggestionCreatedAt orders the results by the ai_suggestion_created_at field.
