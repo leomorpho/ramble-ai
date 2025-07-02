@@ -27,6 +27,8 @@
   import ThemeSwitcher from "$lib/components/ui/theme-switcher/theme-switcher.svelte";
   import VideoClipCard from "$lib/components/VideoClipCard.svelte";
   import EtroVideoPlayer from "$lib/components/videoplayback/EtroVideoPlayer.svelte";
+  import VideoTranscriptViewer from "$lib/components/VideoTranscriptViewer.svelte";
+  import VideoPreviewDialog from "$lib/components/VideoPreviewDialog.svelte";
   import { Captions, Mic, Video, Download, FolderOpen } from "@lucide/svelte";
 
   let project = $state(null);
@@ -49,27 +51,11 @@
   // Video preview state
   let previewDialogOpen = $state(false);
   let previewVideo = $state(null);
-  let videoURL = $state("");
   
   // Transcription state
   let transcriptionDialogOpen = $state(false);
   let transcriptionVideo = $state(null);
   let transcribingClips = $state(new Set());
-  
-  // Transcript video player state (separate from main highlights)
-  let transcriptPlayerHighlights = $state([]);
-  
-  // Derived highlights formatted for EtroVideoPlayer (adds filePath from transcriptionVideo)
-  let formattedTranscriptHighlights = $derived(
-    transcriptionVideo && transcriptPlayerHighlights.length > 0 
-      ? transcriptPlayerHighlights.map(highlight => ({
-          ...highlight,
-          filePath: transcriptionVideo.filePath,
-          videoClipId: transcriptionVideo.id,
-          videoClipName: transcriptionVideo.name
-        }))
-      : []
-  );
   
   // Highlights component reference
   let projectHighlightsComponent = $state(null);
@@ -523,16 +509,6 @@
 
   async function openPreview(clip) {
     previewVideo = clip;
-    
-    // Get video URL for playback
-    try {
-      const url = await GetVideoURL(clip.filePath);
-      videoURL = url;
-    } catch (err) {
-      console.error("Failed to get video URL:", err);
-      videoURL = "";
-    }
-    
     previewDialogOpen = true;
   }
 
@@ -618,9 +594,6 @@
 
   function viewTranscription(clip) {
     transcriptionVideo = clip;
-    // Initialize transcript player with the clip's highlights as a separate state
-    // This player will only show segments from highlights created in this specific transcript
-    transcriptPlayerHighlights = clip.highlights ? [...clip.highlights] : [];
     transcriptionDialogOpen = true;
   }
 
@@ -645,9 +618,6 @@
         ...transcriptionVideo,
         highlights: highlights
       };
-      
-      // Update the transcript player highlights (local state for the video player in this dialog)
-      transcriptPlayerHighlights = [...highlights];
       
       // Refresh the highlights timeline
       if (projectHighlightsComponent) {
@@ -1331,258 +1301,15 @@
 </main>
 
 <!-- Video Preview Dialog -->
-<Dialog bind:open={previewDialogOpen}>
-  <DialogContent class="sm:max-w-[800px] max-h-[90vh]">
-    <DialogHeader>
-      <DialogTitle>Video Preview</DialogTitle>
-      <DialogDescription>
-        {#if previewVideo}
-          Preview of {previewVideo.name}
-        {/if}
-      </DialogDescription>
-    </DialogHeader>
-    
-    {#if previewVideo}
-      <div class="space-y-4">
-        <!-- Video player -->
-        <div class="bg-background border rounded-lg overflow-hidden">
-          {#if previewVideo.exists && videoURL}
-            <video 
-              class="w-full h-auto max-h-96" 
-              controls 
-              preload="metadata"
-              src={videoURL}
-            >
-              <track kind="captions" />
-              <p class="p-4 text-center text-muted-foreground">
-                Your browser doesn't support video playback or the video format is not supported.
-              </p>
-            </video>
-          {:else if previewVideo.exists && !videoURL}
-            <div class="p-8 text-center text-muted-foreground">
-              <svg class="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              <p class="text-lg font-medium">Loading video...</p>
-              <p class="text-sm">Preparing video for playback</p>
-            </div>
-          {:else}
-            <div class="p-8 text-center text-muted-foreground">
-              <svg class="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.864-.833-2.634 0L4.18 16.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-              <p class="text-lg font-medium">Video file not found</p>
-              <p class="text-sm">The video file may have been moved or deleted</p>
-            </div>
-          {/if}
-        </div>
-        
-        <!-- Video details -->
-        <div class="grid grid-cols-2 gap-4 text-sm">
-          <div class="space-y-2">
-            <div class="flex justify-between">
-              <span class="text-muted-foreground">Name:</span>
-              <span class="font-medium">{previewVideo.name}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-muted-foreground">Format:</span>
-              <span class="font-mono uppercase">{previewVideo.format}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-muted-foreground">Size:</span>
-              <span>{formatFileSize(previewVideo.fileSize)}</span>
-            </div>
-          </div>
-          <div class="space-y-2">
-            {#if previewVideo.width && previewVideo.height}
-              <div class="flex justify-between">
-                <span class="text-muted-foreground">Resolution:</span>
-                <span>{previewVideo.width}×{previewVideo.height}</span>
-              </div>
-            {/if}
-            {#if previewVideo.duration}
-              <div class="flex justify-between">
-                <span class="text-muted-foreground">Duration:</span>
-                <span>{Math.round(previewVideo.duration)}s</span>
-              </div>
-            {/if}
-            <div class="flex justify-between">
-              <span class="text-muted-foreground">Status:</span>
-              <span class={previewVideo.exists ? "text-green-600" : "text-destructive"}>
-                {previewVideo.exists ? "Available" : "Missing"}
-              </span>
-            </div>
-          </div>
-        </div>
-        
-        <!-- File path -->
-        <div class="p-3 bg-secondary/30 rounded-lg">
-          <p class="text-xs text-muted-foreground mb-1">File Path:</p>
-          <p class="text-sm font-mono break-all">{previewVideo.filePath}</p>
-        </div>
-      </div>
-    {/if}
-    
-    <div class="flex justify-end gap-2 mt-4">
-      <Button variant="outline" onclick={() => previewDialogOpen = false}>
-        Close
-      </Button>
-    </div>
-  </DialogContent>
-</Dialog>
+<VideoPreviewDialog 
+  bind:open={previewDialogOpen}
+  bind:video={previewVideo}
+/>
 
 <!-- Transcription Viewer Dialog -->
-<Dialog bind:open={transcriptionDialogOpen}>
-  <DialogContent class="sm:max-w-[1200px] max-h-[90vh] flex flex-col">
-    <DialogHeader>
-      <DialogTitle>Video Transcript</DialogTitle>
-      <DialogDescription>
-        {#if transcriptionVideo}
-          Transcript for {transcriptionVideo.name}
-        {/if}
-      </DialogDescription>
-    </DialogHeader>
-    
-    <ScrollArea class="h-[70vh]">
-      {#snippet children()}
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pr-4 pb-4">
-        <!-- Video Player Column -->
-        <div class="space-y-4">
-          {#if transcriptionVideo}
-            <!-- Video Player -->
-            <div class="bg-background border rounded-lg p-4">
-              <h3 class="font-medium mb-3">Video Preview</h3>
-              <div class="aspect-video">
-                <EtroVideoPlayer 
-                  highlights={formattedTranscriptHighlights}
-                  projectId={projectId}
-                  enableEyeButton={false}
-                  enableReordering={false}
-                />
-              </div>
-            </div>
-          {/if}
-        </div>
-        
-        <!-- Transcript Column -->
-        <div class="space-y-4">
-          {#if transcriptionVideo}
-            <!-- Transcript content with tabs -->
-          {#if transcriptionVideo.transcription}
-            <div class="space-y-3">
-                  <div class="flex items-center justify-between">
-                    <h3 class="font-medium">Transcript</h3>
-                    <div class="flex gap-2">
-                      {#if transcriptionVideo.transcriptionLanguage}
-                        <span class="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-md">
-                          {transcriptionVideo.transcriptionLanguage.toUpperCase()}
-                        </span>
-                      {/if}
-                      {#if transcriptionVideo.transcriptionDuration}
-                        <span class="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-md">
-                          {formatTimestamp(transcriptionVideo.transcriptionDuration)}
-                        </span>
-                      {/if}
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onclick={() => navigator.clipboard.writeText(transcriptionVideo.transcription)}
-                        class="text-xs"
-                      >
-                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                        Copy
-                      </Button>
-                    </div>
-                  </div>
-
-                  <Tabs value="full-text" class="w-full">
-                <TabsList class="grid w-full grid-cols-2">
-                  <TabsTrigger value="full-text">Full Text</TabsTrigger>
-                  <TabsTrigger value="word-by-word" disabled={!transcriptionVideo.transcriptionWords || transcriptionVideo.transcriptionWords.length === 0}>
-                    Word by Word
-                  </TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="full-text" class="space-y-3">
-                  <ScrollArea class="h-80 bg-background border rounded-lg">
-                    {#snippet children()}
-                      <div class="p-4 text-sm leading-relaxed">
-                        <TextHighlighter 
-                          text={transcriptionVideo.transcription} 
-                          words={transcriptionVideo.transcriptionWords || []} 
-                          initialHighlights={transcriptionVideo.highlights || []}
-                          onHighlightsChange={handleHighlightsChange}
-                        />
-                      </div>
-                    {/snippet}
-                  </ScrollArea>
-                  <div class="text-xs text-muted-foreground">
-                    Character count: {transcriptionVideo.transcription.length}
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="word-by-word" class="space-y-3">
-                  {#if transcriptionVideo.transcriptionWords && transcriptionVideo.transcriptionWords.length > 0}
-                    <ScrollArea class="h-80 bg-background border rounded-lg">
-                      {#snippet children()}
-                        <div class="p-4 space-y-1">
-                          {#each transcriptionVideo.transcriptionWords as word, index}
-                            <div class="flex items-center gap-3 p-2 hover:bg-secondary/30 rounded-md group">
-                              <div class="flex-shrink-0 text-xs text-muted-foreground font-mono bg-secondary px-2 py-1 rounded">
-                                {formatTimestamp(word.start)}
-                              </div>
-                              <div class="flex-1">
-                                <span class="text-sm">{word.word.trim()}</span>
-                              </div>
-                              <div class="flex-shrink-0 text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                                {(word.end - word.start).toFixed(1)}s
-                              </div>
-                            </div>
-                          {/each}
-                        </div>
-                      {/snippet}
-                    </ScrollArea>
-                    <div class="text-xs text-muted-foreground flex-shrink-0">
-                      Word count: {transcriptionVideo.transcriptionWords.length}
-                    </div>
-                  {:else}
-                    <div class="flex-1 flex items-center justify-center text-muted-foreground">
-                      <div class="text-center">
-                        <svg class="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <p class="text-lg font-medium">No word-level timing available</p>
-                        <p class="text-sm">Word timestamps weren't generated for this transcription.</p>
-                      </div>
-                    </div>
-                  {/if}
-                </TabsContent>
-              </Tabs>
-            </div>
-          {:else}
-            <div class="flex-1 flex items-center justify-center text-muted-foreground">
-              <div class="text-center">
-                <svg class="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <p class="text-lg font-medium">No transcript available</p>
-                <p class="text-sm">This video hasn't been transcribed yet.</p>
-              </div>
-            </div>
-          {/if}
-          {/if}
-        </div>
-        </div>
-      {/snippet}
-    </ScrollArea>
-    
-    <!-- Fixed footer buttons -->
-    <div class="flex justify-end gap-2 pt-1.5 border-t flex-shrink-0">
-      <Button variant="outline" onclick={() => transcriptionDialogOpen = false}>
-        Close
-      </Button>
-    </div>
-  </DialogContent>
-</Dialog>
+<VideoTranscriptViewer 
+  bind:open={transcriptionDialogOpen}
+  bind:video={transcriptionVideo}
+  projectId={projectId}
+  onHighlightsChange={handleHighlightsChange}
+/>
