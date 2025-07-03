@@ -95,8 +95,11 @@ Return segments that would work well as standalone content pieces.`;
   // When video changes or store updates, update the transcript player highlights
   $effect(() => {
     if (video) {
-      // Get highlights for this video from the central store
-      const videoHighlights = $orderedHighlights.filter(h => h.videoClipId === video.id);
+      // Get highlights for this specific video clip from the central store
+      // Filter by both videoClipId and filePath for extra safety
+      const videoHighlights = $orderedHighlights.filter(h => 
+        h.videoClipId === video.id && h.filePath === video.filePath
+      );
       transcriptPlayerHighlights = videoHighlights.map(h => ({
         id: h.id,
         start: h.start,
@@ -299,8 +302,10 @@ Return segments that would work well as standalone content pieces.`;
         '#009688', '#4CAF50', '#8BC34A', '#CDDC39', '#FFC107'
       ];
       
-      // Get used colors from existing highlights in the store for this video
-      const videoHighlights = $orderedHighlights.filter(h => h.videoClipId === video.id);
+      // Get used colors from existing highlights in the store for this specific video clip
+      const videoHighlights = $orderedHighlights.filter(h => 
+        h.videoClipId === video.id && h.filePath === video.filePath
+      );
       const usedColors = new Set(videoHighlights.map(h => h.color));
       
       // Find an available color
@@ -367,8 +372,10 @@ Return segments that would work well as standalone content pieces.`;
         '#009688', '#4CAF50', '#8BC34A', '#CDDC39', '#FFC107'
       ];
       
-      // Get used colors from existing highlights in the store for this video
-      const videoHighlights = $orderedHighlights.filter(h => h.videoClipId === video.id);
+      // Get used colors from existing highlights in the store for this specific video clip
+      const videoHighlights = $orderedHighlights.filter(h => 
+        h.videoClipId === video.id && h.filePath === video.filePath
+      );
       const usedColors = new Set(videoHighlights.map(h => h.color));
       
       // Convert all suggestions to regular highlights

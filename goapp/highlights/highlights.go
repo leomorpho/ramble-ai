@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"MYAPP/ent"
+	"MYAPP/ent/project"
 	"MYAPP/ent/schema"
 	"MYAPP/ent/settings"
 	"MYAPP/ent/videoclip"
@@ -93,10 +94,10 @@ func (s *HighlightService) GetSuggestedHighlights(videoID int) ([]HighlightSugge
 		// Convert time-based highlight to word index for text extraction
 		startIndex := s.timeToWordIndex(h.Start, clip.TranscriptionWords)
 		endIndex := s.timeToWordIndex(h.End, clip.TranscriptionWords)
-		
+
 		// Extract text from the transcript
 		text := s.extractTextFromWordRange(clip.TranscriptionWords, startIndex, endIndex)
-		
+
 		suggestions = append(suggestions, HighlightSuggestion{
 			ID:    h.ID,
 			Start: startIndex,
@@ -115,11 +116,11 @@ func (s *HighlightService) ClearSuggestedHighlights(videoID int) error {
 		UpdateOneID(videoID).
 		ClearSuggestedHighlights().
 		Save(s.ctx)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to clear suggested highlights: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -161,7 +162,7 @@ func (s *HighlightService) GetProjectHighlights(projectID int) ([]ProjectHighlig
 	// Get all video clips for the project with their highlights
 	clips, err := s.client.VideoClip.
 		Query().
-		Where(videoclip.HasProjectWith()).
+		Where(videoclip.HasProjectWith(project.IDEQ(projectID))).
 		All(s.ctx)
 
 	if err != nil {
@@ -288,7 +289,7 @@ func (s *HighlightService) GetProjectHighlightsForExport(projectID int) ([]Highl
 	for _, clip := range clips {
 		for _, highlight := range clip.Highlights {
 			text := s.extractHighlightText(highlight, clip.TranscriptionWords, clip.Transcription)
-			
+
 			segments = append(segments, HighlightSegment{
 				ID:            highlight.ID,
 				VideoPath:     clip.FilePath,
@@ -321,12 +322,12 @@ func (s *HighlightService) ApplyHighlightOrder(segments []HighlightSegment, orde
 	sort.Slice(segments, func(i, j int) bool {
 		posI, foundI := orderMap[segments[i].ID]
 		posJ, foundJ := orderMap[segments[j].ID]
-		
+
 		// If both are in the order, sort by position
 		if foundI && foundJ {
 			return posI < posJ
 		}
-		
+
 		// If only one is in the order, it comes first
 		if foundI && !foundJ {
 			return true
@@ -334,7 +335,7 @@ func (s *HighlightService) ApplyHighlightOrder(segments []HighlightSegment, orde
 		if !foundI && foundJ {
 			return false
 		}
-		
+
 		// If neither is in the order, maintain original order
 		return i < j
 	})
@@ -368,14 +369,14 @@ func (s *HighlightService) extractHighlightText(highlight schema.Highlight, word
 		if len(words) > 0 {
 			totalDuration = words[len(words)-1].End
 		}
-		
+
 		if totalDuration > 0 {
 			startRatio := highlight.Start / totalDuration
 			endRatio := highlight.End / totalDuration
-			
+
 			startChar := int(startRatio * float64(len(fullText)))
 			endChar := int(endRatio * float64(len(fullText)))
-			
+
 			if startChar >= 0 && endChar <= len(fullText) && startChar < endChar {
 				return fullText[startChar:endChar]
 			}
