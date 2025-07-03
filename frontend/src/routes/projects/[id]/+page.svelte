@@ -16,7 +16,7 @@
     TabsTrigger 
   } from "$lib/components/ui/tabs";
   import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
-  import { GetProjectByID, UpdateProject, DeleteProject, CreateVideoClip, GetVideoClipsByProject, UpdateVideoClip, DeleteVideoClip, SelectVideoFiles, GetVideoFileInfo, GetVideoURL, TranscribeVideoClip, UpdateVideoClipHighlights, GetOpenAIApiKey, SelectExportFolder, ExportStitchedHighlights, ExportIndividualHighlights, GetExportProgress, CancelExport, GetProjectExportJobs } from "$lib/wailsjs/go/main/App";
+  import { GetProjectByID, UpdateProject, DeleteProject, CreateVideoClip, GetVideoClipsByProject, UpdateVideoClip, DeleteVideoClip, SelectVideoFiles, GetVideoFileInfo, GetVideoURL, TranscribeVideoClip, GetOpenAIApiKey, SelectExportFolder, ExportStitchedHighlights, ExportIndividualHighlights, GetExportProgress, CancelExport, GetProjectExportJobs } from "$lib/wailsjs/go/main/App";
   import { OnFileDrop, OnFileDropOff, EventsOn, EventsOff } from "$lib/wailsjs/runtime/runtime";
   import { onMount, onDestroy } from "svelte";
   import { page } from "$app/stores";
@@ -30,6 +30,7 @@
   import VideoTranscriptViewer from "$lib/components/VideoTranscriptViewer.svelte";
   import VideoPreviewDialog from "$lib/components/VideoPreviewDialog.svelte";
   import { Captions, Mic, Video, Download, FolderOpen } from "@lucide/svelte";
+  import { updateVideoHighlights } from "$lib/stores/projectHighlights.js";
 
   let project = $state(null);
   let loading = $state(false);
@@ -601,33 +602,14 @@
     if (!transcriptionVideo) return;
     
     try {
-      await UpdateVideoClipHighlights(transcriptionVideo.id, highlights);
+      // Use the store function to update highlights
+      await updateVideoHighlights(transcriptionVideo.id, highlights);
       
-      // Update the local video clip data
-      const clipIndex = videoClips.findIndex(c => c.id === transcriptionVideo.id);
-      if (clipIndex !== -1) {
-        videoClips[clipIndex] = { 
-          ...videoClips[clipIndex], 
-          highlights: highlights
-        };
-        videoClips = [...videoClips]; // Trigger reactivity
-      }
-      
-      // Update the transcription video as well
-      transcriptionVideo = {
-        ...transcriptionVideo,
-        highlights: highlights
-      };
-      
-      // Refresh the highlights timeline
-      if (projectHighlightsComponent) {
-        projectHighlightsComponent.refresh();
-      }
+      // No need to manually update local state or refresh components
+      // The store will handle updating all subscribers automatically
     } catch (err) {
       console.error("Failed to save highlights:", err);
-      toast.error("Failed to save highlights", {
-        description: "An error occurred while saving your highlights"
-      });
+      // Error toast is already shown by the store function
     }
   }
 

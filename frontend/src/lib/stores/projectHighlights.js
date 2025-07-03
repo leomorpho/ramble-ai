@@ -219,3 +219,81 @@ export async function deleteHighlight(highlightId, videoClipId) {
     return false;
   }
 }
+
+// Function to add a highlight to a video clip
+export async function addHighlight(videoClipId, highlight) {
+  const projectId = get(currentProjectId);
+  
+  if (!projectId) {
+    console.warn('No project ID available for adding highlight');
+    return false;
+  }
+  
+  try {
+    // Get current highlights for the video clip
+    const currentHighlights = get(rawHighlights);
+    const videoHighlights = currentHighlights.filter(h => h.videoClipId === videoClipId);
+    
+    // Prepare the new highlight (ensure it has an ID)
+    const newHighlight = {
+      id: highlight.id || `highlight_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      ...highlight
+    };
+    
+    // Prepare highlights array for the backend (without extra fields)
+    const backendHighlights = [...videoHighlights, newHighlight].map(h => ({
+      id: h.id,
+      start: h.start,
+      end: h.end,
+      color: h.color,
+      text: h.text
+    }));
+    
+    // Update backend
+    await UpdateVideoClipHighlights(videoClipId, backendHighlights);
+    
+    // Refresh from database to ensure consistency
+    await loadProjectHighlights(projectId);
+    
+    toast.success('Highlight added successfully');
+    return true;
+  } catch (error) {
+    console.error('Failed to add highlight:', error);
+    toast.error('Failed to add highlight');
+    return false;
+  }
+}
+
+// Function to update all highlights for a video clip
+export async function updateVideoHighlights(videoClipId, highlights) {
+  const projectId = get(currentProjectId);
+  
+  if (!projectId) {
+    console.warn('No project ID available for updating video highlights');
+    return false;
+  }
+  
+  try {
+    // Prepare highlights for backend (remove extra fields)
+    const backendHighlights = highlights.map(h => ({
+      id: h.id,
+      start: h.start,
+      end: h.end,
+      color: h.color,
+      text: h.text
+    }));
+    
+    // Update backend
+    await UpdateVideoClipHighlights(videoClipId, backendHighlights);
+    
+    // Refresh from database to ensure consistency
+    await loadProjectHighlights(projectId);
+    
+    toast.success('Highlights updated successfully');
+    return true;
+  } catch (error) {
+    console.error('Failed to update video highlights:', error);
+    toast.error('Failed to update highlights');
+    return false;
+  }
+}

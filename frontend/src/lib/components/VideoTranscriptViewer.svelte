@@ -26,6 +26,11 @@
     GetSuggestedHighlights,
     UpdateVideoClipSuggestedHighlights,
   } from "$lib/wailsjs/go/main/App";
+  import { 
+    updateVideoHighlights, 
+    addHighlight,
+    orderedHighlights 
+  } from "$lib/stores/projectHighlights.js";
 
   let { 
     open = $bindable(false),
@@ -87,10 +92,18 @@ Return segments that would work well as standalone content pieces.`;
       : []
   );
 
-  // When video changes, update the transcript player highlights
+  // When video changes or store updates, update the transcript player highlights
   $effect(() => {
     if (video) {
-      transcriptPlayerHighlights = video.highlights ? [...video.highlights] : [];
+      // Get highlights for this video from the central store
+      const videoHighlights = $orderedHighlights.filter(h => h.videoClipId === video.id);
+      transcriptPlayerHighlights = videoHighlights.map(h => ({
+        id: h.id,
+        start: h.start,
+        end: h.end,
+        color: h.color,
+        text: h.text
+      }));
     }
   });
 
@@ -154,7 +167,10 @@ Return segments that would work well as standalone content pieces.`;
       // Update the transcript player highlights (local state)
       transcriptPlayerHighlights = [...highlights];
       
-      // Call the parent's handler
+      // Use the store function to update highlights
+      await updateVideoHighlights(video.id, highlights);
+      
+      // Still call the parent's handler if provided for backward compatibility
       if (onHighlightsChange) {
         await onHighlightsChange(highlights);
       }
@@ -283,8 +299,9 @@ Return segments that would work well as standalone content pieces.`;
         '#009688', '#4CAF50', '#8BC34A', '#CDDC39', '#FFC107'
       ];
       
-      // Get used colors from existing highlights
-      const usedColors = new Set(transcriptPlayerHighlights?.map(h => h.color) || []);
+      // Get used colors from existing highlights in the store for this video
+      const videoHighlights = $orderedHighlights.filter(h => h.videoClipId === video.id);
+      const usedColors = new Set(videoHighlights.map(h => h.color));
       
       // Find an available color
       let color = availableColors.find(c => !usedColors.has(c)) || availableColors[0];
@@ -297,17 +314,11 @@ Return segments that would work well as standalone content pieces.`;
         color: color
       };
 
-      // Add to existing highlights
-      const updatedHighlights = [...transcriptPlayerHighlights, newHighlight];
+      // Use the store function to add the highlight
+      await addHighlight(video.id, newHighlight);
       
-      // Update local state immediately for responsiveness
-      transcriptPlayerHighlights = updatedHighlights;
-      
-      // Update video object to keep it in sync
-      video = {
-        ...video,
-        highlights: updatedHighlights
-      };
+      // Update local state to reflect the change immediately
+      transcriptPlayerHighlights = [...transcriptPlayerHighlights, newHighlight];
       
       // Remove from suggestions locally
       const remainingSuggestions = suggestedHighlights.filter(s => s.id !== suggestionId);
@@ -315,11 +326,6 @@ Return segments that would work well as standalone content pieces.`;
       
       // Update suggested highlights in database
       await UpdateVideoClipSuggestedHighlights(video.id, remainingSuggestions);
-      
-      // Save the accepted highlight to database
-      if (onHighlightsChange) {
-        await onHighlightsChange(updatedHighlights);
-      }
       
       toast.success("Highlight suggestion accepted!");
     } catch (err) {
@@ -361,8 +367,9 @@ Return segments that would work well as standalone content pieces.`;
         '#009688', '#4CAF50', '#8BC34A', '#CDDC39', '#FFC107'
       ];
       
-      // Get used colors from existing highlights
-      const usedColors = new Set(transcriptPlayerHighlights?.map(h => h.color) || []);
+      // Get used colors from existing highlights in the store for this video
+      const videoHighlights = $orderedHighlights.filter(h => h.videoClipId === video.id);
+      const usedColors = new Set(videoHighlights.map(h => h.color));
       
       // Convert all suggestions to regular highlights
       const newHighlights = suggestedHighlights.map((suggestion, index) => {
@@ -378,28 +385,18 @@ Return segments that would work well as standalone content pieces.`;
         };
       });
 
-      // Add to existing highlights
+      // Use the store function to update all highlights at once
       const updatedHighlights = [...transcriptPlayerHighlights, ...newHighlights];
+      await updateVideoHighlights(video.id, updatedHighlights);
       
       // Update local state immediately
       transcriptPlayerHighlights = updatedHighlights;
-      
-      // Update video object to keep it in sync
-      video = {
-        ...video,
-        highlights: updatedHighlights
-      };
       
       // Clear suggestions locally
       suggestedHighlights = [];
       
       // Update suggested highlights in database (empty array)
       await UpdateVideoClipSuggestedHighlights(video.id, []);
-      
-      // Save all accepted highlights to database
-      if (onHighlightsChange) {
-        await onHighlightsChange(updatedHighlights);
-      }
       
       toast.success(`Accepted ${newHighlights.length} highlight suggestions!`);
     } catch (err) {
