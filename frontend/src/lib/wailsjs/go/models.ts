@@ -59,6 +59,41 @@ export namespace ai {
 
 }
 
+export namespace exports {
+	
+	export class ExportProgress {
+	    jobId: string;
+	    stage: string;
+	    progress: number;
+	    currentFile: string;
+	    totalFiles: number;
+	    processedFiles: number;
+	    isComplete: boolean;
+	    hasError: boolean;
+	    errorMessage: string;
+	    isCancelled: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ExportProgress(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.jobId = source["jobId"];
+	        this.stage = source["stage"];
+	        this.progress = source["progress"];
+	        this.currentFile = source["currentFile"];
+	        this.totalFiles = source["totalFiles"];
+	        this.processedFiles = source["processedFiles"];
+	        this.isComplete = source["isComplete"];
+	        this.hasError = source["hasError"];
+	        this.errorMessage = source["errorMessage"];
+	        this.isCancelled = source["isCancelled"];
+	    }
+	}
+
+}
+
 export namespace highlights {
 	
 	export class HighlightSuggestion {
@@ -207,36 +242,6 @@ export namespace highlights {
 
 export namespace main {
 	
-	export class ExportProgress {
-	    jobId: string;
-	    stage: string;
-	    progress: number;
-	    currentFile: string;
-	    totalFiles: number;
-	    processedFiles: number;
-	    isComplete: boolean;
-	    hasError: boolean;
-	    errorMessage: string;
-	    isCancelled: boolean;
-	
-	    static createFrom(source: any = {}) {
-	        return new ExportProgress(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.jobId = source["jobId"];
-	        this.stage = source["stage"];
-	        this.progress = source["progress"];
-	        this.currentFile = source["currentFile"];
-	        this.totalFiles = source["totalFiles"];
-	        this.processedFiles = source["processedFiles"];
-	        this.isComplete = source["isComplete"];
-	        this.hasError = source["hasError"];
-	        this.errorMessage = source["errorMessage"];
-	        this.isCancelled = source["isCancelled"];
-	    }
-	}
 	export class TestOpenAIApiKeyResponse {
 	    valid: boolean;
 	    message: string;
