@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/md5"
@@ -8,8 +9,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"bufio"
-	"regexp"
 	"io"
 	"log"
 	"mime/multipart"
@@ -18,6 +17,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -30,6 +30,7 @@ import (
 	"MYAPP/ent/schema"
 	"MYAPP/ent/settings"
 	"MYAPP/ent/videoclip"
+
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
 	_ "github.com/mattn/go-sqlite3"
@@ -49,26 +50,26 @@ type ProjectResponse struct {
 
 // VideoClipResponse represents a video clip response for the frontend
 type VideoClipResponse struct {
-	ID                     int     `json:"id"`
-	Name                   string  `json:"name"`
-	Description            string  `json:"description"`
-	FilePath               string  `json:"filePath"`
-	FileName               string  `json:"fileName"`
-	FileSize               int64   `json:"fileSize"`
-	Duration               float64 `json:"duration"`
-	Format                 string  `json:"format"`
-	Width                  int     `json:"width"`
-	Height                 int     `json:"height"`
-	ProjectID              int     `json:"projectId"`
-	CreatedAt              string  `json:"createdAt"`
-	UpdatedAt              string  `json:"updatedAt"`
-	Exists                 bool    `json:"exists"`
-	ThumbnailURL           string  `json:"thumbnailUrl"`
-	Transcription          string  `json:"transcription"`
-	TranscriptionWords     []Word      `json:"transcriptionWords"`
-	TranscriptionLanguage  string      `json:"transcriptionLanguage"`
-	TranscriptionDuration  float64     `json:"transcriptionDuration"`
-	Highlights             []Highlight `json:"highlights"`
+	ID                    int         `json:"id"`
+	Name                  string      `json:"name"`
+	Description           string      `json:"description"`
+	FilePath              string      `json:"filePath"`
+	FileName              string      `json:"fileName"`
+	FileSize              int64       `json:"fileSize"`
+	Duration              float64     `json:"duration"`
+	Format                string      `json:"format"`
+	Width                 int         `json:"width"`
+	Height                int         `json:"height"`
+	ProjectID             int         `json:"projectId"`
+	CreatedAt             string      `json:"createdAt"`
+	UpdatedAt             string      `json:"updatedAt"`
+	Exists                bool        `json:"exists"`
+	ThumbnailURL          string      `json:"thumbnailUrl"`
+	Transcription         string      `json:"transcription"`
+	TranscriptionWords    []Word      `json:"transcriptionWords"`
+	TranscriptionLanguage string      `json:"transcriptionLanguage"`
+	TranscriptionDuration float64     `json:"transcriptionDuration"`
+	Highlights            []Highlight `json:"highlights"`
 }
 
 // LocalVideoFile represents a local video file for the frontend
@@ -150,7 +151,7 @@ func (a *App) startup(ctx context.Context) {
 	}
 
 	log.Println("Database initialized and migrations applied")
-	
+
 	// Recover any incomplete export jobs
 	if err := a.RecoverActiveExportJobs(); err != nil {
 		log.Printf("Failed to recover active export jobs: %v", err)
@@ -191,14 +192,14 @@ func (a *App) handleVideoRequest(w http.ResponseWriter, r *http.Request) {
 	filePath := r.URL.Path[11:] // Remove "/api/video/"
 	log.Printf("[VIDEO] Raw path: %s", r.URL.Path)
 	log.Printf("[VIDEO] Extracted path: %s", filePath)
-	
+
 	decodedPath, err := url.QueryUnescape(filePath)
 	if err != nil {
 		log.Printf("[VIDEO] URL decode error: %v", err)
 		http.Error(w, "Invalid file path", http.StatusBadRequest)
 		return
 	}
-	
+
 	log.Printf("[VIDEO] Decoded path: %s", decodedPath)
 
 	// Security check - ensure file exists and is a video
@@ -325,14 +326,14 @@ func (a *App) handleThumbnailRequest(w http.ResponseWriter, r *http.Request) {
 	filePath := r.URL.Path[15:] // Remove "/api/thumbnail/"
 	log.Printf("[THUMBNAIL] Raw path: %s", r.URL.Path)
 	log.Printf("[THUMBNAIL] Extracted path: %s", filePath)
-	
+
 	decodedPath, err := url.QueryUnescape(filePath)
 	if err != nil {
 		log.Printf("[THUMBNAIL] URL decode error: %v", err)
 		http.Error(w, "Invalid file path", http.StatusBadRequest)
 		return
 	}
-	
+
 	log.Printf("[THUMBNAIL] Decoded path: %s", decodedPath)
 
 	// Security check - ensure file exists and is a video
@@ -382,13 +383,13 @@ func (a *App) generateThumbnail(videoPath string) (string, error) {
 	log.Printf("[THUMBNAIL] Generating new thumbnail for: %s", videoPath)
 
 	// Use ffmpeg to generate thumbnail at 10% of video duration
-	cmd := exec.Command("ffmpeg", 
+	cmd := exec.Command("ffmpeg",
 		"-i", videoPath,
 		"-ss", "00:00:03", // Seek to 3 seconds
-		"-vframes", "1",   // Extract 1 frame
+		"-vframes", "1", // Extract 1 frame
 		"-vf", "scale=320:240:force_original_aspect_ratio=decrease,pad=320:240:(ow-iw)/2:(oh-ih)/2", // Scale to 320x240 with padding
-		"-q:v", "2",       // High quality
-		"-y",              // Overwrite output file
+		"-q:v", "2", // High quality
+		"-y", // Overwrite output file
 		thumbnailPath,
 	)
 
@@ -408,7 +409,7 @@ func (a *App) getThumbnailURL(filePath string) string {
 	if !a.isVideoFile(filePath) {
 		return ""
 	}
-	
+
 	// Encode file path for URL safety
 	encodedPath := url.QueryEscape(filePath)
 	return fmt.Sprintf("/api/thumbnail/%s", encodedPath)
@@ -434,7 +435,7 @@ func (a *App) CreateProject(name, description string) (*ProjectResponse, error) 
 		SetDescription(description).
 		SetPath(projectPath).
 		Save(a.ctx)
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to create project: %w", err)
 	}
@@ -455,7 +456,7 @@ func (a *App) GetProjects() ([]*ProjectResponse, error) {
 		Query().
 		WithVideoClips().
 		All(a.ctx)
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get projects: %w", err)
 	}
@@ -482,7 +483,7 @@ func (a *App) GetProjectByID(id int) (*ProjectResponse, error) {
 		Where(project.ID(id)).
 		WithVideoClips().
 		Only(a.ctx)
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get project with ID %d: %w", id, err)
 	}
@@ -512,7 +513,7 @@ func (a *App) UpdateProject(id int, name, description string) (*ProjectResponse,
 		SetDescription(description).
 		SetPath(projectPath).
 		Save(a.ctx)
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to update project with ID %d: %w", id, err)
 	}
@@ -532,7 +533,7 @@ func (a *App) DeleteProject(id int) error {
 	err := a.client.Project.
 		DeleteOneID(id).
 		Exec(a.ctx)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to delete project with ID %d: %w", id, err)
 	}
@@ -544,7 +545,7 @@ func (a *App) DeleteProject(id int) error {
 func (a *App) isVideoFile(filePath string) bool {
 	ext := strings.ToLower(filepath.Ext(filePath))
 	videoExtensions := []string{".mp4", ".mov", ".avi", ".mkv", ".wmv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg"}
-	
+
 	for _, validExt := range videoExtensions {
 		if ext == validExt {
 			return true
@@ -559,10 +560,10 @@ func (a *App) getFileInfo(filePath string) (int64, string, bool) {
 	if err != nil {
 		return 0, "", false
 	}
-	
+
 	ext := strings.ToLower(filepath.Ext(filePath))
 	format := strings.TrimPrefix(ext, ".")
-	
+
 	return fileInfo.Size(), format, true
 }
 
@@ -572,12 +573,12 @@ func (a *App) CreateVideoClip(projectID int, filePath string) (*VideoClipRespons
 	if !a.isVideoFile(filePath) {
 		return nil, fmt.Errorf("file is not a supported video format")
 	}
-	
+
 	fileSize, format, exists := a.getFileInfo(filePath)
 	if !exists {
 		return nil, fmt.Errorf("file does not exist: %s", filePath)
 	}
-	
+
 	// Check if this file path already exists for this project
 	existingClip, err := a.client.VideoClip.
 		Query().
@@ -586,12 +587,12 @@ func (a *App) CreateVideoClip(projectID int, filePath string) (*VideoClipRespons
 			videoclip.FilePath(filePath),
 		).
 		Only(a.ctx)
-	
+
 	if err == nil {
 		// File already exists for this project, return the existing clip
 		fileName := filepath.Base(existingClip.FilePath)
 		_, _, fileExists := a.getFileInfo(existingClip.FilePath)
-		
+
 		return &VideoClipResponse{
 			ID:                    existingClip.ID,
 			Name:                  existingClip.Name,
@@ -615,10 +616,10 @@ func (a *App) CreateVideoClip(projectID int, filePath string) (*VideoClipRespons
 			Highlights:            schemaHighlightsToHighlights(existingClip.Highlights),
 		}, fmt.Errorf("video file already added to this project")
 	}
-	
+
 	fileName := filepath.Base(filePath)
 	name := strings.TrimSuffix(fileName, filepath.Ext(fileName))
-	
+
 	// Create video clip in database
 	videoClip, err := a.client.VideoClip.
 		Create().
@@ -629,16 +630,16 @@ func (a *App) CreateVideoClip(projectID int, filePath string) (*VideoClipRespons
 		SetFileSize(fileSize).
 		SetProjectID(projectID).
 		Save(a.ctx)
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to create video clip: %w", err)
 	}
-	
+
 	return &VideoClipResponse{
-		ID:           videoClip.ID,
-		Name:         videoClip.Name,
-		Description:  videoClip.Description,
-		FilePath:     videoClip.FilePath,
+		ID:                    videoClip.ID,
+		Name:                  videoClip.Name,
+		Description:           videoClip.Description,
+		FilePath:              videoClip.FilePath,
 		FileName:              fileName,
 		FileSize:              videoClip.FileSize,
 		Duration:              videoClip.Duration,
@@ -664,16 +665,16 @@ func (a *App) GetVideoClipsByProject(projectID int) ([]*VideoClipResponse, error
 		Query().
 		Where(videoclip.HasProjectWith(project.ID(projectID))).
 		All(a.ctx)
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get video clips: %w", err)
 	}
-	
+
 	var responses []*VideoClipResponse
 	for _, clip := range clips {
 		fileName := filepath.Base(clip.FilePath)
 		_, _, exists := a.getFileInfo(clip.FilePath)
-		
+
 		responses = append(responses, &VideoClipResponse{
 			ID:                    clip.ID,
 			Name:                  clip.Name,
@@ -697,7 +698,7 @@ func (a *App) GetVideoClipsByProject(projectID int) ([]*VideoClipResponse, error
 			Highlights:            schemaHighlightsToHighlights(clip.Highlights),
 		})
 	}
-	
+
 	return responses, nil
 }
 
@@ -706,20 +707,20 @@ func (a *App) UpdateVideoClip(id int, name, description string) (*VideoClipRespo
 	if name == "" {
 		return nil, fmt.Errorf("video clip name cannot be empty")
 	}
-	
+
 	updatedClip, err := a.client.VideoClip.
 		UpdateOneID(id).
 		SetName(name).
 		SetDescription(description).
 		Save(a.ctx)
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to update video clip: %w", err)
 	}
-	
+
 	fileName := filepath.Base(updatedClip.FilePath)
 	_, _, exists := a.getFileInfo(updatedClip.FilePath)
-	
+
 	return &VideoClipResponse{
 		ID:                    updatedClip.ID,
 		Name:                  updatedClip.Name,
@@ -749,11 +750,11 @@ func (a *App) DeleteVideoClip(id int) error {
 	err := a.client.VideoClip.
 		DeleteOneID(id).
 		Exec(a.ctx)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to delete video clip: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -769,7 +770,7 @@ func (a *App) SelectVideoFiles() ([]*LocalVideoFile, error) {
 			},
 		},
 	})
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file dialog: %w", err)
 	}
@@ -806,15 +807,15 @@ func (a *App) GetVideoFileInfo(filePath string) (*LocalVideoFile, error) {
 	if !a.isVideoFile(filePath) {
 		return nil, fmt.Errorf("file is not a supported video format")
 	}
-	
+
 	fileSize, format, exists := a.getFileInfo(filePath)
 	if !exists {
 		return nil, fmt.Errorf("file does not exist: %s", filePath)
 	}
-	
+
 	fileName := filepath.Base(filePath)
 	name := strings.TrimSuffix(fileName, filepath.Ext(fileName))
-	
+
 	return &LocalVideoFile{
 		Name:     name,
 		FilePath: filePath,
@@ -830,20 +831,20 @@ func (a *App) GetVideoURL(filePath string) (string, error) {
 	if !a.isVideoFile(filePath) {
 		return "", fmt.Errorf("file is not a supported video format")
 	}
-	
+
 	// Check if file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		return "", fmt.Errorf("file does not exist: %s", filePath)
 	}
-	
+
 	// Encode file path for URL safety
 	encodedPath := url.QueryEscape(filePath)
 	videoURL := fmt.Sprintf("/api/video/%s", encodedPath)
-	
+
 	log.Printf("[VIDEO] Original path: %s", filePath)
 	log.Printf("[VIDEO] Encoded path: %s", encodedPath)
 	log.Printf("[VIDEO] Final URL: %s", videoURL)
-	
+
 	// Return AssetServer URL that will work in the webview
 	return videoURL, nil
 }
@@ -872,7 +873,7 @@ func (a *App) SaveSetting(key, value string) error {
 			SetKey(key).
 			SetValue(value).
 			Save(a.ctx)
-		
+
 		if err != nil {
 			return fmt.Errorf("failed to create setting: %w", err)
 		}
@@ -882,7 +883,7 @@ func (a *App) SaveSetting(key, value string) error {
 			UpdateOne(existingSetting).
 			SetValue(value).
 			Save(a.ctx)
-		
+
 		if err != nil {
 			return fmt.Errorf("failed to update setting: %w", err)
 		}
@@ -1062,7 +1063,7 @@ func (a *App) testOpenAIConnection(apiKey string) (*TestOpenAIApiKeyResponse, er
 				ID string `json:"id"`
 			} `json:"data"`
 		}
-		
+
 		if err := json.Unmarshal(body, &modelsResp); err == nil && len(modelsResp.Data) > 0 {
 			// Find Whisper model or use first available
 			modelName := modelsResp.Data[0].ID
@@ -1072,14 +1073,14 @@ func (a *App) testOpenAIConnection(apiKey string) (*TestOpenAIApiKeyResponse, er
 					break
 				}
 			}
-			
+
 			return &TestOpenAIApiKeyResponse{
 				Valid:   true,
 				Message: "API key is valid and working!",
 				Model:   modelName,
 			}, nil
 		}
-		
+
 		return &TestOpenAIApiKeyResponse{
 			Valid:   true,
 			Message: "API key is valid and working!",
@@ -1181,7 +1182,7 @@ func (a *App) testOpenRouterConnection(apiKey string) (*TestOpenRouterApiKeyResp
 				ID string `json:"id"`
 			} `json:"data"`
 		}
-		
+
 		if err := json.Unmarshal(body, &modelsResp); err == nil && len(modelsResp.Data) > 0 {
 			// Find a suitable model or use first available
 			modelName := modelsResp.Data[0].ID
@@ -1191,14 +1192,14 @@ func (a *App) testOpenRouterConnection(apiKey string) (*TestOpenRouterApiKeyResp
 					break
 				}
 			}
-			
+
 			return &TestOpenRouterApiKeyResponse{
 				Valid:   true,
 				Message: "API key is valid and working!",
 				Model:   modelName,
 			}, nil
 		}
-		
+
 		return &TestOpenRouterApiKeyResponse{
 			Valid:   true,
 			Message: "API key is valid and working!",
@@ -1247,17 +1248,17 @@ type Highlight struct {
 
 // Segment represents a segment of transcription with timing
 type Segment struct {
-	ID     int    `json:"id"`
-	Seek   int    `json:"seek"`
-	Start  float64 `json:"start"`
-	End    float64 `json:"end"`
-	Text   string  `json:"text"`
-	Tokens []int   `json:"tokens"`
-	Temperature float64 `json:"temperature"`
-	AvgLogprob  float64 `json:"avg_logprob"`
+	ID               int     `json:"id"`
+	Seek             int     `json:"seek"`
+	Start            float64 `json:"start"`
+	End              float64 `json:"end"`
+	Text             string  `json:"text"`
+	Tokens           []int   `json:"tokens"`
+	Temperature      float64 `json:"temperature"`
+	AvgLogprob       float64 `json:"avg_logprob"`
 	CompressionRatio float64 `json:"compression_ratio"`
 	NoSpeechProb     float64 `json:"no_speech_prob"`
-	Words   []Word  `json:"words"`
+	Words            []Word  `json:"words"`
 }
 
 // WhisperResponse represents the detailed response from OpenAI Whisper API
@@ -1272,12 +1273,12 @@ type WhisperResponse struct {
 
 // TranscriptionResponse represents the response from the transcription process
 type TranscriptionResponse struct {
-	Success   bool   `json:"success"`
-	Message   string `json:"message"`
-	Transcription string `json:"transcription,omitempty"`
-	Words     []Word `json:"words,omitempty"`
-	Language  string `json:"language,omitempty"`
-	Duration  float64 `json:"duration,omitempty"`
+	Success       bool    `json:"success"`
+	Message       string  `json:"message"`
+	Transcription string  `json:"transcription,omitempty"`
+	Words         []Word  `json:"words,omitempty"`
+	Language      string  `json:"language,omitempty"`
+	Duration      float64 `json:"duration,omitempty"`
 }
 
 // TranscribeVideoClip extracts audio from a video and transcribes it using OpenAI Whisper
@@ -1345,7 +1346,7 @@ func (a *App) TranscribeVideoClip(clipID int) (*TranscriptionResponse, error) {
 		SetTranscriptionLanguage(whisperResponse.Language).
 		SetTranscriptionDuration(whisperResponse.Duration).
 		Save(a.ctx)
-	
+
 	if err != nil {
 		return &TranscriptionResponse{
 			Success: false,
@@ -1381,12 +1382,12 @@ func (a *App) extractAudio(videoPath string) (string, error) {
 	// Use ffmpeg to extract audio
 	cmd := exec.Command("ffmpeg",
 		"-i", videoPath,
-		"-vn",                    // No video
-		"-acodec", "mp3",         // Audio codec
-		"-ar", "16000",           // Sample rate (16kHz for Whisper)
-		"-ac", "1",               // Mono channel
-		"-b:a", "64k",            // Bitrate
-		"-y",                     // Overwrite output file
+		"-vn",            // No video
+		"-acodec", "mp3", // Audio codec
+		"-ar", "16000", // Sample rate (16kHz for Whisper)
+		"-ac", "1", // Mono channel
+		"-b:a", "64k", // Bitrate
+		"-y", // Overwrite output file
 		audioPath,
 	)
 
@@ -1485,7 +1486,7 @@ func (a *App) transcribeAudio(audioPath, apiKey string) (*WhisperResponse, error
 		return nil, fmt.Errorf("failed to parse transcription response: %w", err)
 	}
 
-	log.Printf("[TRANSCRIPTION] Transcription completed, text length: %d characters, words: %d", 
+	log.Printf("[TRANSCRIPTION] Transcription completed, text length: %d characters, words: %d",
 		len(whisperResponse.Text), len(whisperResponse.Words))
 
 	return &whisperResponse, nil
@@ -1509,7 +1510,7 @@ func (a *App) UpdateVideoClipHighlights(clipID int, highlights []Highlight) erro
 		UpdateOneID(clipID).
 		SetHighlights(schemaHighlights).
 		Save(a.ctx)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to update video clip highlights: %w", err)
 	}
@@ -1535,7 +1536,7 @@ func (a *App) UpdateVideoClipSuggestedHighlights(clipID int, suggestedHighlights
 		UpdateOneID(clipID).
 		SetSuggestedHighlights(schemaHighlights).
 		Save(a.ctx)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to update video clip suggested highlights: %w", err)
 	}
@@ -1550,7 +1551,7 @@ func (a *App) DeleteHighlight(clipID int, highlightID string) error {
 		Query().
 		Where(videoclip.ID(clipID)).
 		Only(a.ctx)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to get video clip: %w", err)
 	}
@@ -1568,7 +1569,7 @@ func (a *App) DeleteHighlight(clipID int, highlightID string) error {
 		UpdateOneID(clipID).
 		SetHighlights(updatedHighlights).
 		Save(a.ctx)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to update video clip highlights: %w", err)
 	}
@@ -1601,13 +1602,13 @@ func (a *App) GetProjectHighlights(projectID int) ([]ProjectHighlight, error) {
 		Query().
 		Where(videoclip.HasProjectWith(project.ID(projectID))).
 		All(a.ctx)
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get video clips: %w", err)
 	}
 
 	var projectHighlights []ProjectHighlight
-	
+
 	for _, clip := range clips {
 		// Skip clips without highlights
 		if len(clip.Highlights) == 0 {
@@ -1623,12 +1624,12 @@ func (a *App) GetProjectHighlights(projectID int) ([]ProjectHighlight, error) {
 				End:   h.End,
 				Color: h.Color,
 			}
-			
+
 			// Extract text for the highlight if transcription exists
 			if clip.Transcription != "" && len(clip.TranscriptionWords) > 0 {
 				hwt.Text = a.extractHighlightText(h, clip.TranscriptionWords, clip.Transcription)
 			}
-			
+
 			highlightsWithText = append(highlightsWithText, hwt)
 		}
 
@@ -1639,7 +1640,7 @@ func (a *App) GetProjectHighlights(projectID int) ([]ProjectHighlight, error) {
 			Duration:      clip.Duration,
 			Highlights:    highlightsWithText,
 		}
-		
+
 		projectHighlights = append(projectHighlights, projectHighlight)
 	}
 
@@ -1678,7 +1679,7 @@ func (a *App) extractHighlightText(highlight schema.Highlight, words []schema.Wo
 	if fullText != "" && len(fullText) > 50 {
 		return fullText[:47] + "..."
 	}
-	
+
 	return fullText
 }
 
@@ -1686,7 +1687,7 @@ func (a *App) extractHighlightText(highlight schema.Highlight, words []schema.Wo
 func (a *App) UpdateProjectHighlightOrder(projectID int, highlightOrder []string) error {
 	// For now, we'll store this in the project's settings
 	// In a real implementation, you might want a separate table for this
-	
+
 	orderJSON, err := json.Marshal(highlightOrder)
 	if err != nil {
 		return fmt.Errorf("failed to marshal highlight order: %w", err)
@@ -1727,12 +1728,12 @@ func (a *App) UpdateProjectHighlightOrder(projectID int, highlightOrder []string
 // GetProjectHighlightOrder retrieves the custom highlight order for a project
 func (a *App) GetProjectHighlightOrder(projectID int) ([]string, error) {
 	settingKey := fmt.Sprintf("project_%d_highlight_order", projectID)
-	
+
 	setting, err := a.client.Settings.
 		Query().
 		Where(settings.Key(settingKey)).
 		First(a.ctx)
-	
+
 	if err != nil {
 		if ent.IsNotFound(err) {
 			// No custom order exists
@@ -1783,7 +1784,7 @@ func (a *App) ReorderHighlightsWithAI(projectID int, customPrompt string) ([]str
 	// Create a minimal map of ID to highlight text for AI processing
 	highlightMap := make(map[string]string)
 	var highlightIDs []string
-	
+
 	for _, ph := range projectHighlights {
 		for _, highlight := range ph.Highlights {
 			highlightMap[highlight.ID] = highlight.Text
@@ -1894,7 +1895,7 @@ func (a *App) callOpenRouterForReordering(apiKey string, model string, highlight
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("HTTP-Referer", "https://github.com/yourusername/video-app") // Required by OpenRouter
-	req.Header.Set("X-Title", "Video Highlight Reordering") // Optional but recommended
+	req.Header.Set("X-Title", "Video Highlight Reordering")                     // Optional but recommended
 
 	// Make the request
 	resp, err := client.Do(req)
@@ -1973,7 +1974,7 @@ Here are the video highlight segments:
 	for id, text := range highlightMap {
 		entries = append(entries, highlightEntry{id: id, text: text})
 	}
-	
+
 	// Sort entries by ID for consistent ordering
 	sort.Slice(entries, func(i, j int) bool {
 		return entries[i].id < entries[j].id
@@ -2013,7 +2014,7 @@ func (a *App) parseAIReorderingResponse(response string) ([]string, error) {
 		// Look for JSON array pattern
 		jsonStart := strings.Index(cleanResponse, "[")
 		jsonEnd := strings.LastIndex(cleanResponse, "]")
-		
+
 		if jsonStart >= 0 && jsonEnd > jsonStart {
 			jsonPart := cleanResponse[jsonStart : jsonEnd+1]
 			err = json.Unmarshal([]byte(jsonPart), &reorderedIDs)
@@ -2030,27 +2031,27 @@ func (a *App) parseAIReorderingResponse(response string) ([]string, error) {
 
 // Export-related types and structs
 type ExportProgress struct {
-	JobID       string  `json:"jobId"`
-	Stage       string  `json:"stage"`
-	Progress    float64 `json:"progress"`
-	CurrentFile string  `json:"currentFile"`
-	TotalFiles  int     `json:"totalFiles"`
-	ProcessedFiles int  `json:"processedFiles"`
-	IsComplete  bool    `json:"isComplete"`
-	HasError    bool    `json:"hasError"`
-	ErrorMessage string `json:"errorMessage"`
-	IsCancelled bool    `json:"isCancelled"`
+	JobID          string  `json:"jobId"`
+	Stage          string  `json:"stage"`
+	Progress       float64 `json:"progress"`
+	CurrentFile    string  `json:"currentFile"`
+	TotalFiles     int     `json:"totalFiles"`
+	ProcessedFiles int     `json:"processedFiles"`
+	IsComplete     bool    `json:"isComplete"`
+	HasError       bool    `json:"hasError"`
+	ErrorMessage   string  `json:"errorMessage"`
+	IsCancelled    bool    `json:"isCancelled"`
 }
 
 type ActiveExportJob struct {
-	JobID      string
-	Cancel     chan bool
-	IsActive   bool
+	JobID    string
+	Cancel   chan bool
+	IsActive bool
 }
 
 // Global active job manager (for cancellation and in-memory tracking)
 var (
-	activeJobs = make(map[string]*ActiveExportJob)
+	activeJobs      = make(map[string]*ActiveExportJob)
 	activeJobsMutex = sync.RWMutex{}
 )
 
@@ -2079,37 +2080,37 @@ type HighlightSegment struct {
 // SelectExportFolder opens a dialog for the user to select an export folder
 func (a *App) SelectExportFolder() (string, error) {
 	options := runtime.OpenDialogOptions{
-		Title: "Select Export Folder",
+		Title:   "Select Export Folder",
 		Filters: []runtime.FileFilter{},
 	}
-	
+
 	folder, err := runtime.OpenDirectoryDialog(a.ctx, options)
 	if err != nil {
 		return "", fmt.Errorf("failed to open directory dialog: %w", err)
 	}
-	
+
 	return folder, nil
 }
 
 // ExportStitchedHighlights exports all highlights as a single stitched video
 func (a *App) ExportStitchedHighlights(projectID int, outputFolder string) (string, error) {
 	jobID := fmt.Sprintf("stitched_%d_%d", projectID, time.Now().UnixNano())
-	
+
 	// Get project info for directory naming
 	project, err := a.client.Project.Get(a.ctx, projectID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get project: %w", err)
 	}
-	
+
 	// Create timestamped directory
 	timestamp := time.Now().Format("2006-01-02_15-04-05")
 	projectDirName := fmt.Sprintf("%s_%s", sanitizeFilename(project.Name), timestamp)
 	projectDir := filepath.Join(outputFolder, projectDirName)
-	
+
 	if err := os.MkdirAll(projectDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create project directory: %w", err)
 	}
-	
+
 	// Create database record with project directory path
 	dbJob, err := a.client.ExportJob.Create().
 		SetJobID(jobID).
@@ -2119,47 +2120,47 @@ func (a *App) ExportStitchedHighlights(projectID int, outputFolder string) (stri
 		SetProgress(0.0).
 		SetProjectID(projectID).
 		Save(a.ctx)
-	
+
 	if err != nil {
 		return "", fmt.Errorf("failed to create export job: %w", err)
 	}
-	
+
 	// Create active job for cancellation tracking
 	activeJob := &ActiveExportJob{
 		JobID:    jobID,
 		Cancel:   make(chan bool, 1),
 		IsActive: true,
 	}
-	
+
 	activeJobsMutex.Lock()
 	activeJobs[jobID] = activeJob
 	activeJobsMutex.Unlock()
-	
+
 	// Start export job in goroutine
 	go a.performStitchedExport(dbJob, activeJob)
-	
+
 	return jobID, nil
 }
 
 // ExportIndividualHighlights exports each highlight as a separate file
 func (a *App) ExportIndividualHighlights(projectID int, outputFolder string) (string, error) {
 	jobID := fmt.Sprintf("individual_%d_%d", projectID, time.Now().UnixNano())
-	
+
 	// Get project info for directory naming
 	project, err := a.client.Project.Get(a.ctx, projectID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get project: %w", err)
 	}
-	
+
 	// Create timestamped directory
 	timestamp := time.Now().Format("2006-01-02_15-04-05")
 	projectDirName := fmt.Sprintf("%s_%s", sanitizeFilename(project.Name), timestamp)
 	projectDir := filepath.Join(outputFolder, projectDirName)
-	
+
 	if err := os.MkdirAll(projectDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create project directory: %w", err)
 	}
-	
+
 	// Create database record with project directory path
 	dbJob, err := a.client.ExportJob.Create().
 		SetJobID(jobID).
@@ -2169,25 +2170,25 @@ func (a *App) ExportIndividualHighlights(projectID int, outputFolder string) (st
 		SetProgress(0.0).
 		SetProjectID(projectID).
 		Save(a.ctx)
-	
+
 	if err != nil {
 		return "", fmt.Errorf("failed to create export job: %w", err)
 	}
-	
+
 	// Create active job for cancellation tracking
 	activeJob := &ActiveExportJob{
 		JobID:    jobID,
 		Cancel:   make(chan bool, 1),
 		IsActive: true,
 	}
-	
+
 	activeJobsMutex.Lock()
 	activeJobs[jobID] = activeJob
 	activeJobsMutex.Unlock()
-	
+
 	// Start export job in goroutine
 	go a.performIndividualExport(dbJob, activeJob)
-	
+
 	return jobID, nil
 }
 
@@ -2198,14 +2199,14 @@ func (a *App) GetExportProgress(jobID string) (*ExportProgress, error) {
 		Query().
 		Where(exportjob.JobID(jobID)).
 		First(a.ctx)
-	
+
 	if err != nil {
 		if ent.IsNotFound(err) {
 			return nil, fmt.Errorf("export job not found: %s", jobID)
 		}
 		return nil, fmt.Errorf("failed to get export job: %w", err)
 	}
-	
+
 	return &ExportProgress{
 		JobID:          dbJob.JobID,
 		Stage:          dbJob.Stage,
@@ -2230,23 +2231,23 @@ func (a *App) CancelExport(jobID string) error {
 		SetStage("cancelled").
 		SetUpdatedAt(time.Now()).
 		Save(a.ctx)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to cancel export job in database: %w", err)
 	}
-	
+
 	// Signal active job to cancel
 	activeJobsMutex.RLock()
 	activeJob, exists := activeJobs[jobID]
 	activeJobsMutex.RUnlock()
-	
+
 	if exists && activeJob.IsActive {
 		select {
 		case activeJob.Cancel <- true:
 		default:
 		}
 	}
-	
+
 	return nil
 }
 
@@ -2257,7 +2258,7 @@ func (a *App) performStitchedExport(dbJob *ent.ExportJob, activeJob *ActiveExpor
 		activeJobsMutex.Lock()
 		delete(activeJobs, dbJob.JobID)
 		activeJobsMutex.Unlock()
-		
+
 		// Update database with completion status
 		a.client.ExportJob.
 			UpdateOne(dbJob).
@@ -2266,32 +2267,32 @@ func (a *App) performStitchedExport(dbJob *ent.ExportJob, activeJob *ActiveExpor
 			SetUpdatedAt(time.Now()).
 			Save(a.ctx)
 	}()
-	
+
 	// Update stage to preparing
 	a.updateJobProgress(dbJob.JobID, "preparing", 0.0, "", 0, 0)
-	
+
 	// Get project ID from job
 	project, err := dbJob.QueryProject().First(a.ctx)
 	if err != nil {
 		a.updateJobError(dbJob.JobID, fmt.Sprintf("Failed to get project: %v", err))
 		return
 	}
-	
+
 	// Get all highlight segments for this project (in proper order)
 	segments, err := a.getProjectHighlightsForExport(project.ID)
 	if err != nil {
 		a.updateJobError(dbJob.JobID, fmt.Sprintf("Failed to get highlight segments: %v", err))
 		return
 	}
-	
+
 	if len(segments) == 0 {
 		a.updateJobError(dbJob.JobID, "No highlight segments found")
 		return
 	}
-	
+
 	// Update total files count
 	a.updateJobProgress(dbJob.JobID, "preparing", 0.0, "", len(segments), 0)
-	
+
 	// Create temp directory for clips
 	tempDir := filepath.Join("temp_export", dbJob.JobID)
 	if err := os.MkdirAll(tempDir, 0755); err != nil {
@@ -2299,7 +2300,7 @@ func (a *App) performStitchedExport(dbJob *ent.ExportJob, activeJob *ActiveExpor
 		return
 	}
 	defer os.RemoveAll(tempDir)
-	
+
 	// Extract individual segments with progress tracking
 	var segmentPaths []string
 	for i, segment := range segments {
@@ -2310,12 +2311,12 @@ func (a *App) performStitchedExport(dbJob *ent.ExportJob, activeJob *ActiveExpor
 			return
 		default:
 		}
-		
+
 		// Update progress
 		progress := float64(i) / float64(len(segments)) * 0.8 // 80% for extraction
 		fileName := fmt.Sprintf("%s (%.1fs-%.1fs)", segment.VideoClipName, segment.StartTime, segment.EndTime)
 		a.updateJobProgress(dbJob.JobID, "extracting", progress, fileName, len(segments), i)
-		
+
 		segmentPath, err := a.extractHighlightSegmentWithProgress(segment, tempDir, i+1, dbJob.JobID, activeJob.Cancel)
 		if err != nil {
 			a.updateJobError(dbJob.JobID, fmt.Sprintf("Failed to extract segment %s: %v", fileName, err))
@@ -2323,10 +2324,10 @@ func (a *App) performStitchedExport(dbJob *ent.ExportJob, activeJob *ActiveExpor
 		}
 		segmentPaths = append(segmentPaths, segmentPath)
 	}
-	
+
 	// Stitch segments together with progress tracking
 	a.updateJobProgress(dbJob.JobID, "stitching", 0.8, "Combining highlight segments", len(segments), len(segments))
-	
+
 	// Create output file in the project directory
 	outputFileName := fmt.Sprintf("%s_highlights_stitched.mp4", sanitizeFilename(project.Name))
 	outputFile := filepath.Join(dbJob.OutputPath, outputFileName)
@@ -2335,7 +2336,7 @@ func (a *App) performStitchedExport(dbJob *ent.ExportJob, activeJob *ActiveExpor
 		a.updateJobError(dbJob.JobID, fmt.Sprintf("Failed to stitch segments: %v", err))
 		return
 	}
-	
+
 	// Mark as complete with directory info
 	completionMessage := fmt.Sprintf("Exported to: %s", filepath.Base(dbJob.OutputPath))
 	a.updateJobProgress(dbJob.JobID, "complete", 1.0, completionMessage, len(segments), len(segments))
@@ -2348,7 +2349,7 @@ func (a *App) performIndividualExport(dbJob *ent.ExportJob, activeJob *ActiveExp
 		activeJobsMutex.Lock()
 		delete(activeJobs, dbJob.JobID)
 		activeJobsMutex.Unlock()
-		
+
 		// Update database with completion status
 		a.client.ExportJob.
 			UpdateOne(dbJob).
@@ -2357,29 +2358,29 @@ func (a *App) performIndividualExport(dbJob *ent.ExportJob, activeJob *ActiveExp
 			SetUpdatedAt(time.Now()).
 			Save(a.ctx)
 	}()
-	
+
 	// Get project ID from job
 	project, err := dbJob.QueryProject().First(a.ctx)
 	if err != nil {
 		a.updateJobError(dbJob.JobID, fmt.Sprintf("Failed to get project: %v", err))
 		return
 	}
-	
+
 	// Get all highlight segments for this project (in proper order)
 	segments, err := a.getProjectHighlightsForExport(project.ID)
 	if err != nil {
 		a.updateJobError(dbJob.JobID, fmt.Sprintf("Failed to get highlight segments: %v", err))
 		return
 	}
-	
+
 	if len(segments) == 0 {
 		a.updateJobError(dbJob.JobID, "No highlight segments found")
 		return
 	}
-	
+
 	// Update stage and total files
 	a.updateJobProgress(dbJob.JobID, "extracting", 0.0, "", len(segments), 0)
-	
+
 	// Extract individual segments with progress tracking
 	for i, segment := range segments {
 		// Check for cancellation
@@ -2389,25 +2390,25 @@ func (a *App) performIndividualExport(dbJob *ent.ExportJob, activeJob *ActiveExp
 			return
 		default:
 		}
-		
+
 		// Update progress
 		progress := float64(i) / float64(len(segments))
 		fileName := fmt.Sprintf("%s (%.1fs-%.1fs)", segment.VideoClipName, segment.StartTime, segment.EndTime)
 		a.updateJobProgress(dbJob.JobID, "extracting", progress, fileName, len(segments), i)
-		
+
 		// Create descriptive filename with segment info
-		segmentName := fmt.Sprintf("%s_%.1fs-%.1fs", 
+		segmentName := fmt.Sprintf("%s_%.1fs-%.1fs",
 			sanitizeFilename(strings.TrimSuffix(segment.VideoClipName, filepath.Ext(segment.VideoClipName))),
 			segment.StartTime, segment.EndTime)
 		outputFile := filepath.Join(dbJob.OutputPath, fmt.Sprintf("%03d_%s.mp4", i+1, segmentName))
-		
+
 		err := a.extractHighlightSegmentDirectWithProgress(segment, outputFile, dbJob.JobID, activeJob.Cancel)
 		if err != nil {
 			a.updateJobError(dbJob.JobID, fmt.Sprintf("Failed to extract segment %s: %v", fileName, err))
 			return
 		}
 	}
-	
+
 	// Mark as complete with directory info
 	completionMessage := fmt.Sprintf("Exported to: %s", filepath.Base(dbJob.OutputPath))
 	a.updateJobProgress(dbJob.JobID, "complete", 1.0, completionMessage, len(segments), len(segments))
@@ -2420,7 +2421,7 @@ func (a *App) getProjectHighlightsForExport(projectID int) ([]HighlightSegment, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get project highlights: %w", err)
 	}
-	
+
 	// Flatten highlights into segments, preserving order
 	var segments []HighlightSegment
 	for _, ph := range projectHighlights {
@@ -2438,13 +2439,13 @@ func (a *App) getProjectHighlightsForExport(projectID int) ([]HighlightSegment, 
 			segments = append(segments, segment)
 		}
 	}
-	
+
 	// Apply custom ordering if it exists
 	order, err := a.GetProjectHighlightOrder(projectID)
 	if err == nil && len(order) > 0 {
 		segments = a.applyHighlightOrder(segments, order)
 	}
-	
+
 	return segments, nil
 }
 
@@ -2453,13 +2454,13 @@ func (a *App) applyHighlightOrder(segments []HighlightSegment, order []string) [
 	if len(order) == 0 {
 		return segments
 	}
-	
+
 	// Create a map for quick lookup
 	segmentMap := make(map[string]HighlightSegment)
 	for _, segment := range segments {
 		segmentMap[segment.ID] = segment
 	}
-	
+
 	// Build ordered list
 	var orderedSegments []HighlightSegment
 	for _, id := range order {
@@ -2468,19 +2469,19 @@ func (a *App) applyHighlightOrder(segments []HighlightSegment, order []string) [
 			delete(segmentMap, id) // Remove from map to track used segments
 		}
 	}
-	
+
 	// Add any remaining segments that weren't in the order list
 	for _, segment := range segmentMap {
 		orderedSegments = append(orderedSegments, segment)
 	}
-	
+
 	return orderedSegments
 }
 
 // extractHighlightSegment extracts a single highlight segment to a temp file
 func (a *App) extractHighlightSegment(segment HighlightSegment, tempDir string, index int) (string, error) {
 	outputPath := filepath.Join(tempDir, fmt.Sprintf("segment_%03d.mp4", index))
-	
+
 	// Use ffmpeg to extract the segment
 	cmd := exec.Command("ffmpeg",
 		"-i", segment.FilePath,
@@ -2491,12 +2492,12 @@ func (a *App) extractHighlightSegment(segment HighlightSegment, tempDir string, 
 		"-y",
 		outputPath,
 	)
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("ffmpeg failed: %w, output: %s", err, string(output))
 	}
-	
+
 	return outputPath, nil
 }
 
@@ -2512,12 +2513,12 @@ func (a *App) extractHighlightSegmentDirect(segment HighlightSegment, outputPath
 		"-y",
 		outputPath,
 	)
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("ffmpeg failed: %w, output: %s", err, string(output))
 	}
-	
+
 	return nil
 }
 
@@ -2526,24 +2527,24 @@ func (a *App) stitchVideoClips(clipPaths []string, outputPath string) error {
 	if len(clipPaths) == 0 {
 		return fmt.Errorf("no clips to stitch")
 	}
-	
+
 	// Create concat file for ffmpeg
 	concatFile := filepath.Join(filepath.Dir(outputPath), "concat_list.txt")
 	defer os.Remove(concatFile)
-	
+
 	file, err := os.Create(concatFile)
 	if err != nil {
 		return fmt.Errorf("failed to create concat file: %w", err)
 	}
 	defer file.Close()
-	
+
 	for _, clipPath := range clipPaths {
 		_, err := file.WriteString(fmt.Sprintf("file '%s'\n", clipPath))
 		if err != nil {
 			return fmt.Errorf("failed to write to concat file: %w", err)
 		}
 	}
-	
+
 	// Use ffmpeg to concatenate clips
 	cmd := exec.Command("ffmpeg",
 		"-f", "concat",
@@ -2553,12 +2554,12 @@ func (a *App) stitchVideoClips(clipPaths []string, outputPath string) error {
 		"-y",
 		outputPath,
 	)
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("ffmpeg concat failed: %w, output: %s", err, string(output))
 	}
-	
+
 	return nil
 }
 
@@ -2915,7 +2916,7 @@ func (a *App) GetProjectAISettings(projectID int) (*ProjectAISettings, error) {
 		Query().
 		Where(project.ID(projectID)).
 		Only(a.ctx)
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get project: %w", err)
 	}
@@ -2933,14 +2934,14 @@ func (a *App) GetProjectAISettings(projectID int) (*ProjectAISettings, error) {
 	}, nil
 }
 
-// SaveProjectAISettings saves the AI settings for a specific project  
+// SaveProjectAISettings saves the AI settings for a specific project
 func (a *App) SaveProjectAISettings(projectID int, settings ProjectAISettings) error {
 	_, err := a.client.Project.
 		UpdateOneID(projectID).
 		SetAiModel(settings.AIModel).
 		SetAiPrompt(settings.AIPrompt).
 		Save(a.ctx)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to save project AI settings: %w", err)
 	}
@@ -2978,7 +2979,7 @@ func (a *App) saveAISuggestion(projectID int, reorderedIDs []string, model strin
 		SetAiSuggestionModel(model).
 		SetAiSuggestionCreatedAt(time.Now()).
 		Save(a.ctx)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to save AI suggestion: %w", err)
 	}
@@ -2992,13 +2993,13 @@ func (a *App) GetProjectAISuggestion(projectID int) (*ProjectAISuggestion, error
 		Query().
 		Where(project.ID(projectID)).
 		Only(a.ctx)
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get project: %w", err)
 	}
 
 	// Check if there's a cached AI suggestion
-	if project.AiSuggestionOrder == nil || len(project.AiSuggestionOrder) == 0 {
+	if project.AiSuggestionOrder == nil {
 		return nil, nil // No cached suggestion
 	}
 
@@ -3015,7 +3016,7 @@ func (a *App) GetProjectHighlightAISettings(projectID int) (*ProjectHighlightAIS
 		Query().
 		Where(project.ID(projectID)).
 		Only(a.ctx)
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get project: %w", err)
 	}
@@ -3040,7 +3041,7 @@ func (a *App) SaveProjectHighlightAISettings(projectID int, settings ProjectHigh
 		SetAiHighlightModel(settings.AIModel).
 		SetAiHighlightPrompt(settings.AIPrompt).
 		Save(a.ctx)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to save project highlight AI settings: %w", err)
 	}
@@ -3087,7 +3088,7 @@ Avoid overlapping with existing highlights and ensure segments are coherent and 
 		Query().
 		Where(videoclip.ID(videoID)).
 		Only(a.ctx)
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get video: %w", err)
 	}
@@ -3113,7 +3114,7 @@ Avoid overlapping with existing highlights and ensure segments are coherent and 
 
 	// Get existing highlights to avoid overlaps
 	existingHighlights := video.Highlights
-	
+
 	// Debug log existing highlights
 	log.Printf("SuggestHighlightsWithAI: Video ID %d has %d existing highlights", videoID, len(existingHighlights))
 	for i, h := range existingHighlights {
@@ -3233,11 +3234,11 @@ func (a *App) callOpenRouterForHighlightSuggestions(apiKey string, model string,
 // buildHighlightSuggestionsPrompt creates a prompt for the AI to suggest highlights
 func (a *App) buildHighlightSuggestionsPrompt(transcriptWords []schema.Word, existingHighlights []schema.Highlight, customPrompt string) string {
 	var prompt strings.Builder
-	
+
 	// Add custom prompt
 	prompt.WriteString(customPrompt)
 	prompt.WriteString("\n\n")
-	
+
 	// Add transcript as indexed words
 	prompt.WriteString("TRANSCRIPT (as indexed word pairs):\n")
 	for i, word := range transcriptWords {
@@ -3250,7 +3251,7 @@ func (a *App) buildHighlightSuggestionsPrompt(transcriptWords []schema.Word, exi
 		}
 	}
 	prompt.WriteString("\n\n")
-	
+
 	// Add existing highlights context
 	if len(existingHighlights) > 0 {
 		prompt.WriteString("EXISTING HIGHLIGHTS (do not overlap with these):\n")
@@ -3262,11 +3263,11 @@ func (a *App) buildHighlightSuggestionsPrompt(transcriptWords []schema.Word, exi
 		}
 		prompt.WriteString("\n\n")
 	}
-	
+
 	prompt.WriteString("TASK: Return suggested highlight segments as word index ranges in JSON format.\n")
 	prompt.WriteString("Format: [{\"start\": 5, \"end\": 12}, {\"start\": 25, \"end\": 35}]\n")
 	prompt.WriteString("Only return the JSON array, no other text.")
-	
+
 	return prompt.String()
 }
 
@@ -3285,41 +3286,41 @@ func (a *App) parseAIHighlightSuggestionsResponse(aiResponse string, transcriptW
 	// Extract JSON from response (in case AI adds extra text)
 	jsonStart := strings.Index(aiResponse, "[")
 	jsonEnd := strings.LastIndex(aiResponse, "]")
-	
+
 	if jsonStart == -1 || jsonEnd == -1 {
 		return nil, fmt.Errorf("no valid JSON array found in AI response")
 	}
-	
+
 	jsonStr := aiResponse[jsonStart : jsonEnd+1]
-	
+
 	// Parse JSON
 	var rawSuggestions []struct {
 		Start int `json:"start"`
 		End   int `json:"end"`
 	}
-	
+
 	err := json.Unmarshal([]byte(jsonStr), &rawSuggestions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse AI suggestions JSON: %w", err)
 	}
-	
+
 	// Convert to HighlightSuggestion structs
 	var suggestions []HighlightSuggestion
 	baseColors := []string{"#ffeb3b", "#81c784", "#64b5f6", "#ff8a65", "#f06292"}
-	
+
 	for i, raw := range rawSuggestions {
 		// Validate indices
 		if raw.Start < 0 || raw.End >= len(transcriptWords) || raw.Start > raw.End {
 			continue // Skip invalid suggestions
 		}
-		
+
 		// Extract text
 		var textParts []string
 		for j := raw.Start; j <= raw.End; j++ {
 			textParts = append(textParts, transcriptWords[j].Word)
 		}
 		text := strings.Join(textParts, " ")
-		
+
 		suggestion := HighlightSuggestion{
 			ID:    fmt.Sprintf("suggestion_%d_%d", raw.Start, raw.End),
 			Start: raw.Start,
@@ -3329,26 +3330,26 @@ func (a *App) parseAIHighlightSuggestionsResponse(aiResponse string, transcriptW
 		}
 		suggestions = append(suggestions, suggestion)
 	}
-	
+
 	return suggestions, nil
 }
 
 // filterValidHighlightSuggestions removes suggestions that overlap with existing highlights
 func (a *App) filterValidHighlightSuggestions(suggestions []HighlightSuggestion, existingHighlights []schema.Highlight, transcriptWords []schema.Word) []HighlightSuggestion {
 	var validSuggestions []HighlightSuggestion
-	
+
 	for _, suggestion := range suggestions {
 		hasOverlap := false
-		
+
 		// Get the time range for the suggestion
 		suggestionStartTime := a.wordIndexToTime(suggestion.Start, transcriptWords)
 		suggestionEndTime := a.wordIndexToTime(suggestion.End, transcriptWords)
-		
+
 		// For the end time, use the end of the last word
 		if suggestion.End < len(transcriptWords) {
 			suggestionEndTime = transcriptWords[suggestion.End].End
 		}
-		
+
 		// Check for overlap with existing highlights using time-based comparison
 		for _, existing := range existingHighlights {
 			// Check for ANY intersection between the two time ranges
@@ -3362,17 +3363,17 @@ func (a *App) filterValidHighlightSuggestions(suggestions []HighlightSuggestion,
 				break
 			}
 		}
-		
+
 		// Also check for overlap with other suggestions that we've already validated
 		if !hasOverlap {
 			for _, validSuggestion := range validSuggestions {
 				validStartTime := a.wordIndexToTime(validSuggestion.Start, transcriptWords)
 				validEndTime := a.wordIndexToTime(validSuggestion.End, transcriptWords)
-				
+
 				if validSuggestion.End < len(transcriptWords) {
 					validEndTime = transcriptWords[validSuggestion.End].End
 				}
-				
+
 				if suggestionStartTime < validEndTime && suggestionEndTime > validStartTime {
 					hasOverlap = true
 					log.Printf("Dropping suggested highlight [%d-%d] (%.2f-%.2f) due to overlap with another suggestion (%.2f-%.2f)",
@@ -3381,15 +3382,15 @@ func (a *App) filterValidHighlightSuggestions(suggestions []HighlightSuggestion,
 				}
 			}
 		}
-		
+
 		if !hasOverlap {
 			validSuggestions = append(validSuggestions, suggestion)
 		}
 	}
-	
-	log.Printf("Filtered %d suggestions down to %d valid suggestions (removed %d overlapping)", 
+
+	log.Printf("Filtered %d suggestions down to %d valid suggestions (removed %d overlapping)",
 		len(suggestions), len(validSuggestions), len(suggestions)-len(validSuggestions))
-	
+
 	return validSuggestions
 }
 
@@ -3408,12 +3409,12 @@ func (a *App) saveSuggestedHighlights(videoID int, suggestions []HighlightSugges
 	for _, suggestion := range suggestions {
 		startTime := a.wordIndexToTime(suggestion.Start, transcriptWords)
 		endTime := a.wordIndexToTime(suggestion.End, transcriptWords)
-		
+
 		// For the end time, use the end of the last word
 		if suggestion.End < len(transcriptWords) {
 			endTime = transcriptWords[suggestion.End].End
 		}
-		
+
 		highlight := schema.Highlight{
 			ID:    suggestion.ID,
 			Start: startTime,
@@ -3422,16 +3423,16 @@ func (a *App) saveSuggestedHighlights(videoID int, suggestions []HighlightSugges
 		}
 		highlights = append(highlights, highlight)
 	}
-	
+
 	_, err := a.client.VideoClip.
 		UpdateOneID(videoID).
 		SetSuggestedHighlights(highlights).
 		Save(a.ctx)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to save suggested highlights: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -3442,7 +3443,7 @@ func (a *App) GetSuggestedHighlights(videoID int) ([]HighlightSuggestion, error)
 		Query().
 		Where(videoclip.ID(videoID)).
 		Only(a.ctx)
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get video: %w", err)
 	}
@@ -3452,11 +3453,11 @@ func (a *App) GetSuggestedHighlights(videoID int) ([]HighlightSuggestion, error)
 	for _, highlight := range video.SuggestedHighlights {
 		// Get transcript words to extract text
 		transcriptWords := video.TranscriptionWords
-		
+
 		// Find word indices based on time
 		startIdx := a.timeToWordIndex(highlight.Start, transcriptWords)
 		endIdx := a.timeToWordIndex(highlight.End, transcriptWords)
-		
+
 		// Extract text from transcript
 		var text strings.Builder
 		for i := startIdx; i <= endIdx && i < len(transcriptWords); i++ {
@@ -3465,7 +3466,7 @@ func (a *App) GetSuggestedHighlights(videoID int) ([]HighlightSuggestion, error)
 			}
 			text.WriteString(transcriptWords[i].Word)
 		}
-		
+
 		suggestion := HighlightSuggestion{
 			ID:    highlight.ID,
 			Start: startIdx,
@@ -3475,7 +3476,7 @@ func (a *App) GetSuggestedHighlights(videoID int) ([]HighlightSuggestion, error)
 		}
 		suggestions = append(suggestions, suggestion)
 	}
-	
+
 	return suggestions, nil
 }
 
@@ -3485,11 +3486,11 @@ func (a *App) ClearSuggestedHighlights(videoID int) error {
 		UpdateOneID(videoID).
 		ClearSuggestedHighlights().
 		Save(a.ctx)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to clear suggested highlights: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -3528,7 +3529,7 @@ func (a *App) RecoverActiveExportJobs() error {
 // onFileDrop handles file drops from the OS using Wails v2 drag and drop API
 func (a *App) onFileDrop(ctx context.Context, x, y int, paths []string) {
 	log.Printf("Files dropped at (%d, %d): %v", x, y, paths)
-	
+
 	// Filter for video files only
 	videoFiles := []string{}
 	for _, path := range paths {
@@ -3536,7 +3537,7 @@ func (a *App) onFileDrop(ctx context.Context, x, y int, paths []string) {
 			videoFiles = append(videoFiles, path)
 		}
 	}
-	
+
 	// Emit event to frontend with dropped video files
 	runtime.EventsEmit(ctx, "files-dropped", map[string]interface{}{
 		"x":     x,
