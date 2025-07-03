@@ -30,6 +30,7 @@ import (
 	"MYAPP/ent/settings"
 	"MYAPP/ent/videoclip"
 	"MYAPP/goapp/ai"
+	"MYAPP/goapp/projects"
 
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
@@ -38,49 +39,6 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-// ProjectResponse represents a project response for the frontend
-type ProjectResponse struct {
-	ID          int    `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Path        string `json:"path"`
-	CreatedAt   string `json:"createdAt"`
-	UpdatedAt   string `json:"updatedAt"`
-}
-
-// VideoClipResponse represents a video clip response for the frontend
-type VideoClipResponse struct {
-	ID                    int         `json:"id"`
-	Name                  string      `json:"name"`
-	Description           string      `json:"description"`
-	FilePath              string      `json:"filePath"`
-	FileName              string      `json:"fileName"`
-	FileSize              int64       `json:"fileSize"`
-	Duration              float64     `json:"duration"`
-	Format                string      `json:"format"`
-	Width                 int         `json:"width"`
-	Height                int         `json:"height"`
-	ProjectID             int         `json:"projectId"`
-	CreatedAt             string      `json:"createdAt"`
-	UpdatedAt             string      `json:"updatedAt"`
-	Exists                bool        `json:"exists"`
-	ThumbnailURL          string      `json:"thumbnailUrl"`
-	Transcription         string      `json:"transcription"`
-	TranscriptionWords    []Word      `json:"transcriptionWords"`
-	TranscriptionLanguage string      `json:"transcriptionLanguage"`
-	TranscriptionDuration float64     `json:"transcriptionDuration"`
-	Highlights            []Highlight `json:"highlights"`
-}
-
-// LocalVideoFile represents a local video file for the frontend
-type LocalVideoFile struct {
-	Name     string `json:"name"`
-	FilePath string `json:"filePath"`
-	FileName string `json:"fileName"`
-	FileSize int64  `json:"fileSize"`
-	Format   string `json:"format"`
-	Exists   bool   `json:"exists"`
-}
 
 // ProjectAISettings represents AI settings for a project
 type ProjectAISettings struct {
@@ -94,32 +52,6 @@ type App struct {
 	client *ent.Client
 }
 
-// Helper function to convert schema.Word to Word
-func schemaWordsToWords(schemaWords []schema.Word) []Word {
-	words := make([]Word, len(schemaWords))
-	for i, sw := range schemaWords {
-		words[i] = Word{
-			Word:  sw.Word,
-			Start: sw.Start,
-			End:   sw.End,
-		}
-	}
-	return words
-}
-
-// Helper function to convert schema.Highlight to Highlight
-func schemaHighlightsToHighlights(schemaHighlights []schema.Highlight) []Highlight {
-	highlights := make([]Highlight, len(schemaHighlights))
-	for i, sh := range schemaHighlights {
-		highlights[i] = Highlight{
-			ID:    sh.ID,
-			Start: sh.Start,
-			End:   sh.End,
-			Color: sh.Color,
-		}
-	}
-	return highlights
-}
 
 // NewApp creates a new App application struct
 func NewApp() *App {
@@ -421,125 +353,80 @@ func (a *App) Greet(name string) string {
 }
 
 // CreateProject creates a new project with a default path
-func (a *App) CreateProject(name, description string) (*ProjectResponse, error) {
-	if name == "" {
-		return nil, fmt.Errorf("project name cannot be empty")
-	}
-
-	// Create a default project path
-	projectPath := filepath.Join("projects", name)
-
-	project, err := a.client.Project.
-		Create().
-		SetName(name).
-		SetDescription(description).
-		SetPath(projectPath).
-		Save(a.ctx)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to create project: %w", err)
-	}
-
-	return &ProjectResponse{
-		ID:          project.ID,
-		Name:        project.Name,
-		Description: project.Description,
-		Path:        project.Path,
-		CreatedAt:   project.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt:   project.UpdatedAt.Format("2006-01-02 15:04:05"),
-	}, nil
+func (a *App) CreateProject(name, description string) (*projects.ProjectResponse, error) {
+	service := projects.NewProjectService(a.client, a.ctx)
+	return service.CreateProject(name, description)
 }
 
 // GetProjects returns all projects
-func (a *App) GetProjects() ([]*ProjectResponse, error) {
-	projects, err := a.client.Project.
-		Query().
-		WithVideoClips().
-		All(a.ctx)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to get projects: %w", err)
-	}
-
-	var responses []*ProjectResponse
-	for _, project := range projects {
-		responses = append(responses, &ProjectResponse{
-			ID:          project.ID,
-			Name:        project.Name,
-			Description: project.Description,
-			Path:        project.Path,
-			CreatedAt:   project.CreatedAt.Format("2006-01-02 15:04:05"),
-			UpdatedAt:   project.UpdatedAt.Format("2006-01-02 15:04:05"),
-		})
-	}
-
-	return responses, nil
+func (a *App) GetProjects() ([]*projects.ProjectResponse, error) {
+	service := projects.NewProjectService(a.client, a.ctx)
+	return service.GetProjects()
 }
 
 // GetProjectByID returns a project by its ID
-func (a *App) GetProjectByID(id int) (*ProjectResponse, error) {
-	project, err := a.client.Project.
-		Query().
-		Where(project.ID(id)).
-		WithVideoClips().
-		Only(a.ctx)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to get project with ID %d: %w", id, err)
-	}
-
-	return &ProjectResponse{
-		ID:          project.ID,
-		Name:        project.Name,
-		Description: project.Description,
-		Path:        project.Path,
-		CreatedAt:   project.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt:   project.UpdatedAt.Format("2006-01-02 15:04:05"),
-	}, nil
+func (a *App) GetProjectByID(id int) (*projects.ProjectResponse, error) {
+	service := projects.NewProjectService(a.client, a.ctx)
+	return service.GetProjectByID(id)
 }
 
 // UpdateProject updates an existing project
-func (a *App) UpdateProject(id int, name, description string) (*ProjectResponse, error) {
-	if name == "" {
-		return nil, fmt.Errorf("project name cannot be empty")
-	}
-
-	// Update the project path if name changed
-	projectPath := filepath.Join("projects", name)
-
-	updatedProject, err := a.client.Project.
-		UpdateOneID(id).
-		SetName(name).
-		SetDescription(description).
-		SetPath(projectPath).
-		Save(a.ctx)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to update project with ID %d: %w", id, err)
-	}
-
-	return &ProjectResponse{
-		ID:          updatedProject.ID,
-		Name:        updatedProject.Name,
-		Description: updatedProject.Description,
-		Path:        updatedProject.Path,
-		CreatedAt:   updatedProject.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt:   updatedProject.UpdatedAt.Format("2006-01-02 15:04:05"),
-	}, nil
+func (a *App) UpdateProject(id int, name, description string) (*projects.ProjectResponse, error) {
+	service := projects.NewProjectService(a.client, a.ctx)
+	return service.UpdateProject(id, name, description)
 }
 
 // DeleteProject deletes a project by its ID
 func (a *App) DeleteProject(id int) error {
-	err := a.client.Project.
-		DeleteOneID(id).
-		Exec(a.ctx)
-
-	if err != nil {
-		return fmt.Errorf("failed to delete project with ID %d: %w", id, err)
-	}
-
-	return nil
+	service := projects.NewProjectService(a.client, a.ctx)
+	return service.DeleteProject(id)
 }
+
+
+
+// CreateVideoClip creates a new video clip with file validation
+func (a *App) CreateVideoClip(projectID int, filePath string) (*projects.VideoClipResponse, error) {
+	service := projects.NewProjectService(a.client, a.ctx)
+	return service.CreateVideoClip(projectID, filePath)
+}
+
+// GetVideoClipsByProject returns all video clips for a project
+func (a *App) GetVideoClipsByProject(projectID int) ([]*projects.VideoClipResponse, error) {
+	service := projects.NewProjectService(a.client, a.ctx)
+	return service.GetVideoClipsByProject(projectID)
+}
+
+// UpdateVideoClip updates a video clip's metadata
+func (a *App) UpdateVideoClip(id int, name, description string) (*projects.VideoClipResponse, error) {
+	service := projects.NewProjectService(a.client, a.ctx)
+	return service.UpdateVideoClip(id, name, description)
+}
+
+// DeleteVideoClip deletes a video clip
+func (a *App) DeleteVideoClip(id int) error {
+	service := projects.NewProjectService(a.client, a.ctx)
+	return service.DeleteVideoClip(id)
+}
+
+// SelectVideoFiles opens a file dialog to select video files
+func (a *App) SelectVideoFiles() ([]*projects.LocalVideoFile, error) {
+	service := projects.NewProjectService(a.client, a.ctx)
+	return service.SelectVideoFiles(a.ctx)
+}
+
+// GetVideoFileInfo returns information about a local video file
+func (a *App) GetVideoFileInfo(filePath string) (*projects.LocalVideoFile, error) {
+	service := projects.NewProjectService(a.client, a.ctx)
+	return service.GetVideoFileInfo(filePath)
+}
+
+// GetVideoURL returns a URL that can be used to access the video file via AssetServer
+func (a *App) GetVideoURL(filePath string) (string, error) {
+	service := projects.NewProjectService(a.client, a.ctx)
+	return service.GetVideoURL(filePath)
+}
+
+// Helper functions needed by HTTP handlers and other parts of the app
 
 // isVideoFile checks if a file is a supported video format
 func (a *App) isVideoFile(filePath string) bool {
@@ -565,288 +452,6 @@ func (a *App) getFileInfo(filePath string) (int64, string, bool) {
 	format := strings.TrimPrefix(ext, ".")
 
 	return fileInfo.Size(), format, true
-}
-
-// CreateVideoClip creates a new video clip with file validation
-func (a *App) CreateVideoClip(projectID int, filePath string) (*VideoClipResponse, error) {
-	// Validate file exists and is a video
-	if !a.isVideoFile(filePath) {
-		return nil, fmt.Errorf("file is not a supported video format")
-	}
-
-	fileSize, format, exists := a.getFileInfo(filePath)
-	if !exists {
-		return nil, fmt.Errorf("file does not exist: %s", filePath)
-	}
-
-	// Check if this file path already exists for this project
-	existingClip, err := a.client.VideoClip.
-		Query().
-		Where(
-			videoclip.HasProjectWith(project.ID(projectID)),
-			videoclip.FilePath(filePath),
-		).
-		Only(a.ctx)
-
-	if err == nil {
-		// File already exists for this project, return the existing clip
-		fileName := filepath.Base(existingClip.FilePath)
-		_, _, fileExists := a.getFileInfo(existingClip.FilePath)
-
-		return &VideoClipResponse{
-			ID:                    existingClip.ID,
-			Name:                  existingClip.Name,
-			Description:           existingClip.Description,
-			FilePath:              existingClip.FilePath,
-			FileName:              fileName,
-			FileSize:              existingClip.FileSize,
-			Duration:              existingClip.Duration,
-			Format:                existingClip.Format,
-			Width:                 existingClip.Width,
-			Height:                existingClip.Height,
-			ProjectID:             projectID,
-			CreatedAt:             existingClip.CreatedAt.Format("2006-01-02 15:04:05"),
-			UpdatedAt:             existingClip.UpdatedAt.Format("2006-01-02 15:04:05"),
-			Exists:                fileExists,
-			ThumbnailURL:          a.getThumbnailURL(existingClip.FilePath),
-			Transcription:         existingClip.Transcription,
-			TranscriptionWords:    schemaWordsToWords(existingClip.TranscriptionWords),
-			TranscriptionLanguage: existingClip.TranscriptionLanguage,
-			TranscriptionDuration: existingClip.TranscriptionDuration,
-			Highlights:            schemaHighlightsToHighlights(existingClip.Highlights),
-		}, fmt.Errorf("video file already added to this project")
-	}
-
-	fileName := filepath.Base(filePath)
-	name := strings.TrimSuffix(fileName, filepath.Ext(fileName))
-
-	// Create video clip in database
-	videoClip, err := a.client.VideoClip.
-		Create().
-		SetName(name).
-		SetDescription("").
-		SetFilePath(filePath).
-		SetFormat(format).
-		SetFileSize(fileSize).
-		SetProjectID(projectID).
-		Save(a.ctx)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to create video clip: %w", err)
-	}
-
-	return &VideoClipResponse{
-		ID:                    videoClip.ID,
-		Name:                  videoClip.Name,
-		Description:           videoClip.Description,
-		FilePath:              videoClip.FilePath,
-		FileName:              fileName,
-		FileSize:              videoClip.FileSize,
-		Duration:              videoClip.Duration,
-		Format:                videoClip.Format,
-		Width:                 videoClip.Width,
-		Height:                videoClip.Height,
-		ProjectID:             projectID,
-		CreatedAt:             videoClip.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt:             videoClip.UpdatedAt.Format("2006-01-02 15:04:05"),
-		Exists:                true,
-		ThumbnailURL:          a.getThumbnailURL(videoClip.FilePath),
-		Transcription:         videoClip.Transcription,
-		TranscriptionWords:    schemaWordsToWords(videoClip.TranscriptionWords),
-		TranscriptionLanguage: videoClip.TranscriptionLanguage,
-		TranscriptionDuration: videoClip.TranscriptionDuration,
-		Highlights:            schemaHighlightsToHighlights(videoClip.Highlights),
-	}, nil
-}
-
-// GetVideoClipsByProject returns all video clips for a project
-func (a *App) GetVideoClipsByProject(projectID int) ([]*VideoClipResponse, error) {
-	clips, err := a.client.VideoClip.
-		Query().
-		Where(videoclip.HasProjectWith(project.ID(projectID))).
-		All(a.ctx)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to get video clips: %w", err)
-	}
-
-	var responses []*VideoClipResponse
-	for _, clip := range clips {
-		fileName := filepath.Base(clip.FilePath)
-		_, _, exists := a.getFileInfo(clip.FilePath)
-
-		responses = append(responses, &VideoClipResponse{
-			ID:                    clip.ID,
-			Name:                  clip.Name,
-			Description:           clip.Description,
-			FilePath:              clip.FilePath,
-			FileName:              fileName,
-			FileSize:              clip.FileSize,
-			Duration:              clip.Duration,
-			Format:                clip.Format,
-			Width:                 clip.Width,
-			Height:                clip.Height,
-			ProjectID:             projectID,
-			CreatedAt:             clip.CreatedAt.Format("2006-01-02 15:04:05"),
-			UpdatedAt:             clip.UpdatedAt.Format("2006-01-02 15:04:05"),
-			Exists:                exists,
-			ThumbnailURL:          a.getThumbnailURL(clip.FilePath),
-			Transcription:         clip.Transcription,
-			TranscriptionWords:    schemaWordsToWords(clip.TranscriptionWords),
-			TranscriptionLanguage: clip.TranscriptionLanguage,
-			TranscriptionDuration: clip.TranscriptionDuration,
-			Highlights:            schemaHighlightsToHighlights(clip.Highlights),
-		})
-	}
-
-	return responses, nil
-}
-
-// UpdateVideoClip updates a video clip's metadata
-func (a *App) UpdateVideoClip(id int, name, description string) (*VideoClipResponse, error) {
-	if name == "" {
-		return nil, fmt.Errorf("video clip name cannot be empty")
-	}
-
-	updatedClip, err := a.client.VideoClip.
-		UpdateOneID(id).
-		SetName(name).
-		SetDescription(description).
-		Save(a.ctx)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to update video clip: %w", err)
-	}
-
-	fileName := filepath.Base(updatedClip.FilePath)
-	_, _, exists := a.getFileInfo(updatedClip.FilePath)
-
-	return &VideoClipResponse{
-		ID:                    updatedClip.ID,
-		Name:                  updatedClip.Name,
-		Description:           updatedClip.Description,
-		FilePath:              updatedClip.FilePath,
-		FileName:              fileName,
-		FileSize:              updatedClip.FileSize,
-		Duration:              updatedClip.Duration,
-		Format:                updatedClip.Format,
-		Width:                 updatedClip.Width,
-		Height:                updatedClip.Height,
-		ProjectID:             updatedClip.Edges.Project.ID,
-		CreatedAt:             updatedClip.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt:             updatedClip.UpdatedAt.Format("2006-01-02 15:04:05"),
-		Exists:                exists,
-		ThumbnailURL:          a.getThumbnailURL(updatedClip.FilePath),
-		Transcription:         updatedClip.Transcription,
-		TranscriptionWords:    schemaWordsToWords(updatedClip.TranscriptionWords),
-		TranscriptionLanguage: updatedClip.TranscriptionLanguage,
-		TranscriptionDuration: updatedClip.TranscriptionDuration,
-		Highlights:            schemaHighlightsToHighlights(updatedClip.Highlights),
-	}, nil
-}
-
-// DeleteVideoClip deletes a video clip
-func (a *App) DeleteVideoClip(id int) error {
-	err := a.client.VideoClip.
-		DeleteOneID(id).
-		Exec(a.ctx)
-
-	if err != nil {
-		return fmt.Errorf("failed to delete video clip: %w", err)
-	}
-
-	return nil
-}
-
-// SelectVideoFiles opens a file dialog to select video files
-func (a *App) SelectVideoFiles() ([]*LocalVideoFile, error) {
-	// Open file dialog for multiple video files
-	filePaths, err := runtime.OpenMultipleFilesDialog(a.ctx, runtime.OpenDialogOptions{
-		Title: "Select Video Files",
-		Filters: []runtime.FileFilter{
-			{
-				DisplayName: "Video Files",
-				Pattern:     "*.mp4;*.mov;*.avi;*.mkv;*.wmv;*.flv;*.webm;*.m4v;*.mpg;*.mpeg",
-			},
-		},
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to open file dialog: %w", err)
-	}
-
-	var videoFiles []*LocalVideoFile
-	for _, filePath := range filePaths {
-		if !a.isVideoFile(filePath) {
-			continue // Skip non-video files
-		}
-
-		fileSize, format, exists := a.getFileInfo(filePath)
-		if !exists {
-			continue // Skip files that don't exist
-		}
-
-		fileName := filepath.Base(filePath)
-		name := strings.TrimSuffix(fileName, filepath.Ext(fileName))
-
-		videoFiles = append(videoFiles, &LocalVideoFile{
-			Name:     name,
-			FilePath: filePath,
-			FileName: fileName,
-			FileSize: fileSize,
-			Format:   format,
-			Exists:   true,
-		})
-	}
-
-	return videoFiles, nil
-}
-
-// GetVideoFileInfo returns information about a local video file
-func (a *App) GetVideoFileInfo(filePath string) (*LocalVideoFile, error) {
-	if !a.isVideoFile(filePath) {
-		return nil, fmt.Errorf("file is not a supported video format")
-	}
-
-	fileSize, format, exists := a.getFileInfo(filePath)
-	if !exists {
-		return nil, fmt.Errorf("file does not exist: %s", filePath)
-	}
-
-	fileName := filepath.Base(filePath)
-	name := strings.TrimSuffix(fileName, filepath.Ext(fileName))
-
-	return &LocalVideoFile{
-		Name:     name,
-		FilePath: filePath,
-		FileName: fileName,
-		FileSize: fileSize,
-		Format:   format,
-		Exists:   true,
-	}, nil
-}
-
-// GetVideoURL returns a URL that can be used to access the video file via AssetServer
-func (a *App) GetVideoURL(filePath string) (string, error) {
-	if !a.isVideoFile(filePath) {
-		return "", fmt.Errorf("file is not a supported video format")
-	}
-
-	// Check if file exists
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		return "", fmt.Errorf("file does not exist: %s", filePath)
-	}
-
-	// Encode file path for URL safety
-	encodedPath := url.QueryEscape(filePath)
-	videoURL := fmt.Sprintf("/api/video/%s", encodedPath)
-
-	log.Printf("[VIDEO] Original path: %s", filePath)
-	log.Printf("[VIDEO] Encoded path: %s", encodedPath)
-	log.Printf("[VIDEO] Final URL: %s", videoURL)
-
-	// Return AssetServer URL that will work in the webview
-	return videoURL, nil
 }
 
 // Close closes the database connection
@@ -1256,55 +861,15 @@ func (a *App) TranscribeVideoClip(clipID int) (*ai.TranscriptionResponse, error)
 
 
 // UpdateVideoClipHighlights updates the highlights for a video clip
-func (a *App) UpdateVideoClipHighlights(clipID int, highlights []Highlight) error {
-	// Convert Highlights to schema.Highlights for database storage
-	var schemaHighlights []schema.Highlight
-	for _, h := range highlights {
-		schemaHighlights = append(schemaHighlights, schema.Highlight{
-			ID:    h.ID,
-			Start: h.Start,
-			End:   h.End,
-			Color: h.Color,
-		})
-	}
-
-	// Update the video clip with new highlights
-	_, err := a.client.VideoClip.
-		UpdateOneID(clipID).
-		SetHighlights(schemaHighlights).
-		Save(a.ctx)
-
-	if err != nil {
-		return fmt.Errorf("failed to update video clip highlights: %w", err)
-	}
-
-	return nil
+func (a *App) UpdateVideoClipHighlights(clipID int, highlights []projects.Highlight) error {
+	service := projects.NewProjectService(a.client, a.ctx)
+	return service.UpdateVideoClipHighlights(clipID, highlights)
 }
 
 // UpdateVideoClipSuggestedHighlights updates the suggested highlights for a video clip
-func (a *App) UpdateVideoClipSuggestedHighlights(clipID int, suggestedHighlights []Highlight) error {
-	// Convert Highlights to schema.Highlights for database storage
-	var schemaHighlights []schema.Highlight
-	for _, h := range suggestedHighlights {
-		schemaHighlights = append(schemaHighlights, schema.Highlight{
-			ID:    h.ID,
-			Start: h.Start,
-			End:   h.End,
-			Color: h.Color,
-		})
-	}
-
-	// Update the video clip with new suggested highlights
-	_, err := a.client.VideoClip.
-		UpdateOneID(clipID).
-		SetSuggestedHighlights(schemaHighlights).
-		Save(a.ctx)
-
-	if err != nil {
-		return fmt.Errorf("failed to update video clip suggested highlights: %w", err)
-	}
-
-	return nil
+func (a *App) UpdateVideoClipSuggestedHighlights(clipID int, suggestedHighlights []projects.Highlight) error {
+	service := projects.NewProjectService(a.client, a.ctx)
+	return service.UpdateVideoClipSuggestedHighlights(clipID, suggestedHighlights)
 }
 
 // DeleteHighlight removes a specific highlight from a video clip by highlight ID
@@ -1448,44 +1013,8 @@ func (a *App) extractHighlightText(highlight schema.Highlight, words []schema.Wo
 
 // UpdateProjectHighlightOrder updates the custom order of highlights for a project
 func (a *App) UpdateProjectHighlightOrder(projectID int, highlightOrder []string) error {
-	// For now, we'll store this in the project's settings
-	// In a real implementation, you might want a separate table for this
-
-	orderJSON, err := json.Marshal(highlightOrder)
-	if err != nil {
-		return fmt.Errorf("failed to marshal highlight order: %w", err)
-	}
-
-	// Check if settings exist for this key
-	settingKey := fmt.Sprintf("project_%d_highlight_order", projectID)
-	existingSettings, err := a.client.Settings.
-		Query().
-		Where(settings.Key(settingKey)).
-		First(a.ctx)
-
-	if err != nil && !ent.IsNotFound(err) {
-		return fmt.Errorf("failed to query settings: %w", err)
-	}
-
-	if existingSettings != nil {
-		// Update existing settings
-		_, err = existingSettings.Update().
-			SetValue(string(orderJSON)).
-			Save(a.ctx)
-	} else {
-		// Create new settings
-		_, err = a.client.Settings.
-			Create().
-			SetKey(settingKey).
-			SetValue(string(orderJSON)).
-			Save(a.ctx)
-	}
-
-	if err != nil {
-		return fmt.Errorf("failed to save highlight order: %w", err)
-	}
-
-	return nil
+	service := projects.NewProjectService(a.client, a.ctx)
+	return service.UpdateProjectHighlightOrder(projectID, highlightOrder)
 }
 
 // GetProjectHighlightOrder retrieves the custom highlight order for a project
