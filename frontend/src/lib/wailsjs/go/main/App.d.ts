@@ -3,7 +3,6 @@
 import {projects} from '../models';
 import {exports} from '../models';
 import {highlights} from '../models';
-import {main} from '../models';
 import {ai} from '../models';
 
 export function CancelExport(arg1:string):Promise<void>;
@@ -90,9 +89,9 @@ export function SelectVideoFiles():Promise<Array<projects.LocalVideoFile>>;
 
 export function SuggestHighlightsWithAI(arg1:number,arg2:number,arg3:string):Promise<Array<highlights.HighlightSuggestion>>;
 
-export function TestOpenAIApiKey():Promise<main.TestOpenAIApiKeyResponse>;
+export function TestOpenAIApiKey():Promise<ai.TestOpenAIApiKeyResponse>;
 
-export function TestOpenRouterApiKey():Promise<main.TestOpenRouterApiKeyResponse>;
+export function TestOpenRouterApiKey():Promise<ai.TestOpenRouterApiKeyResponse>;
 
 export function TranscribeVideoClip(arg1:number):Promise<ai.TranscriptionResponse>;
 

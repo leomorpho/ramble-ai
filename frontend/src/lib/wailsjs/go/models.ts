@@ -1,5 +1,37 @@
 export namespace ai {
 	
+	export class TestOpenAIApiKeyResponse {
+	    valid: boolean;
+	    message: string;
+	    model?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TestOpenAIApiKeyResponse(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.valid = source["valid"];
+	        this.message = source["message"];
+	        this.model = source["model"];
+	    }
+	}
+	export class TestOpenRouterApiKeyResponse {
+	    valid: boolean;
+	    message: string;
+	    model?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TestOpenRouterApiKeyResponse(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.valid = source["valid"];
+	        this.message = source["message"];
+	        this.model = source["model"];
+	    }
+	}
 	export class Word {
 	    word: string;
 	    start: number;
@@ -235,43 +267,6 @@ export namespace highlights {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.aiModel = source["aiModel"];
 	        this.aiPrompt = source["aiPrompt"];
-	    }
-	}
-
-}
-
-export namespace main {
-	
-	export class TestOpenAIApiKeyResponse {
-	    valid: boolean;
-	    message: string;
-	    model?: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new TestOpenAIApiKeyResponse(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.valid = source["valid"];
-	        this.message = source["message"];
-	        this.model = source["model"];
-	    }
-	}
-	export class TestOpenRouterApiKeyResponse {
-	    valid: boolean;
-	    message: string;
-	    model?: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new TestOpenRouterApiKeyResponse(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.valid = source["valid"];
-	        this.message = source["message"];
-	        this.model = source["model"];
 	    }
 	}
 
