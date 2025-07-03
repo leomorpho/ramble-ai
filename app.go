@@ -1517,6 +1517,32 @@ func (a *App) UpdateVideoClipHighlights(clipID int, highlights []Highlight) erro
 	return nil
 }
 
+// UpdateVideoClipSuggestedHighlights updates the suggested highlights for a video clip
+func (a *App) UpdateVideoClipSuggestedHighlights(clipID int, suggestedHighlights []Highlight) error {
+	// Convert Highlights to schema.Highlights for database storage
+	var schemaHighlights []schema.Highlight
+	for _, h := range suggestedHighlights {
+		schemaHighlights = append(schemaHighlights, schema.Highlight{
+			ID:    h.ID,
+			Start: h.Start,
+			End:   h.End,
+			Color: h.Color,
+		})
+	}
+
+	// Update the video clip with new suggested highlights
+	_, err := a.client.VideoClip.
+		UpdateOneID(clipID).
+		SetSuggestedHighlights(schemaHighlights).
+		Save(a.ctx)
+	
+	if err != nil {
+		return fmt.Errorf("failed to update video clip suggested highlights: %w", err)
+	}
+
+	return nil
+}
+
 // DeleteHighlight removes a specific highlight from a video clip by highlight ID
 func (a *App) DeleteHighlight(clipID int, highlightID string) error {
 	// Get the current video clip with its highlights
@@ -3087,11 +3113,28 @@ Avoid overlapping with existing highlights and ensure segments are coherent and 
 
 	// Get existing highlights to avoid overlaps
 	existingHighlights := video.Highlights
+	
+	// Debug log existing highlights
+	log.Printf("SuggestHighlightsWithAI: Video ID %d has %d existing highlights", videoID, len(existingHighlights))
+	for i, h := range existingHighlights {
+		log.Printf("  Existing highlight %d: %s (%.3f-%.3f)", i, h.ID, h.Start, h.End)
+	}
 
 	// Call AI to get suggestions
 	suggestions, err := a.callOpenRouterForHighlightSuggestions(apiKey, aiSettings.AIModel, transcriptWords, existingHighlights, prompt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get AI highlight suggestions: %w", err)
+	}
+
+	// Debug log raw AI suggestions
+	log.Printf("SuggestHighlightsWithAI: AI returned %d raw suggestions", len(suggestions))
+	for i, s := range suggestions {
+		startTime := a.wordIndexToTime(s.Start, transcriptWords)
+		endTime := a.wordIndexToTime(s.End, transcriptWords)
+		if s.End < len(transcriptWords) {
+			endTime = transcriptWords[s.End].End
+		}
+		log.Printf("  Raw suggestion %d: %s [%d-%d] (%.3f-%.3f) '%s'", i, s.ID, s.Start, s.End, startTime, endTime, s.Text)
 	}
 
 	// Filter out overlapping suggestions
@@ -3297,16 +3340,45 @@ func (a *App) filterValidHighlightSuggestions(suggestions []HighlightSuggestion,
 	for _, suggestion := range suggestions {
 		hasOverlap := false
 		
-		// Check for overlap with existing highlights
+		// Get the time range for the suggestion
+		suggestionStartTime := a.wordIndexToTime(suggestion.Start, transcriptWords)
+		suggestionEndTime := a.wordIndexToTime(suggestion.End, transcriptWords)
+		
+		// For the end time, use the end of the last word
+		if suggestion.End < len(transcriptWords) {
+			suggestionEndTime = transcriptWords[suggestion.End].End
+		}
+		
+		// Check for overlap with existing highlights using time-based comparison
 		for _, existing := range existingHighlights {
-			// Convert existing highlight times to word indices for comparison
-			existingStartIdx := a.timeToWordIndex(existing.Start, transcriptWords)
-			existingEndIdx := a.timeToWordIndex(existing.End, transcriptWords)
-			
-			// Check for any overlap between suggestion word indices and existing highlight word indices
-			if suggestion.Start <= existingEndIdx && suggestion.End >= existingStartIdx {
+			// Check for ANY intersection between the two time ranges
+			// A highlight overlaps if:
+			// 1. It starts before the existing ends AND
+			// 2. It ends after the existing starts
+			if suggestionStartTime < existing.End && suggestionEndTime > existing.Start {
 				hasOverlap = true
+				log.Printf("Dropping suggested highlight [%d-%d] (%.2f-%.2f) due to overlap with existing highlight (%.2f-%.2f)",
+					suggestion.Start, suggestion.End, suggestionStartTime, suggestionEndTime, existing.Start, existing.End)
 				break
+			}
+		}
+		
+		// Also check for overlap with other suggestions that we've already validated
+		if !hasOverlap {
+			for _, validSuggestion := range validSuggestions {
+				validStartTime := a.wordIndexToTime(validSuggestion.Start, transcriptWords)
+				validEndTime := a.wordIndexToTime(validSuggestion.End, transcriptWords)
+				
+				if validSuggestion.End < len(transcriptWords) {
+					validEndTime = transcriptWords[validSuggestion.End].End
+				}
+				
+				if suggestionStartTime < validEndTime && suggestionEndTime > validStartTime {
+					hasOverlap = true
+					log.Printf("Dropping suggested highlight [%d-%d] (%.2f-%.2f) due to overlap with another suggestion (%.2f-%.2f)",
+						suggestion.Start, suggestion.End, suggestionStartTime, suggestionEndTime, validStartTime, validEndTime)
+					break
+				}
 			}
 		}
 		
@@ -3314,6 +3386,9 @@ func (a *App) filterValidHighlightSuggestions(suggestions []HighlightSuggestion,
 			validSuggestions = append(validSuggestions, suggestion)
 		}
 	}
+	
+	log.Printf("Filtered %d suggestions down to %d valid suggestions (removed %d overlapping)", 
+		len(suggestions), len(validSuggestions), len(suggestions)-len(validSuggestions))
 	
 	return validSuggestions
 }

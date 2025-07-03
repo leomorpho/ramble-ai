@@ -24,6 +24,7 @@
     GetProjectHighlightAISettings,
     SaveProjectHighlightAISettings,
     GetSuggestedHighlights,
+    UpdateVideoClipSuggestedHighlights,
   } from "$lib/wailsjs/go/main/App";
 
   let { 
@@ -275,24 +276,47 @@ Return segments that would work well as standalone content pieces.`;
     if (!suggestion || !video) return;
 
     try {
-      // Suggestion already has timestamps from backend
+      // Get all available colors
+      const availableColors = [
+        '#FFEB3B', '#FF9800', '#F44336', '#E91E63', '#9C27B0',
+        '#673AB7', '#3F51B5', '#2196F3', '#03A9F4', '#00BCD4',
+        '#009688', '#4CAF50', '#8BC34A', '#CDDC39', '#FFC107'
+      ];
+      
+      // Get used colors from existing highlights
+      const usedColors = new Set(transcriptPlayerHighlights?.map(h => h.color) || []);
+      
+      // Find an available color
+      let color = availableColors.find(c => !usedColors.has(c)) || availableColors[0];
+      
+      // Create new highlight with proper color
       const newHighlight = {
         id: `highlight_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         start: suggestion.start,
         end: suggestion.end,
-        color: suggestion.color
+        color: color
       };
 
       // Add to existing highlights
-      const updatedHighlights = [...(video.highlights || []), newHighlight];
+      const updatedHighlights = [...transcriptPlayerHighlights, newHighlight];
       
-      // Update local state
-      transcriptPlayerHighlights = [...updatedHighlights];
+      // Update local state immediately for responsiveness
+      transcriptPlayerHighlights = updatedHighlights;
       
-      // Remove from suggestions
-      suggestedHighlights = suggestedHighlights.filter(s => s.id !== suggestionId);
+      // Update video object to keep it in sync
+      video = {
+        ...video,
+        highlights: updatedHighlights
+      };
       
-      // Call the parent's handler
+      // Remove from suggestions locally
+      const remainingSuggestions = suggestedHighlights.filter(s => s.id !== suggestionId);
+      suggestedHighlights = remainingSuggestions;
+      
+      // Update suggested highlights in database
+      await UpdateVideoClipSuggestedHighlights(video.id, remainingSuggestions);
+      
+      // Save the accepted highlight to database
       if (onHighlightsChange) {
         await onHighlightsChange(updatedHighlights);
       }
@@ -305,9 +329,103 @@ Return segments that would work well as standalone content pieces.`;
   }
 
   // Reject a suggested highlight
-  function rejectSuggestedHighlight(suggestionId) {
-    suggestedHighlights = suggestedHighlights.filter(s => s.id !== suggestionId);
-    toast.success("Highlight suggestion rejected");
+  async function rejectSuggestedHighlight(suggestionId) {
+    if (!video) return;
+    
+    try {
+      // Remove from suggestions locally
+      const remainingSuggestions = suggestedHighlights.filter(s => s.id !== suggestionId);
+      suggestedHighlights = remainingSuggestions;
+      
+      // Update suggested highlights in database
+      await UpdateVideoClipSuggestedHighlights(video.id, remainingSuggestions);
+      
+      toast.success("Highlight suggestion rejected");
+    } catch (err) {
+      console.error("Failed to reject suggestion:", err);
+      toast.error("Failed to reject suggestion");
+      // Restore the suggestion on error
+      suggestedHighlights = [...suggestedHighlights, suggestedHighlights.find(s => s.id === suggestionId)];
+    }
+  }
+
+  // Accept all suggested highlights
+  async function acceptAllSuggestions() {
+    if (suggestedHighlights.length === 0 || !video) return;
+
+    try {
+      // Get all available colors
+      const availableColors = [
+        '#FFEB3B', '#FF9800', '#F44336', '#E91E63', '#9C27B0',
+        '#673AB7', '#3F51B5', '#2196F3', '#03A9F4', '#00BCD4',
+        '#009688', '#4CAF50', '#8BC34A', '#CDDC39', '#FFC107'
+      ];
+      
+      // Get used colors from existing highlights
+      const usedColors = new Set(transcriptPlayerHighlights?.map(h => h.color) || []);
+      
+      // Convert all suggestions to regular highlights
+      const newHighlights = suggestedHighlights.map((suggestion, index) => {
+        // Find an available color
+        let color = availableColors.find(c => !usedColors.has(c)) || availableColors[index % availableColors.length];
+        usedColors.add(color);
+        
+        return {
+          id: `highlight_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
+          start: suggestion.start,
+          end: suggestion.end,
+          color: color
+        };
+      });
+
+      // Add to existing highlights
+      const updatedHighlights = [...transcriptPlayerHighlights, ...newHighlights];
+      
+      // Update local state immediately
+      transcriptPlayerHighlights = updatedHighlights;
+      
+      // Update video object to keep it in sync
+      video = {
+        ...video,
+        highlights: updatedHighlights
+      };
+      
+      // Clear suggestions locally
+      suggestedHighlights = [];
+      
+      // Update suggested highlights in database (empty array)
+      await UpdateVideoClipSuggestedHighlights(video.id, []);
+      
+      // Save all accepted highlights to database
+      if (onHighlightsChange) {
+        await onHighlightsChange(updatedHighlights);
+      }
+      
+      toast.success(`Accepted ${newHighlights.length} highlight suggestions!`);
+    } catch (err) {
+      console.error("Failed to accept all suggestions:", err);
+      toast.error("Failed to accept all suggestions");
+    }
+  }
+
+  // Reject all suggested highlights
+  async function rejectAllSuggestions() {
+    if (!video) return;
+    
+    const count = suggestedHighlights.length;
+    
+    try {
+      // Clear suggestions locally
+      suggestedHighlights = [];
+      
+      // Update suggested highlights in database (empty array)
+      await UpdateVideoClipSuggestedHighlights(video.id, []);
+      
+      toast.success(`Rejected ${count} highlight suggestion${count === 1 ? '' : 's'}`);
+    } catch (err) {
+      console.error("Failed to reject all suggestions:", err);
+      toast.error("Failed to reject all suggestions");
+    }
   }
 </script>
 
@@ -351,7 +469,7 @@ Return segments that would work well as standalone content pieces.`;
                 <div class="space-y-3">
                   <div class="flex items-center justify-between">
                     <h3 class="font-medium">Transcript</h3>
-                    <div class="flex gap-2">
+                    <div class="flex gap-2 items-center">
                       {#if video.transcriptionLanguage}
                         <span class="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-md">
                           {video.transcriptionLanguage.toUpperCase()}
@@ -399,6 +517,39 @@ Return segments that would work well as standalone content pieces.`;
                     promptPlaceholder="AI instructions for highlighting..."
                   />
 
+                  <!-- Bulk suggestion actions -->
+                  {#if suggestedHighlights.length > 0}
+                    <div class="flex items-center justify-between p-3 bg-secondary/30 rounded-lg">
+                      <span class="text-sm text-muted-foreground">
+                        {suggestedHighlights.length} AI suggestion{suggestedHighlights.length === 1 ? '' : 's'}
+                      </span>
+                      <div class="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onclick={acceptAllSuggestions}
+                          class="text-xs"
+                        >
+                          <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                          </svg>
+                          Accept All
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onclick={rejectAllSuggestions}
+                          class="text-xs"
+                        >
+                          <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                          Reject All
+                        </Button>
+                      </div>
+                    </div>
+                  {/if}
+
                   <Tabs value="full-text" class="w-full">
                     <TabsList class="grid w-full grid-cols-2">
                       <TabsTrigger value="full-text">Full Text</TabsTrigger>
@@ -414,7 +565,7 @@ Return segments that would work well as standalone content pieces.`;
                             <TextHighlighter 
                               text={video.transcription} 
                               words={video.transcriptionWords || []} 
-                              initialHighlights={video.highlights || []}
+                              initialHighlights={transcriptPlayerHighlights}
                               {suggestedHighlights}
                               onHighlightsChange={handleHighlightsChangeInternal}
                               onSuggestionAccept={acceptSuggestedHighlight}

@@ -99,3 +99,5 @@ export function UpdateProjectHighlightOrder(arg1:number,arg2:Array<string>):Prom
 export function UpdateVideoClip(arg1:number,arg2:string,arg3:string):Promise<main.VideoClipResponse>;
 
 export function UpdateVideoClipHighlights(arg1:number,arg2:Array<main.Highlight>):Promise<void>;
+
+export function UpdateVideoClipSuggestedHighlights(arg1:number,arg2:Array<main.Highlight>):Promise<void>;

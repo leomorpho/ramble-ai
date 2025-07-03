@@ -197,3 +197,7 @@ export function UpdateVideoClip(arg1, arg2, arg3) {
 export function UpdateVideoClipHighlights(arg1, arg2) {
   return window['go']['main']['App']['UpdateVideoClipHighlights'](arg1, arg2);
 }
+
+export function UpdateVideoClipSuggestedHighlights(arg1, arg2) {
+  return window['go']['main']['App']['UpdateVideoClipSuggestedHighlights'](arg1, arg2);
+}

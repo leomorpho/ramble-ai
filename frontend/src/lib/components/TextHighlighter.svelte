@@ -446,24 +446,31 @@
       >
         {word.word}
         
-        <!-- Accept/Reject buttons on hover (only show on first word of suggestion) -->
-        {#if wordIndex === suggestedHighlight.start}
-          <div class="absolute -top-8 left-0 hidden group-hover:flex items-center gap-1 bg-background border border-border rounded-md px-2 py-1 shadow-md z-10">
+        <!-- Accept/Reject icons at the end of the suggested highlight -->
+        {#if words && words.length > 0 && words[wordIndex] && wordIndex === words.findLastIndex(w => {
+          const wordTime = (w.start + w.end) / 2;
+          return wordTime >= suggestedHighlight.start && wordTime <= suggestedHighlight.end;
+        })}
+          <span class="absolute -bottom-1 -right-1 flex items-center gap-0.5 opacity-50 group-hover:opacity-100 transition-opacity">
             <button
-              class="w-5 h-5 rounded bg-green-500 hover:bg-green-600 text-white flex items-center justify-center text-xs transition-colors"
+              class="w-4 h-4 rounded-full bg-green-500 hover:bg-green-600 text-white flex items-center justify-center transition-all hover:scale-110"
               onclick={(e) => handleAcceptSuggestion(suggestedHighlight, e)}
               title="Accept suggestion"
             >
-              ✓
+              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+              </svg>
             </button>
             <button
-              class="w-5 h-5 rounded bg-red-500 hover:bg-red-600 text-white flex items-center justify-center text-xs transition-colors"
+              class="w-4 h-4 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-all hover:scale-110"
               onclick={(e) => handleRejectSuggestion(suggestedHighlight, e)}
               title="Reject suggestion"
             >
-              ✕
+              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
-          </div>
+          </span>
         {/if}
       </span>
     {:else}
