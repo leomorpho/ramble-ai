@@ -1,4 +1,5 @@
 <script>
+  import { tick } from "svelte";
   import { Button } from "$lib/components/ui/button";
   import { 
     Dialog, 
@@ -25,11 +26,9 @@
     SaveProjectHighlightAISettings,
     GetSuggestedHighlights,
     UpdateVideoClipSuggestedHighlights,
-    DeleteSuggestedHighlight,
   } from "$lib/wailsjs/go/main/App";
   import { 
     updateVideoHighlights, 
-    addHighlight
   } from "$lib/stores/projectHighlights.js";
 
   let { 
@@ -150,7 +149,7 @@ Return segments that would work well as standalone content pieces.`;
       console.log("📥 Loaded suggested highlights from DB:", suggestions);
       
       // Convert to frontend format (already have timestamps from backend)
-      suggestedHighlights = suggestions.map(suggestion => ({
+      const newSuggestions = suggestions.map(suggestion => ({
         id: suggestion.id,
         start: suggestion.start,
         end: suggestion.end,
@@ -158,6 +157,18 @@ Return segments that would work well as standalone content pieces.`;
         text: suggestion.text,
         isSuggestion: true
       }));
+      
+      // Force reactive update by creating new array
+      suggestedHighlights = [...newSuggestions];
+      
+      // Ensure Svelte processes the update
+      await tick();
+      
+      console.log("✅ Updated suggestedHighlights array:", {
+        count: suggestedHighlights.length,
+        highlights: suggestedHighlights,
+        dbCount: suggestions.length
+      });
     } catch (error) {
       console.error("Failed to load suggested highlights:", error);
       // Silently fail - suggested highlights are optional
@@ -169,6 +180,8 @@ Return segments that would work well as standalone content pieces.`;
   async function handleHighlightsChangeInternal(highlights) {
     if (!video) return;
     
+    console.log("🔄 handleHighlightsChangeInternal called with", highlights.length, "highlights");
+    
     try {
       // Update the transcript player highlights (local state)
       transcriptPlayerHighlights = [...highlights];
@@ -179,6 +192,20 @@ Return segments that would work well as standalone content pieces.`;
       // Still call the parent's handler if provided for backward compatibility
       if (onHighlightsChange) {
         await onHighlightsChange(highlights);
+      }
+      
+      // Reload suggested highlights to ensure we're in sync with database
+      // This is important when accepting suggestions
+      console.log("🔄 Reloading suggested highlights after change...");
+      
+      // Add a small delay to ensure DB operations complete
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      try {
+        await loadSuggestedHighlights();
+        console.log("✅ Successfully reloaded suggested highlights");
+      } catch (loadError) {
+        console.error("❌ Failed to reload suggested highlights:", loadError);
       }
     } catch (err) {
       console.error("Failed to save highlights:", err);
@@ -365,12 +392,6 @@ Return segments that would work well as standalone content pieces.`;
     }
   }
 
-  // Handle rejection of a single suggested highlight
-  function handleSuggestionReject(suggestion) {
-    // Remove the suggestion from the local array
-    suggestedHighlights = suggestedHighlights.filter(s => s.id !== suggestion.id);
-    toast.success("Suggestion rejected");
-  }
 </script>
 
 <Dialog bind:open>
@@ -513,7 +534,6 @@ Return segments that would work well as standalone content pieces.`;
                               {suggestedHighlights}
                               videoId={video.id}
                               onHighlightsChange={handleHighlightsChangeInternal}
-                              onSuggestionReject={handleSuggestionReject}
                             />
                           </div>
                         {/snippet}

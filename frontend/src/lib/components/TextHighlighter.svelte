@@ -18,7 +18,6 @@
     suggestedHighlights = [],
     onHighlightsChange,
     videoId,
-    onSuggestionReject,
   } = $props();
 
   // Debug logging for suggested highlights
@@ -27,6 +26,47 @@
       count: suggestedHighlights.length,
       highlights: suggestedHighlights,
     });
+    
+    // Log word timing information for debugging
+    if (words && words.length > 0 && suggestedHighlights.length > 0) {
+      console.log("📊 Word timing info (first 10 words):", 
+        words.slice(0, 10).map((w, i) => ({
+          index: i,
+          word: w.word,
+          start: w.start,
+          end: w.end,
+          duration: (w.end - w.start).toFixed(3)
+        }))
+      );
+      
+      console.log("📊 Suggested highlight ranges (word indices):", 
+        suggestedHighlights.map(s => ({
+          id: s.id,
+          startIndex: s.start,
+          endIndex: s.end,
+          wordCount: s.end - s.start + 1,
+          text: s.text?.substring(0, 50) + "..."
+        }))
+      );
+      
+      // For each suggestion, show which words should be highlighted
+      console.log("🎯 Words per suggestion:");
+      suggestedHighlights.forEach((s, sIndex) => {
+        // Get words in the index range
+        const matchingWords = [];
+        for (let i = s.start; i <= s.end && i < words.length; i++) {
+          matchingWords.push({ ...words[i], index: i });
+        }
+        
+        console.log(`  Suggestion ${sIndex} (indices ${s.start}-${s.end}):`, {
+          wordCount: matchingWords.length,
+          wordIndices: matchingWords.map(w => w.index),
+          firstWord: matchingWords[0]?.word,
+          lastWord: matchingWords[matchingWords.length - 1]?.word,
+          text: matchingWords.map(w => w.word).join(' ').substring(0, 50) + "..."
+        });
+      });
+    }
   });
 
   // === CORE STATE ===
@@ -181,24 +221,25 @@
   function findSuggestedHighlightForWord(wordIndex, suggestions) {
     if (!words || words.length === 0 || wordIndex >= words.length) return null;
 
-    const word = words[wordIndex];
-    const wordTime = (word.start + word.end) / 2; // Use midpoint of word
-
-    // Suggested highlights use timestamps, check if word time falls within
+    // Suggested highlights use word indices, not timestamps!
+    // Check if the current word index falls within any suggestion's index range
     const found = suggestions.find((s) => {
-      return wordTime >= s.start && wordTime <= s.end;
+      // Word is highlighted if its index is within the suggestion's start/end indices
+      const isInRange = wordIndex >= s.start && wordIndex <= s.end;
+      
+      // Log detailed info for debugging
+      if (wordIndex < 5 && suggestions.length > 0) {
+        console.log(`🔍 Word ${wordIndex} index check:`, {
+          wordIndex,
+          word: words[wordIndex].word,
+          suggestionStart: s.start,
+          suggestionEnd: s.end,
+          isInRange,
+        });
+      }
+      
+      return isInRange;
     });
-
-    if (found && wordIndex === 0) {
-      // Only log for first word to avoid spam
-      console.log("🔍 findSuggestedHighlightForWord:", {
-        wordIndex,
-        wordTime,
-        suggestionsCount: suggestions.length,
-        found: !!found,
-        foundSuggestion: found,
-      });
-    }
 
     return found;
   }
@@ -234,9 +275,9 @@
     const color =
       availableColors.find((c) => !usedColors.has(c)) || availableColors[0];
 
-    // Create highlight using existing addHighlight logic
-    const startIndex = findWordIndexByTime(suggestion.start);
-    const endIndex = findWordIndexByTime(suggestion.end);
+    // Suggested highlights already use word indices, not timestamps
+    const startIndex = suggestion.start;
+    const endIndex = suggestion.end;
 
     if (!checkOverlap(startIndex, endIndex, highlights)) {
       const result = addHighlight(
@@ -248,6 +289,17 @@
       );
       highlights = result.highlights;
       usedColors.add(result.newHighlight.color);
+      
+      // Delete the suggestion from the database since it's now accepted
+      if (videoId && suggestion.id) {
+        try {
+          await DeleteSuggestedHighlight(videoId, suggestion.id);
+          console.log("✅ Deleted accepted suggestion from DB:", suggestion.id);
+        } catch (error) {
+          console.error("Failed to delete accepted suggestion:", error);
+        }
+      }
+      
       emitChanges();
     }
   }
@@ -266,9 +318,13 @@
       // Delete the specific suggestion from the database
       await DeleteSuggestedHighlight(videoId, suggestion.id);
       
-      // Call the parent's callback to update the suggested highlights
-      if (onSuggestionReject) {
-        onSuggestionReject(suggestion);
+      // Small delay to ensure database operation completes
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Trigger a change event to force parent to reload
+      // This ensures the parent's suggestedHighlights array stays in sync
+      if (onHighlightsChange) {
+        onHighlightsChange(highlights);
       }
     } catch (error) {
       console.error("Failed to reject suggestion:", error);
@@ -577,10 +633,7 @@
         {word.word}
 
         <!-- Accept/Reject icons at the end of the suggested highlight -->
-        {#if words && words.length > 0 && words[wordIndex] && wordIndex === words.findLastIndex( (w) => {
-                const wordTime = (w.start + w.end) / 2;
-                return wordTime >= suggestedHighlight.start && wordTime <= suggestedHighlight.end;
-              } )}
+        {#if words && words.length > 0 && wordIndex == suggestedHighlight.end}
           <span
             class="inline-flex items-center gap-0.5 ml-1 opacity-80 group-hover:opacity-100 transition-opacity"
           >
