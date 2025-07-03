@@ -397,3 +397,9 @@ func (a *App) ClearSuggestedHighlights(videoID int) error {
 	service := highlights.NewHighlightService(a.client, a.ctx)
 	return service.ClearSuggestedHighlights(videoID)
 }
+
+// DeleteSuggestedHighlight removes a specific suggested highlight from a video
+func (a *App) DeleteSuggestedHighlight(videoID int, suggestionID string) error {
+	service := highlights.NewHighlightService(a.client, a.ctx)
+	return service.DeleteSuggestedHighlight(videoID, suggestionID)
+}

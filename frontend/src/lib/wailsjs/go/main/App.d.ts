@@ -25,6 +25,8 @@ export function DeleteProject(arg1:number):Promise<void>;
 
 export function DeleteSetting(arg1:string):Promise<void>;
 
+export function DeleteSuggestedHighlight(arg1:number,arg2:string):Promise<void>;
+
 export function DeleteVideoClip(arg1:number):Promise<void>;
 
 export function ExportIndividualHighlights(arg1:number,arg2:string):Promise<string>;

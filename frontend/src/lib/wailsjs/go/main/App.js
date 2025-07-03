@@ -42,6 +42,10 @@ export function DeleteSetting(arg1) {
   return window['go']['main']['App']['DeleteSetting'](arg1);
 }
 
+export function DeleteSuggestedHighlight(arg1, arg2) {
+  return window['go']['main']['App']['DeleteSuggestedHighlight'](arg1, arg2);
+}
+
 export function DeleteVideoClip(arg1) {
   return window['go']['main']['App']['DeleteVideoClip'](arg1);
 }

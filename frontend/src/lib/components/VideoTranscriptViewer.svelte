@@ -25,6 +25,7 @@
     SaveProjectHighlightAISettings,
     GetSuggestedHighlights,
     UpdateVideoClipSuggestedHighlights,
+    DeleteSuggestedHighlight,
   } from "$lib/wailsjs/go/main/App";
   import { 
     updateVideoHighlights, 
@@ -363,6 +364,13 @@ Return segments that would work well as standalone content pieces.`;
       toast.error("Failed to reject all suggestions");
     }
   }
+
+  // Handle rejection of a single suggested highlight
+  function handleSuggestionReject(suggestion) {
+    // Remove the suggestion from the local array
+    suggestedHighlights = suggestedHighlights.filter(s => s.id !== suggestion.id);
+    toast.success("Suggestion rejected");
+  }
 </script>
 
 <Dialog bind:open>
@@ -503,7 +511,9 @@ Return segments that would work well as standalone content pieces.`;
                               words={video.transcriptionWords || []} 
                               highlights={transcriptPlayerHighlights}
                               {suggestedHighlights}
+                              videoId={video.id}
                               onHighlightsChange={handleHighlightsChangeInternal}
+                              onSuggestionReject={handleSuggestionReject}
                             />
                           </div>
                         {/snippet}

@@ -124,6 +124,39 @@ func (s *HighlightService) ClearSuggestedHighlights(videoID int) error {
 	return nil
 }
 
+// DeleteSuggestedHighlight removes a specific suggested highlight from a video
+func (s *HighlightService) DeleteSuggestedHighlight(videoID int, suggestionID string) error {
+	// Get the current video clip with its suggested highlights
+	clip, err := s.client.VideoClip.
+		Query().
+		Where(videoclip.ID(videoID)).
+		Only(s.ctx)
+
+	if err != nil {
+		return fmt.Errorf("failed to get video clip: %w", err)
+	}
+
+	// Filter out the suggested highlight to delete
+	var updatedSuggestions []schema.Highlight
+	for _, suggestion := range clip.SuggestedHighlights {
+		if suggestion.ID != suggestionID {
+			updatedSuggestions = append(updatedSuggestions, suggestion)
+		}
+	}
+
+	// Update the video clip with the filtered suggested highlights
+	_, err = s.client.VideoClip.
+		UpdateOneID(videoID).
+		SetSuggestedHighlights(updatedSuggestions).
+		Save(s.ctx)
+
+	if err != nil {
+		return fmt.Errorf("failed to update video clip suggested highlights: %w", err)
+	}
+
+	return nil
+}
+
 // DeleteHighlight removes a specific highlight from a video clip by highlight ID
 func (s *HighlightService) DeleteHighlight(clipID int, highlightID string) error {
 	// Get the current video clip with its highlights
