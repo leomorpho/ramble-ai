@@ -1,5 +1,5 @@
 <script>
-  import { onMount, onDestroy } from "svelte";
+  import { onDestroy } from "svelte";
   import { GetVideoURL } from "$lib/wailsjs/go/main/App";
   import { toast } from "svelte-sonner";
   import { Play, Film, Sparkles } from "@lucide/svelte";
@@ -17,16 +17,12 @@
   import HighlightItem from "$lib/components/HighlightItem.svelte";
   import AIReorderSheet from "$lib/components/AIReorderSheet.svelte";
   import {
-    orderedHighlights,
-    highlightsLoading,
-    loadProjectHighlights,
     updateHighlightOrder,
-    clearHighlights,
     deleteHighlight,
     editHighlight,
   } from "$lib/stores/projectHighlights.js";
 
-  let { projectId, onHighlightClick = () => {} } = $props();
+  let { projectId, highlights, loading } = $props();
 
   // Local state
   let error = $state("");
@@ -61,23 +57,9 @@
   // Popover state management
   let popoverStates = $state(new Map());
 
-  // Initialize on mount and watch for project changes
-  onMount(() => {
-    if (projectId) {
-      loadProjectHighlights(projectId);
-    }
-  });
-
-  // Watch for project ID changes
-  $effect(() => {
-    if (projectId) {
-      loadProjectHighlights(projectId);
-    }
-  });
-
   // Cleanup on unmount
   onDestroy(() => {
-    clearHighlights();
+    // Component-specific cleanup if needed
   });
 
   // These functions are now handled by the centralized store
@@ -116,14 +98,6 @@
     } finally {
       videoLoading = false;
     }
-
-    // Also call the original callback
-    onHighlightClick({
-      videoClipId: highlight.videoClipId,
-      filePath: highlight.filePath,
-      start: highlight.start,
-      end: highlight.end,
-    });
   }
 
   // Handle video loaded event
@@ -303,7 +277,7 @@
     if (isDragging) {
       // Default to dropping at the end if no position set
       if (dropPosition === null) {
-        dropPosition = $orderedHighlights.length;
+        dropPosition = highlights.length;
       }
       console.log("handleContainerDrop: triggering drop", { dropPosition });
       await performDrop();
@@ -405,11 +379,11 @@
     console.log("performDrop: starting", {
       draggedIds,
       insertPosition,
-      totalHighlights: $orderedHighlights.length,
+      totalHighlights: highlights.length,
     });
 
     try {
-      const currentHighlights = [...$orderedHighlights]; // Create a copy
+      const currentHighlights = [...highlights]; // Create a copy
 
       // Validate that we have valid data
       if (currentHighlights.length === 0) {
@@ -501,7 +475,7 @@
 
   // Handle AI reordering - open sheet
   function handleAIReorder() {
-    if (!projectId || $orderedHighlights.length === 0) {
+    if (!projectId || highlights.length === 0) {
       toast.error("No highlights to reorder");
       return;
     }
@@ -518,22 +492,13 @@
     );
   }
 
-  // Expose refresh method
-  export function refresh() {
-    loadProjectHighlights(projectId);
-  }
 </script>
-
-<!-- Drop indicator snippet (adapted from EtroVideoPlayer) -->
-{#snippet dropIndicator()}
-  <div class="w-0.5 h-8 bg-black dark:bg-white rounded flex-shrink-0"></div>
-{/snippet}
 
 <div class="highlights-timeline space-y-4">
   <div class="flex items-center justify-between">
     <h2 class="text-xl font-semibold">Highlight Timeline</h2>
     <div class="flex items-center gap-3">
-      {#if $orderedHighlights.length > 1}
+      {#if highlights.length > 1}
         <Button
           variant="outline"
           size="sm"
@@ -545,13 +510,13 @@
         </Button>
       {/if}
       <div class="text-sm text-muted-foreground">
-        {$orderedHighlights.length}
-        {$orderedHighlights.length === 1 ? "highlight" : "highlights"}
+        {highlights.length}
+        {highlights.length === 1 ? "highlight" : "highlights"}
       </div>
     </div>
   </div>
 
-  {#if $highlightsLoading}
+  {#if loading}
     <div class="text-center py-8 text-muted-foreground">
       <p>Loading highlights...</p>
     </div>
@@ -562,7 +527,7 @@
       <p class="font-medium">Error</p>
       <p class="text-sm">{error}</p>
     </div>
-  {:else if $orderedHighlights.length === 0}
+  {:else if highlights.length === 0}
     <div class="text-center py-8 text-muted-foreground">
       <p class="text-lg">No highlights yet</p>
       <p class="text-sm">
@@ -579,7 +544,7 @@
         ondrop={(e) => handleContainerDrop(e)}
         ondragleave={handleContainerDragLeave}
       >
-        {#if $orderedHighlights.length === 0}
+        {#if highlights.length === 0}
           <div class="text-center py-4 text-muted-foreground">
             <p class="text-sm">
               No highlights yet. Create highlights in your video transcriptions
@@ -587,7 +552,7 @@
             </p>
           </div>
         {:else}
-          {#each $orderedHighlights as highlight, index}
+          {#each highlights as highlight, index}
             <HighlightItem
               {highlight}
               {index}
@@ -616,7 +581,7 @@
           {/each}
 
           <!-- Drop indicator at the end -->
-          {#if isDragging && dropPosition === $orderedHighlights.length}
+          {#if isDragging && dropPosition === highlights.length}
             <span class="drop-indicator">|</span>
           {/if}
         {/if}
@@ -625,14 +590,14 @@
   {/if}
 
   <!-- Etro Video Player -->
-  <EtroVideoPlayer highlights={$orderedHighlights} {projectId} />
+  <EtroVideoPlayer {highlights} {projectId} />
 </div>
 
 <!-- AI Reordering Sheet -->
 <AIReorderSheet
   bind:open={aiSheetOpen}
   {projectId}
-  highlights={$orderedHighlights}
+  {highlights}
   onApply={handleAIApply}
 />
 

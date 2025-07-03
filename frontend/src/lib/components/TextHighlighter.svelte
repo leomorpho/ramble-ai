@@ -13,7 +13,7 @@
   let { 
     text = '', 
     words = [], 
-    initialHighlights = [], 
+    highlights: initialHighlights = [], 
     suggestedHighlights = [],
     onHighlightsChange,
     onSuggestionAccept = () => {},

@@ -28,14 +28,14 @@
   } from "$lib/wailsjs/go/main/App";
   import { 
     updateVideoHighlights, 
-    addHighlight,
-    orderedHighlights 
+    addHighlight
   } from "$lib/stores/projectHighlights.js";
 
   let { 
     open = $bindable(false),
     video = $bindable(null),
     projectId,
+    highlights = [],
     onHighlightsChange
   } = $props();
 
@@ -92,12 +92,12 @@ Return segments that would work well as standalone content pieces.`;
       : []
   );
 
-  // When video changes or store updates, update the transcript player highlights
+  // When video changes or highlights update, update the transcript player highlights
   $effect(() => {
-    if (video) {
-      // Get highlights for this specific video clip from the central store
+    if (video && highlights) {
+      // Get highlights for this specific video clip from props
       // Filter by both videoClipId and filePath for extra safety
-      const videoHighlights = $orderedHighlights.filter(h => 
+      const videoHighlights = highlights.filter(h => 
         h.videoClipId === video.id && h.filePath === video.filePath
       );
       transcriptPlayerHighlights = videoHighlights.map(h => ({
@@ -302,8 +302,8 @@ Return segments that would work well as standalone content pieces.`;
         '#009688', '#4CAF50', '#8BC34A', '#CDDC39', '#FFC107'
       ];
       
-      // Get used colors from existing highlights in the store for this specific video clip
-      const videoHighlights = $orderedHighlights.filter(h => 
+      // Get used colors from existing highlights for this specific video clip
+      const videoHighlights = highlights.filter(h => 
         h.videoClipId === video.id && h.filePath === video.filePath
       );
       const usedColors = new Set(videoHighlights.map(h => h.color));
@@ -372,8 +372,8 @@ Return segments that would work well as standalone content pieces.`;
         '#009688', '#4CAF50', '#8BC34A', '#CDDC39', '#FFC107'
       ];
       
-      // Get used colors from existing highlights in the store for this specific video clip
-      const videoHighlights = $orderedHighlights.filter(h => 
+      // Get used colors from existing highlights for this specific video clip
+      const videoHighlights = highlights.filter(h => 
         h.videoClipId === video.id && h.filePath === video.filePath
       );
       const usedColors = new Set(videoHighlights.map(h => h.color));
@@ -569,7 +569,7 @@ Return segments that would work well as standalone content pieces.`;
                             <TextHighlighter 
                               text={video.transcription} 
                               words={video.transcriptionWords || []} 
-                              initialHighlights={transcriptPlayerHighlights}
+                              highlights={transcriptPlayerHighlights}
                               {suggestedHighlights}
                               onHighlightsChange={handleHighlightsChangeInternal}
                               onSuggestionAccept={acceptSuggestedHighlight}
