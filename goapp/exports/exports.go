@@ -19,6 +19,7 @@ import (
 	"MYAPP/ent/exportjob"
 	"MYAPP/ent/project"
 	"MYAPP/goapp/highlights"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // ExportProgress represents the current state of an export job
@@ -822,4 +823,19 @@ func (s *ExportService) stitchSegments(segmentPaths []string, outputPath string,
 		cmd.Process.Kill()
 		return fmt.Errorf("export cancelled")
 	}
+}
+
+// SelectExportFolder opens a dialog for the user to select an export folder
+func (s *ExportService) SelectExportFolder(ctx context.Context) (string, error) {
+	options := runtime.OpenDialogOptions{
+		Title:   "Select Export Folder",
+		Filters: []runtime.FileFilter{},
+	}
+
+	folder, err := runtime.OpenDirectoryDialog(ctx, options)
+	if err != nil {
+		return "", fmt.Errorf("failed to open directory dialog: %w", err)
+	}
+
+	return folder, nil
 }

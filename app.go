@@ -17,28 +17,23 @@ import (
 	"strings"
 
 	"MYAPP/ent"
-	"MYAPP/ent/schema"
-	"MYAPP/ent/settings"
 	"MYAPP/goapp/ai"
 	"MYAPP/goapp/exports"
 	"MYAPP/goapp/highlights"
 	"MYAPP/goapp/projects"
+	"MYAPP/goapp/settings"
 
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
-
-
 
 // App struct
 type App struct {
 	ctx    context.Context
 	client *ent.Client
 }
-
 
 // NewApp creates a new App application struct
 func NewApp() *App {
@@ -369,8 +364,6 @@ func (a *App) DeleteProject(id int) error {
 	return service.DeleteProject(id)
 }
 
-
-
 // CreateVideoClip creates a new video clip with file validation
 func (a *App) CreateVideoClip(projectID int, filePath string) (*projects.VideoClipResponse, error) {
 	service := projects.NewProjectService(a.client, a.ctx)
@@ -448,77 +441,20 @@ func (a *App) Close() error {
 
 // SaveSetting saves a setting key-value pair to the database
 func (a *App) SaveSetting(key, value string) error {
-	if key == "" {
-		return fmt.Errorf("setting key cannot be empty")
-	}
-
-	// Check if setting already exists
-	existingSetting, err := a.client.Settings.
-		Query().
-		Where(settings.Key(key)).
-		Only(a.ctx)
-
-	if err != nil {
-		// Setting doesn't exist, create new one
-		_, err = a.client.Settings.
-			Create().
-			SetKey(key).
-			SetValue(value).
-			Save(a.ctx)
-
-		if err != nil {
-			return fmt.Errorf("failed to create setting: %w", err)
-		}
-	} else {
-		// Setting exists, update it
-		_, err = a.client.Settings.
-			UpdateOne(existingSetting).
-			SetValue(value).
-			Save(a.ctx)
-
-		if err != nil {
-			return fmt.Errorf("failed to update setting: %w", err)
-		}
-	}
-
-	return nil
+	service := settings.NewSettingsService(a.client, a.ctx)
+	return service.SaveSetting(key, value)
 }
 
 // GetSetting retrieves a setting value by key from the database
 func (a *App) GetSetting(key string) (string, error) {
-	if key == "" {
-		return "", fmt.Errorf("setting key cannot be empty")
-	}
-
-	setting, err := a.client.Settings.
-		Query().
-		Where(settings.Key(key)).
-		Only(a.ctx)
-
-	if err != nil {
-		// Return empty string if setting doesn't exist
-		return "", nil
-	}
-
-	return setting.Value, nil
+	service := settings.NewSettingsService(a.client, a.ctx)
+	return service.GetSetting(key)
 }
 
 // DeleteSetting removes a setting from the database
 func (a *App) DeleteSetting(key string) error {
-	if key == "" {
-		return fmt.Errorf("setting key cannot be empty")
-	}
-
-	_, err := a.client.Settings.
-		Delete().
-		Where(settings.Key(key)).
-		Exec(a.ctx)
-
-	if err != nil {
-		return fmt.Errorf("failed to delete setting: %w", err)
-	}
-
-	return nil
+	service := settings.NewSettingsService(a.client, a.ctx)
+	return service.DeleteSetting(key)
 }
 
 // SaveOpenAIApiKey saves the OpenAI API key securely
@@ -553,22 +489,14 @@ func (a *App) DeleteOpenRouterApiKey() error {
 
 // SaveThemePreference saves the user's preferred theme (light or dark)
 func (a *App) SaveThemePreference(theme string) error {
-	if theme != "light" && theme != "dark" {
-		return fmt.Errorf("theme must be either 'light' or 'dark'")
-	}
-	return a.SaveSetting("theme_preference", theme)
+	service := settings.NewSettingsService(a.client, a.ctx)
+	return service.SaveThemePreference(theme)
 }
 
 // GetThemePreference retrieves the user's preferred theme, defaults to "light"
 func (a *App) GetThemePreference() (string, error) {
-	theme, err := a.GetSetting("theme_preference")
-	if err != nil {
-		return "light", err
-	}
-	if theme == "" {
-		return "light", nil // Default to light theme
-	}
-	return theme, nil
+	service := settings.NewSettingsService(a.client, a.ctx)
+	return service.GetThemePreference()
 }
 
 // Type aliases for AI service responses
@@ -581,13 +509,11 @@ func (a *App) TestOpenAIApiKey() (*TestOpenAIApiKeyResponse, error) {
 	return service.TestOpenAIApiKey()
 }
 
-
 // TestOpenRouterApiKey tests if the stored OpenRouter API key is valid
 func (a *App) TestOpenRouterApiKey() (*TestOpenRouterApiKeyResponse, error) {
 	service := ai.NewTranscriptionService(a.client, a.ctx)
 	return service.TestOpenRouterApiKey()
 }
-
 
 // Word represents a single word with timing information
 type Word struct {
@@ -604,14 +530,11 @@ type Highlight struct {
 	Color string  `json:"color"`
 }
 
-
 // TranscribeVideoClip transcribes audio from a video clip using the AI service
 func (a *App) TranscribeVideoClip(clipID int) (*ai.TranscriptionResponse, error) {
 	transcriptionService := ai.NewTranscriptionService(a.client, a.ctx)
 	return transcriptionService.TranscribeVideoClip(clipID)
 }
-
-
 
 // UpdateVideoClipHighlights updates the highlights for a video clip
 func (a *App) UpdateVideoClipHighlights(clipID int, highlights []projects.Highlight) error {
@@ -643,7 +566,6 @@ func (a *App) GetProjectHighlights(projectID int) ([]ProjectHighlight, error) {
 	return service.GetProjectHighlights(projectID)
 }
 
-
 // UpdateProjectHighlightOrder updates the custom order of highlights for a project
 func (a *App) UpdateProjectHighlightOrder(projectID int, highlightOrder []string) error {
 	service := projects.NewProjectService(a.client, a.ctx)
@@ -662,27 +584,14 @@ func (a *App) ReorderHighlightsWithAI(projectID int, customPrompt string) ([]str
 	return service.ReorderHighlightsWithAI(projectID, customPrompt, a.GetOpenRouterApiKey, a.GetProjectHighlights)
 }
 
-
-
-
-
 // Export-related type aliases
 type ExportProgress = exports.ExportProgress
 type HighlightSegment = highlights.HighlightSegment
 
 // SelectExportFolder opens a dialog for the user to select an export folder
 func (a *App) SelectExportFolder() (string, error) {
-	options := runtime.OpenDialogOptions{
-		Title:   "Select Export Folder",
-		Filters: []runtime.FileFilter{},
-	}
-
-	folder, err := runtime.OpenDirectoryDialog(a.ctx, options)
-	if err != nil {
-		return "", fmt.Errorf("failed to open directory dialog: %w", err)
-	}
-
-	return folder, nil
+	service := exports.NewExportService(a.client, a.ctx)
+	return service.SelectExportFolder(a.ctx)
 }
 
 // ExportStitchedHighlights exports all highlights as a single stitched video
@@ -733,20 +642,6 @@ func (a *App) SaveProjectAISettings(projectID int, settings highlights.ProjectAI
 	return service.SaveProjectAISettings(projectID, settings)
 }
 
-
-
-// Helper functions for word index and time conversion
-func (a *App) timeToWordIndex(timeSeconds float64, transcriptWords []schema.Word) int {
-	service := highlights.NewHighlightService(a.client, a.ctx)
-	return service.TimeToWordIndex(timeSeconds, transcriptWords)
-}
-
-func (a *App) wordIndexToTime(wordIndex int, transcriptWords []schema.Word) float64 {
-	service := highlights.NewHighlightService(a.client, a.ctx)
-	return service.WordIndexToTime(wordIndex, transcriptWords)
-}
-
-
 // GetProjectAISuggestion retrieves cached AI suggestion for a project
 func (a *App) GetProjectAISuggestion(projectID int) (*highlights.ProjectAISuggestion, error) {
 	service := highlights.NewAIService(a.client, a.ctx)
@@ -771,7 +666,6 @@ func (a *App) SuggestHighlightsWithAI(projectID int, videoID int, customPrompt s
 	return service.SuggestHighlightsWithAI(projectID, videoID, customPrompt, a.GetOpenRouterApiKey)
 }
 
-
 // GetSuggestedHighlights retrieves saved suggested highlights for a video
 func (a *App) GetSuggestedHighlights(videoID int) ([]HighlightSuggestion, error) {
 	service := highlights.NewHighlightService(a.client, a.ctx)
@@ -782,24 +676,4 @@ func (a *App) GetSuggestedHighlights(videoID int) ([]HighlightSuggestion, error)
 func (a *App) ClearSuggestedHighlights(videoID int) error {
 	service := highlights.NewHighlightService(a.client, a.ctx)
 	return service.ClearSuggestedHighlights(videoID)
-}
-
-// onFileDrop handles file drops from the OS using Wails v2 drag and drop API
-func (a *App) onFileDrop(ctx context.Context, x, y int, paths []string) {
-	log.Printf("Files dropped at (%d, %d): %v", x, y, paths)
-
-	// Filter for video files only
-	videoFiles := []string{}
-	for _, path := range paths {
-		if a.isVideoFile(path) {
-			videoFiles = append(videoFiles, path)
-		}
-	}
-
-	// Emit event to frontend with dropped video files
-	runtime.EventsEmit(ctx, "files-dropped", map[string]interface{}{
-		"x":     x,
-		"y":     y,
-		"paths": videoFiles,
-	})
 }
