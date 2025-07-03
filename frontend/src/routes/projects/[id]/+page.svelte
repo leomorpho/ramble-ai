@@ -45,8 +45,6 @@
   } from "$lib/stores/projectHighlights.js";
   import ThemeSwitcher from "$lib/components/ui/theme-switcher/theme-switcher.svelte";
   import VideoClipCard from "$lib/components/VideoClipCard.svelte";
-  import VideoTranscriptViewer from "$lib/components/VideoTranscriptViewer.svelte";
-  import VideoPreviewDialog from "$lib/components/VideoPreviewDialog.svelte";
   import ProjectDetails from "$lib/components/ProjectDetails.svelte";
   import FileDropZone from "$lib/components/FileDropZone.svelte";
   import { Video, Download, FolderOpen } from "@lucide/svelte";
@@ -63,13 +61,7 @@
   let clipError = $state("");
   let dragActive = $state(false);
 
-  // Video preview state
-  let previewDialogOpen = $state(false);
-  let previewVideo = $state(null);
-
   // Transcription state
-  let transcriptionDialogOpen = $state(false);
-  let transcriptionVideo = $state(null);
   let transcribingClips = $state(new Set());
 
   // Highlights component reference
@@ -557,10 +549,6 @@
     }
   }
 
-  async function openPreview(clip) {
-    previewVideo = clip;
-    previewDialogOpen = true;
-  }
 
   function formatFileSize(bytes) {
     if (bytes === 0) return "0 B";
@@ -641,17 +629,10 @@
     }
   }
 
-  function viewTranscription(clip) {
-    transcriptionVideo = clip;
-    transcriptionDialogOpen = true;
-  }
-
-  async function handleHighlightsChange(highlights) {
-    if (!transcriptionVideo) return;
-
+  async function handleHighlightsChange(videoId, highlights) {
     try {
       // Use the store function to update highlights
-      await updateVideoHighlights(transcriptionVideo.id, highlights);
+      await updateVideoHighlights(videoId, highlights);
 
       // No need to manually update local state or refresh components
       // The store will handle updating all subscribers automatically
@@ -959,11 +940,12 @@
                   <VideoClipCard
                     {clip}
                     isTranscribing={transcribingClips.has(clip.id)}
-                    onPreview={openPreview}
                     onDelete={handleDeleteClip}
-                    onViewTranscription={viewTranscription}
                     onStartTranscription={startTranscription}
                     {formatFileSize}
+                    {projectId}
+                    {highlights}
+                    onHighlightsChange={(highlights) => handleHighlightsChange(clip.id, highlights)}
                   />
                 {/each}
               </div>
@@ -1335,14 +1317,3 @@
   </div>
 </main>
 
-<!-- Video Preview Dialog -->
-<VideoPreviewDialog bind:open={previewDialogOpen} bind:video={previewVideo} />
-
-<!-- Transcription Viewer Dialog -->
-<VideoTranscriptViewer
-  bind:open={transcriptionDialogOpen}
-  bind:video={transcriptionVideo}
-  {projectId}
-  {highlights}
-  onHighlightsChange={handleHighlightsChange}
-/>

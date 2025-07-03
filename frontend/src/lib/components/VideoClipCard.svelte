@@ -1,16 +1,30 @@
 <script>
   import { Button } from "$lib/components/ui/button";
   import { Captions, Mic, Video } from "@lucide/svelte";
+  import VideoPreviewDialog from "./VideoPreviewDialog.svelte";
+  import VideoTranscriptViewer from "./VideoTranscriptViewer.svelte";
 
   let { 
     clip,
     isTranscribing = false,
-    onPreview,
     onDelete,
-    onViewTranscription,
     onStartTranscription,
-    formatFileSize
+    formatFileSize,
+    projectId,
+    highlights,
+    onHighlightsChange
   } = $props();
+
+  let previewDialogOpen = $state(false);
+  let transcriptionDialogOpen = $state(false);
+
+  function openPreview() {
+    previewDialogOpen = true;
+  }
+
+  function openTranscription() {
+    transcriptionDialogOpen = true;
+  }
 </script>
 
 <div class="bg-secondary/30 rounded-lg overflow-hidden border">
@@ -18,8 +32,8 @@
   {#if clip.exists && clip.thumbnailUrl}
     <div 
       class="relative group cursor-pointer" 
-      onclick={() => onPreview(clip)}
-      onkeydown={(e) => e.key === 'Enter' && onPreview(clip)}
+      onclick={openPreview}
+      onkeydown={(e) => e.key === 'Enter' && openPreview()}
       role="button"
       tabindex="0"
       aria-label="Preview video {clip.name}"
@@ -113,7 +127,7 @@
       <Button 
         variant="outline" 
         size="sm" 
-        onclick={() => onPreview(clip)}
+        onclick={openPreview}
         disabled={!clip.exists}
         class="w-full"
       >
@@ -127,7 +141,7 @@
           <Button 
             variant="outline" 
             size="sm" 
-            onclick={() => onViewTranscription(clip)}
+            onclick={openTranscription}
             class="flex-1"
           >
             <Captions/>
@@ -168,3 +182,15 @@
     </div>
   </div>
 </div>
+
+<!-- Video Preview Dialog -->
+<VideoPreviewDialog bind:open={previewDialogOpen} video={clip} />
+
+<!-- Transcription Viewer Dialog -->
+<VideoTranscriptViewer
+  bind:open={transcriptionDialogOpen}
+  video={clip}
+  {projectId}
+  {highlights}
+  onHighlightsChange={onHighlightsChange}
+/>
