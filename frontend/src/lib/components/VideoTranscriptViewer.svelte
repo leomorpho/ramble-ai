@@ -25,7 +25,7 @@
     SaveProjectHighlightAISettings,
     GetSuggestedHighlights,
     UpdateVideoClipSuggestedHighlights,
-  } from "$lib/wailsjs/go/main/App";
+  } from "$lib/wailsjs/go/app/App";
 
   let { 
     open = $bindable(false),

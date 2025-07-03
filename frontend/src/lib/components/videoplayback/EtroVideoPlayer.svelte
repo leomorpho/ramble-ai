@@ -1,6 +1,6 @@
 <script>
   import { onMount, onDestroy } from "svelte";
-  import { GetVideoURL } from "$lib/wailsjs/go/main/App";
+  import { GetVideoURL } from "$lib/wailsjs/go/app/App";
   import { toast } from "svelte-sonner";
   import { Play, Pause, SkipForward, SkipBack, Square } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";

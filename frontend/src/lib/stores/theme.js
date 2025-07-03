@@ -1,4 +1,4 @@
-import { GetThemePreference } from "$lib/wailsjs/go/main/App";
+import { GetThemePreference } from "$lib/wailsjs/go/app/App";
 
 /**
  * Set theme on document element

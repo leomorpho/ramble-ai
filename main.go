@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 
+	"MYAPP/app"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -20,8 +21,8 @@ import (
 var assets embed.FS
 
 func main() {
-	// Create an instance of the app structure
-	app := NewApp()
+	// Create an instance of the app structure using the new architecture
+	application := app.NewApp()
 
 	// Create application with options
 	err := wails.Run(&options.App{
@@ -30,17 +31,17 @@ func main() {
 		Height: 768,
 		AssetServer: &assetserver.Options{
 			Assets:     assets,
-			Middleware: app.createAssetMiddleware(),
+			Middleware: application.CreateAssetMiddleware(),
 		},
 		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
-		OnStartup:        app.startup,
-		OnShutdown:       app.shutdown,
+		OnStartup:        application.Startup,
+		OnShutdown:       application.Shutdown,
 		DragAndDrop: &options.DragAndDrop{
-			EnableFileDrop: true,
+			EnableFileDrop:     true,
 			DisableWebViewDrop: false,
 		},
 		Bind: []interface{}{
-			app,
+			application,
 		},
 	})
 

@@ -16,7 +16,7 @@
     TabsTrigger 
   } from "$lib/components/ui/tabs";
   import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
-  import { GetProjectByID, UpdateProject, DeleteProject, CreateVideoClip, GetVideoClipsByProject, UpdateVideoClip, DeleteVideoClip, SelectVideoFiles, GetVideoFileInfo, GetVideoURL, TranscribeVideoClip, UpdateVideoClipHighlights, GetOpenAIApiKey, SelectExportFolder, ExportStitchedHighlights, ExportIndividualHighlights, GetExportProgress, CancelExport, GetProjectExportJobs } from "$lib/wailsjs/go/main/App";
+  import { GetProjectByID, UpdateProject, DeleteProject, CreateVideoClip, GetVideoClipsByProject, UpdateVideoClip, DeleteVideoClip, SelectVideoFiles, GetVideoFileInfo, GetVideoURL, TranscribeVideoClip, UpdateVideoClipHighlights, GetOpenAIApiKey, SelectExportFolder, ExportStitchedHighlights, ExportIndividualHighlights, GetExportProgress, CancelExport, GetProjectExportJobs } from "$lib/wailsjs/go/app/App";
   import { OnFileDrop, OnFileDropOff, EventsOn, EventsOff } from "$lib/wailsjs/runtime/runtime";
   import { onMount, onDestroy } from "svelte";
   import { page } from "$app/stores";

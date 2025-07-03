@@ -1,6 +1,6 @@
 <script>
   import { onMount, onDestroy } from "svelte";
-  import { GetVideoClipsByProject } from "$lib/wailsjs/go/main/App";
+  import { GetVideoClipsByProject } from "$lib/wailsjs/go/app/App";
   import {
     ZoomIn,
     ZoomOut,

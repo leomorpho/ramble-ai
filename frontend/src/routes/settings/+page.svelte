@@ -1,6 +1,6 @@
 <script>
   import { Button } from "$lib/components/ui/button";
-  import { GetOpenAIApiKey, SaveOpenAIApiKey, DeleteOpenAIApiKey, TestOpenAIApiKey, GetOpenRouterApiKey, SaveOpenRouterApiKey, DeleteOpenRouterApiKey, TestOpenRouterApiKey } from "$lib/wailsjs/go/main/App";
+  import { GetOpenAIApiKey, SaveOpenAIApiKey, DeleteOpenAIApiKey, TestOpenAIApiKey, GetOpenRouterApiKey, SaveOpenRouterApiKey, DeleteOpenRouterApiKey, TestOpenRouterApiKey } from "$lib/wailsjs/go/app/App";
   import { onMount } from "svelte";
 
   let openaiApiKey = $state("");

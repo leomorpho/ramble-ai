@@ -5,7 +5,7 @@
     GetProjectAISettings,
     SaveProjectAISettings,
     GetProjectAISuggestion,
-  } from "$lib/wailsjs/go/main/App";
+  } from "$lib/wailsjs/go/app/App";
   import { toast } from "svelte-sonner";
   import { Play, Sparkles } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";

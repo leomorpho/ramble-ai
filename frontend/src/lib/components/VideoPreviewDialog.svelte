@@ -7,7 +7,7 @@
     DialogHeader, 
     DialogTitle, 
   } from "$lib/components/ui/dialog";
-  import { GetVideoURL } from "$lib/wailsjs/go/main/App";
+  import { GetVideoURL } from "$lib/wailsjs/go/app/App";
 
   let { 
     open = $bindable(false),

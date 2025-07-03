@@ -1,7 +1,7 @@
 <script>
   import { Button } from "$lib/components/ui/button";
   import { Sun, Moon } from "@lucide/svelte";
-  import { SaveThemePreference } from "$lib/wailsjs/go/main/App";
+  import { SaveThemePreference } from "$lib/wailsjs/go/app/App";
   import { getTheme, setTheme } from "$lib/stores/theme.js";
 
   let currentTheme = $state("light");

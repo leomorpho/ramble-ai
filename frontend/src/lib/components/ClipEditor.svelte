@@ -1,6 +1,6 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { GetVideoURL, UpdateVideoClipHighlights } from '$lib/wailsjs/go/main/App';
+  import { GetVideoURL, UpdateVideoClipHighlights } from '$lib/wailsjs/go/app/App';
   import { toast } from 'svelte-sonner';
   import { Edit3, Save, X, RotateCcw, RotateCw } from '@lucide/svelte';
   import VideoTimelineEditor from '$lib/components/VideoTimelineEditor.svelte';

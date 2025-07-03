@@ -11,7 +11,7 @@
   } from "$lib/components/ui/dialog";
   import { ThemeSwitcher } from "$lib/components/ui/theme-switcher";
   import { Settings } from "@lucide/svelte";
-  import { CreateProject, GetProjects } from "$lib/wailsjs/go/main/App";
+  import { CreateProject, GetProjects } from "$lib/wailsjs/go/app/App";
   import { onMount } from "svelte";
 
   let projects = $state([]);

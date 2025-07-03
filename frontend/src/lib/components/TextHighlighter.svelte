@@ -456,6 +456,7 @@
               class="w-4 h-4 rounded-full bg-green-500 hover:bg-green-600 text-white flex items-center justify-center transition-all hover:scale-110"
               onclick={(e) => handleAcceptSuggestion(suggestedHighlight, e)}
               title="Accept suggestion"
+              aria-label="Accept suggestion"
             >
               <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
@@ -465,6 +466,7 @@
               class="w-4 h-4 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-all hover:scale-110"
               onclick={(e) => handleRejectSuggestion(suggestedHighlight, e)}
               title="Reject suggestion"
+              aria-label="Reject suggestion"
             >
               <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12" />
