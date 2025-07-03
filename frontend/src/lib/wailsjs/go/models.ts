@@ -59,38 +59,8 @@ export namespace ai {
 
 }
 
-export namespace main {
+export namespace highlights {
 	
-	export class ExportProgress {
-	    jobId: string;
-	    stage: string;
-	    progress: number;
-	    currentFile: string;
-	    totalFiles: number;
-	    processedFiles: number;
-	    isComplete: boolean;
-	    hasError: boolean;
-	    errorMessage: string;
-	    isCancelled: boolean;
-	
-	    static createFrom(source: any = {}) {
-	        return new ExportProgress(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.jobId = source["jobId"];
-	        this.stage = source["stage"];
-	        this.progress = source["progress"];
-	        this.currentFile = source["currentFile"];
-	        this.totalFiles = source["totalFiles"];
-	        this.processedFiles = source["processedFiles"];
-	        this.isComplete = source["isComplete"];
-	        this.hasError = source["hasError"];
-	        this.errorMessage = source["errorMessage"];
-	        this.isCancelled = source["isCancelled"];
-	    }
-	}
 	export class HighlightSuggestion {
 	    id: string;
 	    start: number;
@@ -130,55 +100,6 @@ export namespace main {
 	        this.color = source["color"];
 	        this.text = source["text"];
 	    }
-	}
-	export class ProjectAISettings {
-	    aiModel: string;
-	    aiPrompt: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new ProjectAISettings(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.aiModel = source["aiModel"];
-	        this.aiPrompt = source["aiPrompt"];
-	    }
-	}
-	export class ProjectAISuggestion {
-	    order: string[];
-	    model: string;
-	    // Go type: time
-	    createdAt: any;
-	
-	    static createFrom(source: any = {}) {
-	        return new ProjectAISuggestion(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.order = source["order"];
-	        this.model = source["model"];
-	        this.createdAt = this.convertValues(source["createdAt"], null);
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
 	}
 	export class ProjectHighlight {
 	    videoClipId: number;
@@ -231,6 +152,90 @@ export namespace main {
 	        this.aiModel = source["aiModel"];
 	        this.aiPrompt = source["aiPrompt"];
 	    }
+	}
+
+}
+
+export namespace main {
+	
+	export class ExportProgress {
+	    jobId: string;
+	    stage: string;
+	    progress: number;
+	    currentFile: string;
+	    totalFiles: number;
+	    processedFiles: number;
+	    isComplete: boolean;
+	    hasError: boolean;
+	    errorMessage: string;
+	    isCancelled: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ExportProgress(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.jobId = source["jobId"];
+	        this.stage = source["stage"];
+	        this.progress = source["progress"];
+	        this.currentFile = source["currentFile"];
+	        this.totalFiles = source["totalFiles"];
+	        this.processedFiles = source["processedFiles"];
+	        this.isComplete = source["isComplete"];
+	        this.hasError = source["hasError"];
+	        this.errorMessage = source["errorMessage"];
+	        this.isCancelled = source["isCancelled"];
+	    }
+	}
+	export class ProjectAISettings {
+	    aiModel: string;
+	    aiPrompt: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectAISettings(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.aiModel = source["aiModel"];
+	        this.aiPrompt = source["aiPrompt"];
+	    }
+	}
+	export class ProjectAISuggestion {
+	    order: string[];
+	    model: string;
+	    // Go type: time
+	    createdAt: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectAISuggestion(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.order = source["order"];
+	        this.model = source["model"];
+	        this.createdAt = this.convertValues(source["createdAt"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class TestOpenAIApiKeyResponse {
 	    valid: boolean;

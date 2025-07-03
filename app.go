@@ -30,6 +30,7 @@ import (
 	"MYAPP/ent/settings"
 	"MYAPP/ent/videoclip"
 	"MYAPP/goapp/ai"
+	"MYAPP/goapp/highlights"
 	"MYAPP/goapp/projects"
 
 	"entgo.io/ent/dialect"
@@ -874,142 +875,22 @@ func (a *App) UpdateVideoClipSuggestedHighlights(clipID int, suggestedHighlights
 
 // DeleteHighlight removes a specific highlight from a video clip by highlight ID
 func (a *App) DeleteHighlight(clipID int, highlightID string) error {
-	// Get the current video clip with its highlights
-	clip, err := a.client.VideoClip.
-		Query().
-		Where(videoclip.ID(clipID)).
-		Only(a.ctx)
-
-	if err != nil {
-		return fmt.Errorf("failed to get video clip: %w", err)
-	}
-
-	// Filter out the highlight to delete
-	var updatedHighlights []schema.Highlight
-	for _, highlight := range clip.Highlights {
-		if highlight.ID != highlightID {
-			updatedHighlights = append(updatedHighlights, highlight)
-		}
-	}
-
-	// Update the video clip with the filtered highlights
-	_, err = a.client.VideoClip.
-		UpdateOneID(clipID).
-		SetHighlights(updatedHighlights).
-		Save(a.ctx)
-
-	if err != nil {
-		return fmt.Errorf("failed to update video clip highlights: %w", err)
-	}
-
-	return nil
+	service := highlights.NewHighlightService(a.client, a.ctx)
+	return service.DeleteHighlight(clipID, highlightID)
 }
 
-// HighlightWithText represents a highlight with its text content
-type HighlightWithText struct {
-	ID    string  `json:"id"`
-	Start float64 `json:"start"`
-	End   float64 `json:"end"`
-	Color string  `json:"color"`
-	Text  string  `json:"text"`
-}
-
-// ProjectHighlight represents a highlight with its video clip information
-type ProjectHighlight struct {
-	VideoClipID   int                 `json:"videoClipId"`
-	VideoClipName string              `json:"videoClipName"`
-	FilePath      string              `json:"filePath"`
-	Duration      float64             `json:"duration"`
-	Highlights    []HighlightWithText `json:"highlights"`
-}
+// Type aliases for backwards compatibility
+type HighlightWithText = highlights.HighlightWithText
+type ProjectHighlight = highlights.ProjectHighlight
+type ProjectHighlightAISettings = highlights.ProjectHighlightAISettings
+type HighlightSuggestion = highlights.HighlightSuggestion
 
 // GetProjectHighlights returns all highlights from all video clips in a project
 func (a *App) GetProjectHighlights(projectID int) ([]ProjectHighlight, error) {
-	// Get all video clips for the project with their highlights
-	clips, err := a.client.VideoClip.
-		Query().
-		Where(videoclip.HasProjectWith(project.ID(projectID))).
-		All(a.ctx)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to get video clips: %w", err)
-	}
-
-	var projectHighlights []ProjectHighlight
-
-	for _, clip := range clips {
-		// Skip clips without highlights
-		if len(clip.Highlights) == 0 {
-			continue
-		}
-
-		// Convert schema highlights to highlights with text
-		var highlightsWithText []HighlightWithText
-		for _, h := range clip.Highlights {
-			hwt := HighlightWithText{
-				ID:    h.ID,
-				Start: h.Start,
-				End:   h.End,
-				Color: h.Color,
-			}
-
-			// Extract text for the highlight if transcription exists
-			if clip.Transcription != "" && len(clip.TranscriptionWords) > 0 {
-				hwt.Text = a.extractHighlightText(h, clip.TranscriptionWords, clip.Transcription)
-			}
-
-			highlightsWithText = append(highlightsWithText, hwt)
-		}
-
-		projectHighlight := ProjectHighlight{
-			VideoClipID:   clip.ID,
-			VideoClipName: clip.Name,
-			FilePath:      clip.FilePath,
-			Duration:      clip.Duration,
-			Highlights:    highlightsWithText,
-		}
-
-		projectHighlights = append(projectHighlights, projectHighlight)
-	}
-
-	return projectHighlights, nil
+	service := highlights.NewHighlightService(a.client, a.ctx)
+	return service.GetProjectHighlights(projectID)
 }
 
-// extractHighlightText extracts the text for a highlight based on word timestamps
-func (a *App) extractHighlightText(highlight schema.Highlight, words []schema.Word, fullText string) string {
-	if len(words) == 0 {
-		return ""
-	}
-
-	// Find words within the highlight's time range
-	var highlightWords []string
-	for _, word := range words {
-		// Check if word falls within highlight time range
-		if word.Start >= highlight.Start && word.End <= highlight.End {
-			highlightWords = append(highlightWords, word.Word)
-		} else if word.Start < highlight.End && word.End > highlight.Start {
-			// Partial overlap - include the word
-			highlightWords = append(highlightWords, word.Word)
-		}
-	}
-
-	if len(highlightWords) > 0 {
-		text := strings.Join(highlightWords, " ")
-		// Limit text length for display
-		if len(text) > 100 {
-			return text[:97] + "..."
-		}
-		return text
-	}
-
-	// Fallback: extract from full text if no word-level data
-	// This is a rough approximation
-	if fullText != "" && len(fullText) > 50 {
-		return fullText[:47] + "..."
-	}
-
-	return fullText
-}
 
 // UpdateProjectHighlightOrder updates the custom order of highlights for a project
 func (a *App) UpdateProjectHighlightOrder(projectID int, highlightOrder []string) error {
@@ -1019,28 +900,8 @@ func (a *App) UpdateProjectHighlightOrder(projectID int, highlightOrder []string
 
 // GetProjectHighlightOrder retrieves the custom highlight order for a project
 func (a *App) GetProjectHighlightOrder(projectID int) ([]string, error) {
-	settingKey := fmt.Sprintf("project_%d_highlight_order", projectID)
-
-	setting, err := a.client.Settings.
-		Query().
-		Where(settings.Key(settingKey)).
-		First(a.ctx)
-
-	if err != nil {
-		if ent.IsNotFound(err) {
-			// No custom order exists
-			return []string{}, nil
-		}
-		return nil, fmt.Errorf("failed to get highlight order: %w", err)
-	}
-
-	var order []string
-	err = json.Unmarshal([]byte(setting.Value), &order)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal highlight order: %w", err)
-	}
-
-	return order, nil
+	service := highlights.NewHighlightService(a.client, a.ctx)
+	return service.GetProjectHighlightOrder(projectID)
 }
 
 // ReorderHighlightsWithAI uses OpenRouter API to intelligently reorder highlights
@@ -1358,16 +1219,7 @@ type FFmpegProgress struct {
 }
 
 // HighlightSegment represents a single highlight segment for export
-type HighlightSegment struct {
-	ID            string  `json:"id"`
-	VideoClipID   int     `json:"videoClipId"`
-	VideoClipName string  `json:"videoClipName"`
-	FilePath      string  `json:"filePath"`
-	StartTime     float64 `json:"startTime"`
-	EndTime       float64 `json:"endTime"`
-	Color         string  `json:"color"`
-	Text          string  `json:"text"`
-}
+type HighlightSegment = highlights.HighlightSegment
 
 // SelectExportFolder opens a dialog for the user to select an export folder
 func (a *App) SelectExportFolder() (string, error) {
@@ -1606,7 +1458,7 @@ func (a *App) performStitchedExport(dbJob *ent.ExportJob, activeJob *ActiveExpor
 
 		// Update progress
 		progress := float64(i) / float64(len(segments)) * 0.8 // 80% for extraction
-		fileName := fmt.Sprintf("%s (%.1fs-%.1fs)", segment.VideoClipName, segment.StartTime, segment.EndTime)
+		fileName := fmt.Sprintf("%s (%.1fs-%.1fs)", segment.VideoClipName, segment.Start, segment.End)
 		a.updateJobProgress(dbJob.JobID, "extracting", progress, fileName, len(segments), i)
 
 		segmentPath, err := a.extractHighlightSegmentWithProgress(segment, tempDir, i+1, dbJob.JobID, activeJob.Cancel)
@@ -1685,13 +1537,13 @@ func (a *App) performIndividualExport(dbJob *ent.ExportJob, activeJob *ActiveExp
 
 		// Update progress
 		progress := float64(i) / float64(len(segments))
-		fileName := fmt.Sprintf("%s (%.1fs-%.1fs)", segment.VideoClipName, segment.StartTime, segment.EndTime)
+		fileName := fmt.Sprintf("%s (%.1fs-%.1fs)", segment.VideoClipName, segment.Start, segment.End)
 		a.updateJobProgress(dbJob.JobID, "extracting", progress, fileName, len(segments), i)
 
 		// Create descriptive filename with segment info
 		segmentName := fmt.Sprintf("%s_%.1fs-%.1fs",
 			sanitizeFilename(strings.TrimSuffix(segment.VideoClipName, filepath.Ext(segment.VideoClipName))),
-			segment.StartTime, segment.EndTime)
+			segment.Start, segment.End)
 		outputFile := filepath.Join(dbJob.OutputPath, fmt.Sprintf("%03d_%s.mp4", i+1, segmentName))
 
 		err := a.extractHighlightSegmentDirectWithProgress(segment, outputFile, dbJob.JobID, activeJob.Cancel)
@@ -1708,67 +1560,21 @@ func (a *App) performIndividualExport(dbJob *ent.ExportJob, activeJob *ActiveExp
 
 // getProjectHighlightsForExport gets all highlights across all clips in the proper order
 func (a *App) getProjectHighlightsForExport(projectID int) ([]HighlightSegment, error) {
-	// Get project highlights using the same logic as the frontend
-	projectHighlights, err := a.GetProjectHighlights(projectID)
+	service := highlights.NewHighlightService(a.client, a.ctx)
+	segments, err := service.GetProjectHighlightsForExport(projectID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get project highlights: %w", err)
-	}
-
-	// Flatten highlights into segments, preserving order
-	var segments []HighlightSegment
-	for _, ph := range projectHighlights {
-		for _, highlight := range ph.Highlights {
-			segment := HighlightSegment{
-				ID:            highlight.ID,
-				VideoClipID:   ph.VideoClipID,
-				VideoClipName: ph.VideoClipName,
-				FilePath:      ph.FilePath,
-				StartTime:     highlight.Start,
-				EndTime:       highlight.End,
-				Color:         highlight.Color,
-				Text:          highlight.Text,
-			}
-			segments = append(segments, segment)
-		}
+		return nil, err
 	}
 
 	// Apply custom ordering if it exists
-	order, err := a.GetProjectHighlightOrder(projectID)
+	order, err := service.GetProjectHighlightOrder(projectID)
 	if err == nil && len(order) > 0 {
-		segments = a.applyHighlightOrder(segments, order)
+		segments = service.ApplyHighlightOrder(segments, order)
 	}
 
 	return segments, nil
 }
 
-// applyHighlightOrder reorders segments according to custom order
-func (a *App) applyHighlightOrder(segments []HighlightSegment, order []string) []HighlightSegment {
-	if len(order) == 0 {
-		return segments
-	}
-
-	// Create a map for quick lookup
-	segmentMap := make(map[string]HighlightSegment)
-	for _, segment := range segments {
-		segmentMap[segment.ID] = segment
-	}
-
-	// Build ordered list
-	var orderedSegments []HighlightSegment
-	for _, id := range order {
-		if segment, exists := segmentMap[id]; exists {
-			orderedSegments = append(orderedSegments, segment)
-			delete(segmentMap, id) // Remove from map to track used segments
-		}
-	}
-
-	// Add any remaining segments that weren't in the order list
-	for _, segment := range segmentMap {
-		orderedSegments = append(orderedSegments, segment)
-	}
-
-	return orderedSegments
-}
 
 // extractHighlightSegment extracts a single highlight segment to a temp file
 func (a *App) extractHighlightSegment(segment HighlightSegment, tempDir string, index int) (string, error) {
@@ -1776,9 +1582,9 @@ func (a *App) extractHighlightSegment(segment HighlightSegment, tempDir string, 
 
 	// Use ffmpeg to extract the segment
 	cmd := exec.Command("ffmpeg",
-		"-i", segment.FilePath,
-		"-ss", fmt.Sprintf("%.3f", segment.StartTime),
-		"-to", fmt.Sprintf("%.3f", segment.EndTime),
+		"-i", segment.VideoPath,
+		"-ss", fmt.Sprintf("%.3f", segment.Start),
+		"-to", fmt.Sprintf("%.3f", segment.End),
 		"-c:v", "libx264",
 		"-c:a", "aac",
 		"-y",
@@ -1797,9 +1603,9 @@ func (a *App) extractHighlightSegment(segment HighlightSegment, tempDir string, 
 func (a *App) extractHighlightSegmentDirect(segment HighlightSegment, outputPath string) error {
 	// Use ffmpeg to extract the segment
 	cmd := exec.Command("ffmpeg",
-		"-i", segment.FilePath,
-		"-ss", fmt.Sprintf("%.3f", segment.StartTime),
-		"-to", fmt.Sprintf("%.3f", segment.EndTime),
+		"-i", segment.VideoPath,
+		"-ss", fmt.Sprintf("%.3f", segment.Start),
+		"-to", fmt.Sprintf("%.3f", segment.End),
 		"-c:v", "libx264",
 		"-c:a", "aac",
 		"-y",
@@ -1966,12 +1772,12 @@ func (a *App) extractHighlightSegmentWithProgress(segment HighlightSegment, temp
 	outputPath := filepath.Join(tempDir, fmt.Sprintf("segment_%03d.mp4", index))
 
 	// Get video duration for the highlight segment
-	duration := segment.EndTime - segment.StartTime
+	duration := segment.End - segment.Start
 
 	cmd := exec.Command("ffmpeg",
-		"-i", segment.FilePath,
-		"-ss", fmt.Sprintf("%.3f", segment.StartTime),
-		"-to", fmt.Sprintf("%.3f", segment.EndTime),
+		"-i", segment.VideoPath,
+		"-ss", fmt.Sprintf("%.3f", segment.Start),
+		"-to", fmt.Sprintf("%.3f", segment.End),
 		"-c:v", "libx264",
 		"-c:a", "aac",
 		"-progress", "pipe:1",
@@ -2026,12 +1832,12 @@ func (a *App) extractHighlightSegmentWithProgress(segment HighlightSegment, temp
 }
 
 func (a *App) extractHighlightSegmentDirectWithProgress(segment HighlightSegment, outputPath, jobID string, cancel chan bool) error {
-	duration := segment.EndTime - segment.StartTime
+	duration := segment.End - segment.Start
 
 	cmd := exec.Command("ffmpeg",
-		"-i", segment.FilePath,
-		"-ss", fmt.Sprintf("%.3f", segment.StartTime),
-		"-to", fmt.Sprintf("%.3f", segment.EndTime),
+		"-i", segment.VideoPath,
+		"-ss", fmt.Sprintf("%.3f", segment.Start),
+		"-to", fmt.Sprintf("%.3f", segment.End),
 		"-c:v", "libx264",
 		"-c:a", "aac",
 		"-progress", "pipe:1",
@@ -2248,19 +2054,16 @@ type ProjectAISuggestion struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
-// ProjectHighlightAISettings represents AI settings for highlight suggestions
-type ProjectHighlightAISettings struct {
-	AIModel  string `json:"aiModel"`
-	AIPrompt string `json:"aiPrompt"`
+
+// Helper functions for word index and time conversion
+func (a *App) timeToWordIndex(timeSeconds float64, transcriptWords []schema.Word) int {
+	service := highlights.NewHighlightService(a.client, a.ctx)
+	return service.TimeToWordIndex(timeSeconds, transcriptWords)
 }
 
-// HighlightSuggestion represents a single AI-suggested highlight
-type HighlightSuggestion struct {
-	ID    string `json:"id"`
-	Start int    `json:"start"`
-	End   int    `json:"end"`
-	Text  string `json:"text"`
-	Color string `json:"color"`
+func (a *App) wordIndexToTime(wordIndex int, transcriptWords []schema.Word) float64 {
+	service := highlights.NewHighlightService(a.client, a.ctx)
+	return service.WordIndexToTime(wordIndex, transcriptWords)
 }
 
 // saveAISuggestion saves the AI suggestion to the database (internal helper)
@@ -2304,41 +2107,14 @@ func (a *App) GetProjectAISuggestion(projectID int) (*ProjectAISuggestion, error
 
 // GetProjectHighlightAISettings retrieves AI settings for highlight suggestions
 func (a *App) GetProjectHighlightAISettings(projectID int) (*ProjectHighlightAISettings, error) {
-	project, err := a.client.Project.
-		Query().
-		Where(project.ID(projectID)).
-		Only(a.ctx)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to get project: %w", err)
-	}
-
-	aiModel := project.AiHighlightModel
-	if aiModel == "" {
-		aiModel = "anthropic/claude-3-haiku-20240307"
-	}
-
-	aiPrompt := project.AiHighlightPrompt
-
-	return &ProjectHighlightAISettings{
-		AIModel:  aiModel,
-		AIPrompt: aiPrompt,
-	}, nil
+	service := highlights.NewHighlightService(a.client, a.ctx)
+	return service.GetProjectHighlightAISettings(projectID)
 }
 
 // SaveProjectHighlightAISettings saves AI settings for highlight suggestions
 func (a *App) SaveProjectHighlightAISettings(projectID int, settings ProjectHighlightAISettings) error {
-	_, err := a.client.Project.
-		UpdateOneID(projectID).
-		SetAiHighlightModel(settings.AIModel).
-		SetAiHighlightPrompt(settings.AIPrompt).
-		Save(a.ctx)
-
-	if err != nil {
-		return fmt.Errorf("failed to save project highlight AI settings: %w", err)
-	}
-
-	return nil
+	service := highlights.NewHighlightService(a.client, a.ctx)
+	return service.SaveProjectHighlightAISettings(projectID, settings)
 }
 
 // SuggestHighlightsWithAI generates AI-powered highlight suggestions for a video
@@ -2564,14 +2340,6 @@ func (a *App) buildHighlightSuggestionsPrompt(transcriptWords []schema.Word, exi
 }
 
 // timeToWordIndex converts a time in seconds to approximate word index
-func (a *App) timeToWordIndex(timeSeconds float64, transcriptWords []schema.Word) int {
-	for i, word := range transcriptWords {
-		if word.Start >= timeSeconds {
-			return i
-		}
-	}
-	return len(transcriptWords) - 1
-}
 
 // parseAIHighlightSuggestionsResponse parses the AI response to extract highlight suggestions
 func (a *App) parseAIHighlightSuggestionsResponse(aiResponse string, transcriptWords []schema.Word) ([]HighlightSuggestion, error) {
@@ -2686,13 +2454,6 @@ func (a *App) filterValidHighlightSuggestions(suggestions []HighlightSuggestion,
 	return validSuggestions
 }
 
-// wordIndexToTime converts a word index to approximate time in seconds
-func (a *App) wordIndexToTime(wordIndex int, transcriptWords []schema.Word) float64 {
-	if wordIndex < 0 || wordIndex >= len(transcriptWords) {
-		return 0
-	}
-	return transcriptWords[wordIndex].Start
-}
 
 // saveSuggestedHighlights saves suggested highlights to the database
 func (a *App) saveSuggestedHighlights(videoID int, suggestions []HighlightSuggestion, transcriptWords []schema.Word) error {
@@ -2730,60 +2491,14 @@ func (a *App) saveSuggestedHighlights(videoID int, suggestions []HighlightSugges
 
 // GetSuggestedHighlights retrieves saved suggested highlights for a video
 func (a *App) GetSuggestedHighlights(videoID int) ([]HighlightSuggestion, error) {
-	// Get video with suggested highlights
-	video, err := a.client.VideoClip.
-		Query().
-		Where(videoclip.ID(videoID)).
-		Only(a.ctx)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to get video: %w", err)
-	}
-
-	// Convert saved highlights back to HighlightSuggestion format
-	var suggestions []HighlightSuggestion
-	for _, highlight := range video.SuggestedHighlights {
-		// Get transcript words to extract text
-		transcriptWords := video.TranscriptionWords
-
-		// Find word indices based on time
-		startIdx := a.timeToWordIndex(highlight.Start, transcriptWords)
-		endIdx := a.timeToWordIndex(highlight.End, transcriptWords)
-
-		// Extract text from transcript
-		var text strings.Builder
-		for i := startIdx; i <= endIdx && i < len(transcriptWords); i++ {
-			if i > startIdx {
-				text.WriteString(" ")
-			}
-			text.WriteString(transcriptWords[i].Word)
-		}
-
-		suggestion := HighlightSuggestion{
-			ID:    highlight.ID,
-			Start: startIdx,
-			End:   endIdx,
-			Text:  text.String(),
-			Color: highlight.Color,
-		}
-		suggestions = append(suggestions, suggestion)
-	}
-
-	return suggestions, nil
+	service := highlights.NewHighlightService(a.client, a.ctx)
+	return service.GetSuggestedHighlights(videoID)
 }
 
 // ClearSuggestedHighlights removes all suggested highlights for a video
 func (a *App) ClearSuggestedHighlights(videoID int) error {
-	_, err := a.client.VideoClip.
-		UpdateOneID(videoID).
-		ClearSuggestedHighlights().
-		Save(a.ctx)
-
-	if err != nil {
-		return fmt.Errorf("failed to clear suggested highlights: %w", err)
-	}
-
-	return nil
+	service := highlights.NewHighlightService(a.client, a.ctx)
+	return service.ClearSuggestedHighlights(videoID)
 }
 
 // RecoverActiveExportJobs restores export jobs that were running when the app was closed

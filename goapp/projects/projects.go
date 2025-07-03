@@ -409,9 +409,9 @@ func (s *ProjectService) GetVideoURL(filePath string) (string, error) {
 		return "", fmt.Errorf("video file does not exist")
 	}
 	
-	// Create a URL-safe path for the video
+	// Create a URL-safe path for the video to work with the asset middleware
 	encodedPath := url.QueryEscape(filePath)
-	videoURL := fmt.Sprintf("wails://getVideoFile?path=%s", encodedPath)
+	videoURL := fmt.Sprintf("/api/video/%s", encodedPath)
 	
 	return videoURL, nil
 }
@@ -528,7 +528,7 @@ func (s *ProjectService) getThumbnailURL(filePath string) string {
 	}
 	
 	encodedPath := url.QueryEscape(filePath)
-	return fmt.Sprintf("wails://getThumbnail?path=%s", encodedPath)
+	return fmt.Sprintf("/api/thumbnail/%s", encodedPath)
 }
 
 // schemaWordsToWords converts schema.Word slice to Word slice
