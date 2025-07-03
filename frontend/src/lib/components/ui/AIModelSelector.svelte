@@ -21,8 +21,8 @@
       },
       { value: "anthropic/claude-3.7-sonnet", label: "Claude 3.7 Sonnet" },
       {
-        value: "anthropic/claude-3-haiku-20240307",
-        label: "Claude 3 Haiku (Fast)",
+        value: "anthropic/claude-3.5-haiku-20241022",
+        label: "Claude 3.5 Haiku (Fast)",
       },
       { value: "openai/gpt-4o-mini", label: "GPT-4o Mini" },
       { value: "mistralai/mistral-nemo", label: "Mistral Nemo" },

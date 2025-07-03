@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"crypto/md5"
 	"database/sql"
@@ -17,7 +16,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -40,11 +38,6 @@ import (
 )
 
 
-// ProjectAISettings represents AI settings for a project
-type ProjectAISettings struct {
-	AIModel  string `json:"aiModel"`
-	AIPrompt string `json:"aiPrompt"`
-}
 
 // App struct
 type App struct {
@@ -905,256 +898,13 @@ func (a *App) GetProjectHighlightOrder(projectID int) ([]string, error) {
 
 // ReorderHighlightsWithAI uses OpenRouter API to intelligently reorder highlights
 func (a *App) ReorderHighlightsWithAI(projectID int, customPrompt string) ([]string, error) {
-	// Get OpenRouter API key
-	apiKey, err := a.GetOpenRouterApiKey()
-	if err != nil || apiKey == "" {
-		return nil, fmt.Errorf("OpenRouter API key not configured")
-	}
-
-	// Get project AI settings
-	aiSettings, err := a.GetProjectAISettings(projectID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get project AI settings: %w", err)
-	}
-
-	// Use custom prompt if provided, otherwise use project's saved prompt
-	prompt := customPrompt
-	if prompt == "" {
-		prompt = aiSettings.AIPrompt
-	}
-
-	// Get all project highlights
-	projectHighlights, err := a.GetProjectHighlights(projectID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get project highlights: %w", err)
-	}
-
-	if len(projectHighlights) == 0 {
-		return []string{}, nil
-	}
-
-	// Create a minimal map of ID to highlight text for AI processing
-	highlightMap := make(map[string]string)
-	var highlightIDs []string
-
-	for _, ph := range projectHighlights {
-		for _, highlight := range ph.Highlights {
-			highlightMap[highlight.ID] = highlight.Text
-			highlightIDs = append(highlightIDs, highlight.ID)
-		}
-	}
-
-	if len(highlightMap) == 0 {
-		return []string{}, nil
-	}
-
-	// Call OpenRouter API to get AI reordering
-	reorderedIDs, err := a.callOpenRouterForReordering(apiKey, aiSettings.AIModel, highlightMap, prompt)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get AI reordering: %w", err)
-	}
-
-	// Validate that all IDs are present in the reordered list
-	if len(reorderedIDs) != len(highlightIDs) {
-		log.Printf("AI reordering returned %d IDs but expected %d", len(reorderedIDs), len(highlightIDs))
-		// Fallback to original order if counts don't match
-		return highlightIDs, nil
-	}
-
-	// Validate that all original IDs are present
-	originalIDSet := make(map[string]bool)
-	for _, id := range highlightIDs {
-		originalIDSet[id] = true
-	}
-
-	for _, id := range reorderedIDs {
-		if !originalIDSet[id] {
-			log.Printf("AI reordering returned unknown ID: %s", id)
-			// Fallback to original order if unknown IDs are present
-			return highlightIDs, nil
-		}
-	}
-
-	// Save AI suggestion to database
-	err = a.saveAISuggestion(projectID, reorderedIDs, aiSettings.AIModel)
-	if err != nil {
-		log.Printf("Failed to save AI suggestion to database: %v", err)
-		// Don't fail the request if saving fails, just log the error
-	}
-
-	return reorderedIDs, nil
+	service := highlights.NewAIService(a.client, a.ctx)
+	return service.ReorderHighlightsWithAI(projectID, customPrompt, a.GetOpenRouterApiKey, a.GetProjectHighlights)
 }
 
 
-// callOpenRouterForReordering calls the OpenRouter API to get intelligent highlight reordering
-func (a *App) callOpenRouterForReordering(apiKey string, model string, highlightMap map[string]string, customPrompt string) ([]string, error) {
-	// Create HTTP client with timeout
-	client := &http.Client{
-		Timeout: 60 * time.Second, // AI requests can take longer
-	}
 
-	// Build the prompt for AI reordering
-	prompt := a.buildReorderingPrompt(highlightMap, customPrompt)
 
-	// Create request payload
-	requestData := highlights.OpenRouterRequest{
-		Model: model, // Use the project-specific model
-		Messages: []highlights.Message{
-			{
-				Role:    "user",
-				Content: prompt,
-			},
-		},
-	}
-
-	jsonData, err := json.Marshal(requestData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	// Create HTTP request
-	req, err := http.NewRequest("POST", "https://openrouter.ai/api/v1/chat/completions", bytes.NewBuffer(jsonData))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	// Set headers
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("HTTP-Referer", "https://github.com/yourusername/video-app") // Required by OpenRouter
-	req.Header.Set("X-Title", "Video Highlight Reordering")                     // Optional but recommended
-
-	// Make the request
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to make request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Read response
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("OpenRouter API error (status %d): %s", resp.StatusCode, string(body))
-	}
-
-	// Parse response
-	var openRouterResp highlights.OpenRouterResponse
-	err = json.Unmarshal(body, &openRouterResp)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	if openRouterResp.Error != nil {
-		return nil, fmt.Errorf("OpenRouter API error: %s", openRouterResp.Error.Message)
-	}
-
-	if len(openRouterResp.Choices) == 0 {
-		return nil, fmt.Errorf("no response choices received from AI")
-	}
-
-	// Extract the reordered IDs from the AI response
-	aiResponse := openRouterResp.Choices[0].Message.Content
-	reorderedIDs, err := a.parseAIReorderingResponse(aiResponse)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse AI response: %w", err)
-	}
-
-	return reorderedIDs, nil
-}
-
-// buildReorderingPrompt creates a prompt for the AI to reorder highlights intelligently
-func (a *App) buildReorderingPrompt(highlightMap map[string]string, customPrompt string) string {
-	// Use default YouTube expert prompt if no custom prompt provided
-	var basePrompt string
-	if customPrompt != "" {
-		basePrompt = customPrompt
-	} else {
-		basePrompt = `You are an expert YouTuber and content creator with millions of subscribers, known for creating highly engaging videos that maximize viewer retention and satisfaction. Your task is to reorder these video highlight segments to create the highest quality video possible.
-
-Reorder these segments using your expertise in:
-- Hook creation and audience retention
-- Storytelling and narrative structure
-- Pacing and rhythm for maximum engagement
-- Building emotional connections with viewers
-- Creating viral-worthy content flow
-- Strategic placement of key moments
-
-Feel free to completely restructure the order - move any segment to any position if it will improve video quality and viewer experience.`
-	}
-
-	prompt := basePrompt + `
-
-Here are the video highlight segments:
-
-`
-
-	// Convert map to sorted slice for consistent ordering in prompt
-	type highlightEntry struct {
-		id   string
-		text string
-	}
-	var entries []highlightEntry
-	for id, text := range highlightMap {
-		entries = append(entries, highlightEntry{id: id, text: text})
-	}
-
-	// Sort entries by ID for consistent ordering
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].id < entries[j].id
-	})
-
-	for i, entry := range entries {
-		prompt += fmt.Sprintf("%d. ID: %s\n", i+1, entry.id)
-		prompt += fmt.Sprintf("   Content: %s\n\n", entry.text)
-	}
-
-	prompt += `
-
-Analyze these segments and reorder them to create the highest quality video possible for maximum viewer engagement and retention.
-
-IMPORTANT: Respond with ONLY a JSON array containing the highlight IDs in the new order. Do not include any explanation, reasoning, or additional text.
-
-Example format: ["id1", "id2", "id3", ...]`
-
-	return prompt
-}
-
-// parseAIReorderingResponse extracts the reordered highlight IDs from the AI response
-func (a *App) parseAIReorderingResponse(response string) ([]string, error) {
-	// Clean the response - remove any markdown formatting
-	cleanResponse := strings.TrimSpace(response)
-	cleanResponse = strings.Trim(cleanResponse, "`")
-	if strings.HasPrefix(cleanResponse, "json") {
-		cleanResponse = strings.TrimPrefix(cleanResponse, "json")
-		cleanResponse = strings.TrimSpace(cleanResponse)
-	}
-
-	// Try to parse as JSON array
-	var reorderedIDs []string
-	err := json.Unmarshal([]byte(cleanResponse), &reorderedIDs)
-	if err != nil {
-		// If direct parsing fails, try to extract JSON from the response
-		// Look for JSON array pattern
-		jsonStart := strings.Index(cleanResponse, "[")
-		jsonEnd := strings.LastIndex(cleanResponse, "]")
-
-		if jsonStart >= 0 && jsonEnd > jsonStart {
-			jsonPart := cleanResponse[jsonStart : jsonEnd+1]
-			err = json.Unmarshal([]byte(jsonPart), &reorderedIDs)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse JSON array from AI response: %w", err)
-			}
-		} else {
-			return nil, fmt.Errorf("no valid JSON array found in AI response")
-		}
-	}
-
-	return reorderedIDs, nil
-}
 
 // Export-related types and structs
 type ExportProgress struct {
@@ -1983,50 +1733,17 @@ func (a *App) GetProjectExportJobs(projectID int) ([]*ExportProgress, error) {
 }
 
 // GetProjectAISettings gets the AI settings for a specific project
-func (a *App) GetProjectAISettings(projectID int) (*ProjectAISettings, error) {
-	project, err := a.client.Project.
-		Query().
-		Where(project.ID(projectID)).
-		Only(a.ctx)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to get project: %w", err)
-	}
-
-	aiModel := project.AiModel
-	if aiModel == "" {
-		aiModel = "anthropic/claude-3-haiku-20240307"
-	}
-
-	aiPrompt := project.AiPrompt
-
-	return &ProjectAISettings{
-		AIModel:  aiModel,
-		AIPrompt: aiPrompt,
-	}, nil
+func (a *App) GetProjectAISettings(projectID int) (*highlights.ProjectAISettings, error) {
+	service := highlights.NewAIService(a.client, a.ctx)
+	return service.GetProjectAISettings(projectID)
 }
 
 // SaveProjectAISettings saves the AI settings for a specific project
-func (a *App) SaveProjectAISettings(projectID int, settings ProjectAISettings) error {
-	_, err := a.client.Project.
-		UpdateOneID(projectID).
-		SetAiModel(settings.AIModel).
-		SetAiPrompt(settings.AIPrompt).
-		Save(a.ctx)
-
-	if err != nil {
-		return fmt.Errorf("failed to save project AI settings: %w", err)
-	}
-
-	return nil
+func (a *App) SaveProjectAISettings(projectID int, settings highlights.ProjectAISettings) error {
+	service := highlights.NewAIService(a.client, a.ctx)
+	return service.SaveProjectAISettings(projectID, settings)
 }
 
-// ProjectAISuggestion represents an AI suggestion for a project
-type ProjectAISuggestion struct {
-	Order     []string  `json:"order"`
-	Model     string    `json:"model"`
-	CreatedAt time.Time `json:"createdAt"`
-}
 
 
 // Helper functions for word index and time conversion
@@ -2040,43 +1757,11 @@ func (a *App) wordIndexToTime(wordIndex int, transcriptWords []schema.Word) floa
 	return service.WordIndexToTime(wordIndex, transcriptWords)
 }
 
-// saveAISuggestion saves the AI suggestion to the database (internal helper)
-func (a *App) saveAISuggestion(projectID int, reorderedIDs []string, model string) error {
-	_, err := a.client.Project.
-		UpdateOneID(projectID).
-		SetAiSuggestionOrder(reorderedIDs).
-		SetAiSuggestionModel(model).
-		SetAiSuggestionCreatedAt(time.Now()).
-		Save(a.ctx)
-
-	if err != nil {
-		return fmt.Errorf("failed to save AI suggestion: %w", err)
-	}
-
-	return nil
-}
 
 // GetProjectAISuggestion retrieves cached AI suggestion for a project
-func (a *App) GetProjectAISuggestion(projectID int) (*ProjectAISuggestion, error) {
-	project, err := a.client.Project.
-		Query().
-		Where(project.ID(projectID)).
-		Only(a.ctx)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to get project: %w", err)
-	}
-
-	// Check if there's a cached AI suggestion
-	if project.AiSuggestionOrder == nil {
-		return nil, nil // No cached suggestion
-	}
-
-	return &ProjectAISuggestion{
-		Order:     project.AiSuggestionOrder,
-		Model:     project.AiSuggestionModel,
-		CreatedAt: project.AiSuggestionCreatedAt,
-	}, nil
+func (a *App) GetProjectAISuggestion(projectID int) (*highlights.ProjectAISuggestion, error) {
+	service := highlights.NewAIService(a.client, a.ctx)
+	return service.GetProjectAISuggestion(projectID)
 }
 
 // GetProjectHighlightAISettings retrieves AI settings for highlight suggestions

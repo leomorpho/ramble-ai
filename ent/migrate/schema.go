@@ -50,7 +50,7 @@ var (
 		{Name: "path", Type: field.TypeString},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
-		{Name: "ai_model", Type: field.TypeString, Nullable: true, Default: "anthropic/claude-3-haiku-20240307"},
+		{Name: "ai_model", Type: field.TypeString, Nullable: true, Default: "anthropic/claude-3.5-haiku-20241022"},
 		{Name: "ai_prompt", Type: field.TypeString, Nullable: true, Size: 2147483647},
 		{Name: "ai_suggestion_order", Type: field.TypeJSON, Nullable: true},
 		{Name: "ai_suggestion_model", Type: field.TypeString, Nullable: true},

@@ -37,9 +37,9 @@ export function GetOpenAIApiKey():Promise<string>;
 
 export function GetOpenRouterApiKey():Promise<string>;
 
-export function GetProjectAISettings(arg1:number):Promise<main.ProjectAISettings>;
+export function GetProjectAISettings(arg1:number):Promise<highlights.ProjectAISettings>;
 
-export function GetProjectAISuggestion(arg1:number):Promise<main.ProjectAISuggestion>;
+export function GetProjectAISuggestion(arg1:number):Promise<highlights.ProjectAISuggestion>;
 
 export function GetProjectByID(arg1:number):Promise<projects.ProjectResponse>;
 
@@ -75,7 +75,7 @@ export function SaveOpenAIApiKey(arg1:string):Promise<void>;
 
 export function SaveOpenRouterApiKey(arg1:string):Promise<void>;
 
-export function SaveProjectAISettings(arg1:number,arg2:main.ProjectAISettings):Promise<void>;
+export function SaveProjectAISettings(arg1:number,arg2:highlights.ProjectAISettings):Promise<void>;
 
 export function SaveProjectHighlightAISettings(arg1:number,arg2:highlights.ProjectHighlightAISettings):Promise<void>;
 

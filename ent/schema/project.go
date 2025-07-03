@@ -34,7 +34,7 @@ func (Project) Fields() []ent.Field {
 			Comment("Last update timestamp"),
 		field.String("ai_model").
 			Optional().
-			Default("anthropic/claude-3-haiku-20240307").
+			Default("anthropic/claude-3.5-haiku-20241022").
 			Comment("Preferred OpenRouter AI model for this project"),
 		field.Text("ai_prompt").
 			Optional().
