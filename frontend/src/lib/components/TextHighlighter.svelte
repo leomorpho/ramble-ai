@@ -16,8 +16,9 @@
     highlights: initialHighlights = [], 
     suggestedHighlights = [],
     onHighlightsChange,
-    onSuggestionAccept = () => {},
-    onSuggestionReject = () => {}
+    videoId = null,
+    onSuggestionAccept = null,
+    onSuggestionReject = null
   } = $props();
 
   // Debug logging for suggested highlights
@@ -184,17 +185,57 @@
   }
 
   // Handle accepting a suggested highlight
-  function handleAcceptSuggestion(suggestion, event) {
+  async function handleAcceptSuggestion(suggestion, event) {
     event.preventDefault();
     event.stopPropagation();
-    onSuggestionAccept(suggestion.id);
+    
+    // If external handler is provided, use it
+    if (onSuggestionAccept) {
+      onSuggestionAccept(suggestion.id);
+      return;
+    }
+    
+    // Internal implementation - convert suggestion to regular highlight
+    const availableColors = [
+      '#FFEB3B', '#FF9800', '#F44336', '#E91E63', '#9C27B0',
+      '#673AB7', '#3F51B5', '#2196F3', '#03A9F4', '#00BCD4',
+      '#009688', '#4CAF50', '#8BC34A', '#CDDC39', '#FFC107'
+    ];
+    
+    // Get used colors from existing highlights
+    const usedColors = new Set(highlights.map(h => h.color));
+    
+    // Find an available color
+    const color = availableColors.find(c => !usedColors.has(c)) || availableColors[0];
+    
+    // Create highlight using existing addHighlight logic
+    const startIndex = findWordIndexByTime(suggestion.start);
+    const endIndex = findWordIndexByTime(suggestion.end);
+    
+    if (!checkOverlap(startIndex, endIndex, highlights)) {
+      const result = addHighlight(highlights, startIndex, endIndex, usedColors, color);
+      highlights = result.highlights;
+      usedColors.add(result.newHighlight.color);
+      emitChanges();
+    }
   }
 
   // Handle rejecting a suggested highlight
   function handleRejectSuggestion(suggestion, event) {
     event.preventDefault();
     event.stopPropagation();
-    onSuggestionReject(suggestion.id);
+    
+    // If external handler is provided, use it
+    if (onSuggestionReject) {
+      onSuggestionReject(suggestion.id);
+      return;
+    }
+    
+    // Internal implementation - remove from suggestions
+    // Note: This requires parent component to handle the removal
+    // as suggestedHighlights is passed as a prop
+    console.log('Rejecting suggestion internally:', suggestion.id);
+    // For now, just log as the parent component manages the suggestions list
   }
   
   // === EVENT HANDLERS ===

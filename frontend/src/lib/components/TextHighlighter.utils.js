@@ -20,12 +20,12 @@ export function generateUniqueColor(usedColors = new Set()) {
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
 
-export function createHighlight(start, end, usedColors = new Set()) {
+export function createHighlight(start, end, usedColors = new Set(), color = null) {
   return {
     id: `highlight_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     start,
     end,
-    color: generateUniqueColor(usedColors)
+    color: color || generateUniqueColor(usedColors)
   };
 }
 
@@ -137,8 +137,8 @@ export function updateHighlight(highlights, highlightId, newStart, newEnd) {
   );
 }
 
-export function addHighlight(highlights, start, end, usedColors) {
-  const newHighlight = createHighlight(start, end, usedColors);
+export function addHighlight(highlights, start, end, usedColors, color = null) {
+  const newHighlight = createHighlight(start, end, usedColors, color);
   return {
     highlights: [...highlights, newHighlight],
     newHighlight

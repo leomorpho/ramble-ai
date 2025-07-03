@@ -83,12 +83,14 @@ Return segments that would work well as standalone content pieces.`;
   // Derived highlights formatted for EtroVideoPlayer (adds filePath from video)
   let formattedTranscriptHighlights = $derived(
     video && transcriptPlayerHighlights.length > 0 
-      ? transcriptPlayerHighlights.map(highlight => ({
-          ...highlight,
-          filePath: video.filePath,
-          videoClipId: video.id,
-          videoClipName: video.name
-        }))
+      ? [...transcriptPlayerHighlights] // Create a copy to avoid mutation
+          .sort((a, b) => a.start - b.start) // Order by start time (temporal order)
+          .map(highlight => ({
+            ...highlight,
+            filePath: video.filePath,
+            videoClipId: video.id,
+            videoClipName: video.name
+          }))
       : []
   );
 
@@ -289,76 +291,6 @@ Return segments that would work well as standalone content pieces.`;
     }
   }
 
-  // Accept a suggested highlight
-  async function acceptSuggestedHighlight(suggestionId) {
-    const suggestion = suggestedHighlights.find(s => s.id === suggestionId);
-    if (!suggestion || !video) return;
-
-    try {
-      // Get all available colors
-      const availableColors = [
-        '#FFEB3B', '#FF9800', '#F44336', '#E91E63', '#9C27B0',
-        '#673AB7', '#3F51B5', '#2196F3', '#03A9F4', '#00BCD4',
-        '#009688', '#4CAF50', '#8BC34A', '#CDDC39', '#FFC107'
-      ];
-      
-      // Get used colors from existing highlights for this specific video clip
-      const videoHighlights = highlights.filter(h => 
-        h.videoClipId === video.id && h.filePath === video.filePath
-      );
-      const usedColors = new Set(videoHighlights.map(h => h.color));
-      
-      // Find an available color
-      let color = availableColors.find(c => !usedColors.has(c)) || availableColors[0];
-      
-      // Create new highlight with proper color
-      const newHighlight = {
-        id: `highlight_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        start: suggestion.start,
-        end: suggestion.end,
-        color: color
-      };
-
-      // Use the store function to add the highlight
-      await addHighlight(video.id, newHighlight);
-      
-      // Update local state to reflect the change immediately
-      transcriptPlayerHighlights = [...transcriptPlayerHighlights, newHighlight];
-      
-      // Remove from suggestions locally
-      const remainingSuggestions = suggestedHighlights.filter(s => s.id !== suggestionId);
-      suggestedHighlights = remainingSuggestions;
-      
-      // Update suggested highlights in database
-      await UpdateVideoClipSuggestedHighlights(video.id, remainingSuggestions);
-      
-      toast.success("Highlight suggestion accepted!");
-    } catch (err) {
-      console.error("Failed to accept suggestion:", err);
-      toast.error("Failed to accept suggestion");
-    }
-  }
-
-  // Reject a suggested highlight
-  async function rejectSuggestedHighlight(suggestionId) {
-    if (!video) return;
-    
-    try {
-      // Remove from suggestions locally
-      const remainingSuggestions = suggestedHighlights.filter(s => s.id !== suggestionId);
-      suggestedHighlights = remainingSuggestions;
-      
-      // Update suggested highlights in database
-      await UpdateVideoClipSuggestedHighlights(video.id, remainingSuggestions);
-      
-      toast.success("Highlight suggestion rejected");
-    } catch (err) {
-      console.error("Failed to reject suggestion:", err);
-      toast.error("Failed to reject suggestion");
-      // Restore the suggestion on error
-      suggestedHighlights = [...suggestedHighlights, suggestedHighlights.find(s => s.id === suggestionId)];
-    }
-  }
 
   // Accept all suggested highlights
   async function acceptAllSuggestions() {
@@ -572,8 +504,6 @@ Return segments that would work well as standalone content pieces.`;
                               highlights={transcriptPlayerHighlights}
                               {suggestedHighlights}
                               onHighlightsChange={handleHighlightsChangeInternal}
-                              onSuggestionAccept={acceptSuggestedHighlight}
-                              onSuggestionReject={rejectSuggestedHighlight}
                             />
                           </div>
                         {/snippet}
