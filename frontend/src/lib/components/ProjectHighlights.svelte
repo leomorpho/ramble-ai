@@ -491,7 +491,6 @@
       "highlights"
     );
   }
-
 </script>
 
 <div class="highlights-timeline space-y-4">

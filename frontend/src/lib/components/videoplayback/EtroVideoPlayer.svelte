@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from "svelte";
   import { GetVideoURL } from "$lib/wailsjs/go/main/App";
   import { toast } from "svelte-sonner";
-  import { Play, Pause, SkipForward, SkipBack, Square } from "@lucide/svelte";
+  import { Play, Pause } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
   import {
     updateHighlightOrder,
@@ -10,7 +10,6 @@
     editHighlight,
   } from "$lib/stores/projectHighlights.js";
   import { browser } from "$app/environment";
-  import HighlightMenu from "$lib/components/HighlightMenu.svelte";
   import ClipEditor from "$lib/components/ClipEditor.svelte";
   import TimelineSegment from "./TimelineSegment.svelte";
   import {
@@ -71,6 +70,36 @@
   let deleteDialogOpen = $state(false);
   let highlightToDelete = $state(null);
   let deleting = $state(false);
+
+  // Active segment display threshold
+  const ACTIVE_SEGMENT_THRESHOLD = 0.2; // Show if any segment is less than 20% of total duration
+
+  // Calculate if we should show the active segment based on highlight durations
+  let shouldShowActiveSegment = $derived(() => {
+    // Don't show for 0 or 1 highlights
+    if (highlights.length <= 1) return false;
+
+    const totalDurationCalc = highlights.reduce(
+      (sum, h) => sum + (h.end - h.start),
+      0
+    );
+    if (totalDurationCalc === 0) return false;
+
+    // Check if any highlight is less than the threshold percentage of total duration
+    return highlights.some((h) => {
+      const segmentDuration = h.end - h.start;
+      const percentage = segmentDuration / totalDurationCalc;
+      console.log(
+        "segmentDuration",
+        segmentDuration,
+        "totalDurationCalc",
+        totalDurationCalc,
+        "percentage",
+        percentage
+      );
+      return percentage < ACTIVE_SEGMENT_THRESHOLD;
+    });
+  });
 
   // Format time for display
   function formatTime(seconds) {
@@ -1065,7 +1094,9 @@
     </div>
 
     <!-- Canvas Element for Etro rendering -->
-    <div class="relative w-full aspect-video bg-black overflow-hidden mb-4 rounded">
+    <div
+      class="relative w-full aspect-video bg-black overflow-hidden mb-4 rounded"
+    >
       <canvas
         bind:this={canvasElement}
         class="w-full h-full bg-black"
@@ -1168,7 +1199,7 @@
               {totalDuration}
               {highlights}
               {enableReordering}
-              {enableEyeButton}
+              enableEyeButton={enableEyeButton && !shouldShowActiveSegment}
               {isDragging}
               {dragStartIndex}
               {isPopoverOpen}
@@ -1189,6 +1220,55 @@
             {/if}
           {/each}
         </div>
+
+        <!-- Active segment in full width -->
+        {#if shouldShowActiveSegment() && highlights[currentHighlightIndex]}
+          {@const activeHighlight = highlights[currentHighlightIndex]}
+          {@const segmentStartTime = highlights
+            .slice(0, currentHighlightIndex)
+            .reduce((sum, h) => sum + (h.end - h.start), 0)}
+          {@const segmentDuration = activeHighlight.end - activeHighlight.start}
+          {@const segmentProgress = Math.max(
+            0,
+            Math.min(1, (currentTime - segmentStartTime) / segmentDuration)
+          )}
+
+          <div class="mt-1">
+            <div class="w-full">
+              <TimelineSegment
+                highlight={activeHighlight}
+                index={currentHighlightIndex}
+                isActive={true}
+                segmentWidth={100}
+                {currentTime}
+                {totalDuration}
+                {highlights}
+                enableReordering={false}
+                enableEyeButton={true}
+                isDragging={false}
+                dragStartIndex={null}
+                {isPopoverOpen}
+                {openPopover}
+                {closePopover}
+                onDragStart={() => {}}
+                onDragEnd={() => {}}
+                onDragOver={() => {}}
+                onDrop={() => {}}
+                onSegmentClick={(e) => {
+                  // Calculate click position to seek within current segment
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const x = e.clientX - rect.left;
+                  const clickPercentage = x / rect.width;
+                  const targetTime =
+                    segmentStartTime + clickPercentage * segmentDuration;
+                  handleTimelineSeek(targetTime);
+                }}
+                onEditHighlight={handleEditHighlight}
+                onDeleteConfirm={handleDeleteConfirm}
+              />
+            </div>
+          </div>
+        {/if}
 
         <!-- Time display -->
         <div class="flex justify-between text-xs text-muted-foreground">
