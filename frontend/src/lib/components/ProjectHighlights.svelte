@@ -552,31 +552,31 @@
           </div>
         {:else}
           {#each highlights as highlight, index}
-            <HighlightItem
-              {highlight}
-              {index}
-              isSelected={selectedHighlights.has(highlight.id)}
-              {isDragging}
-              isBeingDragged={isDragging &&
-                draggedHighlights.includes(highlight.id) &&
-                draggedHighlights[0] === highlight.id}
-              showDropIndicatorBefore={isDragging && dropPosition === index}
-              onSelect={handleHighlightSelect}
-              onDragStart={handleNewDragStart}
-              onDragEnd={handleNewDragEnd}
-              onDragOver={handleSpanDragOver}
-              onDrop={handleSpanDrop}
-              onEdit={handleEditHighlight}
-              onDelete={handleDeleteConfirm}
-              popoverOpen={isPopoverOpen(highlight.id)}
-              onPopoverOpenChange={(open) => {
-                if (open) {
-                  openPopover(highlight.id);
-                } else {
-                  closePopover(highlight.id);
-                }
-              }}
-            />
+              <HighlightItem
+                {highlight}
+                {index}
+                isSelected={selectedHighlights.has(highlight.id)}
+                {isDragging}
+                isBeingDragged={isDragging &&
+                  draggedHighlights.includes(highlight.id) &&
+                  draggedHighlights[0] === highlight.id}
+                showDropIndicatorBefore={isDragging && dropPosition === index}
+                onSelect={handleHighlightSelect}
+                onDragStart={handleNewDragStart}
+                onDragEnd={handleNewDragEnd}
+                onDragOver={handleSpanDragOver}
+                onDrop={handleSpanDrop}
+                onEdit={handleEditHighlight}
+                onDelete={handleDeleteConfirm}
+                popoverOpen={isPopoverOpen(highlight.id)}
+                onPopoverOpenChange={(open) => {
+                  if (open) {
+                    openPopover(highlight.id);
+                  } else {
+                    closePopover(highlight.id);
+                  }
+                }}
+              />
           {/each}
 
           <!-- Drop indicator at the end -->

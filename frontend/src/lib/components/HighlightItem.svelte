@@ -27,7 +27,7 @@
 
 <!-- Highlight as inline text span with embedded eye icon -->
 <span
-  class="highlight-span
+  class="highlight-span  
          {isSelected ? 'highlight-selected' : ''}
          {isBeingDragged ? 'highlight-dragging' : ''}"
   style="background-color: {highlight.color}40;"
@@ -62,6 +62,7 @@
   .highlight-span {
     display: inline;
     padding: 2px 4px;
+    margin: 0px 2px;
     border-radius: 3px;
     cursor: move;
     user-select: none;
