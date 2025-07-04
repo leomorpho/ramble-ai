@@ -48,7 +48,6 @@
   // Core state
   let canvasElement = $state(null);
   let movie = $state(null);
-  let etro = $state(null);
   let isPlaying = $state(false);
   let currentTime = $state(0);
   let totalDuration = $state(0);
