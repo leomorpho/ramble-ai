@@ -1,7 +1,6 @@
-import { GetVideoURL } from "$lib/wailsjs/go/main/App";
 import { toast } from "svelte-sonner";
 
-// Load video URLs from backend
+// Load video URLs using direct file paths (gahara approach)
 export async function loadVideoURLs(highlights, videoURLs, setProgress, setAllVideosLoaded) {
   if (highlights.length === 0) {
     console.warn("No highlights provided to load video URLs");
@@ -25,7 +24,7 @@ export async function loadVideoURLs(highlights, videoURLs, setProgress, setAllVi
 
   const videoFiles = Array.from(uniqueVideos.values());
   console.log(
-    "Loading URLs for",
+    "Setting up direct file URLs for",
     videoFiles.length,
     "unique video files:",
     videoFiles.map((h) => h.filePath)
@@ -35,20 +34,13 @@ export async function loadVideoURLs(highlights, videoURLs, setProgress, setAllVi
 
   for (const highlight of videoFiles) {
     try {
-      console.log("Loading URL for:", highlight.filePath);
+      console.log("Setting up direct URL for:", highlight.filePath);
 
-      const videoURL = await Promise.race([
-        GetVideoURL(highlight.filePath),
-        new Promise((_, reject) =>
-          setTimeout(
-            () => reject(new Error("GetVideoURL timeout after 10 seconds")),
-            10000
-          )
-        ),
-      ]);
+      // Use direct file path as URL (gahara approach)
+      const videoURL = highlight.filePath;
 
       console.log(
-        "Got URL for",
+        "Using direct file path for",
         highlight.filePath,
         ":",
         videoURL ? "SUCCESS" : "EMPTY"
@@ -63,10 +55,10 @@ export async function loadVideoURLs(highlights, videoURLs, setProgress, setAllVi
           `Progress: ${loadedCount}/${videoFiles.length} (${Math.round(progress)}%)`
         );
       } else {
-        throw new Error("Empty video URL returned");
+        throw new Error("Empty file path");
       }
     } catch (err) {
-      console.error("Error loading video URL for:", highlight.filePath, err);
+      console.error("Error setting up video URL for:", highlight.filePath, err);
       toast.error("Failed to load video", {
         description: `Could not load ${highlight.videoClipName}: ${err.message}`,
       });
@@ -74,7 +66,7 @@ export async function loadVideoURLs(highlights, videoURLs, setProgress, setAllVi
   }
 
   console.log(
-    "Finished loading video URLs. Loaded:",
+    "Finished setting up video URLs. Loaded:",
     loadedCount,
     "out of",
     videoFiles.length
@@ -182,23 +174,15 @@ export async function preloadNextHighlight(
   setIsPreloading(true);
 
   try {
-    // Load the video URL for the next highlight
-    const videoURL = await Promise.race([
-      GetVideoURL(nextHighlight.filePath),
-      new Promise((_, reject) =>
-        setTimeout(
-          () => reject(new Error("Preload GetVideoURL timeout after 5 seconds")),
-          5000 // Shorter timeout for preloading to avoid blocking
-        )
-      ),
-    ]);
+    // Use direct file path as URL (gahara approach)
+    const videoURL = nextHighlight.filePath;
 
     if (videoURL) {
       videoURLs.set(nextHighlight.filePath, videoURL);
       preloadedHighlights.add(nextHighlight.id);
       console.log(`Successfully preloaded next highlight: ${nextHighlight.videoClipName}`);
     } else {
-      console.warn(`Empty video URL returned for preload: ${nextHighlight.filePath}`);
+      console.warn(`Empty file path for preload: ${nextHighlight.filePath}`);
     }
   } catch (err) {
     console.warn(`Failed to preload next highlight ${nextHighlight.videoClipName}:`, err.message);

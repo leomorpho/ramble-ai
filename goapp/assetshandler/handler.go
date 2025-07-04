@@ -28,9 +28,21 @@ func NewAssetHandler() *AssetHandler {
 }
 
 // CreateAssetMiddleware creates middleware for serving video files via AssetServer
+// Uses gahara's approach for direct file serving with CORS support
 func (h *AssetHandler) CreateAssetMiddleware() assetserver.Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Set CORS headers for all requests (gahara approach)
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			
+			// Handle preflight requests
+			if r.Method == "OPTIONS" {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+
 			// Check if this is a video request
 			if strings.HasPrefix(r.URL.Path, "/api/video/") {
 				h.HandleVideoRequest(w, r)
@@ -41,7 +53,15 @@ func (h *AssetHandler) CreateAssetMiddleware() assetserver.Middleware {
 				h.HandleThumbnailRequest(w, r)
 				return
 			}
-			// Pass to next handler for non-video requests
+			
+			// For all other requests (including direct file paths), use gahara's approach
+			// Serve files directly from the filesystem with security checks
+			if h.isDirectFileRequest(r.URL.Path) {
+				h.HandleDirectFileRequest(w, r)
+				return
+			}
+			
+			// Pass to next handler for frontend assets
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -300,4 +320,61 @@ func (h *AssetHandler) GetFileInfo(filePath string) (int64, string, bool) {
 	format := strings.TrimPrefix(ext, ".")
 
 	return fileInfo.Size(), format, true
+}
+
+// isDirectFileRequest checks if the request is for a direct file path (gahara approach)
+func (h *AssetHandler) isDirectFileRequest(path string) bool {
+	// Exclude frontend assets and development server paths
+	if strings.HasPrefix(path, "/_app/") || 
+	   strings.HasPrefix(path, "/api/") ||
+	   strings.HasPrefix(path, "/@") ||
+	   strings.HasPrefix(path, "/node_modules/") ||
+	   strings.Contains(path, ".svelte-kit") ||
+	   strings.Contains(path, "/src/") {
+		return false
+	}
+	
+	// Only handle requests that look like absolute file paths with video extensions
+	// This should match patterns like "/Users/..." or "C:\..." with video file extensions
+	if strings.HasPrefix(path, "/") && len(path) > 10 {
+		// Check if it looks like an absolute file path (starts with /Users/, /home/, etc.)
+		if strings.HasPrefix(path, "/Users/") || strings.HasPrefix(path, "/home/") || strings.HasPrefix(path, "/media/") {
+			// And has a video file extension
+			ext := strings.ToLower(filepath.Ext(path))
+			videoExtensions := []string{".mp4", ".mov", ".avi", ".mkv", ".wmv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg"}
+			for _, validExt := range videoExtensions {
+				if ext == validExt {
+					return true
+				}
+			}
+		}
+	}
+	
+	return false
+}
+
+// HandleDirectFileRequest handles direct file serving (gahara approach)
+func (h *AssetHandler) HandleDirectFileRequest(w http.ResponseWriter, r *http.Request) {
+	// Clean the file path from URL
+	filePath, err := url.QueryUnescape(r.URL.Path)
+	if err != nil {
+		log.Printf("[DIRECT] URL decode error: %v", err)
+		http.Error(w, "Invalid file path", http.StatusBadRequest)
+		return
+	}
+	
+	// Clean the path for security
+	filePath = filepath.Clean(filePath)
+	
+	log.Printf("[DIRECT] Serving file: %s", filePath)
+	
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		log.Printf("[DIRECT] File not found: %s", err)
+		http.NotFound(w, r)
+		return
+	}
+	
+	// Serve the file directly (gahara approach)
+	http.ServeFile(w, r, filePath)
 }

@@ -73,8 +73,8 @@ func (a *App) shutdown(ctx context.Context) {
 
 // createAssetMiddleware creates middleware for serving video files via AssetServer
 func (a *App) createAssetMiddleware() assetserver.Middleware {
-	handler := assetshandler.NewAssetHandler()
-	return handler.CreateAssetMiddleware()
+	assetHandler := assetshandler.NewAssetHandler()
+	return assetHandler.CreateAssetMiddleware()
 }
 
 // Greet returns a greeting for the given name
