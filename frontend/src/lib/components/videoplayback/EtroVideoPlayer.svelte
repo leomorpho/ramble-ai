@@ -784,7 +784,7 @@
         {/if}
 
         <!-- Clip segments with drag and drop -->
-        <div class="flex gap-0.5 w-full">
+        <div class="flex w-full">
           {#each highlights as highlight, index}
             {@const segmentDuration = highlight.end - highlight.start}
             {@const calculatedTotalDuration = highlights.reduce(
@@ -817,6 +817,8 @@
               {isPopoverOpen}
               {openPopover}
               {closePopover}
+              isFirst={index === 0}
+              isLast={index === highlights.length - 1}
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
               onDragOver={handleDragOver}
@@ -851,6 +853,8 @@
                 highlight={activeHighlight}
                 index={currentHighlightIndex}
                 isActive={true}
+                isFirst={true}
+                isLast={true}
                 segmentWidth={100}
                 {currentTime}
                 {totalDuration}

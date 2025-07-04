@@ -13,6 +13,8 @@
     enableEyeButton = true,
     isDragging = false,
     dragStartIndex = null,
+    isFirst = false,
+    isLast = false,
     isPopoverOpen,
     openPopover,
     closePopover,
@@ -33,11 +35,19 @@
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   }
+  
+  // Get conditional rounding classes
+  let roundingClasses = $derived(
+    isFirst && isLast ? 'rounded' : // Single segment gets full rounding
+    isFirst ? 'rounded-l' : // First segment gets left rounding
+    isLast ? 'rounded-r' : // Last segment gets right rounding
+    '' // Middle segments get no rounding
+  );
 </script>
 
 <button
-  class="group relative h-8 rounded transition-all duration-200 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-primary/50 {isActive
-    ? 'ring-2 ring-primary'
+  class="group relative h-8 {roundingClasses} transition-all duration-200 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-primary/50 {isActive
+    ? 'border-2 border-primary'
     : ''} {isDragging && dragStartIndex === index
     ? 'opacity-50 scale-95'
     : ''} cursor-pointer"
@@ -65,7 +75,7 @@
       Math.min(1, (currentTime - segmentStartTime) / segmentDuration)
     )}
     <div
-      class="absolute left-0 top-0 h-full bg-white/30 rounded transition-all duration-100"
+      class="absolute left-0 top-0 h-full bg-white/30 {roundingClasses} transition-all duration-100"
       style="width: {segmentProgress * 100}%;"
     ></div>
   {/if}
@@ -104,7 +114,7 @@
   <!-- Drag handle -->
   {#if enableReordering}
     <div
-      class="absolute top-0 right-0 w-4 h-4 bg-black/80 rounded-bl rounded-tr opacity-0 group-hover:opacity-100 transition-opacity cursor-move flex items-center justify-center"
+      class="absolute top-0 right-0 w-4 h-4 bg-black/80 {isLast ? 'rounded-bl rounded-tr' : 'rounded-bl'} opacity-0 group-hover:opacity-100 transition-opacity cursor-move flex items-center justify-center"
       title="Drag to reorder"
     >
       <div class="w-1.5 h-1.5 bg-white rounded-full"></div>
