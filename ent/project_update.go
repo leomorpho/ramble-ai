@@ -237,6 +237,26 @@ func (pu *ProjectUpdate) ClearAiHighlightPrompt() *ProjectUpdate {
 	return pu
 }
 
+// SetActiveTab sets the "active_tab" field.
+func (pu *ProjectUpdate) SetActiveTab(s string) *ProjectUpdate {
+	pu.mutation.SetActiveTab(s)
+	return pu
+}
+
+// SetNillableActiveTab sets the "active_tab" field if the given value is not nil.
+func (pu *ProjectUpdate) SetNillableActiveTab(s *string) *ProjectUpdate {
+	if s != nil {
+		pu.SetActiveTab(*s)
+	}
+	return pu
+}
+
+// ClearActiveTab clears the value of the "active_tab" field.
+func (pu *ProjectUpdate) ClearActiveTab() *ProjectUpdate {
+	pu.mutation.ClearActiveTab()
+	return pu
+}
+
 // AddVideoClipIDs adds the "video_clips" edge to the VideoClip entity by IDs.
 func (pu *ProjectUpdate) AddVideoClipIDs(ids ...int) *ProjectUpdate {
 	pu.mutation.AddVideoClipIDs(ids...)
@@ -441,6 +461,12 @@ func (pu *ProjectUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if pu.mutation.AiHighlightPromptCleared() {
 		_spec.ClearField(project.FieldAiHighlightPrompt, field.TypeString)
+	}
+	if value, ok := pu.mutation.ActiveTab(); ok {
+		_spec.SetField(project.FieldActiveTab, field.TypeString, value)
+	}
+	if pu.mutation.ActiveTabCleared() {
+		_spec.ClearField(project.FieldActiveTab, field.TypeString)
 	}
 	if pu.mutation.VideoClipsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -758,6 +784,26 @@ func (puo *ProjectUpdateOne) ClearAiHighlightPrompt() *ProjectUpdateOne {
 	return puo
 }
 
+// SetActiveTab sets the "active_tab" field.
+func (puo *ProjectUpdateOne) SetActiveTab(s string) *ProjectUpdateOne {
+	puo.mutation.SetActiveTab(s)
+	return puo
+}
+
+// SetNillableActiveTab sets the "active_tab" field if the given value is not nil.
+func (puo *ProjectUpdateOne) SetNillableActiveTab(s *string) *ProjectUpdateOne {
+	if s != nil {
+		puo.SetActiveTab(*s)
+	}
+	return puo
+}
+
+// ClearActiveTab clears the value of the "active_tab" field.
+func (puo *ProjectUpdateOne) ClearActiveTab() *ProjectUpdateOne {
+	puo.mutation.ClearActiveTab()
+	return puo
+}
+
 // AddVideoClipIDs adds the "video_clips" edge to the VideoClip entity by IDs.
 func (puo *ProjectUpdateOne) AddVideoClipIDs(ids ...int) *ProjectUpdateOne {
 	puo.mutation.AddVideoClipIDs(ids...)
@@ -992,6 +1038,12 @@ func (puo *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err e
 	}
 	if puo.mutation.AiHighlightPromptCleared() {
 		_spec.ClearField(project.FieldAiHighlightPrompt, field.TypeString)
+	}
+	if value, ok := puo.mutation.ActiveTab(); ok {
+		_spec.SetField(project.FieldActiveTab, field.TypeString, value)
+	}
+	if puo.mutation.ActiveTabCleared() {
+		_spec.ClearField(project.FieldActiveTab, field.TypeString)
 	}
 	if puo.mutation.VideoClipsCleared() {
 		edge := &sqlgraph.EdgeSpec{

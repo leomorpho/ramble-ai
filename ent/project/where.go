@@ -110,6 +110,11 @@ func AiHighlightPrompt(v string) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldAiHighlightPrompt, v))
 }
 
+// ActiveTab applies equality check predicate on the "active_tab" field. It's identical to ActiveTabEQ.
+func ActiveTab(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldActiveTab, v))
+}
+
 // NameEQ applies the EQ predicate on the "name" field.
 func NameEQ(v string) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldName, v))
@@ -828,6 +833,81 @@ func AiHighlightPromptEqualFold(v string) predicate.Project {
 // AiHighlightPromptContainsFold applies the ContainsFold predicate on the "ai_highlight_prompt" field.
 func AiHighlightPromptContainsFold(v string) predicate.Project {
 	return predicate.Project(sql.FieldContainsFold(FieldAiHighlightPrompt, v))
+}
+
+// ActiveTabEQ applies the EQ predicate on the "active_tab" field.
+func ActiveTabEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldActiveTab, v))
+}
+
+// ActiveTabNEQ applies the NEQ predicate on the "active_tab" field.
+func ActiveTabNEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldNEQ(FieldActiveTab, v))
+}
+
+// ActiveTabIn applies the In predicate on the "active_tab" field.
+func ActiveTabIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldIn(FieldActiveTab, vs...))
+}
+
+// ActiveTabNotIn applies the NotIn predicate on the "active_tab" field.
+func ActiveTabNotIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldNotIn(FieldActiveTab, vs...))
+}
+
+// ActiveTabGT applies the GT predicate on the "active_tab" field.
+func ActiveTabGT(v string) predicate.Project {
+	return predicate.Project(sql.FieldGT(FieldActiveTab, v))
+}
+
+// ActiveTabGTE applies the GTE predicate on the "active_tab" field.
+func ActiveTabGTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldGTE(FieldActiveTab, v))
+}
+
+// ActiveTabLT applies the LT predicate on the "active_tab" field.
+func ActiveTabLT(v string) predicate.Project {
+	return predicate.Project(sql.FieldLT(FieldActiveTab, v))
+}
+
+// ActiveTabLTE applies the LTE predicate on the "active_tab" field.
+func ActiveTabLTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldLTE(FieldActiveTab, v))
+}
+
+// ActiveTabContains applies the Contains predicate on the "active_tab" field.
+func ActiveTabContains(v string) predicate.Project {
+	return predicate.Project(sql.FieldContains(FieldActiveTab, v))
+}
+
+// ActiveTabHasPrefix applies the HasPrefix predicate on the "active_tab" field.
+func ActiveTabHasPrefix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasPrefix(FieldActiveTab, v))
+}
+
+// ActiveTabHasSuffix applies the HasSuffix predicate on the "active_tab" field.
+func ActiveTabHasSuffix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasSuffix(FieldActiveTab, v))
+}
+
+// ActiveTabIsNil applies the IsNil predicate on the "active_tab" field.
+func ActiveTabIsNil() predicate.Project {
+	return predicate.Project(sql.FieldIsNull(FieldActiveTab))
+}
+
+// ActiveTabNotNil applies the NotNil predicate on the "active_tab" field.
+func ActiveTabNotNil() predicate.Project {
+	return predicate.Project(sql.FieldNotNull(FieldActiveTab))
+}
+
+// ActiveTabEqualFold applies the EqualFold predicate on the "active_tab" field.
+func ActiveTabEqualFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldEqualFold(FieldActiveTab, v))
+}
+
+// ActiveTabContainsFold applies the ContainsFold predicate on the "active_tab" field.
+func ActiveTabContainsFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldContainsFold(FieldActiveTab, v))
 }
 
 // HasVideoClips applies the HasEdge predicate on the "video_clips" edge.

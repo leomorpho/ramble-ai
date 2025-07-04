@@ -346,6 +346,7 @@ export namespace projects {
 	    path: string;
 	    createdAt: string;
 	    updatedAt: string;
+	    activeTab: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ProjectResponse(source);
@@ -359,6 +360,7 @@ export namespace projects {
 	        this.path = source["path"];
 	        this.createdAt = source["createdAt"];
 	        this.updatedAt = source["updatedAt"];
+	        this.activeTab = source["activeTab"];
 	    }
 	}
 	export class Word {

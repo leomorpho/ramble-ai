@@ -57,6 +57,7 @@ var (
 		{Name: "ai_suggestion_created_at", Type: field.TypeTime, Nullable: true},
 		{Name: "ai_highlight_model", Type: field.TypeString, Nullable: true, Default: "anthropic/claude-sonnet-4"},
 		{Name: "ai_highlight_prompt", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "active_tab", Type: field.TypeString, Nullable: true, Default: "clips"},
 	}
 	// ProjectsTable holds the schema information for the "projects" table.
 	ProjectsTable = &schema.Table{

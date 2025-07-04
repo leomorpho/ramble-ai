@@ -106,6 +106,12 @@ func (a *App) UpdateProject(id int, name, description string) (*projects.Project
 	return service.UpdateProject(id, name, description)
 }
 
+// UpdateProjectActiveTab updates the active tab for a project
+func (a *App) UpdateProjectActiveTab(projectID int, activeTab string) error {
+	service := projects.NewProjectService(a.client, a.ctx)
+	return service.UpdateProjectActiveTab(projectID, activeTab)
+}
+
 // DeleteProject deletes a project by its ID
 func (a *App) DeleteProject(id int) error {
 	service := projects.NewProjectService(a.client, a.ctx)

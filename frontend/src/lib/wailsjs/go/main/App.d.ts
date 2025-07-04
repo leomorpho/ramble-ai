@@ -99,6 +99,8 @@ export function TranscribeVideoClip(arg1:number):Promise<ai.TranscriptionRespons
 
 export function UpdateProject(arg1:number,arg2:string,arg3:string):Promise<projects.ProjectResponse>;
 
+export function UpdateProjectActiveTab(arg1:number,arg2:string):Promise<void>;
+
 export function UpdateProjectHighlightOrder(arg1:number,arg2:Array<string>):Promise<void>;
 
 export function UpdateVideoClip(arg1:number,arg2:string,arg3:string):Promise<projects.VideoClipResponse>;

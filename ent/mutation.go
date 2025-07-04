@@ -1364,6 +1364,7 @@ type ProjectMutation struct {
 	ai_suggestion_created_at  *time.Time
 	ai_highlight_model        *string
 	ai_highlight_prompt       *string
+	active_tab                *string
 	clearedFields             map[string]struct{}
 	video_clips               map[int]struct{}
 	removedvideo_clips        map[int]struct{}
@@ -2026,6 +2027,55 @@ func (m *ProjectMutation) ResetAiHighlightPrompt() {
 	delete(m.clearedFields, project.FieldAiHighlightPrompt)
 }
 
+// SetActiveTab sets the "active_tab" field.
+func (m *ProjectMutation) SetActiveTab(s string) {
+	m.active_tab = &s
+}
+
+// ActiveTab returns the value of the "active_tab" field in the mutation.
+func (m *ProjectMutation) ActiveTab() (r string, exists bool) {
+	v := m.active_tab
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActiveTab returns the old "active_tab" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldActiveTab(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActiveTab is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActiveTab requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActiveTab: %w", err)
+	}
+	return oldValue.ActiveTab, nil
+}
+
+// ClearActiveTab clears the value of the "active_tab" field.
+func (m *ProjectMutation) ClearActiveTab() {
+	m.active_tab = nil
+	m.clearedFields[project.FieldActiveTab] = struct{}{}
+}
+
+// ActiveTabCleared returns if the "active_tab" field was cleared in this mutation.
+func (m *ProjectMutation) ActiveTabCleared() bool {
+	_, ok := m.clearedFields[project.FieldActiveTab]
+	return ok
+}
+
+// ResetActiveTab resets all changes to the "active_tab" field.
+func (m *ProjectMutation) ResetActiveTab() {
+	m.active_tab = nil
+	delete(m.clearedFields, project.FieldActiveTab)
+}
+
 // AddVideoClipIDs adds the "video_clips" edge to the VideoClip entity by ids.
 func (m *ProjectMutation) AddVideoClipIDs(ids ...int) {
 	if m.video_clips == nil {
@@ -2168,7 +2218,7 @@ func (m *ProjectMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProjectMutation) Fields() []string {
-	fields := make([]string, 0, 12)
+	fields := make([]string, 0, 13)
 	if m.name != nil {
 		fields = append(fields, project.FieldName)
 	}
@@ -2205,6 +2255,9 @@ func (m *ProjectMutation) Fields() []string {
 	if m.ai_highlight_prompt != nil {
 		fields = append(fields, project.FieldAiHighlightPrompt)
 	}
+	if m.active_tab != nil {
+		fields = append(fields, project.FieldActiveTab)
+	}
 	return fields
 }
 
@@ -2237,6 +2290,8 @@ func (m *ProjectMutation) Field(name string) (ent.Value, bool) {
 		return m.AiHighlightModel()
 	case project.FieldAiHighlightPrompt:
 		return m.AiHighlightPrompt()
+	case project.FieldActiveTab:
+		return m.ActiveTab()
 	}
 	return nil, false
 }
@@ -2270,6 +2325,8 @@ func (m *ProjectMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldAiHighlightModel(ctx)
 	case project.FieldAiHighlightPrompt:
 		return m.OldAiHighlightPrompt(ctx)
+	case project.FieldActiveTab:
+		return m.OldActiveTab(ctx)
 	}
 	return nil, fmt.Errorf("unknown Project field %s", name)
 }
@@ -2363,6 +2420,13 @@ func (m *ProjectMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetAiHighlightPrompt(v)
 		return nil
+	case project.FieldActiveTab:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActiveTab(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Project field %s", name)
 }
@@ -2417,6 +2481,9 @@ func (m *ProjectMutation) ClearedFields() []string {
 	if m.FieldCleared(project.FieldAiHighlightPrompt) {
 		fields = append(fields, project.FieldAiHighlightPrompt)
 	}
+	if m.FieldCleared(project.FieldActiveTab) {
+		fields = append(fields, project.FieldActiveTab)
+	}
 	return fields
 }
 
@@ -2454,6 +2521,9 @@ func (m *ProjectMutation) ClearField(name string) error {
 		return nil
 	case project.FieldAiHighlightPrompt:
 		m.ClearAiHighlightPrompt()
+		return nil
+	case project.FieldActiveTab:
+		m.ClearActiveTab()
 		return nil
 	}
 	return fmt.Errorf("unknown Project nullable field %s", name)
@@ -2498,6 +2568,9 @@ func (m *ProjectMutation) ResetField(name string) error {
 		return nil
 	case project.FieldAiHighlightPrompt:
 		m.ResetAiHighlightPrompt()
+		return nil
+	case project.FieldActiveTab:
+		m.ResetActiveTab()
 		return nil
 	}
 	return fmt.Errorf("unknown Project field %s", name)

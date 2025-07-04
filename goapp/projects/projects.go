@@ -40,6 +40,7 @@ type ProjectResponse struct {
 	Path        string `json:"path"`
 	CreatedAt   string `json:"createdAt"`
 	UpdatedAt   string `json:"updatedAt"`
+	ActiveTab   string `json:"activeTab"`
 }
 
 // VideoClipResponse represents a video clip response for the frontend
@@ -114,6 +115,7 @@ func (s *ProjectService) CreateProject(name, description string) (*ProjectRespon
 		Path:        proj.Path,
 		CreatedAt:   proj.CreatedAt.Format("2006-01-02 15:04:05"),
 		UpdatedAt:   proj.UpdatedAt.Format("2006-01-02 15:04:05"),
+		ActiveTab:   proj.ActiveTab,
 	}, nil
 }
 
@@ -133,6 +135,7 @@ func (s *ProjectService) GetProjects() ([]*ProjectResponse, error) {
 			Path:        proj.Path,
 			CreatedAt:   proj.CreatedAt.Format("2006-01-02 15:04:05"),
 			UpdatedAt:   proj.UpdatedAt.Format("2006-01-02 15:04:05"),
+			ActiveTab:   proj.ActiveTab,
 		})
 	}
 	
@@ -157,6 +160,7 @@ func (s *ProjectService) GetProjectByID(id int) (*ProjectResponse, error) {
 		Path:        proj.Path,
 		CreatedAt:   proj.CreatedAt.Format("2006-01-02 15:04:05"),
 		UpdatedAt:   proj.UpdatedAt.Format("2006-01-02 15:04:05"),
+		ActiveTab:   proj.ActiveTab,
 	}, nil
 }
 
@@ -183,6 +187,7 @@ func (s *ProjectService) UpdateProject(id int, name, description string) (*Proje
 		Path:        proj.Path,
 		CreatedAt:   proj.CreatedAt.Format("2006-01-02 15:04:05"),
 		UpdatedAt:   proj.UpdatedAt.Format("2006-01-02 15:04:05"),
+		ActiveTab:   proj.ActiveTab,
 	}, nil
 }
 
@@ -456,6 +461,20 @@ func (s *ProjectService) UpdateVideoClipSuggestedHighlights(clipID int, suggeste
 		Save(s.ctx)
 		
 	return err
+}
+
+// UpdateProjectActiveTab updates the active tab for a project
+func (s *ProjectService) UpdateProjectActiveTab(projectID int, activeTab string) error {
+	_, err := s.client.Project.
+		UpdateOneID(projectID).
+		SetActiveTab(activeTab).
+		Save(s.ctx)
+		
+	if err != nil {
+		return fmt.Errorf("failed to update project active tab: %w", err)
+	}
+	
+	return nil
 }
 
 // UpdateProjectHighlightOrder updates the highlight order for a project

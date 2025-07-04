@@ -95,6 +95,10 @@ func init() {
 	projectDescAiHighlightModel := projectFields[10].Descriptor()
 	// project.DefaultAiHighlightModel holds the default value on creation for the ai_highlight_model field.
 	project.DefaultAiHighlightModel = projectDescAiHighlightModel.Default.(string)
+	// projectDescActiveTab is the schema descriptor for active_tab field.
+	projectDescActiveTab := projectFields[12].Descriptor()
+	// project.DefaultActiveTab holds the default value on creation for the active_tab field.
+	project.DefaultActiveTab = projectDescActiveTab.Default.(string)
 	settingsFields := schema.Settings{}.Fields()
 	_ = settingsFields
 	// settingsDescKey is the schema descriptor for key field.

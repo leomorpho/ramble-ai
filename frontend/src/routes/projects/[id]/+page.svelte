@@ -31,6 +31,7 @@
     GetExportProgress,
     CancelExport,
     GetProjectExportJobs,
+    UpdateProjectActiveTab,
   } from "$lib/wailsjs/go/main/App";
   import {
     OnFileDrop,
@@ -98,6 +99,7 @@
 
   // Tabs state
   let activeTab = $state("clips");
+  let debounceTimer = null;
 
   // Copy button state
   let pathCopied = $state(false);
@@ -155,6 +157,11 @@
 
     // Clean up highlights store
     clearHighlights();
+    
+    // Clean up tab save timer
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
   });
 
   async function loadProject() {
@@ -167,6 +174,11 @@
       loading = true;
       error = "";
       project = await GetProjectByID(projectId);
+      
+      // Set the active tab from project settings
+      if (project && project.activeTab) {
+        activeTab = project.activeTab;
+      }
     } catch (err) {
       console.error("Failed to load project:", err);
       error = "Failed to load project";
@@ -860,6 +872,33 @@
       }
     }
   }
+
+  async function saveActiveTab(tab) {
+    if (!projectId || isNaN(projectId)) return;
+    
+    try {
+      await UpdateProjectActiveTab(projectId, tab);
+    } catch (err) {
+      console.error("Failed to save active tab:", err);
+      // Don't show error toast for this - it's not critical to user experience
+    }
+  }
+
+  // Watch for active tab changes
+  $effect(() => {
+    // Clear any existing timer
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+    
+    // Only save if project is loaded
+    if (project && activeTab) {
+      // Debounce the save to avoid too many API calls
+      debounceTimer = setTimeout(() => {
+        saveActiveTab(activeTab);
+      }, 500);
+    }
+  });
 </script>
 
 <main

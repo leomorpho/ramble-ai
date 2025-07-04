@@ -38,6 +38,8 @@ const (
 	FieldAiHighlightModel = "ai_highlight_model"
 	// FieldAiHighlightPrompt holds the string denoting the ai_highlight_prompt field in the database.
 	FieldAiHighlightPrompt = "ai_highlight_prompt"
+	// FieldActiveTab holds the string denoting the active_tab field in the database.
+	FieldActiveTab = "active_tab"
 	// EdgeVideoClips holds the string denoting the video_clips edge name in mutations.
 	EdgeVideoClips = "video_clips"
 	// EdgeExportJobs holds the string denoting the export_jobs edge name in mutations.
@@ -75,6 +77,7 @@ var Columns = []string{
 	FieldAiSuggestionCreatedAt,
 	FieldAiHighlightModel,
 	FieldAiHighlightPrompt,
+	FieldActiveTab,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -102,6 +105,8 @@ var (
 	DefaultAiModel string
 	// DefaultAiHighlightModel holds the default value on creation for the "ai_highlight_model" field.
 	DefaultAiHighlightModel string
+	// DefaultActiveTab holds the default value on creation for the "active_tab" field.
+	DefaultActiveTab string
 )
 
 // OrderOption defines the ordering options for the Project queries.
@@ -165,6 +170,11 @@ func ByAiHighlightModel(opts ...sql.OrderTermOption) OrderOption {
 // ByAiHighlightPrompt orders the results by the ai_highlight_prompt field.
 func ByAiHighlightPrompt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAiHighlightPrompt, opts...).ToFunc()
+}
+
+// ByActiveTab orders the results by the active_tab field.
+func ByActiveTab(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldActiveTab, opts...).ToFunc()
 }
 
 // ByVideoClipsCount orders the results by video_clips count.

@@ -55,6 +55,10 @@ func (Project) Fields() []ent.Field {
 		field.Text("ai_highlight_prompt").
 			Optional().
 			Comment("Custom AI prompt for highlight suggestions"),
+		field.String("active_tab").
+			Optional().
+			Default("clips").
+			Comment("Last active tab for this project"),
 	}
 }
 

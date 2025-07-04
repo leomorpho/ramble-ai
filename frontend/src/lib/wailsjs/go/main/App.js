@@ -190,6 +190,10 @@ export function UpdateProject(arg1, arg2, arg3) {
   return window['go']['main']['App']['UpdateProject'](arg1, arg2, arg3);
 }
 
+export function UpdateProjectActiveTab(arg1, arg2) {
+  return window['go']['main']['App']['UpdateProjectActiveTab'](arg1, arg2);
+}
+
 export function UpdateProjectHighlightOrder(arg1, arg2) {
   return window['go']['main']['App']['UpdateProjectHighlightOrder'](arg1, arg2);
 }
