@@ -37,12 +37,15 @@
   } = $props();
 
   // Core state
-  let videoElement = $state(null);
+  let videoElement1 = $state(null);
+  let videoElement2 = $state(null);
+  let activeVideoIndex = $state(1); // 1 or 2, indicates which video element is currently active
   let isPlaying = $state(false);
   let currentTime = $state(0);
   let totalDuration = $state(0);
   let currentHighlightIndex = $state(0);
-  let currentVideoSource = $state("");
+  let activeVideoSource = $state("");
+  let preloadVideoSource = $state("");
 
   // Drag and drop state (use highlights prop directly from store)
   let isDragging = $state(false);
@@ -59,10 +62,10 @@
   let isSeeking = $state(false);
   let isAutoTransitioning = $state(false);
 
-  // Preloading state
+  // Dual video state
   let preloadedHighlight = $state(null);
-  let preloadedVideoElement = $state(null);
   let isPreloading = $state(false);
+  let preloadedVideoStarted = $state(false);
 
   // Track highlight order to detect external changes
   let lastKnownOrder = $state("");
@@ -88,6 +91,10 @@
   
   // Active segment display threshold
   const ACTIVE_SEGMENT_THRESHOLD = 0.2; // Show if any segment is less than 20% of total duration
+  
+  // Video preloading and transition timing constants
+  const PRELOAD_TIME_BEFORE_END = 3; // Start preloading next highlight 3 seconds before current ends
+  const PLAYBACK_START_TIME_BEFORE_END = 0.15; // Start playing preloaded video x seconds before current ends
 
   // Calculate if we should show the active segment based on highlight durations
   let shouldShowActiveSegment = $derived(() => {
@@ -110,7 +117,20 @@
     totalDuration = calculatedTotalDuration;
   });
 
-  // Load and play a specific highlight
+  // Helper functions for dual video elements
+  function getActiveVideoElement() {
+    return activeVideoIndex === 1 ? videoElement1 : videoElement2;
+  }
+
+  function getPreloadVideoElement() {
+    return activeVideoIndex === 1 ? videoElement2 : videoElement1;
+  }
+
+  function switchActiveVideo() {
+    activeVideoIndex = activeVideoIndex === 1 ? 2 : 1;
+  }
+
+  // Load and play a specific highlight on the active video element
   async function loadHighlight(highlight) {
     if (!highlight) return false;
     
@@ -121,12 +141,13 @@
       // Set the video source with fragment URL for the specific segment
       const fragmentURL = `${videoURL}#t=${highlight.start},${highlight.end}`;
       
-      currentVideoSource = fragmentURL;
+      activeVideoSource = fragmentURL;
       
-      // If video element is available, also set src directly
-      if (videoElement) {
-        videoElement.src = fragmentURL;
-        videoElement.load();
+      // Load on the active video element
+      const activeVideo = getActiveVideoElement();
+      if (activeVideo) {
+        activeVideo.src = fragmentURL;
+        activeVideo.load();
       }
       
       return true;
@@ -141,7 +162,7 @@
     }
   }
 
-  // Preload the next highlight
+  // Preload the next highlight on the inactive video element
   async function preloadNextHighlight(nextHighlight) {
     if (!nextHighlight || isPreloading) return false;
     
@@ -152,16 +173,16 @@
       const videoURL = encodeURI(nextHighlight.filePath);
       const fragmentURL = `${videoURL}#t=${nextHighlight.start},${nextHighlight.end}`;
       
-      // Create a hidden video element for preloading
-      const preloadVideo = document.createElement('video');
-      preloadVideo.src = fragmentURL;
-      preloadVideo.preload = 'metadata';
-      preloadVideo.style.display = 'none';
-      document.body.appendChild(preloadVideo);
+      // Load on the inactive video element
+      const preloadVideo = getPreloadVideoElement();
+      if (preloadVideo) {
+        preloadVideoSource = fragmentURL;
+        preloadVideo.src = fragmentURL;
+        preloadVideo.load();
+      }
       
       // Store the preloaded data
       preloadedHighlight = nextHighlight;
-      preloadedVideoElement = preloadVideo;
       
       return true;
     } catch (err) {
@@ -172,43 +193,57 @@
     }
   }
 
-  // Use preloaded highlight if available
+  // Use preloaded highlight by switching to the preloaded video element
   async function usePreloadedHighlight() {
-    if (!preloadedHighlight || !preloadedVideoElement) return false;
+    if (!preloadedHighlight) return false;
     
     try {
       console.log("Using preloaded highlight:", preloadedHighlight.videoClipName);
       
-      // Transfer the preloaded source to the main video element
-      const fragmentURL = preloadedVideoElement.src;
-      currentVideoSource = fragmentURL;
+      // Get the preload video element and start playing it
+      const preloadVideo = getPreloadVideoElement();
+      const currentActiveVideo = getActiveVideoElement();
       
-      if (videoElement) {
-        videoElement.src = fragmentURL;
-        videoElement.load();
+      // Start playback on the preloaded video before switching (if not already started)
+      if (preloadVideo && preloadVideo.paused && !preloadedVideoStarted) {
+        try {
+          await preloadVideo.play();
+          console.log("Started playback on preloaded video");
+        } catch (err) {
+          console.warn("Failed to start preloaded video:", err);
+          // Continue anyway, might still work
+        }
       }
       
-      // Clean up preloaded element
-      cleanupPreloadedElement();
+      // Pause the current active video
+      if (currentActiveVideo && !currentActiveVideo.paused) {
+        currentActiveVideo.pause();
+      }
+      
+      // Switch to the preloaded video element
+      switchActiveVideo();
+      
+      // Update the active video source
+      activeVideoSource = preloadVideoSource;
+      
+      // Clean up preloaded state
+      preloadedHighlight = null;
+      preloadVideoSource = "";
+      preloadedVideoStarted = false;
       
       return true;
     } catch (err) {
       console.error("Failed to use preloaded highlight:", err);
-      cleanupPreloadedElement();
       return false;
     }
   }
 
   // Clean up preloaded elements
   function cleanupPreloadedElement() {
-    if (preloadedVideoElement) {
-      if (preloadedVideoElement.parentNode) {
-        preloadedVideoElement.parentNode.removeChild(preloadedVideoElement);
-      }
-      preloadedVideoElement = null;
-    }
     preloadedHighlight = null;
+    preloadVideoSource = "";
     isPreloading = false;
+    preloadedVideoStarted = false;
   }
 
   // Update current highlight index based on current time
@@ -226,17 +261,18 @@
 
   // Playback controls
   async function playPauseWrapper() {
-    if (!videoElement || !isInitialized) {
+    const activeVideo = getActiveVideoElement();
+    if (!activeVideo || !isInitialized) {
       toast.error("Video player not ready");
       return;
     }
     
     try {
-      if (videoElement.paused || videoElement.ended) {
-        await videoElement.play();
+      if (activeVideo.paused || activeVideo.ended) {
+        await activeVideo.play();
         isPlaying = true;
       } else {
-        videoElement.pause();
+        activeVideo.pause();
         isPlaying = false;
       }
     } catch (err) {
@@ -256,8 +292,9 @@
     const wasPlaying = isPlaying;
     
     // Pause current playback
-    if (videoElement && !videoElement.paused) {
-      videoElement.pause();
+    const activeVideo = getActiveVideoElement();
+    if (activeVideo && !activeVideo.paused) {
+      activeVideo.pause();
       isPlaying = false;
     }
     
@@ -274,9 +311,9 @@
       currentTime = accumulatedTime;
       
       // Resume playing if it was playing before
-      if (wasPlaying && videoElement) {
+      if (wasPlaying && activeVideo) {
         try {
-          await videoElement.play();
+          await activeVideo.play();
           isPlaying = true;
         } catch (err) {
           console.error("Failed to resume playback:", err);
@@ -287,7 +324,8 @@
 
   // Handle video time updates
   function handleTimeUpdate() {
-    if (!videoElement) return;
+    const activeVideo = getActiveVideoElement();
+    if (!activeVideo) return;
     
     // Update the current time in the context of the concatenated timeline
     let accumulatedTime = 0;
@@ -298,17 +336,30 @@
     const currentHighlight = highlights[currentHighlightIndex];
     if (currentHighlight) {
       // Calculate time within the current highlight segment
-      const videoCurrentTime = videoElement.currentTime;
+      const videoCurrentTime = activeVideo.currentTime;
       const timeWithinSegment = Math.max(0, videoCurrentTime - currentHighlight.start);
       currentTime = accumulatedTime + timeWithinSegment;
       
-      // Check if we should preload the next highlight (3 seconds before end)
+      // Check if we should preload the next highlight
       const timeUntilEnd = currentHighlight.end - videoCurrentTime;
       const nextIndex = currentHighlightIndex + 1;
-      if (timeUntilEnd <= 3 && nextIndex < highlights.length && !preloadedHighlight && !isPreloading) {
+      if (timeUntilEnd <= PRELOAD_TIME_BEFORE_END && nextIndex < highlights.length && !preloadedHighlight && !isPreloading) {
         const nextHighlight = highlights[nextIndex];
         if (nextHighlight) {
           preloadNextHighlight(nextHighlight);
+        }
+      }
+      
+      // Start playback on preloaded video when very close to the end
+      if (timeUntilEnd <= PLAYBACK_START_TIME_BEFORE_END && preloadedHighlight && !preloadedVideoStarted && isPlaying) {
+        const preloadVideo = getPreloadVideoElement();
+        if (preloadVideo && preloadVideo.paused) {
+          preloadVideo.play().then(() => {
+            preloadedVideoStarted = true;
+            console.log("Pre-started playback on next video for seamless transition");
+          }).catch(err => {
+            console.warn("Failed to pre-start preloaded video:", err);
+          });
         }
       }
       
@@ -358,9 +409,10 @@
         }
         
         // Resume playing if it was playing before
-        if (wasPlaying && videoElement && videoElement.paused) {
+        const newActiveVideo = getActiveVideoElement();
+        if (wasPlaying && newActiveVideo && newActiveVideo.paused) {
           try {
-            await videoElement.play();
+            await newActiveVideo.play();
             isPlaying = true;
           } catch (err) {
             console.error("Failed to auto-play next highlight:", err);
@@ -375,8 +427,9 @@
     } else {
       console.log("Reached end of all highlights");
       isPlaying = false;
-      if (videoElement && !videoElement.paused) {
-        videoElement.pause();
+      const activeVideo = getActiveVideoElement();
+      if (activeVideo && !activeVideo.paused) {
+        activeVideo.pause();
       }
     }
   }
@@ -415,11 +468,12 @@
       }
       
       // Calculate the exact time within the video file
-      if (videoElement && targetHighlight) {
+      const activeVideo = getActiveVideoElement();
+      if (activeVideo && targetHighlight) {
         const timeWithinTimeline = targetTime - timeBeforeTarget;
         const videoSeekTime = targetHighlight.start + timeWithinTimeline;
         
-        videoElement.currentTime = videoSeekTime;
+        activeVideo.currentTime = videoSeekTime;
         currentTime = targetTime;
         
         // Update the display immediately
@@ -427,9 +481,9 @@
       }
       
       // Resume playing if it was playing before
-      if (wasPlaying && videoElement && videoElement.paused) {
+      if (wasPlaying && activeVideo && activeVideo.paused) {
         try {
-          await videoElement.play();
+          await activeVideo.play();
           isPlaying = true;
         } catch (err) {
           console.error("Failed to resume playback after seek:", err);
@@ -712,9 +766,9 @@
 
 
 
-  // Sync playing state with video element and handle auto-progression
+  // Sync playing state with video elements and handle auto-progression
   $effect(() => {
-    if (browser && videoElement) {
+    if (browser && (videoElement1 || videoElement2)) {
       const handlePlay = () => { isPlaying = true; };
       const handlePause = () => { isPlaying = false; };
       const handleEnded = async () => { 
@@ -727,9 +781,10 @@
           await jumpToHighlightWrapper(nextIndex);
           
           // Auto-play the next highlight
-          if (videoElement && videoElement.paused) {
+          const activeVideo = getActiveVideoElement();
+          if (activeVideo && activeVideo.paused) {
             try {
-              await videoElement.play();
+              await activeVideo.play();
               isPlaying = true;
             } catch (err) {
               console.error("Failed to auto-play next highlight:", err);
@@ -740,14 +795,32 @@
         }
       };
       
-      videoElement.addEventListener('play', handlePlay);
-      videoElement.addEventListener('pause', handlePause);
-      videoElement.addEventListener('ended', handleEnded);
+      const cleanupFunctions = [];
+      
+      if (videoElement1) {
+        videoElement1.addEventListener('play', handlePlay);
+        videoElement1.addEventListener('pause', handlePause);
+        videoElement1.addEventListener('ended', handleEnded);
+        cleanupFunctions.push(() => {
+          videoElement1.removeEventListener('play', handlePlay);
+          videoElement1.removeEventListener('pause', handlePause);
+          videoElement1.removeEventListener('ended', handleEnded);
+        });
+      }
+      
+      if (videoElement2) {
+        videoElement2.addEventListener('play', handlePlay);
+        videoElement2.addEventListener('pause', handlePause);
+        videoElement2.addEventListener('ended', handleEnded);
+        cleanupFunctions.push(() => {
+          videoElement2.removeEventListener('play', handlePlay);
+          videoElement2.removeEventListener('pause', handlePause);
+          videoElement2.removeEventListener('ended', handleEnded);
+        });
+      }
       
       return () => {
-        videoElement.removeEventListener('play', handlePlay);
-        videoElement.removeEventListener('pause', handlePause);
-        videoElement.removeEventListener('ended', handleEnded);
+        cleanupFunctions.forEach(cleanup => cleanup());
       };
     }
   });
@@ -758,13 +831,17 @@
   onMount(() => {
     console.log("EtroVideoPlayer mounted");
     console.log("Highlights on mount:", highlights.length);
-    console.log("videoElement on mount:", videoElement);
+    console.log("videoElement1 on mount:", videoElement1);
+    console.log("videoElement2 on mount:", videoElement2);
   });
 
   // Cleanup
   onDestroy(() => {
-    if (videoElement && !videoElement.paused) {
-      videoElement.pause();
+    if (videoElement1 && !videoElement1.paused) {
+      videoElement1.pause();
+    }
+    if (videoElement2 && !videoElement2.paused) {
+      videoElement2.pause();
     }
     // Clean up any preloaded elements
     cleanupPreloadedElement();
@@ -781,26 +858,50 @@
       </div>
     </div>
 
-    <!-- HTML5 Video Element -->
+    <!-- Dual HTML5 Video Elements -->
     <div
       class="relative w-full aspect-video bg-black overflow-hidden mb-4 rounded"
     >
-      {#if currentVideoSource}
+      {#if activeVideoSource || preloadVideoSource}
+        <!-- Video Element 1 -->
         <video
-          bind:this={videoElement}
-          class="w-full h-full bg-black"
-          style="object-fit: contain; max-width: 100%; max-height: 100%;"
-          src={currentVideoSource}
+          bind:this={videoElement1}
+          class="absolute inset-0 w-full h-full bg-black"
+          style="object-fit: contain; max-width: 100%; max-height: 100%; z-index: {activeVideoIndex === 1 ? 10 : 5}; opacity: {activeVideoIndex === 1 ? 1 : 0};"
+          src={activeVideoIndex === 1 ? activeVideoSource : preloadVideoSource}
           preload="metadata"
-          ontimeupdate={handleTimeUpdate}
-          onloadeddata={() => { isInitialized = true; }}
+          ontimeupdate={activeVideoIndex === 1 ? handleTimeUpdate : () => {}}
+          onloadeddata={() => { if (activeVideoIndex === 1) isInitialized = true; }}
           onwaiting={() => { 
-            if (!isAutoTransitioning) {
+            if (!isAutoTransitioning && activeVideoIndex === 1) {
               isSeeking = true; 
             }
           }}
           oncanplay={() => { 
-            if (!isAutoTransitioning) {
+            if (!isAutoTransitioning && activeVideoIndex === 1) {
+              isSeeking = false; 
+            }
+          }}
+        >
+          <track kind="captions" />
+        </video>
+
+        <!-- Video Element 2 -->
+        <video
+          bind:this={videoElement2}
+          class="absolute inset-0 w-full h-full bg-black"
+          style="object-fit: contain; max-width: 100%; max-height: 100%; z-index: {activeVideoIndex === 2 ? 10 : 5}; opacity: {activeVideoIndex === 2 ? 1 : 0};"
+          src={activeVideoIndex === 2 ? activeVideoSource : preloadVideoSource}
+          preload="metadata"
+          ontimeupdate={activeVideoIndex === 2 ? handleTimeUpdate : () => {}}
+          onloadeddata={() => { if (activeVideoIndex === 2) isInitialized = true; }}
+          onwaiting={() => { 
+            if (!isAutoTransitioning && activeVideoIndex === 2) {
+              isSeeking = true; 
+            }
+          }}
+          oncanplay={() => { 
+            if (!isAutoTransitioning && activeVideoIndex === 2) {
               isSeeking = false; 
             }
           }}
