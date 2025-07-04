@@ -30,7 +30,7 @@
   class="highlight-span  
          {isSelected ? 'highlight-selected' : ''}
          {isBeingDragged ? 'highlight-dragging' : ''}"
-  style="background-color: {highlight.color}40;"
+  style="background-color: {highlight.color};"
   draggable="true"
   ondragstart={(e) => onDragStart(e, highlight, index)}
   ondragend={onDragEnd}
