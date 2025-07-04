@@ -198,3 +198,27 @@ export default config;
 ## There is a simple shell script to do this with [SkeletonUI](https://www.skeleton.dev/guides/install) located in its own [repo](https://www.github.com/plihelix/wails-skeletonui-script). Feel free to customize to your needs!
 
 That's it, go back to the root of the project and run `wails dev` or `wails build`. Enjoy!
+
+# Expansion
+
+Take a look at the models used by [sieve](https://www.sievedata.com/explore):
+- Speech denoising and enhancement
+  - [resemble-enhance](https://github.com/resemble-ai/resemble-enhance): AI powered speech denoising and enhancement 
+  - https://huggingface.co/speechbrain/sepformer-wham-enhancement
+  - https://huggingface.co/spaces/hshr/DeepFilterNet2
+- Active speaker detection
+  - https://huggingface.co/spaces?q=active+speaker+detection
+- Dubbing
+  - https://huggingface.co/spaces?q=dubbing
+- Lip sync for word edits
+  - https://huggingface.co/spaces?q=lip+sync
+- Video background removal
+  - https://huggingface.co/spaces?q=video+background+removal
+- Scene detection
+  - https://huggingface.co/spaces?q=scene+detection
+  - https://huggingface.co/spaces?category=object-detection
+- Animation generation
+- Voice cloning
+  - https://huggingface.co/spaces?category=voice-cloning
+- Video upscaling
+  - https://huggingface.co/spaces?category=image-upscaling

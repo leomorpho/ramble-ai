@@ -4,7 +4,13 @@
  */
 
 export function generateUniqueColor(usedColors = new Set()) {
-  const baseColors = ['#ffeb3b', '#81c784', '#64b5f6', '#ff8a65', '#f06292'];
+  const baseColors = [
+    'var(--highlight-1)',
+    'var(--highlight-2)', 
+    'var(--highlight-3)',
+    'var(--highlight-4)',
+    'var(--highlight-5)'
+  ];
   
   // Try base colors first
   for (const color of baseColors) {
@@ -13,11 +19,17 @@ export function generateUniqueColor(usedColors = new Set()) {
     }
   }
   
-  // Generate random pastel color
-  const hue = Math.floor(Math.random() * 360);
-  const saturation = 45 + Math.random() * 30;
-  const lightness = 65 + Math.random() * 20;
-  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+  // Try extended colors
+  for (let i = 6; i <= 15; i++) {
+    const color = `var(--highlight-${i})`;
+    if (!usedColors.has(color)) {
+      return color;
+    }
+  }
+  
+  // Fallback to a random highlight color variant
+  const randomIndex = Math.floor(Math.random() * 15) + 1;
+  return `var(--highlight-${randomIndex})`;
 }
 
 export function createHighlight(start, end, usedColors = new Set(), color = null) {

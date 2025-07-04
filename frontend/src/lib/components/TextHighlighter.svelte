@@ -251,21 +251,21 @@
 
     // Internal implementation - convert suggestion to regular highlight
     const availableColors = [
-      "#FFEB3B",
-      "#FF9800",
-      "#F44336",
-      "#E91E63",
-      "#9C27B0",
-      "#673AB7",
-      "#3F51B5",
-      "#2196F3",
-      "#03A9F4",
-      "#00BCD4",
-      "#009688",
-      "#4CAF50",
-      "#8BC34A",
-      "#CDDC39",
-      "#FFC107",
+      "var(--highlight-1)",
+      "var(--highlight-2)",
+      "var(--highlight-3)",
+      "var(--highlight-4)",
+      "var(--highlight-5)",
+      "var(--highlight-6)",
+      "var(--highlight-7)",
+      "var(--highlight-8)",
+      "var(--highlight-9)",
+      "var(--highlight-10)",
+      "var(--highlight-11)",
+      "var(--highlight-12)",
+      "var(--highlight-13)",
+      "var(--highlight-14)",
+      "var(--highlight-15)",
     ];
 
     // Get used colors from existing highlights

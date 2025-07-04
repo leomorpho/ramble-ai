@@ -38,6 +38,23 @@
   --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
   --sidebar-border: oklch(0.929 0.013 255.508);
   --sidebar-ring: oklch(0.704 0.04 256.788);
+  
+  /* Highlight colors for TextHighlighter - Light mode */
+  --highlight-1: hsl(50, 100%, 85%);    /* Yellow */
+  --highlight-2: hsl(25, 100%, 85%);    /* Orange */
+  --highlight-3: hsl(0, 100%, 90%);     /* Red */
+  --highlight-4: hsl(330, 100%, 90%);   /* Pink */
+  --highlight-5: hsl(270, 100%, 90%);   /* Purple */
+  --highlight-6: hsl(260, 100%, 90%);   /* Deep Purple */
+  --highlight-7: hsl(210, 100%, 85%);   /* Blue */
+  --highlight-8: hsl(190, 100%, 85%);   /* Light Blue */
+  --highlight-9: hsl(180, 100%, 85%);   /* Cyan */
+  --highlight-10: hsl(160, 100%, 85%);  /* Teal */
+  --highlight-11: hsl(120, 100%, 85%);  /* Green */
+  --highlight-12: hsl(90, 100%, 85%);   /* Light Green */
+  --highlight-13: hsl(75, 100%, 85%);   /* Lime */
+  --highlight-14: hsl(40, 100%, 85%);   /* Amber */
+  --highlight-15: hsl(30, 60%, 85%);    /* Brown */
 }
 
 [data-theme="dark"] {
@@ -72,6 +89,23 @@
   --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.551 0.027 264.364);
+  
+  /* Highlight colors for TextHighlighter - Dark mode */
+  --highlight-1: hsl(50, 70%, 25%);     /* Yellow */
+  --highlight-2: hsl(25, 70%, 25%);     /* Orange */
+  --highlight-3: hsl(0, 70%, 25%);      /* Red */
+  --highlight-4: hsl(330, 60%, 30%);    /* Pink */
+  --highlight-5: hsl(270, 60%, 30%);    /* Purple */
+  --highlight-6: hsl(260, 60%, 30%);    /* Deep Purple */
+  --highlight-7: hsl(210, 70%, 25%);    /* Blue */
+  --highlight-8: hsl(190, 70%, 25%);    /* Light Blue */
+  --highlight-9: hsl(180, 70%, 25%);    /* Cyan */
+  --highlight-10: hsl(160, 70%, 25%);   /* Teal */
+  --highlight-11: hsl(120, 70%, 25%);   /* Green */
+  --highlight-12: hsl(90, 70%, 25%);    /* Light Green */
+  --highlight-13: hsl(75, 70%, 25%);    /* Lime */
+  --highlight-14: hsl(40, 70%, 25%);    /* Amber */
+  --highlight-15: hsl(30, 40%, 30%);    /* Brown */
 }
 
 @theme inline {
