@@ -1,5 +1,5 @@
 <script>
-  import HighlightMenu from '$lib/components/HighlightMenu.svelte';
+  import HighlightMenu from "$lib/components/HighlightMenu.svelte";
 
   let {
     highlight,
@@ -24,7 +24,7 @@
     onDrop,
     onSegmentClick,
     onEditHighlight,
-    onDeleteConfirm
+    onDeleteConfirm,
   } = $props();
 
   let segmentDuration = $derived(highlight.end - highlight.start);
@@ -35,20 +35,22 @@
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   }
-  
+
   // Get conditional rounding classes
   let roundingClasses = $derived(
-    isFirst && isLast ? 'rounded' : // Single segment gets full rounding
-    isFirst ? 'rounded-l' : // First segment gets left rounding
-    isLast ? 'rounded-r' : // Last segment gets right rounding
-    '' // Middle segments get no rounding
+    isFirst && isLast
+      ? "rounded" // Single segment gets full rounding
+      : isFirst
+        ? "rounded-l" // First segment gets left rounding
+        : isLast
+          ? "rounded-r" // Last segment gets right rounding
+          : "" // Middle segments get no rounding
   );
 </script>
 
 <button
-  class="group relative h-8 {roundingClasses} transition-all duration-200 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-primary/50 {isActive
-    ? 'border-2 border-primary'
-    : ''} {isDragging && dragStartIndex === index
+  class="group relative h-8 {roundingClasses} transition-all duration-200 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-primary/50 {isDragging &&
+  dragStartIndex === index
     ? 'opacity-50 scale-95'
     : ''} cursor-pointer"
   style="width: {segmentWidth}%; background-color: {highlight.color}; min-width: 20px;"
@@ -77,6 +79,12 @@
     <div
       class="absolute left-0 top-0 h-full bg-white/30 {roundingClasses} transition-all duration-100"
       style="width: {segmentProgress * 100}%;"
+    ></div>
+    
+    <!-- Playhead line -->
+    <div
+      class="absolute top-0 h-full w-0.5 bg-black z-10 transition-all duration-100"
+      style="left: {segmentProgress * 100}%;"
     ></div>
   {/if}
 
@@ -114,7 +122,9 @@
   <!-- Drag handle -->
   {#if enableReordering}
     <div
-      class="absolute top-0 right-0 w-4 h-4 bg-black/80 {isLast ? 'rounded-bl rounded-tr' : 'rounded-bl'} opacity-0 group-hover:opacity-100 transition-opacity cursor-move flex items-center justify-center"
+      class="absolute top-0 right-0 w-4 h-4 bg-black/80 {isLast
+        ? 'rounded-bl rounded-tr'
+        : 'rounded-bl'} opacity-0 group-hover:opacity-100 transition-opacity cursor-move flex items-center justify-center"
       title="Drag to reorder"
     >
       <div class="w-1.5 h-1.5 bg-white rounded-full"></div>
