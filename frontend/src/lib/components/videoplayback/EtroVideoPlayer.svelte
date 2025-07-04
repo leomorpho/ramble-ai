@@ -44,6 +44,7 @@
     enableEyeButton = true,
     onReorder = null,
     enableReordering = true,
+    debounceDelay=5000,
   } = $props();
 
   // Core state
@@ -82,6 +83,10 @@
   // Track highlight order to detect external changes
   let lastKnownOrder = $state("");
   let isInternalReorder = $state(false);
+  
+  // Debounce timer for player recreation
+  let recreateDebounceTimer = null;
+  let pendingRecreate = $state(false);
 
   // Popover state management for eye icon menus
   let popoverStates = $state(new Map());
@@ -162,6 +167,14 @@
 
   // Playback controls wrapper
   async function playPauseWrapper() {
+    // If there's a pending recreate, force it to complete first
+    if (pendingRecreate && recreateDebounceTimer) {
+      console.log("Forcing pending recreate before play");
+      clearTimeout(recreateDebounceTimer);
+      pendingRecreate = false;
+      await reinitializeWithNewOrderWrapper(highlights);
+    }
+    
     await playPauseUtil(
       movie,
       isInitialized,
@@ -495,6 +508,26 @@
       }
     }
   }
+  
+  // Debounced version of reinitialize to prevent frequent recreations
+  function debouncedReinitialize(newHighlights = highlights, delay = debounceDelay) {
+    console.log("Debounced reinitialize requested");
+    
+    // Clear any existing timer
+    if (recreateDebounceTimer) {
+      clearTimeout(recreateDebounceTimer);
+    }
+    
+    // Mark that we have a pending recreate
+    pendingRecreate = true;
+    
+    // Set a new timer
+    recreateDebounceTimer = setTimeout(async () => {
+      console.log("Executing debounced reinitialize after", delay, "ms");
+      pendingRecreate = false;
+      await reinitializeWithNewOrderWrapper(newHighlights);
+    }, delay);
+  }
 
   // Create Etro movie wrapper
   async function createEtroMovieWithOrderWrapper(highlightOrder) {
@@ -578,14 +611,14 @@
       // If we have a previous order and it's different, refresh the video
       if (lastKnownOrder && lastKnownOrder !== currentOrder) {
         console.log(
-          "External highlight order change detected, refreshing video"
+          "External highlight order change detected, debouncing refresh"
         );
         console.log("Previous order:", lastKnownOrder);
         console.log("New order:", currentOrder);
 
-        // Update our known order and refresh video
+        // Update our known order and refresh video with debounce
         lastKnownOrder = currentOrder;
-        reinitializeWithNewOrderWrapper(highlights);
+        debouncedReinitialize(highlights, 1000); // 1 second debounce for external changes
       } else if (!lastKnownOrder) {
         // First time initialization - just record the order
         lastKnownOrder = currentOrder;
@@ -675,6 +708,11 @@
     if (movie) {
       movie.pause();
     }
+    
+    // Clear any pending debounce timers
+    if (recreateDebounceTimer) {
+      clearTimeout(recreateDebounceTimer);
+    }
   });
 </script>
 
@@ -739,6 +777,15 @@
             ></div>
             <p class="text-sm">Buffering...</p>
           </div>
+        </div>
+      {/if}
+      
+      <!-- Pending recreate indicator -->
+      {#if pendingRecreate}
+        <div
+          class="absolute top-2 right-2 bg-orange-500/80 text-white px-3 py-1 rounded-md text-sm"
+        >
+          Highlights changing...
         </div>
       {/if}
     </div>
