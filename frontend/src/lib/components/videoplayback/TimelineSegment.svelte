@@ -93,7 +93,7 @@
     class="absolute inset-0 flex items-center justify-center text-xs font-medium text-white drop-shadow pointer-events-none"
   >
     <!-- Number label -->
-    <span>{index + 1}</span>
+    <span class="text-primary">{index + 1}</span>
 
     <!-- Eye icon (only show on hover and if enabled) -->
     {#if enableEyeButton}
