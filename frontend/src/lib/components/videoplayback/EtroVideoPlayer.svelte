@@ -131,23 +131,40 @@
   }
 
   // Load and play a specific highlight on the active video element
-  async function loadHighlight(highlight) {
+  async function loadHighlight(highlight, specificSeekTime = null) {
     if (!highlight) return false;
     
     try {
       isLoading = true;
       const videoURL = encodeURI(highlight.filePath);
       
-      // Set the video source with fragment URL for the specific segment
-      const fragmentURL = `${videoURL}#t=${highlight.start},${highlight.end}`;
+      // If we have a specific seek time, load the full video, otherwise use fragment URL
+      let sourceURL;
+      if (specificSeekTime !== null) {
+        sourceURL = videoURL; // Load full video for precise seeking
+      } else {
+        sourceURL = `${videoURL}#t=${highlight.start},${highlight.end}`; // Use fragment URL for normal loading
+      }
       
-      activeVideoSource = fragmentURL;
+      activeVideoSource = sourceURL;
       
       // Load on the active video element
       const activeVideo = getActiveVideoElement();
       if (activeVideo) {
-        activeVideo.src = fragmentURL;
+        activeVideo.src = sourceURL;
         activeVideo.load();
+        
+        // If we have a specific seek time, wait for the video to be ready and then seek
+        if (specificSeekTime !== null) {
+          return new Promise((resolve) => {
+            const handleCanPlay = () => {
+              activeVideo.removeEventListener('canplay', handleCanPlay);
+              activeVideo.currentTime = specificSeekTime;
+              resolve(true);
+            };
+            activeVideo.addEventListener('canplay', handleCanPlay);
+          });
+        }
       }
       
       return true;
@@ -462,31 +479,49 @@
     isSeeking = true;
     
     try {
+      // Calculate the exact time within the video file
+      const timeWithinTimeline = targetTime - timeBeforeTarget;
+      const videoSeekTime = targetHighlight.start + timeWithinTimeline;
+      
       // If we need to switch to a different highlight
       if (targetHighlightIndex !== currentHighlightIndex) {
-        await jumpToHighlightWrapper(targetHighlightIndex);
-      }
-      
-      // Calculate the exact time within the video file
-      const activeVideo = getActiveVideoElement();
-      if (activeVideo && targetHighlight) {
-        const timeWithinTimeline = targetTime - timeBeforeTarget;
-        const videoSeekTime = targetHighlight.start + timeWithinTimeline;
+        // Clean up any preloaded element since we're jumping manually
+        cleanupPreloadedElement();
         
-        activeVideo.currentTime = videoSeekTime;
-        currentTime = targetTime;
+        // Pause current playback
+        const activeVideo = getActiveVideoElement();
+        if (activeVideo && !activeVideo.paused) {
+          activeVideo.pause();
+          isPlaying = false;
+        }
         
-        // Update the display immediately
-        updateCurrentHighlightIndex();
+        // Load the new highlight with the specific seek time
+        const success = await loadHighlight(targetHighlight, videoSeekTime);
+        if (success) {
+          currentHighlightIndex = targetHighlightIndex;
+          currentTime = targetTime;
+          updateCurrentHighlightIndex();
+        }
+      } else {
+        // Same highlight, just seek within it
+        const activeVideo = getActiveVideoElement();
+        if (activeVideo) {
+          activeVideo.currentTime = videoSeekTime;
+          currentTime = targetTime;
+          updateCurrentHighlightIndex();
+        }
       }
       
       // Resume playing if it was playing before
-      if (wasPlaying && activeVideo && activeVideo.paused) {
-        try {
-          await activeVideo.play();
-          isPlaying = true;
-        } catch (err) {
-          console.error("Failed to resume playback after seek:", err);
+      if (wasPlaying) {
+        const activeVideo = getActiveVideoElement();
+        if (activeVideo && activeVideo.paused) {
+          try {
+            await activeVideo.play();
+            isPlaying = true;
+          } catch (err) {
+            console.error("Failed to resume playback after seek:", err);
+          }
         }
       }
     } finally {
