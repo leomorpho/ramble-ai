@@ -21,22 +21,11 @@
   import { Film } from "@lucide/svelte";
 
   // Import utility functions
-  import { loadVideoURLs, preloadNextHighlight, clearPreloadCache } from "./videoUtils.js";
   import {
     formatTime,
-    updateTimeAndHighlight,
-    getProgressPercentage,
     calculateSeekTime,
     isDragHandleClick,
-    SEEK_BUFFER_OFFSET,
   } from "./timelineUtils.js";
-  import { createEtroMovieWithOrder } from "./etroUtils.js";
-  import { createProgressTracker } from "./progressUtils.js";
-  import {
-    playPause as playPauseUtil,
-    jumpToHighlight as jumpToHighlightUtil,
-    handleTimelineSeek as handleTimelineSeekUtil,
-  } from "./playbackUtils.js";
 
   let {
     highlights = [],
@@ -48,45 +37,36 @@
   } = $props();
 
   // Core state
-  let canvasElement = $state(null);
-  let movie = $state(null);
+  let videoElement = $state(null);
   let isPlaying = $state(false);
   let currentTime = $state(0);
   let totalDuration = $state(0);
   let currentHighlightIndex = $state(0);
+  let currentVideoSource = $state("");
 
   // Drag and drop state (use highlights prop directly from store)
   let isDragging = $state(false);
   let dragStartIndex = $state(-1);
   let dragOverIndex = $state(-1);
 
-  // Video URLs and loading
-  let videoURLs = $state(new Map());
-  let loadingProgress = $state(0);
-  let allVideosLoaded = $state(false);
+  // Loading state
+  let isLoading = $state(false);
 
   // Player initialization
   let isInitialized = $state(false);
-  let initializationError = $state(null);
 
-  // Buffering state for seeking
-  let isBuffering = $state(false);
+  // Seeking state
+  let isSeeking = $state(false);
+  let isAutoTransitioning = $state(false);
 
-  // Preloading state for next highlights
-  let preloadedHighlights = $state(new Set());
+  // Preloading state
+  let preloadedHighlight = $state(null);
+  let preloadedVideoElement = $state(null);
   let isPreloading = $state(false);
-  let lastPreloadedIndex = $state(-1);
-
-  // Progress tracker instance
-  const progressTracker = createProgressTracker();
 
   // Track highlight order to detect external changes
   let lastKnownOrder = $state("");
   let isInternalReorder = $state(false);
-  
-  // Debounce timer for player recreation
-  let recreateDebounceTimer = null;
-  let pendingRecreate = $state(false);
 
   // Popover state management for eye icon menus
   let popoverStates = $state(new Map());
@@ -100,6 +80,12 @@
   let highlightToDelete = $state(null);
   let deleting = $state(false);
 
+  // Calculate total duration from highlights
+  let calculatedTotalDuration = $derived(() => {
+    const duration = highlights.reduce((sum, h) => sum + (h.end - h.start), 0);
+    return duration;
+  });
+  
   // Active segment display threshold
   const ACTIVE_SEGMENT_THRESHOLD = 0.2; // Show if any segment is less than 20% of total duration
 
@@ -108,131 +94,350 @@
     // Don't show for 0 or 1 highlights
     if (highlights.length <= 1) return false;
 
-    const totalDurationCalc = highlights.reduce(
-      (sum, h) => sum + (h.end - h.start),
-      0
-    );
+    const totalDurationCalc = calculatedTotalDuration;
     if (totalDurationCalc === 0) return false;
 
     // Check if any highlight is less than the threshold percentage of total duration
     return highlights.some((h) => {
       const segmentDuration = h.end - h.start;
       const percentage = segmentDuration / totalDurationCalc;
-      console.log(
-        "segmentDuration",
-        segmentDuration,
-        "totalDurationCalc",
-        totalDurationCalc,
-        "percentage",
-        percentage
-      );
       return percentage < ACTIVE_SEGMENT_THRESHOLD;
     });
   });
+  
+  // Update total duration when highlights change
+  $effect(() => {
+    totalDuration = calculatedTotalDuration;
+  });
 
-  // Load video URLs wrapper
-  async function loadVideoURLsWrapper() {
-    await loadVideoURLs(
-      highlights,
-      videoURLs,
-      (progress) => {
-        loadingProgress = progress;
-      },
-      (loaded) => {
-        allVideosLoaded = loaded;
+  // Load and play a specific highlight
+  async function loadHighlight(highlight) {
+    if (!highlight) return false;
+    
+    try {
+      isLoading = true;
+      const videoURL = encodeURI(highlight.filePath);
+      
+      // Set the video source with fragment URL for the specific segment
+      const fragmentURL = `${videoURL}#t=${highlight.start},${highlight.end}`;
+      
+      currentVideoSource = fragmentURL;
+      
+      // If video element is available, also set src directly
+      if (videoElement) {
+        videoElement.src = fragmentURL;
+        videoElement.load();
       }
-    );
-  }
-
-  // Update time and highlight wrapper
-  function updateTimeAndHighlightWrapper() {
-    const result = updateTimeAndHighlight(
-      movie,
-      highlights,
-      (time) => {
-        currentTime = time;
-      },
-      (playing) => {
-        isPlaying = playing;
-      },
-      (index) => {
-        currentHighlightIndex = index;
-      }
-    );
-
-    if (result?.ended) {
-      progressTracker.stopProgressTracking();
+      
+      return true;
+    } catch (err) {
+      console.error("Failed to load highlight:", err);
+      toast.error("Failed to load video", {
+        description: `Could not load ${highlight.videoClipName}`
+      });
+      return false;
+    } finally {
+      isLoading = false;
     }
   }
 
-  // Playback controls wrapper
+  // Preload the next highlight
+  async function preloadNextHighlight(nextHighlight) {
+    if (!nextHighlight || isPreloading) return false;
+    
+    try {
+      isPreloading = true;
+      console.log("Preloading next highlight:", nextHighlight.videoClipName);
+      
+      const videoURL = encodeURI(nextHighlight.filePath);
+      const fragmentURL = `${videoURL}#t=${nextHighlight.start},${nextHighlight.end}`;
+      
+      // Create a hidden video element for preloading
+      const preloadVideo = document.createElement('video');
+      preloadVideo.src = fragmentURL;
+      preloadVideo.preload = 'metadata';
+      preloadVideo.style.display = 'none';
+      document.body.appendChild(preloadVideo);
+      
+      // Store the preloaded data
+      preloadedHighlight = nextHighlight;
+      preloadedVideoElement = preloadVideo;
+      
+      return true;
+    } catch (err) {
+      console.error("Failed to preload highlight:", err);
+      return false;
+    } finally {
+      isPreloading = false;
+    }
+  }
+
+  // Use preloaded highlight if available
+  async function usePreloadedHighlight() {
+    if (!preloadedHighlight || !preloadedVideoElement) return false;
+    
+    try {
+      console.log("Using preloaded highlight:", preloadedHighlight.videoClipName);
+      
+      // Transfer the preloaded source to the main video element
+      const fragmentURL = preloadedVideoElement.src;
+      currentVideoSource = fragmentURL;
+      
+      if (videoElement) {
+        videoElement.src = fragmentURL;
+        videoElement.load();
+      }
+      
+      // Clean up preloaded element
+      cleanupPreloadedElement();
+      
+      return true;
+    } catch (err) {
+      console.error("Failed to use preloaded highlight:", err);
+      cleanupPreloadedElement();
+      return false;
+    }
+  }
+
+  // Clean up preloaded elements
+  function cleanupPreloadedElement() {
+    if (preloadedVideoElement) {
+      if (preloadedVideoElement.parentNode) {
+        preloadedVideoElement.parentNode.removeChild(preloadedVideoElement);
+      }
+      preloadedVideoElement = null;
+    }
+    preloadedHighlight = null;
+    isPreloading = false;
+  }
+
+  // Update current highlight index based on current time
+  function updateCurrentHighlightIndex() {
+    let accumulatedTime = 0;
+    for (let i = 0; i < highlights.length; i++) {
+      const segmentDuration = highlights[i].end - highlights[i].start;
+      if (currentTime >= accumulatedTime && currentTime < accumulatedTime + segmentDuration) {
+        currentHighlightIndex = i;
+        break;
+      }
+      accumulatedTime += segmentDuration;
+    }
+  }
+
+  // Playback controls
   async function playPauseWrapper() {
-    // If there's a pending recreate, force it to complete first
-    if (pendingRecreate && recreateDebounceTimer) {
-      console.log("Forcing pending recreate before play");
-      clearTimeout(recreateDebounceTimer);
-      pendingRecreate = false;
-      await reinitializeWithNewOrderWrapper(highlights);
+    if (!videoElement || !isInitialized) {
+      toast.error("Video player not ready");
+      return;
     }
     
-    await playPauseUtil(
-      movie,
-      isInitialized,
-      (playing) => {
-        isPlaying = playing;
-      },
-      startProgressTrackingWrapper,
-      progressTracker.stopProgressTracking
-    );
-  }
-
-  // Jump to a specific highlight wrapper
-  async function jumpToHighlightWrapper(highlightIndex) {
-    await jumpToHighlightUtil(
-      movie,
-      highlightIndex,
-      highlights,
-      updateTimeAndHighlightWrapper,
-      isPlaying,
-      startProgressTrackingWrapper,
-      (buffering) => { isBuffering = buffering; }
-    );
-  }
-
-  // Progress tracking wrapper
-  function startProgressTrackingWrapper() {
-    progressTracker.startProgressTracking(
-      movie,
-      highlights,
-      {
-        setCurrentTime: (time) => {
-          currentTime = time;
-        },
-        setIsPlaying: (playing) => {
-          isPlaying = playing;
-        },
-        setCurrentHighlightIndex: (index) => {
-          currentHighlightIndex = index;
-        },
-      },
-      () => {
+    try {
+      if (videoElement.paused || videoElement.ended) {
+        await videoElement.play();
+        isPlaying = true;
+      } else {
+        videoElement.pause();
         isPlaying = false;
       }
-    );
+    } catch (err) {
+      console.error("Error toggling playback:", err);
+      toast.error("Failed to toggle playback");
+    }
   }
 
-  // Timeline seeking wrapper
+  // Jump to a specific highlight
+  async function jumpToHighlightWrapper(highlightIndex) {
+    if (highlightIndex < 0 || highlightIndex >= highlights.length) return;
+    
+    // Clean up any preloaded element since we're jumping manually
+    cleanupPreloadedElement();
+    
+    const targetHighlight = highlights[highlightIndex];
+    const wasPlaying = isPlaying;
+    
+    // Pause current playback
+    if (videoElement && !videoElement.paused) {
+      videoElement.pause();
+      isPlaying = false;
+    }
+    
+    // Load the new highlight
+    const success = await loadHighlight(targetHighlight);
+    if (success) {
+      currentHighlightIndex = highlightIndex;
+      
+      // Calculate the start time in the concatenated timeline
+      let accumulatedTime = 0;
+      for (let i = 0; i < highlightIndex; i++) {
+        accumulatedTime += highlights[i].end - highlights[i].start;
+      }
+      currentTime = accumulatedTime;
+      
+      // Resume playing if it was playing before
+      if (wasPlaying && videoElement) {
+        try {
+          await videoElement.play();
+          isPlaying = true;
+        } catch (err) {
+          console.error("Failed to resume playback:", err);
+        }
+      }
+    }
+  }
+
+  // Handle video time updates
+  function handleTimeUpdate() {
+    if (!videoElement) return;
+    
+    // Update the current time in the context of the concatenated timeline
+    let accumulatedTime = 0;
+    for (let i = 0; i < currentHighlightIndex; i++) {
+      accumulatedTime += highlights[i].end - highlights[i].start;
+    }
+    
+    const currentHighlight = highlights[currentHighlightIndex];
+    if (currentHighlight) {
+      // Calculate time within the current highlight segment
+      const videoCurrentTime = videoElement.currentTime;
+      const timeWithinSegment = Math.max(0, videoCurrentTime - currentHighlight.start);
+      currentTime = accumulatedTime + timeWithinSegment;
+      
+      // Check if we should preload the next highlight (3 seconds before end)
+      const timeUntilEnd = currentHighlight.end - videoCurrentTime;
+      const nextIndex = currentHighlightIndex + 1;
+      if (timeUntilEnd <= 3 && nextIndex < highlights.length && !preloadedHighlight && !isPreloading) {
+        const nextHighlight = highlights[nextIndex];
+        if (nextHighlight) {
+          preloadNextHighlight(nextHighlight);
+        }
+      }
+      
+      // Check if we've reached the end of the current highlight
+      if (videoCurrentTime >= currentHighlight.end) {
+        console.log(`Reached end of highlight ${currentHighlightIndex + 1} at time ${videoCurrentTime}/${currentHighlight.end}`);
+        handleHighlightEnd();
+      }
+    }
+    
+    updateCurrentHighlightIndex();
+  }
+
+  // Handle when a highlight reaches its end
+  async function handleHighlightEnd() {
+    const nextIndex = currentHighlightIndex + 1;
+    if (nextIndex < highlights.length) {
+      console.log(`Auto-advancing from highlight ${currentHighlightIndex + 1} to ${nextIndex + 1}`);
+      const wasPlaying = isPlaying;
+      
+      // Set transition flag to prevent seeking indicator
+      isAutoTransitioning = true;
+      
+      try {
+        // Try to use preloaded highlight first, fallback to normal loading
+        const nextHighlight = highlights[nextIndex];
+        let success = false;
+        
+        if (preloadedHighlight && preloadedHighlight.id === nextHighlight.id) {
+          console.log("Using preloaded highlight for seamless transition");
+          success = await usePreloadedHighlight();
+        }
+        
+        if (!success) {
+          console.log("Fallback to normal highlight loading");
+          await jumpToHighlightWrapper(nextIndex);
+        } else {
+          // Update the current highlight index manually since we used preloaded
+          currentHighlightIndex = nextIndex;
+          
+          // Calculate the start time in the concatenated timeline
+          let accumulatedTime = 0;
+          for (let i = 0; i < nextIndex; i++) {
+            accumulatedTime += highlights[i].end - highlights[i].start;
+          }
+          currentTime = accumulatedTime;
+        }
+        
+        // Resume playing if it was playing before
+        if (wasPlaying && videoElement && videoElement.paused) {
+          try {
+            await videoElement.play();
+            isPlaying = true;
+          } catch (err) {
+            console.error("Failed to auto-play next highlight:", err);
+          }
+        }
+      } finally {
+        // Clear transition flag after a small delay to ensure all events are processed
+        setTimeout(() => {
+          isAutoTransitioning = false;
+        }, 100);
+      }
+    } else {
+      console.log("Reached end of all highlights");
+      isPlaying = false;
+      if (videoElement && !videoElement.paused) {
+        videoElement.pause();
+      }
+    }
+  }
+
+  // Timeline seeking
   async function handleTimelineSeekWrapper(targetTime) {
-    await handleTimelineSeekUtil(
-      movie,
-      targetTime,
-      totalDuration,
-      isInitialized,
-      updateTimeAndHighlightWrapper,
-      isPlaying,
-      startProgressTrackingWrapper,
-      (buffering) => { isBuffering = buffering; }
-    );
+    
+    // Find which highlight contains the target time
+    let accumulatedTime = 0;
+    let targetHighlightIndex = -1;
+    let targetHighlight = null;
+    let timeBeforeTarget = 0;
+    
+    for (let i = 0; i < highlights.length; i++) {
+      const segmentDuration = highlights[i].end - highlights[i].start;
+      if (targetTime >= accumulatedTime && targetTime < accumulatedTime + segmentDuration) {
+        targetHighlightIndex = i;
+        targetHighlight = highlights[i];
+        timeBeforeTarget = accumulatedTime;
+        break;
+      }
+      accumulatedTime += segmentDuration;
+    }
+    
+    if (!targetHighlight) {
+      return;
+    }
+    
+    const wasPlaying = isPlaying;
+    isSeeking = true;
+    
+    try {
+      // If we need to switch to a different highlight
+      if (targetHighlightIndex !== currentHighlightIndex) {
+        await jumpToHighlightWrapper(targetHighlightIndex);
+      }
+      
+      // Calculate the exact time within the video file
+      if (videoElement && targetHighlight) {
+        const timeWithinTimeline = targetTime - timeBeforeTarget;
+        const videoSeekTime = targetHighlight.start + timeWithinTimeline;
+        
+        videoElement.currentTime = videoSeekTime;
+        currentTime = targetTime;
+        
+        // Update the display immediately
+        updateCurrentHighlightIndex();
+      }
+      
+      // Resume playing if it was playing before
+      if (wasPlaying && videoElement && videoElement.paused) {
+        try {
+          await videoElement.play();
+          isPlaying = true;
+        } catch (err) {
+          console.error("Failed to resume playback after seek:", err);
+        }
+      }
+    } finally {
+      isSeeking = false;
+    }
   }
 
   // Handle timeline segment clicks for seeking
@@ -250,46 +455,9 @@
     handleTimelineSeekWrapper(targetTime);
   }
 
-  // Progress percentage wrapper
-  function getProgressPercentageWrapper() {
-    return getProgressPercentage(currentTime, totalDuration);
-  }
-
-  // Preload next highlight when current highlight changes
-  async function triggerPreloadNext() {
-    // Safety checks to prevent blocking and infinite loops
-    if (!isPlaying || !highlights.length || isPreloading) {
-      return;
-    }
-    
-    // Prevent duplicate preload calls for the same highlight
-    if (lastPreloadedIndex === currentHighlightIndex) {
-      return;
-    }
-    
-    // Don't preload if we're at the last highlight
-    if (currentHighlightIndex >= highlights.length - 1) {
-      return;
-    }
-    
-    console.log(`Triggering preload for current index: ${currentHighlightIndex}`);
-    lastPreloadedIndex = currentHighlightIndex;
-    
-    try {
-      await preloadNextHighlight(
-        currentHighlightIndex,
-        highlights,
-        videoURLs,
-        preloadedHighlights,
-        (loading) => { isPreloading = loading; }
-      );
-      
-      // Update the reactive state for preloaded highlights
-      preloadedHighlights = new Set(preloadedHighlights);
-    } catch (err) {
-      console.warn("Preload error in triggerPreloadNext:", err);
-      isPreloading = false;
-    }
+  // Progress percentage
+  function getProgressPercentage() {
+    return totalDuration > 0 ? (currentTime / totalDuration) * 100 : 0;
   }
 
   // Helper functions for popover state management
@@ -468,8 +636,8 @@
     if (success) {
       // Update our known order
       lastKnownOrder = newHighlights.map((h) => h.id).join(",");
-      // Reinitialize the video player with new order (only if save was successful)
-      await reinitializeWithNewOrderWrapper(newHighlights);
+      // Update the video player with new order
+      await handleReorderComplete(newHighlights);
     }
 
     // Reset the internal reorder flag
@@ -478,241 +646,128 @@
     handleDragEnd();
   }
 
-  // Reinitialize video player with new segment order wrapper
-  async function reinitializeWithNewOrderWrapper(newHighlights = highlights) {
-    console.log(
-      "Reinitializing video player with new order:",
-      newHighlights.map((h) => h.id)
-    );
-
-    // Pause and clean up existing movie
-    if (movie) {
-      movie.pause();
-      progressTracker.stopProgressTracking();
-      movie = null;
-    }
-
-    // Reset state
-    isInitialized = false;
-    currentTime = 0;
-    currentHighlightIndex = 0;
-    initializationError = null;
-
-    // Recreate the movie with the new order
-    if (allVideosLoaded && newHighlights.length > 0 && canvasElement) {
-      const success = await createEtroMovieWithOrderWrapper(newHighlights);
+  // Handle reordering by updating the current highlight
+  async function handleReorderComplete(newHighlights) {
+    console.log("Handling reorder with new highlight order");
+    
+    // Clean up any preloaded element since order changed
+    cleanupPreloadedElement();
+    
+    // Reset to first highlight with new order
+    if (newHighlights.length > 0) {
+      const firstHighlight = newHighlights[0];
+      const success = await loadHighlight(firstHighlight);
       if (success) {
-        console.log("Video player successfully reinitialized with new order");
-      } else {
-        console.error("Failed to reinitialize video player with new order");
+        currentHighlightIndex = 0;
+        currentTime = 0;
       }
     }
   }
-  
-  // Debounced version of reinitialize to prevent frequent recreations
-  function debouncedReinitialize(newHighlights = highlights, delay = debounceDelay) {
-    console.log("Debounced reinitialize requested");
-    
-    // Clear any existing timer
-    if (recreateDebounceTimer) {
-      clearTimeout(recreateDebounceTimer);
-    }
-    
-    // Mark that we have a pending recreate
-    pendingRecreate = true;
-    
-    // Set a new timer
-    recreateDebounceTimer = setTimeout(async () => {
-      console.log("Executing debounced reinitialize after", delay, "ms");
-      pendingRecreate = false;
-      await reinitializeWithNewOrderWrapper(newHighlights);
-    }, delay);
-  }
 
-  // Create Etro movie wrapper
-  async function createEtroMovieWithOrderWrapper(highlightOrder) {
-    const result = await createEtroMovieWithOrder(
-      highlightOrder,
-      canvasElement,
-      videoURLs,
-      allVideosLoaded
-    );
-
-    if (result.success) {
-      movie = result.movie;
-      totalDuration = result.totalDuration;
-      isInitialized = true;
-      return true;
-    } else {
-      initializationError = result.error || "Unknown error";
-      return false;
-    }
-  }
-
-  // Watch for when videos are loaded to initialize
+  // Initialize video when highlights are available
   $effect(() => {
-    if (
-      browser &&
-      allVideosLoaded &&
-      highlights.length > 0 &&
-      !isInitialized &&
-      canvasElement
-    ) {
-      console.log(
-        "Effect: Creating Etro movie with",
-        highlights.length,
-        "highlights"
-      );
-      createEtroMovieWithOrderWrapper(highlights);
-    }
-  });
-
-  // Watch for highlights changes and reinitialize if needed
-  $effect(() => {
-    if (browser && highlights.length > 0) {
-      console.log("Effect: Highlights changed, checking initialization state");
-      console.log(
-        "Current state - allVideosLoaded:",
-        allVideosLoaded,
-        "isInitialized:",
-        isInitialized,
-        "videoURLs size:",
-        videoURLs.size
-      );
-
-      // Check if we need to load video URLs for new highlights
-      const needsVideoURLs = highlights.some((h) => !videoURLs.has(h.filePath));
-
-      if (!allVideosLoaded || needsVideoURLs) {
-        console.log(
-          "Effect: Starting video URL loading for",
-          highlights.length,
-          "highlights",
-          needsVideoURLs ? "(missing URLs detected)" : ""
-        );
-        // Reset the loaded state to force reload
-        allVideosLoaded = false;
-        loadVideoURLsWrapper();
-      }
-    }
-  });
-
-  // Watch for external highlight order changes (from timeline component)
-  $effect(() => {
-    if (
-      browser &&
-      highlights.length > 0 &&
-      isInitialized &&
-      allVideosLoaded &&
-      !isInternalReorder
-    ) {
-      const currentOrder = highlights.map((h) => h.id).join(",");
-
-      // If we have a previous order and it's different, refresh the video
-      if (lastKnownOrder && lastKnownOrder !== currentOrder) {
-        console.log(
-          "External highlight order change detected, debouncing refresh"
-        );
-        console.log("Previous order:", lastKnownOrder);
-        console.log("New order:", currentOrder);
-
-        // Update our known order and refresh video with debounce
-        lastKnownOrder = currentOrder;
-        debouncedReinitialize(highlights, 1000); // 1 second debounce for external changes
-      } else if (!lastKnownOrder) {
-        // First time initialization - just record the order
-        lastKnownOrder = currentOrder;
-      }
-    }
-  });
-
-  // Force update of isPlaying state when movie state changes
-  $effect(() => {
-    if (browser && movie) {
-      const interval = setInterval(() => {
-        if (movie) {
-          const shouldBePlaying = !movie.paused && !movie.ended;
-          if (isPlaying !== shouldBePlaying) {
-            isPlaying = shouldBePlaying;
-          }
-        }
-      }, 100);
-
-      return () => clearInterval(interval);
-    }
-  });
-
-  // Watch for highlight changes during playback to trigger preloading
-  $effect(() => {
-    // Only trigger preloading after initial setup and when actively changing highlights
-    if (browser && isPlaying && isInitialized && highlights.length > 1 && currentHighlightIndex > 0) {
-      console.log(`Effect: Current highlight changed to ${currentHighlightIndex}, scheduling preload`);
+    if (browser && highlights.length > 0 && !isInitialized) {
+      console.log("Initializing video player with", highlights.length, "highlights");
+      console.log("First highlight:", JSON.stringify(highlights[0], null, 2));
       
-      // Use setTimeout to make preloading non-blocking and avoid reactivity loops
-      setTimeout(() => {
-        triggerPreloadNext().catch(err => {
-          console.warn("Preload failed:", err);
+      // Load the first highlight
+      const firstHighlight = highlights[0];
+      if (firstHighlight) {
+        console.log("Loading first highlight:", firstHighlight.videoClipName);
+        loadHighlight(firstHighlight).then(success => {
+          console.log("First highlight load result:", success);
+          if (success) {
+            isInitialized = true;
+            currentHighlightIndex = 0;
+            currentTime = 0;
+            console.log("Video player initialized successfully");
+          } else {
+            console.error("Failed to initialize video player");
+          }
         });
-      }, 500); // Longer delay to ensure video is playing smoothly first
-    }
-  });
-
-  // Clear preload cache when highlights change (but not on every reactivity update)
-  $effect(() => {
-    if (browser && highlights.length > 0) {
-      // Only clear cache if highlight order actually changed
-      const currentOrder = highlights.map((h) => h.id).join(",");
-      if (lastKnownOrder && lastKnownOrder !== currentOrder) {
-        console.log("Highlights order changed, clearing preload cache");
-        clearPreloadCache((cache) => { preloadedHighlights = cache; });
-        lastPreloadedIndex = -1; // Reset preload tracking
       }
     }
   });
+
+  // Watch for highlight order changes
+  $effect(() => {
+    if (browser && highlights.length > 0 && isInitialized) {
+      const currentOrder = highlights.map((h) => h.id).join(",");
+      
+      // If order changed, reset to first highlight
+      if (lastKnownOrder && lastKnownOrder !== currentOrder && !isInternalReorder) {
+        console.log("Highlight order changed, resetting to first highlight");
+        const firstHighlight = highlights[0];
+        if (firstHighlight) {
+          loadHighlight(firstHighlight).then(() => {
+            currentHighlightIndex = 0;
+            currentTime = 0;
+          });
+        }
+      }
+      
+      lastKnownOrder = currentOrder;
+    }
+  });
+
+
+
+  // Sync playing state with video element and handle auto-progression
+  $effect(() => {
+    if (browser && videoElement) {
+      const handlePlay = () => { isPlaying = true; };
+      const handlePause = () => { isPlaying = false; };
+      const handleEnded = async () => { 
+        isPlaying = false;
+        
+        // Auto-advance to next highlight if available
+        const nextIndex = currentHighlightIndex + 1;
+        if (nextIndex < highlights.length) {
+          console.log(`Auto-advancing from highlight ${currentHighlightIndex + 1} to ${nextIndex + 1}`);
+          await jumpToHighlightWrapper(nextIndex);
+          
+          // Auto-play the next highlight
+          if (videoElement && videoElement.paused) {
+            try {
+              await videoElement.play();
+              isPlaying = true;
+            } catch (err) {
+              console.error("Failed to auto-play next highlight:", err);
+            }
+          }
+        } else {
+          console.log("Reached end of all highlights");
+        }
+      };
+      
+      videoElement.addEventListener('play', handlePlay);
+      videoElement.addEventListener('pause', handlePause);
+      videoElement.addEventListener('ended', handleEnded);
+      
+      return () => {
+        videoElement.removeEventListener('play', handlePlay);
+        videoElement.removeEventListener('pause', handlePause);
+        videoElement.removeEventListener('ended', handleEnded);
+      };
+    }
+  });
+
+
 
   // Initialize component
-  onMount(async () => {
-    console.log("EtroVideoPlayer mounted with highlights:", highlights);
-
-    // Wait for canvas element to be ready
-    const waitForCanvas = () => {
-      return new Promise((resolve) => {
-        const checkCanvas = () => {
-          if (canvasElement) {
-            console.log("Canvas element is ready");
-            resolve();
-          } else {
-            setTimeout(checkCanvas, 50);
-          }
-        };
-        checkCanvas();
-      });
-    };
-
-    await waitForCanvas();
-
-    // The reactive effects will handle initialization when highlights are available
-    if (highlights.length > 0) {
-      console.log("First highlight:", highlights[0]);
-      console.log(
-        "Highlight file paths:",
-        highlights.map((h) => h.filePath)
-      );
-    }
+  onMount(() => {
+    console.log("EtroVideoPlayer mounted");
+    console.log("Highlights on mount:", highlights.length);
+    console.log("videoElement on mount:", videoElement);
   });
 
   // Cleanup
   onDestroy(() => {
-    progressTracker.stopProgressTracking();
-
-    if (movie) {
-      movie.pause();
+    if (videoElement && !videoElement.paused) {
+      videoElement.pause();
     }
-    
-    // Clear any pending debounce timers
-    if (recreateDebounceTimer) {
-      clearTimeout(recreateDebounceTimer);
-    }
+    // Clean up any preloaded elements
+    cleanupPreloadedElement();
   });
 </script>
 
@@ -726,48 +781,56 @@
       </div>
     </div>
 
-    <!-- Canvas Element for Etro rendering -->
+    <!-- HTML5 Video Element -->
     <div
       class="relative w-full aspect-video bg-black overflow-hidden mb-4 rounded"
     >
-      <canvas
-        bind:this={canvasElement}
-        class="w-full h-full bg-black"
-        style="object-fit: contain; max-width: 100%; max-height: 100%;"
-      ></canvas>
-
-      <!-- Loading indicator -->
-      {#if !allVideosLoaded}
-        <div
-          class="absolute inset-0 flex items-center justify-center bg-black text-white"
+      {#if currentVideoSource}
+        <video
+          bind:this={videoElement}
+          class="w-full h-full bg-black"
+          style="object-fit: contain; max-width: 100%; max-height: 100%;"
+          src={currentVideoSource}
+          preload="metadata"
+          ontimeupdate={handleTimeUpdate}
+          onloadeddata={() => { isInitialized = true; }}
+          onwaiting={() => { 
+            if (!isAutoTransitioning) {
+              isSeeking = true; 
+            }
+          }}
+          oncanplay={() => { 
+            if (!isAutoTransitioning) {
+              isSeeking = false; 
+            }
+          }}
         >
+          <track kind="captions" />
+        </video>
+      {:else}
+        <div class="w-full h-full bg-black flex items-center justify-center text-white">
           <div class="text-center">
-            <div
-              class="animate-spin w-8 h-8 border-2 border-white border-t-transparent rounded-full mx-auto mb-2"
-            ></div>
-            <p>Loading video URLs... {Math.round(loadingProgress)}%</p>
-          </div>
-        </div>
-      {:else if !isInitialized}
-        <div
-          class="absolute inset-0 flex items-center justify-center bg-black text-white"
-        >
-          <div class="text-center">
-            <div
-              class="animate-spin w-8 h-8 border-2 border-white border-t-transparent rounded-full mx-auto mb-2"
-            ></div>
-            <p>Initializing Etro video player...</p>
-            {#if initializationError}
-              <p class="text-red-400 text-sm mt-2">
-                Error: {initializationError}
-              </p>
-            {/if}
+            <p>No video selected</p>
           </div>
         </div>
       {/if}
 
-      <!-- Buffering indicator -->
-      {#if isBuffering}
+      <!-- Loading indicator -->
+      {#if isLoading}
+        <div
+          class="absolute inset-0 flex items-center justify-center bg-black/50 text-white"
+        >
+          <div class="text-center">
+            <div
+              class="animate-spin w-8 h-8 border-2 border-white border-t-transparent rounded-full mx-auto mb-2"
+            ></div>
+            <p>Loading video...</p>
+          </div>
+        </div>
+      {/if}
+
+      <!-- Seeking indicator -->
+      {#if isSeeking}
         <div
           class="absolute inset-0 flex items-center justify-center bg-black/50 text-white"
         >
@@ -775,17 +838,8 @@
             <div
               class="animate-spin w-6 h-6 border-2 border-white border-t-transparent rounded-full mx-auto mb-2"
             ></div>
-            <p class="text-sm">Buffering...</p>
+            <p class="text-sm">Seeking...</p>
           </div>
-        </div>
-      {/if}
-      
-      <!-- Pending recreate indicator -->
-      {#if pendingRecreate}
-        <div
-          class="absolute top-2 right-2 bg-orange-500/80 text-white px-3 py-1 rounded-md text-sm"
-        >
-          Highlights changing...
         </div>
       {/if}
     </div>
@@ -800,9 +854,6 @@
             </h4>
             <p class="text-xs text-muted-foreground mt-1">
               Segment {currentHighlightIndex + 1} of {highlights.length}
-              {#if isPreloading}
-                <span class="ml-2 text-blue-400">• Preloading next...</span>
-              {/if}
             </p>
           </div>
           <div class="text-right">
@@ -810,7 +861,7 @@
               {formatTime(currentTime)} / {formatTime(totalDuration)}
             </div>
             <div class="text-xs text-muted-foreground">
-              {Math.round(getProgressPercentageWrapper())}%
+              {Math.round(getProgressPercentage())}%
             </div>
           </div>
         </div>
@@ -883,16 +934,12 @@
         </div>
 
         <!-- Active segment in full width -->
-        {#if shouldShowActiveSegment() && highlights[currentHighlightIndex]}
+        {#if shouldShowActiveSegment && highlights[currentHighlightIndex]}
           {@const activeHighlight = highlights[currentHighlightIndex]}
           {@const segmentStartTime = highlights
             .slice(0, currentHighlightIndex)
             .reduce((sum, h) => sum + (h.end - h.start), 0)}
           {@const segmentDuration = activeHighlight.end - activeHighlight.start}
-          {@const segmentProgress = Math.max(
-            0,
-            Math.min(1, (currentTime - segmentStartTime) / segmentDuration)
-          )}
 
           <div class="mt-1">
             <div class="w-full">
@@ -924,9 +971,7 @@
                   const clickPercentage = x / rect.width;
                   const clickTargetTime =
                     segmentStartTime + clickPercentage * segmentDuration;
-                  // Apply buffer offset for better seeking performance
-                  const bufferedTargetTime = Math.max(0, clickTargetTime - SEEK_BUFFER_OFFSET);
-                  handleTimelineSeekWrapper(bufferedTargetTime);
+                  handleTimelineSeekWrapper(clickTargetTime);
                 }}
                 onEditHighlight={handleEditHighlight}
                 onDeleteConfirm={handleDeleteConfirm}
@@ -949,7 +994,7 @@
       {#key isPlaying}
         <Button
           onclick={playPauseWrapper}
-          disabled={!allVideosLoaded || !isInitialized}
+          disabled={!isInitialized || isLoading}
           class="flex items-center gap-2"
         >
           {#if isPlaying}
@@ -963,21 +1008,7 @@
       {/key}
     </div>
 
-    <!-- Loading Progress -->
-    {#if !allVideosLoaded}
-      <div class="mt-4 p-4 bg-secondary/20 rounded-md">
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-sm">Loading videos...</span>
-          <span class="text-sm">{Math.round(loadingProgress)}%</span>
-        </div>
-        <div class="w-full bg-secondary rounded-full h-2">
-          <div
-            class="bg-primary h-2 rounded-full transition-all duration-300"
-            style="width: {loadingProgress}%"
-          ></div>
-        </div>
-      </div>
-    {/if}
+    <!-- Loading Progress (removed since we load on-demand now) -->
   </div>
 {:else}
   <div class="video-player p-6 bg-card border rounded-lg">

@@ -196,6 +196,16 @@ export async function preloadNextHighlight(
       videoURLs.set(nextHighlight.filePath, videoURL);
       preloadedHighlights.add(nextHighlight.id);
       console.log(`Successfully preloaded next highlight: ${nextHighlight.videoClipName}`);
+      
+      // Also preload the video file itself to ensure smooth playback
+      if (typeof window !== 'undefined') {
+        const video = document.createElement('video');
+        video.preload = 'auto';
+        video.src = videoURL;
+        // Start loading the video
+        video.load();
+        console.log(`Started preloading video data for: ${nextHighlight.videoClipName}`);
+      }
     } else {
       console.warn(`Empty file path for preload: ${nextHighlight.filePath}`);
     }

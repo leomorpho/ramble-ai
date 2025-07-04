@@ -23,8 +23,15 @@ export async function createEtroMovieWithOrder(
   videoURLs,
   allVideosLoaded
 ) {
-  if (!canvasElement || !allVideosLoaded || highlightOrder.length === 0) {
+  if (!canvasElement || highlightOrder.length === 0) {
     console.error("Cannot create Etro movie: missing requirements");
+    return { success: false, movie: null, totalDuration: 0 };
+  }
+  
+  // Check if at least the first video URL is available
+  const firstHighlight = highlightOrder[0];
+  if (!videoURLs.has(firstHighlight.filePath)) {
+    console.error("Cannot create Etro movie: first video URL not loaded");
     return { success: false, movie: null, totalDuration: 0 };
   }
 
@@ -97,8 +104,11 @@ export async function createEtroMovieWithOrder(
 
       if (!videoURL) {
         console.warn(
-          `Skipping highlight ${i}: no video URL for ${highlight.filePath}`
+          `Video URL not loaded yet for highlight ${i}: ${highlight.filePath}. Using placeholder.`
         );
+        // Create a placeholder layer that will be replaced when the video loads
+        // For now, we'll skip it to avoid errors
+        currentStartTime += segmentDuration;
         continue;
       }
 
