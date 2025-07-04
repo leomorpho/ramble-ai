@@ -21,7 +21,7 @@
   import { Film } from "@lucide/svelte";
 
   // Import utility functions
-  import { loadVideoURLs } from "./videoUtils.js";
+  import { loadVideoURLs, preloadNextHighlight, clearPreloadCache } from "./videoUtils.js";
   import {
     formatTime,
     updateTimeAndHighlight,
@@ -70,6 +70,11 @@
 
   // Buffering state for seeking
   let isBuffering = $state(false);
+
+  // Preloading state for next highlights
+  let preloadedHighlights = $state(new Set());
+  let isPreloading = $state(false);
+  let lastPreloadedIndex = $state(-1);
 
   // Progress tracker instance
   const progressTracker = createProgressTracker();
@@ -235,6 +240,43 @@
   // Progress percentage wrapper
   function getProgressPercentageWrapper() {
     return getProgressPercentage(currentTime, totalDuration);
+  }
+
+  // Preload next highlight when current highlight changes
+  async function triggerPreloadNext() {
+    // Safety checks to prevent blocking and infinite loops
+    if (!isPlaying || !highlights.length || isPreloading) {
+      return;
+    }
+    
+    // Prevent duplicate preload calls for the same highlight
+    if (lastPreloadedIndex === currentHighlightIndex) {
+      return;
+    }
+    
+    // Don't preload if we're at the last highlight
+    if (currentHighlightIndex >= highlights.length - 1) {
+      return;
+    }
+    
+    console.log(`Triggering preload for current index: ${currentHighlightIndex}`);
+    lastPreloadedIndex = currentHighlightIndex;
+    
+    try {
+      await preloadNextHighlight(
+        currentHighlightIndex,
+        highlights,
+        videoURLs,
+        preloadedHighlights,
+        (loading) => { isPreloading = loading; }
+      );
+      
+      // Update the reactive state for preloaded highlights
+      preloadedHighlights = new Set(preloadedHighlights);
+    } catch (err) {
+      console.warn("Preload error in triggerPreloadNext:", err);
+      isPreloading = false;
+    }
   }
 
   // Helper functions for popover state management
@@ -567,6 +609,34 @@
     }
   });
 
+  // Watch for highlight changes during playback to trigger preloading
+  $effect(() => {
+    // Only trigger preloading after initial setup and when actively changing highlights
+    if (browser && isPlaying && isInitialized && highlights.length > 1 && currentHighlightIndex > 0) {
+      console.log(`Effect: Current highlight changed to ${currentHighlightIndex}, scheduling preload`);
+      
+      // Use setTimeout to make preloading non-blocking and avoid reactivity loops
+      setTimeout(() => {
+        triggerPreloadNext().catch(err => {
+          console.warn("Preload failed:", err);
+        });
+      }, 500); // Longer delay to ensure video is playing smoothly first
+    }
+  });
+
+  // Clear preload cache when highlights change (but not on every reactivity update)
+  $effect(() => {
+    if (browser && highlights.length > 0) {
+      // Only clear cache if highlight order actually changed
+      const currentOrder = highlights.map((h) => h.id).join(",");
+      if (lastKnownOrder && lastKnownOrder !== currentOrder) {
+        console.log("Highlights order changed, clearing preload cache");
+        clearPreloadCache((cache) => { preloadedHighlights = cache; });
+        lastPreloadedIndex = -1; // Reset preload tracking
+      }
+    }
+  });
+
   // Initialize component
   onMount(async () => {
     console.log("EtroVideoPlayer mounted with highlights:", highlights);
@@ -683,6 +753,9 @@
             </h4>
             <p class="text-xs text-muted-foreground mt-1">
               Segment {currentHighlightIndex + 1} of {highlights.length}
+              {#if isPreloading}
+                <span class="ml-2 text-blue-400">• Preloading next...</span>
+              {/if}
             </p>
           </div>
           <div class="text-right">

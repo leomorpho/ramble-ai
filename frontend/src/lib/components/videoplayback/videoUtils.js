@@ -143,3 +143,73 @@ export function calculateScaledDimensions(
 
   return { width: scaledWidth, height: scaledHeight, x, y };
 }
+
+// Preload video for next highlight to ensure smooth transitions
+export async function preloadNextHighlight(
+  currentHighlightIndex,
+  highlights,
+  videoURLs,
+  preloadedHighlights,
+  setIsPreloading
+) {
+  // Don't preload if we're at the last highlight
+  if (currentHighlightIndex >= highlights.length - 1) {
+    return;
+  }
+
+  const nextHighlightIndex = currentHighlightIndex + 1;
+  const nextHighlight = highlights[nextHighlightIndex];
+  
+  if (!nextHighlight) {
+    return;
+  }
+
+  // Check if this highlight is already preloaded
+  if (preloadedHighlights.has(nextHighlight.id)) {
+    console.log(`Next highlight ${nextHighlight.id} already preloaded`);
+    return;
+  }
+
+  // Check if we already have the video URL
+  if (videoURLs.has(nextHighlight.filePath)) {
+    console.log(`Video URL for next highlight ${nextHighlight.id} already available`);
+    // Mark as preloaded (caller will update reactive state)
+    preloadedHighlights.add(nextHighlight.id);
+    return;
+  }
+
+  console.log(`Starting preload for next highlight: ${nextHighlight.videoClipName} (${nextHighlight.id})`);
+  setIsPreloading(true);
+
+  try {
+    // Load the video URL for the next highlight
+    const videoURL = await Promise.race([
+      GetVideoURL(nextHighlight.filePath),
+      new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error("Preload GetVideoURL timeout after 5 seconds")),
+          5000 // Shorter timeout for preloading to avoid blocking
+        )
+      ),
+    ]);
+
+    if (videoURL) {
+      videoURLs.set(nextHighlight.filePath, videoURL);
+      preloadedHighlights.add(nextHighlight.id);
+      console.log(`Successfully preloaded next highlight: ${nextHighlight.videoClipName}`);
+    } else {
+      console.warn(`Empty video URL returned for preload: ${nextHighlight.filePath}`);
+    }
+  } catch (err) {
+    console.warn(`Failed to preload next highlight ${nextHighlight.videoClipName}:`, err.message);
+    // Don't show toast for preload failures as they're not critical
+  } finally {
+    setIsPreloading(false);
+  }
+}
+
+// Clear preloaded highlights cache (useful when highlights change)
+export function clearPreloadCache(setPreloadedHighlights) {
+  setPreloadedHighlights(new Set());
+  console.log("Preload cache cleared");
+}
