@@ -10,6 +10,12 @@
     DialogTrigger,
   } from "$lib/components/ui/dialog";
   import {
+    Tabs,
+    TabsList,
+    TabsTrigger,
+    TabsContent,
+  } from "$lib/components/ui/tabs";
+  import {
     GetProjectByID,
     UpdateProject,
     DeleteProject,
@@ -47,7 +53,17 @@
   import VideoClipCard from "$lib/components/VideoClipCard.svelte";
   import ProjectDetails from "$lib/components/ProjectDetails.svelte";
   import FileDropZone from "$lib/components/FileDropZone.svelte";
-  import { Video, Download, FolderOpen } from "@lucide/svelte";
+  import {
+    Video,
+    Download,
+    FolderOpen,
+    Info,
+    Film,
+    Clock,
+    Upload,
+    Copy,
+    Check,
+  } from "@lucide/svelte";
   import { updateVideoHighlights } from "$lib/stores/projectHighlights.js";
 
   let project = $state(null);
@@ -79,6 +95,12 @@
   let progressInterval = $state(null);
   let exportHistory = $state([]);
   let showExportHistory = $state(false);
+
+  // Tabs state
+  let activeTab = $state("clips");
+
+  // Copy button state
+  let pathCopied = $state(false);
 
   // Get project ID from route params
   let projectId = $derived(parseInt($page.params.id));
@@ -549,7 +571,6 @@
     }
   }
 
-
   function formatFileSize(bytes) {
     if (bytes === 0) return "0 B";
     const k = 1024;
@@ -560,6 +581,22 @@
 
   function goBack() {
     goto("/");
+  }
+
+  async function copyToClipboard(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      pathCopied = true;
+      toast.success("Copied to clipboard");
+      
+      // Reset the copied state after 2 seconds
+      setTimeout(() => {
+        pathCopied = false;
+      }, 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+      toast.error("Failed to copy to clipboard");
+    }
   }
 
   async function startTranscription(clip) {
@@ -825,7 +862,7 @@
   }
 </script>
 
-<main 
+<main
   class="min-h-screen bg-background text-foreground p-8"
   style="--wails-drop-target: drop"
   ondrop={handleDrop}
@@ -878,110 +915,315 @@
         <p class="text-lg">Loading project...</p>
       </div>
     {:else if project}
-      <!-- Project details -->
-      <ProjectDetails
-        {project}
-        onUpdate={handleProjectUpdate}
-        onDelete={handleProjectDelete}
-      />
-
-      <div class="bg-card text-card-foreground rounded-lg border shadow-sm">
-        <div class="p-6">
-          <!-- Video Clips section -->
-          <div class="mt-8">
-            <div class="flex justify-between items-center mb-4">
-              <h2 class="text-xl font-semibold">Video Clips</h2>
-              <div class="flex items-center gap-4">
-                <div class="text-sm text-muted-foreground">
-                  {videoClips.length}
-                  {videoClips.length === 1 ? "clip" : "clips"}
-                </div>
-                <Button onclick={selectVideoFiles} disabled={addingClip}>
-                  {addingClip ? "Adding..." : "Select Video Files"}
-                </Button>
-              </div>
-            </div>
-
-            <!-- Video clip error display -->
-            {#if clipError}
-              <div
-                class="bg-destructive/10 text-destructive border border-destructive/20 rounded-lg p-4 mb-4"
-              >
-                <p class="font-medium">Error</p>
-                <p class="text-sm">{clipError}</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  class="mt-2"
-                  onclick={() => (clipError = "")}
-                >
-                  Dismiss
-                </Button>
-              </div>
-            {/if}
-
-            <!-- File drop zone -->
-            <FileDropZone
-              {dragActive}
-              {addingClip}
-              onFileInputChange={handleFileInputChange}
-              onOpenFileDialog={openFileDialog}
-              onKeyDown={handleKeyDown}
-            />
-            <!-- Video clips list -->
-            {#if loadingClips}
-              <div class="text-center py-8 text-muted-foreground">
-                <p class="text-lg">Loading video clips...</p>
-              </div>
-            {:else if videoClips.length === 0}
-              <div class="text-center py-8 text-muted-foreground">
-                <p class="text-lg">No video clips yet</p>
-                <p class="text-sm">
-                  Drag and drop video files above or use "Select Video Files" to
-                  get started
-                </p>
-              </div>
-            {:else}
-              <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {#each videoClips as clip (clip.id)}
-                  <VideoClipCard
-                    {clip}
-                    isTranscribing={transcribingClips.has(clip.id)}
-                    onDelete={handleDeleteClip}
-                    onStartTranscription={startTranscription}
-                    {formatFileSize}
-                    {projectId}
-                    {highlights}
-                    onHighlightsChange={(highlights) => handleHighlightsChange(clip.id, highlights)}
-                  />
-                {/each}
-              </div>
+      <!-- Project title only -->
+      <div class="mb-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-3xl font-bold text-primary">{project.name}</h1>
+            {#if project.description}
+              <p class="text-muted-foreground text-lg mt-1">
+                {project.description}
+              </p>
             {/if}
           </div>
+        </div>
+      </div>
 
-          <!-- Highlights Timeline section -->
-          {#if project && highlightsLoaded}
-            <div class="mt-8">
-              <ProjectHighlights
-                bind:this={projectHighlightsComponent}
-                {projectId}
-                {highlights}
-                loading={$highlightsLoading}
-              />
-            </div>
-          {/if}
+      <!-- Main content with tabs -->
+      <div class="bg-card text-card-foreground rounded-lg border shadow-sm">
+        <div class="p-6">
+          <Tabs bind:value={activeTab} class="w-full">
+            <TabsList class="grid w-full grid-cols-4">
+              <TabsTrigger value="info" class="flex items-center gap-2">
+                <Info class="w-4 h-4" />
+                Info
+              </TabsTrigger>
+              <TabsTrigger value="clips" class="flex items-center gap-2">
+                <Film class="w-4 h-4" />
+                Clips ({videoClips.length})
+              </TabsTrigger>
+              <TabsTrigger value="timeline" class="flex items-center gap-2">
+                <Clock class="w-4 h-4" />
+                Timeline
+              </TabsTrigger>
+              <TabsTrigger value="export" class="flex items-center gap-2">
+                <Upload class="w-4 h-4" />
+                Export
+              </TabsTrigger>
+            </TabsList>
 
-          <!-- Export section -->
-          {#if project && videoClips.length > 0}
-            <div class="mt-8">
-              <div
-                class="bg-card text-card-foreground rounded-lg border shadow-sm"
-              >
-                <div class="p-6">
-                  <div class="flex items-center gap-3 mb-6">
-                    <Download class="w-6 h-6 text-primary" />
+            <!-- Project Info Tab -->
+            <TabsContent value="info" class="mt-6">
+              <div class="space-y-8">
+                <!-- Project Overview Card -->
+                <div>
+                  <div class="flex items-start justify-between mb-4">
+                    <ProjectDetails
+                      {project}
+                      onUpdate={handleProjectUpdate}
+                      onDelete={handleProjectDelete}
+                      buttonsOnly={true}
+                    />
+                  </div>
+
+                  <!-- Statistics Grid -->
+                  <div class="grid gap-6 md:grid-cols-3">
+                    <div
+                      class="text-center p-4 bg-background rounded-lg border"
+                    >
+                      <div class="text-2xl font-bold text-primary mb-1">
+                        {videoClips.length}
+                      </div>
+                      <div class="text-sm text-muted-foreground">
+                        Video Clips
+                      </div>
+                    </div>
+                    <div
+                      class="text-center p-4 bg-background rounded-lg border"
+                    >
+                      <div class="text-2xl font-bold text-primary mb-1">
+                        {highlights.length}
+                      </div>
+                      <div class="text-sm text-muted-foreground">
+                        Highlights
+                      </div>
+                    </div>
+                    <div
+                      class="text-center p-4 bg-background rounded-lg border"
+                    >
+                      <div class="text-2xl font-bold text-primary mb-1">
+                        {Math.floor(
+                          highlights.reduce(
+                            (sum, highlight) => sum + (highlight.end - highlight.start),
+                            0
+                          ) / 60
+                        )}:{Math.floor(
+                          highlights.reduce(
+                            (sum, highlight) => sum + (highlight.end - highlight.start),
+                            0
+                          ) % 60
+                        )
+                          .toString()
+                          .padStart(2, "0")}
+                      </div>
+                      <div class="text-sm text-muted-foreground">
+                        Highlights Duration
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Project Details Card -->
+                <div class="bg-card border rounded-lg p-6">
+                  <div class="flex items-center gap-3 mb-4">
+                    <div
+                      class="w-10 h-10 bg-secondary/50 rounded-lg flex items-center justify-center"
+                    >
+                      <svg
+                        class="w-5 h-5 text-foreground"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        />
+                      </svg>
+                    </div>
                     <div>
-                      <h2 class="text-xl font-semibold">Export Highlights</h2>
+                      <h3 class="text-lg font-semibold">Project Details</h3>
+                      <p class="text-muted-foreground text-sm">
+                        Technical information and metadata
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="grid gap-4 md:grid-cols-2">
+                    <div class="space-y-3">
+                      <div
+                        class="flex justify-between items-center py-2 border-b border-border/50"
+                      >
+                        <span class="text-sm font-medium text-muted-foreground"
+                          >Created</span
+                        >
+                        <span class="text-sm font-medium"
+                          >{new Date(project.createdAt).toLocaleDateString(
+                            "en-US",
+                            {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }
+                          )}</span
+                        >
+                      </div>
+                      <div
+                        class="flex justify-between items-center py-2 border-b border-border/50"
+                      >
+                        <span class="text-sm font-medium text-muted-foreground"
+                          >Last Updated</span
+                        >
+                        <span class="text-sm font-medium"
+                          >{new Date(project.updatedAt).toLocaleDateString(
+                            "en-US",
+                            {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }
+                          )}</span
+                        >
+                      </div>
+                    </div>
+                    <div class="space-y-3">
+                      <div
+                        class="flex justify-between items-center py-2 border-b border-border/50"
+                      >
+                        <span class="text-sm font-medium text-muted-foreground"
+                          >Project ID</span
+                        >
+                        <span
+                          class="text-sm font-mono bg-secondary px-2 py-1 rounded"
+                          >{project.id}</span
+                        >
+                      </div>
+                      <div class="py-2 md:col-span-2">
+                        <div
+                          class="text-sm font-medium text-muted-foreground mb-2"
+                        >
+                          Project Path
+                        </div>
+                        <div class="flex items-center gap-2">
+                          <code
+                            class="text-sm bg-secondary px-3 py-2 rounded flex-1 break-all"
+                            >{project.path}</code
+                          >
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onclick={() => copyToClipboard(project.path)}
+                            class="flex-shrink-0 transition-all"
+                            disabled={pathCopied}
+                          >
+                            {#if pathCopied}
+                              <Check class="w-4 h-4 text-green-600" />
+                            {:else}
+                              <Copy class="w-4 h-4" />
+                            {/if}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            <!-- Video Clips Tab -->
+            <TabsContent value="clips" class="mt-6">
+              <div class="space-y-4">
+                <div class="flex justify-between items-center">
+                  <h3 class="text-lg font-semibold">Video Clips</h3>
+                  <Button
+                    onclick={selectVideoFiles}
+                    disabled={addingClip}
+                    size="sm"
+                  >
+                    {addingClip ? "Adding..." : "Add Video Files"}
+                  </Button>
+                </div>
+
+                <!-- Video clip error display -->
+                {#if clipError}
+                  <div
+                    class="bg-destructive/10 text-destructive border border-destructive/20 rounded-lg p-4"
+                  >
+                    <p class="font-medium">Error</p>
+                    <p class="text-sm">{clipError}</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      class="mt-2"
+                      onclick={() => (clipError = "")}
+                    >
+                      Dismiss
+                    </Button>
+                  </div>
+                {/if}
+
+                <!-- File drop zone -->
+                <FileDropZone
+                  {dragActive}
+                  {addingClip}
+                  onFileInputChange={handleFileInputChange}
+                  onOpenFileDialog={openFileDialog}
+                  onKeyDown={handleKeyDown}
+                />
+
+                <!-- Video clips grid -->
+                {#if loadingClips}
+                  <div class="text-center py-8 text-muted-foreground">
+                    <p>Loading video clips...</p>
+                  </div>
+                {:else if videoClips.length === 0}
+                  <div class="text-center py-8 text-muted-foreground">
+                    <p>No video clips yet</p>
+                    <p class="text-sm">
+                      Drag and drop video files or use "Add Video Files" to get
+                      started
+                    </p>
+                  </div>
+                {:else}
+                  <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                    {#each videoClips as clip (clip.id)}
+                      <VideoClipCard
+                        {clip}
+                        isTranscribing={transcribingClips.has(clip.id)}
+                        onDelete={handleDeleteClip}
+                        onStartTranscription={startTranscription}
+                        {formatFileSize}
+                        {projectId}
+                        {highlights}
+                        onHighlightsChange={(highlights) =>
+                          handleHighlightsChange(clip.id, highlights)}
+                      />
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+            </TabsContent>
+
+            <!-- Timeline Tab -->
+            <TabsContent value="timeline" class="mt-6">
+              {#if project && highlightsLoaded}
+                <ProjectHighlights
+                  bind:this={projectHighlightsComponent}
+                  {projectId}
+                  {highlights}
+                  loading={$highlightsLoading}
+                />
+              {:else}
+                <div class="text-center py-8 text-muted-foreground">
+                  <p>Timeline will appear here once highlights are loaded</p>
+                </div>
+              {/if}
+            </TabsContent>
+
+            <!-- Export Tab -->
+            <TabsContent value="export" class="mt-6">
+              {#if project && videoClips.length > 0}
+                <div class="space-y-6">
+                  <div class="flex items-center gap-3">
+                    <Download class="w-5 h-5 text-primary" />
+                    <div>
+                      <h3 class="text-lg font-semibold">Export Highlights</h3>
                       <p class="text-sm text-muted-foreground">
                         Export your highlighted video segments
                       </p>
@@ -991,7 +1233,7 @@
                   <!-- Export error display -->
                   {#if exportError}
                     <div
-                      class="bg-destructive/10 text-destructive border border-destructive/20 rounded-lg p-4 mb-6"
+                      class="bg-destructive/10 text-destructive border border-destructive/20 rounded-lg p-4"
                     >
                       <p class="font-medium">Export Error</p>
                       <p class="text-sm">{exportError}</p>
@@ -1017,7 +1259,7 @@
                           <Video class="w-5 h-5 text-primary" />
                         </div>
                         <div>
-                          <h3 class="font-medium">Single Stitched Video</h3>
+                          <h4 class="font-medium">Single Stitched Video</h4>
                           <p class="text-sm text-muted-foreground">
                             Combine all highlights into one video file
                           </p>
@@ -1060,7 +1302,7 @@
                           <FolderOpen class="w-5 h-5 text-foreground" />
                         </div>
                         <div>
-                          <h3 class="font-medium">Individual Clip Files</h3>
+                          <h4 class="font-medium">Individual Clip Files</h4>
                           <p class="text-sm text-muted-foreground">
                             Export each highlight as a separate numbered file
                           </p>
@@ -1098,7 +1340,7 @@
                   <!-- Export Progress -->
                   {#if exportProgress}
                     <div
-                      class="mt-6 p-4 bg-primary/5 border border-primary/20 rounded-lg"
+                      class="p-4 bg-primary/5 border border-primary/20 rounded-lg"
                     >
                       <div class="flex items-center justify-between mb-3">
                         <div class="flex items-center gap-2">
@@ -1115,7 +1357,7 @@
                               d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                             />
                           </svg>
-                          <h3 class="font-medium">Export Progress</h3>
+                          <h4 class="font-medium">Export Progress</h4>
                         </div>
                         <Button
                           variant="ghost"
@@ -1126,7 +1368,6 @@
                         </Button>
                       </div>
 
-                      <!-- Progress bar -->
                       <div class="space-y-2 mb-3">
                         <div class="flex justify-between text-sm">
                           <span class="capitalize">{exportProgress.stage}</span>
@@ -1142,14 +1383,12 @@
                         </div>
                       </div>
 
-                      <!-- Current file info -->
                       {#if exportProgress.currentFile}
                         <div class="text-sm text-muted-foreground mb-2">
                           Processing: {exportProgress.currentFile}
                         </div>
                       {/if}
 
-                      <!-- Files count -->
                       {#if exportProgress.totalFiles > 0}
                         <div class="text-sm text-muted-foreground">
                           {exportProgress.processedFiles} of {exportProgress.totalFiles}
@@ -1161,9 +1400,9 @@
 
                   <!-- Export History -->
                   {#if exportHistory.length > 0}
-                    <div class="mt-6">
+                    <div>
                       <div class="flex items-center justify-between mb-3">
-                        <h3 class="font-medium">Export History</h3>
+                        <h4 class="font-medium">Export History</h4>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -1261,7 +1500,7 @@
                   {/if}
 
                   <!-- Export info -->
-                  <div class="mt-6 p-4 bg-secondary/30 rounded-lg">
+                  <div class="p-4 bg-secondary/30 rounded-lg">
                     <div class="flex items-start gap-3">
                       <svg
                         class="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5"
@@ -1299,18 +1538,21 @@
                           <li>
                             • Export progress persists across app restarts
                           </li>
-                          <li>
-                            • Files are organized by project name and export
-                            timestamp
-                          </li>
                         </ul>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          {/if}
+              {:else}
+                <div class="text-center py-8 text-muted-foreground">
+                  <p>No video clips available for export</p>
+                  <p class="text-sm">
+                    Add video clips first to enable export functionality
+                  </p>
+                </div>
+              {/if}
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     {:else if !loading}
@@ -1323,4 +1565,3 @@
     {/if}
   </div>
 </main>
-
