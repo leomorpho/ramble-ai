@@ -12,6 +12,7 @@
   import { browser } from "$app/environment";
   import HighlightMenu from "$lib/components/HighlightMenu.svelte";
   import ClipEditor from "$lib/components/ClipEditor.svelte";
+  import TimelineSegment from "./TimelineSegment.svelte";
   import {
     Dialog,
     DialogContent,
@@ -1064,7 +1065,7 @@
     </div>
 
     <!-- Canvas Element for Etro rendering -->
-    <div class="relative w-full aspect-video bg-black overflow-hidden mb-4">
+    <div class="relative w-full aspect-video bg-black overflow-hidden mb-4 rounded">
       <canvas
         bind:this={canvasElement}
         class="w-full h-full bg-black"
@@ -1140,7 +1141,7 @@
         {/if}
 
         <!-- Clip segments with drag and drop -->
-        <div class="flex gap-1 w-full">
+        <div class="flex gap-0.5 w-full">
           {#each highlights as highlight, index}
             {@const segmentDuration = highlight.end - highlight.start}
             {@const calculatedTotalDuration = highlights.reduce(
@@ -1158,89 +1159,29 @@
               {@render dropIndicator()}
             {/if}
 
-            <button
-              class="group relative h-8 rounded transition-all duration-200 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-primary/50 {isActive
-                ? 'ring-2 ring-primary'
-                : ''} {isDragging && dragStartIndex === index
-                ? 'opacity-50 scale-95'
-                : ''} cursor-pointer"
-              style="width: {segmentWidth}%; background-color: {highlight.color}; min-width: 20px;"
-              title="{highlight.videoClipName}: {formatTime(
-                highlight.start
-              )} - {formatTime(highlight.end)}{enableReordering
-                ? ' (click to seek, drag handle to reorder)'
-                : ' (click to seek)'}"
-              draggable={enableReordering}
-              ondragstart={(e) =>
-                enableReordering
-                  ? handleDragStart(e, index)
-                  : e.preventDefault()}
-              ondragend={enableReordering ? handleDragEnd : undefined}
-              ondragover={(e) =>
-                enableReordering ? handleDragOver(e, index) : undefined}
-              ondrop={(e) =>
-                enableReordering ? handleDrop(e, index) : undefined}
-              onclick={(e) => handleSegmentClick(e, index)}
-            >
-              <!-- Progress indicator for active segment -->
-              {#if isActive}
-                {@const segmentStartTime = highlights
-                  .slice(0, index)
-                  .reduce((sum, h) => sum + (h.end - h.start), 0)}
-                {@const segmentProgress = Math.max(
-                  0,
-                  Math.min(
-                    1,
-                    (currentTime - segmentStartTime) / segmentDuration
-                  )
-                )}
-                <div
-                  class="absolute left-0 top-0 h-full bg-white/30 rounded transition-all duration-100"
-                  style="width: {segmentProgress * 100}%;"
-                ></div>
-              {/if}
-
-              <!-- Segment label and eye icon -->
-              <div
-                class="absolute inset-0 flex items-center justify-center text-xs font-medium text-white drop-shadow pointer-events-none"
-              >
-                <!-- Number label -->
-                <span>{index + 1}</span>
-
-                <!-- Eye icon (only show on hover and if enabled) -->
-                {#if enableEyeButton}
-                  <span
-                    class="ml-1 opacity-0 group-hover:opacity-100 hidden group-hover:block transition-opacity pointer-events-auto"
-                  >
-                    <HighlightMenu
-                      {highlight}
-                      onEdit={handleEditHighlight}
-                      onDelete={handleDeleteConfirm}
-                      popoverOpen={isPopoverOpen(highlight.id)}
-                      onPopoverOpenChange={(open) => {
-                        if (open) {
-                          openPopover(highlight.id);
-                        } else {
-                          closePopover(highlight.id);
-                        }
-                      }}
-                      iconSize="w-4 h-4"
-                      triggerSize="w-6 h-6"
-                    />
-                  </span>
-                {/if}
-              </div>
-
-              <!-- Drag handle -->
-              {#if enableReordering}
-                <div
-                  class="absolute top-0 right-0 w-4 h-4 bg-black/80 rounded-bl rounded-tr opacity-0 group-hover:opacity-100 transition-opacity cursor-move flex items-center justify-center"
-                  title="Drag to reorder"
-                >
-                  <div class="w-1.5 h-1.5 bg-white rounded-full"></div>
-                </div>
-              {/if}
-            </button>
+            <TimelineSegment
+              {highlight}
+              {index}
+              {isActive}
+              {segmentWidth}
+              {currentTime}
+              {totalDuration}
+              {highlights}
+              {enableReordering}
+              {enableEyeButton}
+              {isDragging}
+              {dragStartIndex}
+              {isPopoverOpen}
+              {openPopover}
+              {closePopover}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              onSegmentClick={handleSegmentClick}
+              onEditHighlight={handleEditHighlight}
+              onDeleteConfirm={handleDeleteConfirm}
+            />
 
             <!-- Drop indicator after the last segment -->
             {#if enableReordering && index === highlights.length - 1 && isDragging && dragOverIndex === highlights.length}
