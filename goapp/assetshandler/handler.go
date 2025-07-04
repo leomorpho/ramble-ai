@@ -331,25 +331,31 @@ func (h *AssetHandler) isDirectFileRequest(path string) bool {
 	   strings.HasPrefix(path, "/node_modules/") ||
 	   strings.Contains(path, ".svelte-kit") ||
 	   strings.Contains(path, "/src/") {
+		log.Printf("[DIRECT] Excluding frontend asset path: %s", path)
 		return false
 	}
 	
-	// Only handle requests that look like absolute file paths with video extensions
-	// This should match patterns like "/Users/..." or "C:\..." with video file extensions
-	if strings.HasPrefix(path, "/") && len(path) > 10 {
-		// Check if it looks like an absolute file path (starts with /Users/, /home/, etc.)
-		if strings.HasPrefix(path, "/Users/") || strings.HasPrefix(path, "/home/") || strings.HasPrefix(path, "/media/") {
-			// And has a video file extension
-			ext := strings.ToLower(filepath.Ext(path))
-			videoExtensions := []string{".mp4", ".mov", ".avi", ".mkv", ".wmv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg"}
-			for _, validExt := range videoExtensions {
-				if ext == validExt {
-					return true
-				}
+	// Check if this looks like an absolute file path with a video extension
+	// Support ANY absolute path (Unix: starts with /, Windows: drive letter format)
+	isAbsolutePath := strings.HasPrefix(path, "/") || // Unix-style absolute path
+		(len(path) >= 3 && path[1] == ':' && (path[2] == '\\' || path[2] == '/')) // Windows drive letter
+	
+	if isAbsolutePath && len(path) > 3 {
+		// Check if it has a video file extension
+		ext := strings.ToLower(filepath.Ext(path))
+		videoExtensions := []string{".mp4", ".mov", ".avi", ".mkv", ".wmv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg"}
+		for _, validExt := range videoExtensions {
+			if ext == validExt {
+				log.Printf("[DIRECT] Accepting direct file request: %s (extension: %s)", path, ext)
+				return true
 			}
 		}
+		log.Printf("[DIRECT] Path is absolute but not a video file: %s (extension: %s)", path, ext)
+	} else {
+		log.Printf("[DIRECT] Path is not absolute: %s", path)
 	}
 	
+	log.Printf("[DIRECT] Rejecting file request: %s", path)
 	return false
 }
 

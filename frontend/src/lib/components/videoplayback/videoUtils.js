@@ -37,7 +37,8 @@ export async function loadVideoURLs(highlights, videoURLs, setProgress, setAllVi
       console.log("Setting up direct URL for:", highlight.filePath);
 
       // Use direct file path as URL (gahara approach)
-      const videoURL = highlight.filePath;
+      // Encode the file path to handle special characters in external drive names
+      const videoURL = encodeURI(highlight.filePath);
 
       console.log(
         "Using direct file path for",
@@ -94,15 +95,28 @@ export async function loadVideoURLs(highlights, videoURLs, setProgress, setAllVi
 // Get video dimensions from a test video element
 export async function getVideoDimensions(videoURL) {
   return new Promise((resolve, reject) => {
+    console.log("Getting video dimensions for URL:", videoURL);
+    
     const video = document.createElement("video");
     video.onloadedmetadata = () => {
+      console.log("Video metadata loaded successfully. Dimensions:", {
+        width: video.videoWidth,
+        height: video.videoHeight,
+      });
       resolve({
         width: video.videoWidth,
         height: video.videoHeight,
       });
     };
-    video.onerror = () =>
-      reject(new Error("Failed to load video for dimension detection"));
+    video.onerror = (error) => {
+      console.error("Video failed to load for dimension detection:", error);
+      console.error("Failed URL:", videoURL);
+      reject(new Error(`Failed to load video for dimension detection: ${videoURL}`));
+    };
+    video.onabort = () => {
+      console.error("Video loading was aborted for:", videoURL);
+      reject(new Error(`Video loading aborted: ${videoURL}`));
+    };
     video.src = videoURL;
   });
 }
@@ -175,7 +189,8 @@ export async function preloadNextHighlight(
 
   try {
     // Use direct file path as URL (gahara approach)
-    const videoURL = nextHighlight.filePath;
+    // Encode the file path to handle special characters in external drive names
+    const videoURL = encodeURI(nextHighlight.filePath);
 
     if (videoURL) {
       videoURLs.set(nextHighlight.filePath, videoURL);
