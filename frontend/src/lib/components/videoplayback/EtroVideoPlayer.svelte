@@ -28,6 +28,7 @@
     getProgressPercentage,
     calculateSeekTime,
     isDragHandleClick,
+    SEEK_BUFFER_OFFSET,
   } from "./timelineUtils.js";
   import { createEtroMovieWithOrder } from "./etroUtils.js";
   import { createProgressTracker } from "./progressUtils.js";
@@ -797,9 +798,11 @@
                   const rect = e.currentTarget.getBoundingClientRect();
                   const x = e.clientX - rect.left;
                   const clickPercentage = x / rect.width;
-                  const targetTime =
+                  const clickTargetTime =
                     segmentStartTime + clickPercentage * segmentDuration;
-                  handleTimelineSeekWrapper(targetTime);
+                  // Apply buffer offset for better seeking performance
+                  const bufferedTargetTime = Math.max(0, clickTargetTime - SEEK_BUFFER_OFFSET);
+                  handleTimelineSeekWrapper(bufferedTargetTime);
                 }}
                 onEditHighlight={handleEditHighlight}
                 onDeleteConfirm={handleDeleteConfirm}

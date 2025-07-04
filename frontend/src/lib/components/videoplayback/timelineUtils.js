@@ -1,3 +1,6 @@
+// Seek buffer offset in seconds to jump back before target position for better buffering
+export const SEEK_BUFFER_OFFSET = 0.0; // 100ms
+
 // Format time for display
 export function formatTime(seconds) {
   const mins = Math.floor(seconds / 60);
@@ -61,13 +64,16 @@ export function calculateSeekTime(event, segmentIndex, highlights) {
   const segmentDuration = highlights[segmentIndex].end - highlights[segmentIndex].start;
 
   // Calculate the target time within the segment
-  const targetTime = segmentStartTime + clickPercentage * segmentDuration;
+  const clickTargetTime = segmentStartTime + clickPercentage * segmentDuration;
+  
+  // Apply buffer offset - jump back by the offset amount for better buffering
+  const bufferedTargetTime = Math.max(0, clickTargetTime - SEEK_BUFFER_OFFSET);
 
   console.log(
-    `Segment click: index=${segmentIndex}, clickPos=${clickPercentage.toFixed(2)}, targetTime=${targetTime.toFixed(2)}s`
+    `Segment click: index=${segmentIndex}, clickPos=${clickPercentage.toFixed(2)}, clickTarget=${clickTargetTime.toFixed(2)}s, bufferedTarget=${bufferedTargetTime.toFixed(2)}s (offset: ${SEEK_BUFFER_OFFSET}s)`
   );
 
-  return targetTime;
+  return bufferedTargetTime;
 }
 
 // Calculate time at start of a specific highlight
