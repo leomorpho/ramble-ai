@@ -311,7 +311,7 @@ func (s *HighlightService) GetProjectHighlightsForExport(projectID int) ([]Highl
 	// Get all video clips for the project with their highlights
 	clips, err := s.client.VideoClip.
 		Query().
-		Where(videoclip.HasProjectWith()).
+		Where(videoclip.HasProjectWith(project.IDEQ(projectID))).
 		All(s.ctx)
 
 	if err != nil {

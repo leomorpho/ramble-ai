@@ -472,10 +472,10 @@ func TestHighlightService_ComplexScenario_Integration(t *testing.T) {
 	assert.Equal(t, clip2.ID, project2Highlights[0].VideoClipID)
 
 	// Test export functionality with custom order
-	// NOTE: GetProjectHighlightsForExport has a bug - it gets ALL clips, not just for the project
+	// GetProjectHighlightsForExport should only get highlights from the specified project
 	segments, err := service.GetProjectHighlightsForExport(project1.ID)
 	require.NoError(t, err)
-	assert.Len(t, segments, 3) // Gets all 3 highlights from both projects
+	assert.Len(t, segments, 2) // Gets only 2 highlights from project1
 
 	// Apply custom order
 	customOrder := []string{"h2", "h1"}

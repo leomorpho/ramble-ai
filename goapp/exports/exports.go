@@ -24,16 +24,19 @@ import (
 
 // ExportProgress represents the current state of an export job
 type ExportProgress struct {
-	JobID          string  `json:"jobId"`
-	Stage          string  `json:"stage"`
-	Progress       float64 `json:"progress"`
-	CurrentFile    string  `json:"currentFile"`
-	TotalFiles     int     `json:"totalFiles"`
-	ProcessedFiles int     `json:"processedFiles"`
-	IsComplete     bool    `json:"isComplete"`
-	HasError       bool    `json:"hasError"`
-	ErrorMessage   string  `json:"errorMessage"`
-	IsCancelled    bool    `json:"isCancelled"`
+	JobID          string     `json:"jobId"`
+	Stage          string     `json:"stage"`
+	Progress       float64    `json:"progress"`
+	CurrentFile    string     `json:"currentFile"`
+	TotalFiles     int        `json:"totalFiles"`
+	ProcessedFiles int        `json:"processedFiles"`
+	IsComplete     bool       `json:"isComplete"`
+	HasError       bool       `json:"hasError"`
+	ErrorMessage   string     `json:"errorMessage"`
+	IsCancelled    bool       `json:"isCancelled"`
+	ExportType     string     `json:"exportType"`
+	OutputPath     string     `json:"outputPath"`
+	CompletedAt    *time.Time `json:"completedAt"`
 }
 
 // ActiveExportJob represents an active export job
@@ -190,6 +193,9 @@ func (s *ExportService) GetExportProgress(jobID string) (*ExportProgress, error)
 		HasError:       job.HasError,
 		ErrorMessage:   job.ErrorMessage,
 		IsCancelled:    isCancelled,
+		ExportType:     job.ExportType,
+		OutputPath:     job.OutputPath,
+		CompletedAt:    &job.CompletedAt,
 	}, nil
 }
 
@@ -417,7 +423,15 @@ func (s *ExportService) performIndividualExport(dbJob *ent.ExportJob, activeJob 
 		return
 	}
 
-	// Project already retrieved above, no need to get it again
+	// Create subdirectory with project name
+	sanitizedProjectName := regexp.MustCompile(`[^a-zA-Z0-9_-]`).ReplaceAllString(proj.Name, "_")
+	projectDir := filepath.Join(dbJob.OutputPath, sanitizedProjectName)
+	
+	// Create the directory if it doesn't exist
+	if err := os.MkdirAll(projectDir, 0755); err != nil {
+		s.updateJobFailed(dbJob.JobID, fmt.Sprintf("Failed to create project directory: %v", err))
+		return
+	}
 
 	s.updateJobProgress(dbJob.JobID, "extracting", 0.0, "", len(segments), 0)
 
@@ -442,8 +456,8 @@ func (s *ExportService) performIndividualExport(dbJob *ent.ExportJob, activeJob 
 
 		s.updateJobProgress(dbJob.JobID, "extracting", progress, fileName, len(segments), i)
 
-		// Generate unique filename for this highlight
-		outputFile := filepath.Join(dbJob.OutputPath, s.generateOutputFilename(proj.Name, fmt.Sprintf("highlight_%03d", i+1)))
+		// Generate unique filename for this highlight in the project directory
+		outputFile := filepath.Join(projectDir, s.generateOutputFilename(proj.Name, fmt.Sprintf("highlight_%03d", i+1)))
 
 		err := s.extractHighlightSegmentDirectWithProgress(segment, outputFile, dbJob.JobID, activeJob.Cancel)
 		if err != nil {
@@ -453,7 +467,7 @@ func (s *ExportService) performIndividualExport(dbJob *ent.ExportJob, activeJob 
 	}
 
 	// Update job as completed
-	s.updateJobCompleted(dbJob.JobID, dbJob.OutputPath)
+	s.updateJobCompleted(dbJob.JobID, projectDir)
 	completionMessage := fmt.Sprintf("Successfully exported %d individual highlights", len(segments))
 	s.updateJobProgress(dbJob.JobID, "complete", 1.0, completionMessage, len(segments), len(segments))
 }
