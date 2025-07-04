@@ -1,6 +1,5 @@
 <script>
   import { onMount, onDestroy } from "svelte";
-  import { GetVideoURL } from "$lib/wailsjs/go/main/App";
   import { toast } from "svelte-sonner";
   import { Play, Pause } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
@@ -19,7 +18,24 @@
     DialogHeader,
     DialogTitle,
   } from "$lib/components/ui/dialog";
-  import { Film, Trash2 } from "@lucide/svelte";
+  import { Film } from "@lucide/svelte";
+
+  // Import utility functions
+  import { loadVideoURLs } from "./videoUtils.js";
+  import {
+    formatTime,
+    updateTimeAndHighlight,
+    getProgressPercentage,
+    calculateSeekTime,
+    isDragHandleClick,
+  } from "./timelineUtils.js";
+  import { createEtroMovieWithOrder } from "./etroUtils.js";
+  import { createProgressTracker } from "./progressUtils.js";
+  import {
+    playPause as playPauseUtil,
+    jumpToHighlight as jumpToHighlightUtil,
+    handleTimelineSeek as handleTimelineSeekUtil,
+  } from "./playbackUtils.js";
 
   let {
     highlights = [],
@@ -52,8 +68,8 @@
   let isInitialized = $state(false);
   let initializationError = $state(null);
 
-  // Animation frame for progress updates
-  let animationFrame = null;
+  // Progress tracker instance
+  const progressTracker = createProgressTracker();
 
   // Track highlight order to detect external changes
   let lastKnownOrder = $state("");
@@ -101,507 +117,119 @@
     });
   });
 
-  // Format time for display
-  function formatTime(seconds) {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  }
-
-  // Load etro library dynamically (client-side only)
-  async function loadEtro() {
-    if (!browser || etro) return etro;
-
-    try {
-      const etroModule = await import("etro");
-      etro = etroModule;
-      return etro;
-    } catch (err) {
-      console.error("Failed to load etro library:", err);
-      toast.error("Failed to load video library");
-      return null;
-    }
-  }
-
-  // Load video URLs from backend
-  async function loadVideoURLs() {
-    if (highlights.length === 0) {
-      console.warn("No highlights provided to load video URLs");
-      return;
-    }
-
-    console.log(
-      "Starting to load video URLs for",
-      highlights.length,
-      "highlights"
-    );
-    loadingProgress = 0;
-    videoURLs.clear();
-
-    const uniqueVideos = new Map();
-    for (const highlight of highlights) {
-      if (!uniqueVideos.has(highlight.filePath)) {
-        uniqueVideos.set(highlight.filePath, highlight);
+  // Load video URLs wrapper
+  async function loadVideoURLsWrapper() {
+    await loadVideoURLs(
+      highlights,
+      videoURLs,
+      (progress) => {
+        loadingProgress = progress;
+      },
+      (loaded) => {
+        allVideosLoaded = loaded;
       }
-    }
+    );
+  }
 
-    const videoFiles = Array.from(uniqueVideos.values());
-    console.log(
-      "Loading URLs for",
-      videoFiles.length,
-      "unique video files:",
-      videoFiles.map((h) => h.filePath)
+  // Update time and highlight wrapper
+  function updateTimeAndHighlightWrapper() {
+    const result = updateTimeAndHighlight(
+      movie,
+      highlights,
+      (time) => {
+        currentTime = time;
+      },
+      (playing) => {
+        isPlaying = playing;
+      },
+      (index) => {
+        currentHighlightIndex = index;
+      }
     );
 
-    let loadedCount = 0;
-
-    for (const highlight of videoFiles) {
-      try {
-        console.log("Loading URL for:", highlight.filePath);
-
-        const videoURL = await Promise.race([
-          GetVideoURL(highlight.filePath),
-          new Promise((_, reject) =>
-            setTimeout(
-              () => reject(new Error("GetVideoURL timeout after 10 seconds")),
-              10000
-            )
-          ),
-        ]);
-
-        console.log(
-          "Got URL for",
-          highlight.filePath,
-          ":",
-          videoURL ? "SUCCESS" : "EMPTY"
-        );
-
-        if (videoURL) {
-          videoURLs.set(highlight.filePath, videoURL);
-          loadedCount++;
-          loadingProgress = (loadedCount / videoFiles.length) * 100;
-          console.log(
-            `Progress: ${loadedCount}/${videoFiles.length} (${Math.round(loadingProgress)}%)`
-          );
-        } else {
-          throw new Error("Empty video URL returned");
-        }
-      } catch (err) {
-        console.error("Error loading video URL for:", highlight.filePath, err);
-        toast.error("Failed to load video", {
-          description: `Could not load ${highlight.videoClipName}: ${err.message}`,
-        });
-      }
+    if (result?.ended) {
+      progressTracker.stopProgressTracking();
     }
+  }
 
-    console.log(
-      "Finished loading video URLs. Loaded:",
-      loadedCount,
-      "out of",
-      videoFiles.length
+  // Playback controls wrapper
+  async function playPauseWrapper() {
+    await playPauseUtil(
+      movie,
+      isInitialized,
+      (playing) => {
+        isPlaying = playing;
+      },
+      startProgressTrackingWrapper,
+      progressTracker.stopProgressTracking
     );
-
-    if (loadedCount === videoFiles.length) {
-      allVideosLoaded = true;
-      console.log("All video URLs loaded successfully");
-      toast.success("All video URLs loaded!");
-    } else if (loadedCount > 0) {
-      allVideosLoaded = true; // Allow partial loading
-      console.log(
-        "Partial video URLs loaded:",
-        loadedCount,
-        "/",
-        videoFiles.length
-      );
-      toast.warning(`Loaded ${loadedCount} out of ${videoFiles.length} videos`);
-    } else {
-      console.error("No video URLs could be loaded");
-      toast.error("Failed to load any video URLs");
-    }
   }
 
-  // Get video dimensions from a test video element
-  async function getVideoDimensions(videoURL) {
-    return new Promise((resolve, reject) => {
-      const video = document.createElement("video");
-      video.onloadedmetadata = () => {
-        resolve({
-          width: video.videoWidth,
-          height: video.videoHeight,
-        });
-      };
-      video.onerror = () =>
-        reject(new Error("Failed to load video for dimension detection"));
-      video.src = videoURL;
-    });
+  // Jump to a specific highlight wrapper
+  async function jumpToHighlightWrapper(highlightIndex) {
+    await jumpToHighlightUtil(
+      movie,
+      highlightIndex,
+      highlights,
+      updateTimeAndHighlightWrapper,
+      isPlaying,
+      startProgressTrackingWrapper
+    );
   }
 
-  // Calculate aspect ratio preserving dimensions
-  function calculateScaledDimensions(
-    videoWidth,
-    videoHeight,
-    canvasWidth,
-    canvasHeight
-  ) {
-    const videoAspect = videoWidth / videoHeight;
-    const canvasAspect = canvasWidth / canvasHeight;
-
-    let scaledWidth, scaledHeight, x, y;
-
-    if (videoAspect > canvasAspect) {
-      // Video is wider than canvas - fit by width
-      scaledWidth = canvasWidth;
-      scaledHeight = canvasWidth / videoAspect;
-      x = 0;
-      y = (canvasHeight - scaledHeight) / 2;
-    } else {
-      // Video is taller than canvas - fit by height
-      scaledHeight = canvasHeight;
-      scaledWidth = canvasHeight * videoAspect;
-      x = (canvasWidth - scaledWidth) / 2;
-      y = 0;
-    }
-
-    return { width: scaledWidth, height: scaledHeight, x, y };
-  }
-
-  // Create Etro movie with video layers
-  async function createEtroMovie() {
-    if (!canvasElement || !allVideosLoaded || highlights.length === 0) {
-      console.error("Cannot create Etro movie: missing requirements");
-      return false;
-    }
-
-    // Load etro library if not already loaded
-    const etroLib = await loadEtro();
-    if (!etroLib) {
-      console.error("Failed to load etro library");
-      return false;
-    }
-
-    try {
-      console.log(
-        "Creating Etro movie with",
-        highlights.length,
-        "video layers"
-      );
-
-      // Set canvas dimensions
-      const canvasWidth = 1280;
-      const canvasHeight = 720;
-      canvasElement.width = canvasWidth;
-      canvasElement.height = canvasHeight;
-
-      // Get video dimensions from the first video
-      const firstVideoURL = videoURLs.get(highlights[0].filePath);
-      if (!firstVideoURL) {
-        throw new Error("No video URL for first highlight");
-      }
-
-      console.log("Getting video dimensions from first video...");
-      const videoDimensions = await getVideoDimensions(firstVideoURL);
-      console.log("Video dimensions:", videoDimensions);
-
-      // Create movie first (Etro determines dimensions from canvas)
-      movie = new etroLib.Movie({
-        canvas: canvasElement,
-      });
-
-      // Now calculate scaled dimensions using movie dimensions
-      const scaledDims = calculateScaledDimensions(
-        videoDimensions.width,
-        videoDimensions.height,
-        movie.width || canvasWidth, // Use movie width or fallback to canvas width
-        movie.height || canvasHeight // Use movie height or fallback to canvas height
-      );
-      console.log("Scaled dimensions:", scaledDims);
-      console.log(
-        "Movie dimensions after creation:",
-        movie.width,
-        "x",
-        movie.height
-      );
-
-      let currentStartTime = 0;
-
-      // Create video layers for each highlight
-      for (let i = 0; i < highlights.length; i++) {
-        const highlight = highlights[i];
-        const videoURL = videoURLs.get(highlight.filePath);
-
-        if (!videoURL) {
-          console.warn(
-            `Skipping highlight ${i}: no video URL for ${highlight.filePath}`
-          );
-          continue;
-        }
-
-        const segmentDuration = highlight.end - highlight.start;
-
-        console.log(
-          `Creating layer ${i}: ${highlight.videoClipName} (${segmentDuration}s)`
-        );
-        console.log(`Layer ${i} settings:`, {
-          layerSize: {
-            width: movie.width || canvasWidth,
-            height: movie.height || canvasHeight,
-          },
-          destPosition: { x: scaledDims.x, y: scaledDims.y },
-          destSize: { width: scaledDims.width, height: scaledDims.height },
-        });
-
-        // Create video layer with proper destination sizing
-        const videoLayer = new etroLib.layer.Video({
-          startTime: currentStartTime,
-          duration: segmentDuration,
-          source: videoURL,
-          sourceStartTime: highlight.start,
-          // Layer position and size (covers full canvas)
-          x: 0,
-          y: 0,
-          width: movie.width || canvasWidth,
-          height: movie.height || canvasHeight,
-          // Video rendering within the layer
-          destX: scaledDims.x,
-          destY: scaledDims.y,
-          destWidth: scaledDims.width,
-          destHeight: scaledDims.height,
-        });
-
-        movie.layers.push(videoLayer);
-        currentStartTime += segmentDuration;
-      }
-
-      totalDuration = currentStartTime;
-      console.log(`Etro movie created with total duration: ${totalDuration}s`);
-      console.log(
-        "Movie details - width:",
-        movie.width,
-        "height:",
-        movie.height,
-        "layers:",
-        movie.layers.length
-      );
-      console.log(
-        "Movie paused state:",
-        movie.paused,
-        "ready state:",
-        movie.ready
-      );
-
-      isInitialized = true;
-      return true;
-    } catch (err) {
-      console.error("Failed to create Etro movie:", err);
-      initializationError = err.message;
-      return false;
-    }
-  }
-
-  // Update time and highlight index from Etro movie
-  function updateTimeAndHighlight() {
-    if (!movie) return;
-
-    currentTime = movie.currentTime;
-
-    // Force reactivity by reassigning
-    isPlaying = !movie.paused && !movie.ended;
-
-    // Determine current highlight based on timeline using highlights from store
-    let highlightIndex = 0;
-    let accumulatedTime = 0;
-
-    for (let i = 0; i < highlights.length; i++) {
-      const segmentDuration = highlights[i].end - highlights[i].start;
-      if (currentTime < accumulatedTime + segmentDuration) {
-        highlightIndex = i;
-        break;
-      }
-      accumulatedTime += segmentDuration;
-      highlightIndex = i + 1; // In case we're past all segments
-    }
-
-    currentHighlightIndex = Math.min(highlightIndex, highlights.length - 1);
-
-    // Check if playback has ended
-    if (movie.ended) {
-      isPlaying = false;
-      stopProgressTracking();
-      console.log("Playback ended");
-    }
-  }
-
-  // Playback controls
-  async function playPause() {
-    if (!movie || !isInitialized) {
-      toast.error("Video player not ready");
-      return;
-    }
-
-    startProgressTracking();
-
-    try {
-      if (movie.paused || movie.ended) {
-        // Start or resume playback
-        if (movie.ended) {
-          movie.currentTime = 0; // Reset if ended
-        }
-
-        console.log("Starting/resuming playback");
-        await movie.play();
-        isPlaying = true;
-      } else {
-        // Pause playback
-        console.log("Pausing playback");
-        movie.pause();
+  // Progress tracking wrapper
+  function startProgressTrackingWrapper() {
+    progressTracker.startProgressTracking(
+      movie,
+      highlights,
+      {
+        setCurrentTime: (time) => {
+          currentTime = time;
+        },
+        setIsPlaying: (playing) => {
+          isPlaying = playing;
+        },
+        setCurrentHighlightIndex: (index) => {
+          currentHighlightIndex = index;
+        },
+      },
+      () => {
         isPlaying = false;
-        stopProgressTracking();
       }
-    } catch (err) {
-      console.error("Error toggling playback:", err);
-      toast.error("Failed to toggle playback");
-      // Sync state with actual movie state
-      isPlaying = !movie.paused && !movie.ended;
-    }
-  }
-
-  // Jump to a specific highlight
-  async function jumpToHighlight(highlightIndex) {
-    if (!movie || highlightIndex < 0 || highlightIndex >= highlights.length)
-      return;
-
-    // Calculate time at start of target highlight using highlights from store
-    let targetTime = 0;
-    for (let i = 0; i < highlightIndex; i++) {
-      targetTime += highlights[i].end - highlights[i].start;
-    }
-
-    console.log(
-      `Jumping to highlight ${highlightIndex} at time ${targetTime}s`
     );
-    movie.currentTime = targetTime;
-
-    // Update time and highlight index immediately
-    updateTimeAndHighlight();
-
-    // Continue playing if we were already playing
-    if (isPlaying && movie.paused) {
-      try {
-        await movie.play();
-        // Ensure progress tracking continues
-        startProgressTracking();
-      } catch (err) {
-        if (!err.message.includes("Already playing")) {
-          console.error("Error resuming playback:", err);
-        }
-      }
-    } else if (isPlaying && !movie.paused) {
-      // Already playing, just ensure progress tracking is active
-      startProgressTracking();
-    }
   }
 
-  // Progress tracking
-  function startProgressTracking() {
-    stopProgressTracking();
-    console.log("Starting progress tracking");
-
-    function updateProgress() {
-      if (!movie) {
-        console.log("No movie in updateProgress");
-        return;
-      }
-
-      updateTimeAndHighlight();
-
-      // Continue tracking if movie is actually playing (not paused)
-      if (!movie.paused && !movie.ended) {
-        animationFrame = requestAnimationFrame(updateProgress);
-      } else {
-        console.log(
-          "Stopping progress tracking - paused:",
-          movie.paused,
-          "ended:",
-          movie.ended
-        );
-      }
-    }
-
-    animationFrame = requestAnimationFrame(updateProgress);
-  }
-
-  function stopProgressTracking() {
-    if (animationFrame) {
-      cancelAnimationFrame(animationFrame);
-      animationFrame = null;
-    }
-  }
-
-  // Timeline seeking
-  async function handleTimelineSeek(targetTime) {
-    if (!movie || !isInitialized) return;
-
-    movie.currentTime = Math.max(0, Math.min(targetTime, totalDuration));
-    updateTimeAndHighlight();
-
-    // Resume playing if we were playing before seeking
-    if (isPlaying && movie.paused) {
-      try {
-        await movie.play();
-        startProgressTracking();
-      } catch (err) {
-        // Ignore "already playing" errors
-        if (!err.message.includes("Already playing")) {
-          console.error("Error resuming playback after seek:", err);
-        }
-      }
-    }
+  // Timeline seeking wrapper
+  async function handleTimelineSeekWrapper(targetTime) {
+    await handleTimelineSeekUtil(
+      movie,
+      targetTime,
+      totalDuration,
+      isInitialized,
+      updateTimeAndHighlightWrapper,
+      isPlaying,
+      startProgressTrackingWrapper
+    );
   }
 
   // Handle timeline segment clicks for seeking
   function handleSegmentClick(event, segmentIndex) {
-    // Check if the click was on the drag handle (upper right corner)
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-
-    // Define drag handle area (upper right corner, 16x16 pixels)
-    const dragHandleSize = 16;
-    const isDragHandle =
-      x >= rect.width - dragHandleSize && y <= dragHandleSize;
-
-    if (isDragHandle) {
+    // Check if the click was on the drag handle
+    if (isDragHandleClick(event)) {
       // This is a drag handle click, don't seek
       return;
     }
 
-    // Calculate the click position within the segment as a percentage
-    const clickPercentage = x / rect.width;
-
-    // Calculate the start time for this segment
-    let segmentStartTime = 0;
-    for (let i = 0; i < segmentIndex; i++) {
-      segmentStartTime += highlights[i].end - highlights[i].start;
-    }
-
-    // Calculate the duration of the clicked segment
-    const segmentDuration =
-      highlights[segmentIndex].end - highlights[segmentIndex].start;
-
-    // Calculate the target time within the segment
-    const targetTime = segmentStartTime + clickPercentage * segmentDuration;
-
-    console.log(
-      `Segment click: index=${segmentIndex}, clickPos=${clickPercentage.toFixed(2)}, targetTime=${targetTime.toFixed(2)}s`
-    );
+    // Calculate the target time using utility function
+    const targetTime = calculateSeekTime(event, segmentIndex, highlights);
 
     // Seek to the calculated time
-    handleTimelineSeek(targetTime);
+    handleTimelineSeekWrapper(targetTime);
   }
 
-  // Progress percentage for timeline
-  function getProgressPercentage() {
-    return totalDuration > 0 ? (currentTime / totalDuration) * 100 : 0;
+  // Progress percentage wrapper
+  function getProgressPercentageWrapper() {
+    return getProgressPercentage(currentTime, totalDuration);
   }
 
   // Helper functions for popover state management
@@ -696,16 +324,7 @@
     }
 
     // Check if the drag started from the drag handle
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-
-    // Define drag handle area (upper right corner, 16x16 pixels)
-    const dragHandleSize = 16;
-    const isDragHandle =
-      x >= rect.width - dragHandleSize && y <= dragHandleSize;
-
-    if (!isDragHandle) {
+    if (!isDragHandleClick(event)) {
       // Prevent drag if not started from the handle
       event.preventDefault();
       return false;
@@ -790,7 +409,7 @@
       // Update our known order
       lastKnownOrder = newHighlights.map((h) => h.id).join(",");
       // Reinitialize the video player with new order (only if save was successful)
-      await reinitializeWithNewOrder(newHighlights);
+      await reinitializeWithNewOrderWrapper(newHighlights);
     }
 
     // Reset the internal reorder flag
@@ -799,8 +418,8 @@
     handleDragEnd();
   }
 
-  // Reinitialize video player with new segment order
-  async function reinitializeWithNewOrder(newHighlights = highlights) {
+  // Reinitialize video player with new segment order wrapper
+  async function reinitializeWithNewOrderWrapper(newHighlights = highlights) {
     console.log(
       "Reinitializing video player with new order:",
       newHighlights.map((h) => h.id)
@@ -809,7 +428,7 @@
     // Pause and clean up existing movie
     if (movie) {
       movie.pause();
-      stopProgressTracking();
+      progressTracker.stopProgressTracking();
       movie = null;
     }
 
@@ -821,7 +440,7 @@
 
     // Recreate the movie with the new order
     if (allVideosLoaded && newHighlights.length > 0 && canvasElement) {
-      const success = await createEtroMovieWithOrder(newHighlights);
+      const success = await createEtroMovieWithOrderWrapper(newHighlights);
       if (success) {
         console.log("Video player successfully reinitialized with new order");
       } else {
@@ -830,121 +449,22 @@
     }
   }
 
-  // Create Etro movie with custom highlight order
-  async function createEtroMovieWithOrder(highlightOrder) {
-    if (!canvasElement || !allVideosLoaded || highlightOrder.length === 0) {
-      console.error("Cannot create Etro movie: missing requirements");
-      return false;
-    }
+  // Create Etro movie wrapper
+  async function createEtroMovieWithOrderWrapper(highlightOrder) {
+    const result = await createEtroMovieWithOrder(
+      highlightOrder,
+      canvasElement,
+      videoURLs,
+      allVideosLoaded
+    );
 
-    // Load etro library if not already loaded
-    const etroLib = await loadEtro();
-    if (!etroLib) {
-      console.error("Failed to load etro library");
-      return false;
-    }
-
-    try {
-      console.log(
-        "Creating Etro movie with",
-        highlightOrder.length,
-        "video layers in custom order"
-      );
-
-      // Set canvas dimensions
-      const canvasWidth = 1280;
-      const canvasHeight = 720;
-      canvasElement.width = canvasWidth;
-      canvasElement.height = canvasHeight;
-
-      // Get video dimensions from the first video
-      const firstHighlight = highlightOrder[0];
-      console.log("First highlight in order:", firstHighlight);
-      console.log(
-        "Looking for video URL with filePath:",
-        firstHighlight.filePath
-      );
-      console.log("Available video URLs:", Array.from(videoURLs.keys()));
-
-      const firstVideoURL = videoURLs.get(firstHighlight.filePath);
-      if (!firstVideoURL) {
-        throw new Error(
-          `No video URL for first highlight. FilePath: ${firstHighlight.filePath}`
-        );
-      }
-
-      console.log("Getting video dimensions from first video...");
-      const videoDimensions = await getVideoDimensions(firstVideoURL);
-      console.log("Video dimensions:", videoDimensions);
-
-      // Create movie first (Etro determines dimensions from canvas)
-      movie = new etroLib.Movie({
-        canvas: canvasElement,
-      });
-
-      // Now calculate scaled dimensions using movie dimensions
-      const scaledDims = calculateScaledDimensions(
-        videoDimensions.width,
-        videoDimensions.height,
-        movie.width || canvasWidth,
-        movie.height || canvasHeight
-      );
-      console.log("Scaled dimensions:", scaledDims);
-      console.log(
-        "Movie dimensions after creation:",
-        movie.width,
-        "x",
-        movie.height
-      );
-
-      let currentStartTime = 0;
-
-      // Create video layers for each highlight in the specified order
-      for (let i = 0; i < highlightOrder.length; i++) {
-        const highlight = highlightOrder[i];
-        const videoURL = videoURLs.get(highlight.filePath);
-
-        if (!videoURL) {
-          console.warn(
-            `Skipping highlight ${i}: no video URL for ${highlight.filePath}`
-          );
-          continue;
-        }
-
-        const segmentDuration = highlight.end - highlight.start;
-
-        console.log(
-          `Creating layer ${i}: ${highlight.videoClipName} (${segmentDuration}s)`
-        );
-
-        // Create video layer with proper destination sizing
-        const videoLayer = new etroLib.layer.Video({
-          startTime: currentStartTime,
-          duration: segmentDuration,
-          source: videoURL,
-          sourceStartTime: highlight.start,
-          x: 0,
-          y: 0,
-          width: movie.width || canvasWidth,
-          height: movie.height || canvasHeight,
-          destX: scaledDims.x,
-          destY: scaledDims.y,
-          destWidth: scaledDims.width,
-          destHeight: scaledDims.height,
-        });
-
-        movie.layers.push(videoLayer);
-        currentStartTime += segmentDuration;
-      }
-
-      totalDuration = currentStartTime;
-      console.log(`Etro movie created with total duration: ${totalDuration}s`);
-
+    if (result.success) {
+      movie = result.movie;
+      totalDuration = result.totalDuration;
       isInitialized = true;
       return true;
-    } catch (err) {
-      console.error("Failed to create Etro movie with custom order:", err);
-      initializationError = err.message;
+    } else {
+      initializationError = result.error || "Unknown error";
       return false;
     }
   }
@@ -963,7 +483,7 @@
         highlights.length,
         "highlights"
       );
-      createEtroMovieWithOrder(highlights);
+      createEtroMovieWithOrderWrapper(highlights);
     }
   });
 
@@ -992,7 +512,7 @@
         );
         // Reset the loaded state to force reload
         allVideosLoaded = false;
-        loadVideoURLs();
+        loadVideoURLsWrapper();
       }
     }
   });
@@ -1018,7 +538,7 @@
 
         // Update our known order and refresh video
         lastKnownOrder = currentOrder;
-        reinitializeWithNewOrder(highlights);
+        reinitializeWithNewOrderWrapper(highlights);
       } else if (!lastKnownOrder) {
         // First time initialization - just record the order
         lastKnownOrder = currentOrder;
@@ -1075,7 +595,7 @@
 
   // Cleanup
   onDestroy(() => {
-    stopProgressTracking();
+    progressTracker.stopProgressTracking();
 
     if (movie) {
       movie.pause();
@@ -1151,7 +671,7 @@
               {formatTime(currentTime)} / {formatTime(totalDuration)}
             </div>
             <div class="text-xs text-muted-foreground">
-              {Math.round(getProgressPercentage())}%
+              {Math.round(getProgressPercentageWrapper())}%
             </div>
           </div>
         </div>
@@ -1261,7 +781,7 @@
                   const clickPercentage = x / rect.width;
                   const targetTime =
                     segmentStartTime + clickPercentage * segmentDuration;
-                  handleTimelineSeek(targetTime);
+                  handleTimelineSeekWrapper(targetTime);
                 }}
                 onEditHighlight={handleEditHighlight}
                 onDeleteConfirm={handleDeleteConfirm}
@@ -1283,7 +803,7 @@
     <div class="playback-controls flex items-center justify-center gap-3">
       {#key isPlaying}
         <Button
-          onclick={playPause}
+          onclick={playPauseWrapper}
           disabled={!allVideosLoaded || !isInitialized}
           class="flex items-center gap-2"
         >
