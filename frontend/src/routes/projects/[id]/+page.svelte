@@ -825,7 +825,14 @@
   }
 </script>
 
-<main class="min-h-screen bg-background text-foreground p-8">
+<main 
+  class="min-h-screen bg-background text-foreground p-8"
+  style="--wails-drop-target: drop"
+  ondrop={handleDrop}
+  ondragover={handleDragOver}
+  ondragenter={handleDragEnter}
+  ondragleave={handleDragLeave}
+>
   <div class="max-w-4xl mx-auto space-y-6">
     <!-- Header with back button and theme switcher -->
     <div class="flex items-center justify-between">
