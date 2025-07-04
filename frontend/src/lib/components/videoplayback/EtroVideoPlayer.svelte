@@ -34,6 +34,7 @@
     onReorder = null,
     enableReordering = true,
     debounceDelay=5000,
+    playPauseRef = null,
   } = $props();
 
   // Core state
@@ -297,6 +298,13 @@
       toast.error("Failed to toggle playback");
     }
   }
+
+  // Expose playPauseWrapper function via ref
+  $effect(() => {
+    if (playPauseRef) {
+      playPauseRef.current = playPauseWrapper;
+    }
+  });
 
   // Jump to a specific highlight
   async function jumpToHighlightWrapper(highlightIndex) {

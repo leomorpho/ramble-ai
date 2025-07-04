@@ -13,6 +13,7 @@
   import { Button } from "$lib/components/ui/button";
 
   import EtroVideoPlayer from "$lib/components/videoplayback/EtroVideoPlayer.svelte";
+  import VideoPlayerKeyHandler from "$lib/components/videoplayback/VideoPlayerKeyHandler.svelte";
   import ClipEditor from "$lib/components/ClipEditor.svelte";
   import HighlightItem from "$lib/components/HighlightItem.svelte";
   import AIReorderSheet from "$lib/components/AIReorderSheet.svelte";
@@ -53,6 +54,9 @@
 
   // AI reordering state
   let aiSheetOpen = $state(false);
+
+  // Video player play/pause function reference
+  let playPauseRef = $state({ current: null });
 
   // Popover state management
   let popoverStates = $state(new Map());
@@ -588,8 +592,16 @@
     </div>
   {/if}
 
-  <!-- Etro Video Player -->
-  <EtroVideoPlayer {highlights} {projectId} />
+  <!-- Etro Video Player with Keyboard Handler -->
+  <VideoPlayerKeyHandler 
+    onPlayPause={() => {
+      if (playPauseRef.current) {
+        playPauseRef.current();
+      }
+    }}
+  >
+    <EtroVideoPlayer {highlights} {projectId} {playPauseRef} />
+  </VideoPlayerKeyHandler>
 </div>
 
 <!-- AI Reordering Sheet -->
