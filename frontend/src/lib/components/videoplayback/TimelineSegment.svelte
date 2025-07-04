@@ -7,10 +7,10 @@
     isActive,
     segmentWidth,
     currentTime,
-    totalDuration,
     highlights,
     enableReordering = false,
     enableEyeButton = true,
+    showSegmentNumber = true,
     isDragging = false,
     dragStartIndex = null,
     isFirst = false,
@@ -52,7 +52,7 @@
   class="group relative h-8 {roundingClasses} transition-all duration-200 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-primary/50 {isDragging &&
   dragStartIndex === index
     ? 'opacity-50 scale-95'
-    : ''} cursor-pointer"
+    : ''} cursor-pointer overflow-visible"
   style="width: {segmentWidth}%; background-color: {highlight.color}; min-width: 20px;"
   title="{highlight.videoClipName}: {formatTime(highlight.start)} - {formatTime(
     highlight.end
@@ -92,13 +92,15 @@
   <div
     class="absolute inset-0 flex items-center justify-center text-xs font-medium text-white drop-shadow pointer-events-none"
   >
-    <!-- Number label -->
-    <span class="text-primary">{index + 1}</span>
+    <!-- Number label (only show if enabled) -->
+    {#if showSegmentNumber}
+      <span class="text-primary">{index + 1}</span>
+    {/if}
 
     <!-- Eye icon (only show on hover and if enabled) -->
     {#if enableEyeButton}
       <span
-        class="ml-1 opacity-0 group-hover:opacity-100 hidden group-hover:block transition-opacity pointer-events-auto"
+        class="{showSegmentNumber ? 'ml-1' : ''} opacity-0 group-hover:opacity-100 hidden group-hover:block transition-opacity pointer-events-auto"
       >
         <HighlightMenu
           {highlight}
@@ -122,9 +124,7 @@
   <!-- Drag handle -->
   {#if enableReordering}
     <div
-      class="absolute top-0 right-0 w-4 h-4 bg-black/80 {isLast
-        ? 'rounded-bl rounded-tr'
-        : 'rounded-bl'} opacity-0 group-hover:opacity-100 transition-opacity cursor-move flex items-center justify-center"
+      class="absolute -top-2 right-1 w-4 h-4 bg-black/80 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-move flex items-center justify-center z-20"
       title="Drag to reorder"
     >
       <div class="w-1.5 h-1.5 bg-white rounded-full"></div>

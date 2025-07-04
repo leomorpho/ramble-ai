@@ -246,7 +246,10 @@
   }
 
   async function handleFiles(files) {
-    if (!files || files.length === 0) return;
+    if (!files || files.length === 0) {
+      console.log("No files to process, ignoring");
+      return;
+    }
 
     addingClip = true;
     clipError = "";
@@ -358,6 +361,12 @@
 
   async function handleFilePathsFromWails(filePaths) {
     console.log("Processing file paths from Wails:", filePaths);
+
+    // Don't process if no files provided - this can happen with spurious Wails events
+    if (!filePaths || filePaths.length === 0) {
+      console.log("No file paths to process, ignoring");
+      return;
+    }
 
     addingClip = true;
     clipError = "";
@@ -889,6 +898,11 @@
     // Clear any existing timer
     if (debounceTimer) {
       clearTimeout(debounceTimer);
+    }
+    
+    // Clear clip errors when switching away from clips tab
+    if (activeTab !== "clips" && clipError) {
+      clipError = "";
     }
     
     // Only save if project is loaded

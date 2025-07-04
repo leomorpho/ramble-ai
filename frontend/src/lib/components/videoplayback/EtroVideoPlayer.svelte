@@ -33,7 +33,6 @@
     enableEyeButton = true,
     onReorder = null,
     enableReordering = true,
-    debounceDelay=5000,
     playPauseRef = null,
   } = $props();
 
@@ -96,6 +95,10 @@
   // Video preloading and transition timing constants
   const PRELOAD_TIME_BEFORE_END = 3; // Start preloading next highlight 3 seconds before current ends
   const PLAYBACK_START_TIME_BEFORE_END = 0.15; // Start playing preloaded video x seconds before current ends
+  
+  // Timeline display thresholds
+  const HIDE_SEGMENT_NUMBERS_THRESHOLD = 20; // Hide segment numbers when more than 20 segments
+  const DISABLE_REORDERING_THRESHOLD = 30; // Disable reordering when more than 30 segments
 
   // Calculate if we should show the active segment based on highlight durations
   let shouldShowActiveSegment = $derived(() => {
@@ -111,6 +114,16 @@
       const percentage = segmentDuration / totalDurationCalc;
       return percentage < ACTIVE_SEGMENT_THRESHOLD;
     });
+  });
+  
+  // Calculate if we should show segment numbers
+  let shouldShowSegmentNumbers = $derived(() => {
+    return highlights.length <= HIDE_SEGMENT_NUMBERS_THRESHOLD;
+  });
+  
+  // Calculate if we should enable reordering
+  let shouldEnableReordering = $derived(() => {
+    return enableReordering && highlights.length <= DISABLE_REORDERING_THRESHOLD;
   });
   
   // Update total duration when highlights change
@@ -643,7 +656,7 @@
   // Drag and drop functions
   function handleDragStart(event, index) {
     // Check if reordering is enabled
-    if (!enableReordering) {
+    if (!shouldEnableReordering()) {
       event.preventDefault();
       return false;
     }
@@ -1013,20 +1026,20 @@
     {/if}
 
     <!-- Draggable Clip Timeline -->
-    <div class="timeline-container mb-4">
-      <div class="space-y-2">
-        {#if enableReordering}
+    <div class="timeline-container mb-4 max-w-full overflow-hidden">
+      <div class="space-y-2 max-w-full overflow-hidden">
+        {#if shouldEnableReordering()}
           <div class="text-xs text-muted-foreground mb-2">
             💡 Click segments to seek, drag handle (⚫) to reorder
           </div>
         {:else}
           <div class="text-xs text-muted-foreground mb-2">
-            💡 Click segments to seek
+            💡 Click segments to seek{highlights.length > DISABLE_REORDERING_THRESHOLD ? ` (reordering disabled for ${highlights.length} segments)` : ''}
           </div>
         {/if}
 
         <!-- Clip segments with drag and drop -->
-        <div class="flex w-full">
+        <div class="flex w-full max-w-full overflow-hidden pt-2">
           {#each highlights as highlight, index}
             {@const segmentDuration = highlight.end - highlight.start}
             {@const calculatedTotalDuration = highlights.reduce(
@@ -1040,7 +1053,7 @@
             {@const isActive = index === currentHighlightIndex}
 
             <!-- Drop indicator before this segment -->
-            {#if enableReordering && isDragging && dragOverIndex === index}
+            {#if shouldEnableReordering() && isDragging && dragOverIndex === index}
               {@render dropIndicator()}
             {/if}
 
@@ -1052,8 +1065,9 @@
               {currentTime}
               {totalDuration}
               {highlights}
-              {enableReordering}
+              enableReordering={shouldEnableReordering()}
               enableEyeButton={enableEyeButton && !shouldShowActiveSegment}
+              showSegmentNumber={shouldShowSegmentNumbers()}
               {isDragging}
               {dragStartIndex}
               {isPopoverOpen}
@@ -1071,7 +1085,7 @@
             />
 
             <!-- Drop indicator after the last segment -->
-            {#if enableReordering && index === highlights.length - 1 && isDragging && dragOverIndex === highlights.length}
+            {#if shouldEnableReordering() && index === highlights.length - 1 && isDragging && dragOverIndex === highlights.length}
               {@render dropIndicator()}
             {/if}
           {/each}
@@ -1095,10 +1109,10 @@
                 isLast={true}
                 segmentWidth={100}
                 {currentTime}
-                {totalDuration}
                 {highlights}
                 enableReordering={false}
                 enableEyeButton={true}
+                showSegmentNumber={true}
                 isDragging={false}
                 dragStartIndex={null}
                 {isPopoverOpen}
