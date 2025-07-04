@@ -63,12 +63,10 @@ func TestExportStitchedHighlights_EmptyOutputFolder(t *testing.T) {
 	clip := createTestVideoClip(t, client, ctx, proj, "TestClip")
 	createTestHighlight(t, client, ctx, clip, 10.0, 20.0)
 
-	// Test with empty output folder
+	// Test with empty output folder - should fail at job creation due to validation
 	_, err := service.ExportStitchedHighlights(proj.ID, "")
-	require.NoError(t, err) // Job creation should succeed
-
-	// But background processing should fail
-	time.Sleep(200 * time.Millisecond)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "validator failed for field \"ExportJob.output_path\"")
 }
 
 func TestExportIndividualHighlights_EmptyOutputFolder(t *testing.T) {
@@ -81,16 +79,10 @@ func TestExportIndividualHighlights_EmptyOutputFolder(t *testing.T) {
 	clip := createTestVideoClip(t, client, ctx, proj, "TestClip")
 	createTestHighlight(t, client, ctx, clip, 10.0, 20.0)
 
-	// Test with empty output folder
-	jobID, err := service.ExportIndividualHighlights(proj.ID, "")
-	require.NoError(t, err) // Job creation should succeed
-
-	// But background processing should fail
-	time.Sleep(200 * time.Millisecond)
-	
-	progress, err := service.GetExportProgress(jobID)
-	require.NoError(t, err)
-	assert.Equal(t, "failed", progress.Stage)
+	// Test with empty output folder - should fail at job creation due to validation
+	_, err := service.ExportIndividualHighlights(proj.ID, "")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "validator failed for field \"ExportJob.output_path\"")
 }
 
 func TestGetExportProgress_DatabaseClosed(t *testing.T) {
@@ -147,7 +139,7 @@ func TestCancelExport_DatabaseClosed(t *testing.T) {
 	// Test cancel with closed database
 	err = service.CancelExport(jobID)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "export job not found")
+	assert.Contains(t, err.Error(), "job not found")
 }
 
 func TestExportWithNonExistentVideoFiles(t *testing.T) {
@@ -571,6 +563,9 @@ func TestMemoryLeakPrevention(t *testing.T) {
 	// Start multiple exports and cancel them quickly
 	var jobIDs []string
 	for i := 0; i < 5; i++ {
+		// Add some delay to ensure unique timestamps in job IDs
+		time.Sleep(10 * time.Millisecond)
+		
 		jobID, err := service.ExportIndividualHighlights(proj.ID, tempDir)
 		require.NoError(t, err)
 		jobIDs = append(jobIDs, jobID)

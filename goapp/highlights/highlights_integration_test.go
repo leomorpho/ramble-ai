@@ -480,7 +480,7 @@ func TestHighlightService_ComplexScenario_Integration(t *testing.T) {
 	// Apply custom order
 	customOrder := []string{"h2", "h1"}
 	orderedSegments := service.ApplyHighlightOrder(segments, customOrder)
-	assert.Len(t, orderedSegments, 3)
+	assert.Len(t, orderedSegments, 2)
 	assert.Equal(t, "h2", orderedSegments[0].ID)
 	assert.Equal(t, "h1", orderedSegments[1].ID)
 

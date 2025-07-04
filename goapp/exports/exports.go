@@ -82,7 +82,7 @@ func NewExportService(client *ent.Client, ctx context.Context) *ExportService {
 // ExportStitchedHighlights exports all highlights from a project as a single stitched video
 func (s *ExportService) ExportStitchedHighlights(projectID int, outputFolder string) (string, error) {
 	// Generate unique job ID
-	jobID := fmt.Sprintf("export_%d_%d", projectID, time.Now().Unix())
+	jobID := fmt.Sprintf("export_%d_%d", projectID, time.Now().UnixNano())
 
 	// Create database record
 	// Get the project to create relation
@@ -126,7 +126,7 @@ func (s *ExportService) ExportStitchedHighlights(projectID int, outputFolder str
 // ExportIndividualHighlights exports each highlight as a separate video file
 func (s *ExportService) ExportIndividualHighlights(projectID int, outputFolder string) (string, error) {
 	// Generate unique job ID
-	jobID := fmt.Sprintf("export_%d_%d", projectID, time.Now().Unix())
+	jobID := fmt.Sprintf("export_%d_%d", projectID, time.Now().UnixNano())
 
 	// Create database record
 	// Get the project to create relation
@@ -215,8 +215,17 @@ func (s *ExportService) CancelExport(jobID string) error {
 		activeJobsMutex.RUnlock()
 	}
 
-	// Update database status
+	// Update database status - first check if job exists
 	_, err := s.client.ExportJob.
+		Query().
+		Where(exportjob.JobID(jobID)).
+		Only(s.ctx)
+
+	if err != nil {
+		return fmt.Errorf("job not found: %w", err)
+	}
+
+	_, err = s.client.ExportJob.
 		Update().
 		Where(exportjob.JobID(jobID)).
 		SetIsCancelled(true).

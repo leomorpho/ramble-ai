@@ -104,6 +104,10 @@ export namespace exports {
 	    hasError: boolean;
 	    errorMessage: string;
 	    isCancelled: boolean;
+	    exportType: string;
+	    outputPath: string;
+	    // Go type: time
+	    completedAt?: any;
 	
 	    static createFrom(source: any = {}) {
 	        return new ExportProgress(source);
@@ -121,7 +125,28 @@ export namespace exports {
 	        this.hasError = source["hasError"];
 	        this.errorMessage = source["errorMessage"];
 	        this.isCancelled = source["isCancelled"];
+	        this.exportType = source["exportType"];
+	        this.outputPath = source["outputPath"];
+	        this.completedAt = this.convertValues(source["completedAt"], null);
 	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 
 }

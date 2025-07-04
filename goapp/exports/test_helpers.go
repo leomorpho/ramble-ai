@@ -59,8 +59,12 @@ func createTestVideoClip(t testing.TB, client *ent.Client, ctx context.Context, 
 func createTestHighlight(t testing.TB, client *ent.Client, ctx context.Context, clip *ent.VideoClip, start, end float64) string {
 	highlightID := fmt.Sprintf("h_%d", time.Now().UnixNano())
 	
+	// Get fresh clip data to ensure we have latest highlights
+	freshClip, err := client.VideoClip.Get(ctx, clip.ID)
+	require.NoError(t, err)
+	
 	// Get existing highlights
-	existingHighlights := clip.Highlights
+	existingHighlights := freshClip.Highlights
 	
 	// Add new highlight
 	newHighlight := schema.Highlight{
@@ -73,8 +77,8 @@ func createTestHighlight(t testing.TB, client *ent.Client, ctx context.Context, 
 	updatedHighlights := append(existingHighlights, newHighlight)
 	
 	// Update video clip with new highlights
-	_, err := client.VideoClip.
-		UpdateOne(clip).
+	_, err = client.VideoClip.
+		UpdateOne(freshClip).
 		SetHighlights(updatedHighlights).
 		Save(ctx)
 	require.NoError(t, err)
