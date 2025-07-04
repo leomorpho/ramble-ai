@@ -42,7 +42,8 @@ export async function jumpToHighlight(
   highlights,
   updateTimeAndHighlight,
   isPlaying,
-  startProgressTracking
+  startProgressTracking,
+  setIsBuffering
 ) {
   if (!movie || highlightIndex < 0 || highlightIndex >= highlights.length)
     return;
@@ -53,25 +54,63 @@ export async function jumpToHighlight(
   console.log(
     `Jumping to highlight ${highlightIndex} at time ${targetTime}s`
   );
+
+  const wasPlaying = isPlaying && !movie.paused;
+  
+  // Set buffering state if we were playing
+  if (wasPlaying) {
+    setIsBuffering(true);
+    console.log("Starting buffering for jump to highlight", highlightIndex);
+  }
+
+  // Seek to the target time
   movie.currentTime = targetTime;
 
   // Update time and highlight index immediately
   updateTimeAndHighlight();
 
-  // Continue playing if we were already playing
-  if (isPlaying && movie.paused) {
-    try {
-      await movie.play();
-      // Ensure progress tracking continues
+  try {
+    // Use refresh() to load the frame at the new position
+    await movie.refresh();
+    console.log("Frame refreshed for highlight", highlightIndex);
+
+    // Continue playing if we were already playing
+    if (wasPlaying && movie.paused) {
+      console.log("Resuming playback after jump buffering");
+      
+      // Use play() with onStart callback to ensure we wait for readiness
+      await movie.play({
+        onStart: () => {
+          console.log("Playback started after highlight jump, clearing buffering state");
+          setIsBuffering(false);
+          startProgressTracking();
+        }
+      });
+    } else if (wasPlaying && !movie.paused) {
+      // Already playing, just ensure progress tracking is active
+      setIsBuffering(false);
       startProgressTracking();
-    } catch (err) {
-      if (!err.message.includes("Already playing")) {
-        console.error("Error resuming playback:", err);
-      }
+    } else {
+      // If we weren't playing, just clear buffering state
+      setIsBuffering(false);
     }
-  } else if (isPlaying && !movie.paused) {
-    // Already playing, just ensure progress tracking is active
-    startProgressTracking();
+  } catch (err) {
+    console.error("Error during highlight jump buffering:", err);
+    setIsBuffering(false);
+    
+    // Fallback to old behavior if buffering fails
+    if (wasPlaying && movie.paused) {
+      try {
+        await movie.play();
+        startProgressTracking();
+      } catch (fallbackErr) {
+        if (!fallbackErr.message.includes("Already playing")) {
+          console.error("Error in fallback playback for highlight jump:", fallbackErr);
+        }
+      }
+    } else if (wasPlaying && !movie.paused) {
+      startProgressTracking();
+    }
   }
 }
 
@@ -83,22 +122,57 @@ export async function handleTimelineSeek(
   isInitialized,
   updateTimeAndHighlight,
   isPlaying,
-  startProgressTracking
+  startProgressTracking,
+  setIsBuffering
 ) {
   if (!movie || !isInitialized) return;
 
+  const wasPlaying = isPlaying && !movie.paused;
+  
+  // Set buffering state if we were playing
+  if (wasPlaying) {
+    setIsBuffering(true);
+    console.log("Starting buffering for seek to", targetTime);
+  }
+
+  // Seek to the target time
   movie.currentTime = Math.max(0, Math.min(targetTime, totalDuration));
   updateTimeAndHighlight();
 
-  // Resume playing if we were playing before seeking
-  if (isPlaying && movie.paused) {
-    try {
-      await movie.play();
-      startProgressTracking();
-    } catch (err) {
-      // Ignore "already playing" errors
-      if (!err.message.includes("Already playing")) {
-        console.error("Error resuming playback after seek:", err);
+  try {
+    // Use refresh() to load the frame at the new position
+    await movie.refresh();
+    console.log("Frame refreshed at", targetTime);
+
+    // Resume playing if we were playing before seeking
+    if (wasPlaying && movie.paused) {
+      console.log("Resuming playback after buffering");
+      
+      // Use play() with onStart callback to ensure we wait for readiness
+      await movie.play({
+        onStart: () => {
+          console.log("Playback actually started, clearing buffering state");
+          setIsBuffering(false);
+          startProgressTracking();
+        }
+      });
+    } else {
+      // If we weren't playing, just clear buffering state
+      setIsBuffering(false);
+    }
+  } catch (err) {
+    console.error("Error during seek buffering:", err);
+    setIsBuffering(false);
+    
+    // Fallback to old behavior if buffering fails
+    if (wasPlaying && movie.paused) {
+      try {
+        await movie.play();
+        startProgressTracking();
+      } catch (fallbackErr) {
+        if (!fallbackErr.message.includes("Already playing")) {
+          console.error("Error in fallback playback:", fallbackErr);
+        }
       }
     }
   }

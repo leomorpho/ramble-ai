@@ -67,6 +67,9 @@
   let isInitialized = $state(false);
   let initializationError = $state(null);
 
+  // Buffering state for seeking
+  let isBuffering = $state(false);
+
   // Progress tracker instance
   const progressTracker = createProgressTracker();
 
@@ -172,7 +175,8 @@
       highlights,
       updateTimeAndHighlightWrapper,
       isPlaying,
-      startProgressTrackingWrapper
+      startProgressTrackingWrapper,
+      (buffering) => { isBuffering = buffering; }
     );
   }
 
@@ -207,7 +211,8 @@
       isInitialized,
       updateTimeAndHighlightWrapper,
       isPlaying,
-      startProgressTrackingWrapper
+      startProgressTrackingWrapper,
+      (buffering) => { isBuffering = buffering; }
     );
   }
 
@@ -648,6 +653,20 @@
                 Error: {initializationError}
               </p>
             {/if}
+          </div>
+        </div>
+      {/if}
+
+      <!-- Buffering indicator -->
+      {#if isBuffering}
+        <div
+          class="absolute inset-0 flex items-center justify-center bg-black/50 text-white"
+        >
+          <div class="text-center">
+            <div
+              class="animate-spin w-6 h-6 border-2 border-white border-t-transparent rounded-full mx-auto mb-2"
+            ></div>
+            <p class="text-sm">Buffering...</p>
           </div>
         </div>
       {/if}
