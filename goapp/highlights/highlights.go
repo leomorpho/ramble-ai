@@ -471,10 +471,16 @@ func (s *HighlightService) timeToWordIndex(timeSeconds float64, transcriptWords 
 		return 0
 	}
 	
-	// Find the word that contains this time
+	// First pass: find word that starts at exactly this time
 	for i, word := range transcriptWords {
-		// If the time falls within this word's duration
-		if timeSeconds >= word.Start && timeSeconds <= word.End {
+		if timeSeconds == word.Start {
+			return i
+		}
+	}
+	
+	// Second pass: find word that contains this time
+	for i, word := range transcriptWords {
+		if timeSeconds > word.Start && timeSeconds <= word.End {
 			return i
 		}
 		// If the time is before this word starts, return this index
@@ -521,7 +527,7 @@ func (s *HighlightService) wordIndexToTime(wordIndex int, transcriptWords []sche
 
 // extractTextFromWordRange extracts text from a range of words
 func (s *HighlightService) extractTextFromWordRange(words []schema.Word, startIndex, endIndex int) string {
-	if startIndex < 0 || endIndex >= len(words) || startIndex > endIndex {
+	if startIndex < 0 || endIndex > len(words) || startIndex > endIndex {
 		return ""
 	}
 

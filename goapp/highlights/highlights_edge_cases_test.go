@@ -264,8 +264,8 @@ func TestHighlightService_timeToWordIndex_BoundaryConditions(t *testing.T) {
 				{Word: "world", Start: 1.0, End: 1.5},
 				{Word: "test", Start: 1.0002, End: 1.6},
 			},
-			expectedIndex: 2,
-			description:   "Should handle very small time differences",
+			expectedIndex: 1,
+			description:   "Should return word that contains the time",
 		},
 	}
 
@@ -381,8 +381,8 @@ func TestHighlightService_extractTextFromWordRange_InvalidRanges(t *testing.T) {
 			name:         "Start index equals end index",
 			startIndex:   1,
 			endIndex:     1,
-			expectedText: "world",
-			description:  "Should return single word when start equals end",
+			expectedText: "",
+			description:  "Should return empty string when start equals end (exclusive end)",
 		},
 		{
 			name:         "Start index greater than end index",
@@ -416,8 +416,8 @@ func TestHighlightService_extractTextFromWordRange_InvalidRanges(t *testing.T) {
 			name:         "End index at array length",
 			startIndex:   0,
 			endIndex:     3,
-			expectedText: "",
-			description:  "Should return empty string when end index equals array length",
+			expectedText: "Hello world test",
+			description:  "Should extract all words when end index equals array length (exclusive end)",
 		},
 	}
 
@@ -539,7 +539,7 @@ func TestHighlightService_LargeDatasets(t *testing.T) {
 	text := service.extractTextFromWordRange(largeWords, 0, 99)
 	assert.NotEmpty(t, text)
 	assert.Contains(t, text, "word0")
-	assert.Contains(t, text, "word99")
+	assert.Contains(t, text, "word98") // End is exclusive, so 99 extracts up to word98
 
 	// Test with large number of segments
 	var largeSegments []HighlightSegment
@@ -571,7 +571,7 @@ func TestHighlightService_UnicodeAndSpecialCharacters(t *testing.T) {
 		{Word: "naïve", Start: 2.0, End: 2.5},
 	}
 
-	text := service.extractTextFromWordRange(unicodeWords, 0, 4)
+	text := service.extractTextFromWordRange(unicodeWords, 0, 5)
 	assert.Equal(t, "Hello 世界 🌍 café naïve", text)
 
 	// Test with very long words
@@ -580,7 +580,7 @@ func TestHighlightService_UnicodeAndSpecialCharacters(t *testing.T) {
 		{Word: "pneumonoultramicroscopicsilicovolcanoconiosis", Start: 1.0, End: 2.0},
 	}
 
-	text = service.extractTextFromWordRange(longWords, 0, 1)
+	text = service.extractTextFromWordRange(longWords, 0, 2)
 	assert.Contains(t, text, "supercalifragilisticexpialidocious")
 	assert.Contains(t, text, "pneumonoultramicroscopicsilicovolcanoconiosis")
 
@@ -592,6 +592,6 @@ func TestHighlightService_UnicodeAndSpecialCharacters(t *testing.T) {
 		{Word: "normal", Start: 0.3, End: 0.4},
 	}
 
-	text = service.extractTextFromWordRange(specialWords, 0, 3)
+	text = service.extractTextFromWordRange(specialWords, 0, 4)
 	assert.Contains(t, text, "normal")
 }

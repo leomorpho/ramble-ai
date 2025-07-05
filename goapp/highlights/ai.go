@@ -381,9 +381,9 @@ func (s *AIService) filterValidHighlightSuggestions(suggestions []HighlightSugge
 		suggestionStartTime := s.highlightService.WordIndexToTime(suggestion.Start, transcriptWords)
 		suggestionEndTime := s.highlightService.WordIndexToTime(suggestion.End, transcriptWords)
 
-		// For the end time, use the end of the last word
-		if suggestion.End < len(transcriptWords) {
-			suggestionEndTime = transcriptWords[suggestion.End].End
+		// For the end time, use the end of the last word (End is exclusive, so use End-1)
+		if suggestion.End > 0 && suggestion.End <= len(transcriptWords) {
+			suggestionEndTime = transcriptWords[suggestion.End-1].End
 		}
 
 		// Check for overlap with existing highlights using time-based comparison
@@ -406,8 +406,8 @@ func (s *AIService) filterValidHighlightSuggestions(suggestions []HighlightSugge
 				validStartTime := s.highlightService.WordIndexToTime(validSuggestion.Start, transcriptWords)
 				validEndTime := s.highlightService.WordIndexToTime(validSuggestion.End, transcriptWords)
 
-				if validSuggestion.End < len(transcriptWords) {
-					validEndTime = transcriptWords[validSuggestion.End].End
+				if validSuggestion.End > 0 && validSuggestion.End <= len(transcriptWords) {
+					validEndTime = transcriptWords[validSuggestion.End-1].End
 				}
 
 				if suggestionStartTime < validEndTime && suggestionEndTime > validStartTime {

@@ -149,8 +149,8 @@ func TestHighlightService_TimeToWordIndex(t *testing.T) {
 		{
 			name:           "Between words",
 			timeSeconds:    1.25,
-			expectedIndex:  3,
-			description:    "Should return next word index when time is between words",
+			expectedIndex:  2,
+			description:    "Should return word index that contains the time",
 		},
 	}
 
@@ -226,21 +226,21 @@ func TestHighlightService_extractTextFromWordRange(t *testing.T) {
 		{
 			name:         "Single word",
 			startIndex:   0,
-			endIndex:     0,
+			endIndex:     1,
 			expectedText: "Hello",
 			description:  "Should extract single word",
 		},
 		{
 			name:         "Multiple words",
 			startIndex:   0,
-			endIndex:     2,
+			endIndex:     3,
 			expectedText: "Hello world this",
 			description:  "Should extract multiple words",
 		},
 		{
 			name:         "Full range",
 			startIndex:   0,
-			endIndex:     9,
+			endIndex:     10,
 			expectedText: "Hello world this is a test transcript with multiple words",
 			description:  "Should extract all words",
 		},
@@ -536,7 +536,7 @@ func TestHighlightService_extractTextFromWordRange_EdgeCases(t *testing.T) {
 	singleWord := []schema.Word{
 		{Word: "Hello", Start: 0.0, End: 0.5},
 	}
-	result = service.extractTextFromWordRange(singleWord, 0, 0)
+	result = service.extractTextFromWordRange(singleWord, 0, 1)
 	assert.Equal(t, "Hello", result)
 
 	// Test with words containing special characters
@@ -546,7 +546,7 @@ func TestHighlightService_extractTextFromWordRange_EdgeCases(t *testing.T) {
 		{Word: "How's", Start: 1.0, End: 1.5},
 		{Word: "everything?", Start: 1.5, End: 2.0},
 	}
-	result = service.extractTextFromWordRange(specialWords, 0, 3)
+	result = service.extractTextFromWordRange(specialWords, 0, 4)
 	assert.Equal(t, "Hello, world! How's everything?", result)
 }
 

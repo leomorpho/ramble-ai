@@ -101,7 +101,7 @@ func TestHighlightService_GetSuggestedHighlights_Integration(t *testing.T) {
 	suggestion := suggestions[0]
 	assert.Equal(t, "s1", suggestion.ID)
 	assert.Equal(t, "yellow", suggestion.Color)
-	assert.Equal(t, "this is a", suggestion.Text)
+	assert.Equal(t, "this is", suggestion.Text)
 	assert.Equal(t, 2, suggestion.Start) // Word index
 	assert.Equal(t, 4, suggestion.End)   // Word index
 }
