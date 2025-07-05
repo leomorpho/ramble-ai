@@ -185,6 +185,13 @@ func (s *AIService) callOpenRouterForHighlightSuggestions(apiKey string, model s
 	// Build the prompt for AI highlight suggestions
 	prompt := s.buildHighlightSuggestionsPrompt(transcriptWords, existingHighlights, customPrompt)
 
+	// Debug log prompt
+	log.Printf("=== AI HIGHLIGHT SUGGESTIONS PROMPT ===")
+	log.Printf("Model: %s", model)
+	log.Printf("Prompt length: %d characters", len(prompt))
+	log.Printf("Prompt content: %s", prompt)
+	log.Printf("============================================")
+
 	// Create request payload
 	requestData := OpenRouterRequest{
 		Model: model,
@@ -247,10 +254,25 @@ func (s *AIService) callOpenRouterForHighlightSuggestions(apiKey string, model s
 
 	// Extract the highlight suggestions from the AI response
 	aiResponse := openRouterResp.Choices[0].Message.Content
+
+	// Debug log response
+	log.Printf("=== AI HIGHLIGHT SUGGESTIONS RESPONSE ===")
+	log.Printf("Response length: %d characters", len(aiResponse))
+	log.Printf("Response content: %s", aiResponse)
+	log.Printf("==============================================")
+
 	suggestions, err := s.parseAIHighlightSuggestionsResponse(aiResponse, transcriptWords)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse AI highlight suggestions response: %w", err)
 	}
+
+	// Debug log parsed suggestions
+	log.Printf("=== PARSED AI SUGGESTIONS ===")
+	log.Printf("Parsed %d suggestions:", len(suggestions))
+	for i, suggestion := range suggestions {
+		log.Printf("  %d. ID: %s, Start: %d, End: %d, Text: %s", i+1, suggestion.ID, suggestion.Start, suggestion.End, suggestion.Text)
+	}
+	log.Printf("==============================")
 
 	return suggestions, nil
 }
@@ -330,7 +352,7 @@ func (s *AIService) parseAIHighlightSuggestionsResponse(aiResponse string, trans
 
 		// Extract text
 		var textParts []string
-		for j := raw.Start; j <= raw.End; j++ {
+		for j := raw.Start; j < raw.End; j++ {
 			textParts = append(textParts, transcriptWords[j].Word)
 		}
 		text := strings.Join(textParts, " ")
@@ -410,15 +432,24 @@ func (s *AIService) filterValidHighlightSuggestions(suggestions []HighlightSugge
 
 // saveSuggestedHighlights saves suggested highlights to the database
 func (s *AIService) saveSuggestedHighlights(videoID int, suggestions []HighlightSuggestion, transcriptWords []schema.Word) error {
+	// Debug log suggestions before saving
+	log.Printf("=== SAVING SUGGESTED HIGHLIGHTS ===")
+	log.Printf("VideoID: %d", videoID)
+	log.Printf("Number of suggestions to save: %d", len(suggestions))
+	for i, suggestion := range suggestions {
+		log.Printf("  Input suggestion %d: ID=%s, Start=%d, End=%d, Text=%s", i+1, suggestion.ID, suggestion.Start, suggestion.End, suggestion.Text)
+	}
+	log.Printf("=====================================")
+
 	// Convert suggestions to schema.Highlight format with time-based coordinates
 	var highlights []schema.Highlight
 	for _, suggestion := range suggestions {
 		startTime := s.highlightService.WordIndexToTime(suggestion.Start, transcriptWords)
 		endTime := s.highlightService.WordIndexToTime(suggestion.End, transcriptWords)
 
-		// For the end time, use the end of the last word
-		if suggestion.End < len(transcriptWords) {
-			endTime = transcriptWords[suggestion.End].End
+		// For the end time, use the end of the last word (End is exclusive, so use End-1)
+		if suggestion.End > 0 && suggestion.End <= len(transcriptWords) {
+			endTime = transcriptWords[suggestion.End-1].End
 		}
 
 		highlight := schema.Highlight{
@@ -429,6 +460,13 @@ func (s *AIService) saveSuggestedHighlights(videoID int, suggestions []Highlight
 		}
 		highlights = append(highlights, highlight)
 	}
+
+	// Debug log converted highlights before database save
+	log.Printf("=== CONVERTED HIGHLIGHTS FOR DATABASE ===")
+	for i, highlight := range highlights {
+		log.Printf("  Converted highlight %d: ID=%s, Start=%.3f, End=%.3f, Color=%s", i+1, highlight.ID, highlight.Start, highlight.End, highlight.Color)
+	}
+	log.Printf("=========================================")
 
 	_, err := s.client.VideoClip.
 		UpdateOneID(videoID).
@@ -612,6 +650,14 @@ func (s *AIService) callOpenRouterForReordering(apiKey string, model string, hig
 	// Build the prompt for AI reordering
 	prompt := s.buildReorderingPrompt(highlightMap, customPrompt)
 
+	// Debug log prompt
+	log.Printf("=== AI REORDERING PROMPT ===")
+	log.Printf("Model: %s", model)
+	log.Printf("Highlight count: %d", len(highlightMap))
+	log.Printf("Prompt length: %d characters", len(prompt))
+	log.Printf("Prompt content: %s", prompt)
+	log.Printf("==============================")
+
 	// Create request payload
 	requestData := OpenRouterRequest{
 		Model: model, // Use the project-specific model
@@ -674,10 +720,25 @@ func (s *AIService) callOpenRouterForReordering(apiKey string, model string, hig
 
 	// Extract the reordered IDs from the AI response
 	aiResponse := openRouterResp.Choices[0].Message.Content
+
+	// Debug log response
+	log.Printf("=== AI REORDERING RESPONSE ===")
+	log.Printf("Response length: %d characters", len(aiResponse))
+	log.Printf("Response content: %s", aiResponse)
+	log.Printf("================================")
+
 	reorderedIDs, err := s.parseAIReorderingResponse(aiResponse)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse AI response: %w", err)
 	}
+
+	// Debug log parsed reordering
+	log.Printf("=== PARSED AI REORDERING ===")
+	log.Printf("Parsed %d reordered IDs:", len(reorderedIDs))
+	for i, id := range reorderedIDs {
+		log.Printf("  %d. %s", i+1, id)
+	}
+	log.Printf("==============================")
 
 	return reorderedIDs, nil
 }

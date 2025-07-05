@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 
@@ -89,23 +90,67 @@ func (s *HighlightService) GetSuggestedHighlights(videoID int) ([]HighlightSugge
 		return nil, fmt.Errorf("failed to get video clip: %w", err)
 	}
 
+	// Debug log database highlights
+	log.Printf("=== GET SUGGESTED HIGHLIGHTS FROM DATABASE ===")
+	log.Printf("VideoID: %d", videoID)
+	log.Printf("Number of stored highlights: %d", len(clip.SuggestedHighlights))
+	for i, h := range clip.SuggestedHighlights {
+		log.Printf("  Stored highlight %d: ID=%s, Start=%.3f, End=%.3f, Color=%s", i+1, h.ID, h.Start, h.End, h.Color)
+	}
+	log.Printf("===============================================")
+
 	var suggestions []HighlightSuggestion
-	for _, h := range clip.SuggestedHighlights {
+	for i, h := range clip.SuggestedHighlights {
 		// Convert time-based highlight to word index for text extraction
 		startIndex := s.timeToWordIndex(h.Start, clip.TranscriptionWords)
-		endIndex := s.timeToWordIndex(h.End, clip.TranscriptionWords)
+		endIndex := s.timeToWordIndexForEnd(h.End, clip.TranscriptionWords)
+
+		// Debug log conversion
+		log.Printf("  Converting highlight %d: Time(%.3f-%.3f) -> WordIndex(%d-%d)", i+1, h.Start, h.End, startIndex, endIndex)
+		
+		// Additional debug: show what words are at these times
+		if startIndex < len(clip.TranscriptionWords) {
+			log.Printf("    Start: Time %.3f -> Word[%d]='%s' (%.3f-%.3f)", h.Start, startIndex, 
+				clip.TranscriptionWords[startIndex].Word, 
+				clip.TranscriptionWords[startIndex].Start, 
+				clip.TranscriptionWords[startIndex].End)
+		}
+		if endIndex < len(clip.TranscriptionWords) {
+			log.Printf("    End: Time %.3f -> Word[%d]='%s' (%.3f-%.3f)", h.End, endIndex,
+				clip.TranscriptionWords[endIndex].Word,
+				clip.TranscriptionWords[endIndex].Start,
+				clip.TranscriptionWords[endIndex].End)
+		}
+		if endIndex > 0 && endIndex-1 < len(clip.TranscriptionWords) {
+			log.Printf("    Previous word: Word[%d]='%s' (%.3f-%.3f)", endIndex-1,
+				clip.TranscriptionWords[endIndex-1].Word,
+				clip.TranscriptionWords[endIndex-1].Start,
+				clip.TranscriptionWords[endIndex-1].End)
+		}
 
 		// Extract text from the transcript
 		text := s.extractTextFromWordRange(clip.TranscriptionWords, startIndex, endIndex)
 
-		suggestions = append(suggestions, HighlightSuggestion{
+		// Debug log extracted text
+		log.Printf("  Extracted text %d: '%s'", i+1, text)
+
+		suggestion := HighlightSuggestion{
 			ID:    h.ID,
 			Start: startIndex,
 			End:   endIndex,
 			Text:  text,
 			Color: h.Color,
-		})
+		}
+		suggestions = append(suggestions, suggestion)
 	}
+
+	// Debug log final suggestions being returned
+	log.Printf("=== FINAL SUGGESTIONS BEING RETURNED ===")
+	log.Printf("Returning %d suggestions:", len(suggestions))
+	for i, s := range suggestions {
+		log.Printf("  Final suggestion %d: ID=%s, Start=%d, End=%d, Text=%s", i+1, s.ID, s.Start, s.End, s.Text)
+	}
+	log.Printf("========================================")
 
 	return suggestions, nil
 }
@@ -421,12 +466,39 @@ func (s *HighlightService) extractHighlightText(highlight schema.Highlight, word
 
 // timeToWordIndex converts time in seconds to approximate word index
 func (s *HighlightService) timeToWordIndex(timeSeconds float64, transcriptWords []schema.Word) int {
+	// Special case: if time is 0 or negative, return 0
+	if timeSeconds <= 0 {
+		return 0
+	}
+	
+	// Find the word that contains this time
 	for i, word := range transcriptWords {
-		if word.Start >= timeSeconds {
+		// If the time falls within this word's duration
+		if timeSeconds >= word.Start && timeSeconds <= word.End {
+			return i
+		}
+		// If the time is before this word starts, return this index
+		if word.Start > timeSeconds {
 			return i
 		}
 	}
 	return len(transcriptWords) - 1
+}
+
+// timeToWordIndexForEnd converts end time back to word index (inverse of saving logic)
+func (s *HighlightService) timeToWordIndexForEnd(timeSeconds float64, transcriptWords []schema.Word) int {
+	// This is the inverse of: endTime = transcriptWords[suggestion.End-1].End
+	// We need to find the word whose end time matches (or is closest to) the given time,
+	// then return the index + 1 to get back to the exclusive end index
+	
+	// Find the last word whose end time is <= the given time
+	for i := len(transcriptWords) - 1; i >= 0; i-- {
+		if transcriptWords[i].End <= timeSeconds + 0.001 { // Small epsilon for floating point comparison
+			// The saved time was from word i, so the exclusive end index is i+1
+			return i + 1
+		}
+	}
+	return 0
 }
 
 // TimeToWordIndex converts time in seconds to approximate word index (public method)
@@ -454,7 +526,7 @@ func (s *HighlightService) extractTextFromWordRange(words []schema.Word, startIn
 	}
 
 	var textParts []string
-	for i := startIndex; i <= endIndex; i++ {
+	for i := startIndex; i < endIndex; i++ {
 		textParts = append(textParts, words[i].Word)
 	}
 
