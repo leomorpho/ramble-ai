@@ -1,5 +1,6 @@
 <script>
   import HighlightMenu from "./HighlightMenu.svelte";
+  import TimeGap from "./ui/TimeGap.svelte";
 
   let {
     highlight,
@@ -17,7 +18,25 @@
     onDelete = () => {},
     popoverOpen = false,
     onPopoverOpenChange = () => {},
+    words = [], // Transcription words for this highlight
   } = $props();
+  
+  // Function to calculate pause duration between two consecutive words
+  function getPauseDuration(wordIndex) {
+    if (!words || words.length === 0 || wordIndex >= words.length - 1) {
+      return 0;
+    }
+    
+    const currentWord = words[wordIndex];
+    const nextWord = words[wordIndex + 1];
+    
+    if (!currentWord || !nextWord) {
+      return 0;
+    }
+    
+    // Pause is the gap between current word end and next word start
+    return nextWord.start - currentWord.end;
+  }
 </script>
 
 <!-- Drop indicator before this highlight -->
@@ -39,12 +58,27 @@
   ondrop={(e) => onDrop(e, index)}
   role="button"
   tabindex="0"
-  >{highlight.text ||
-    highlight.videoClipName}<!--
---><!-- Eye icon inside highlight --><!--
---><span
-    class="inline-flex items-center ml-1"
-  >
+>
+  {#if words && words.length > 0}
+    <!-- Show individual words with pauses -->
+    {#each words as word, wordIndex}
+      <span class="inline">{word.word}</span>
+      
+      <!-- Show pause between words -->
+      {#if wordIndex < words.length - 1}
+        {@const pauseDuration = getPauseDuration(wordIndex)}
+        {#if pauseDuration > 0}
+          <TimeGap duration={pauseDuration} showNormal={false} size="xs" />
+        {/if}
+      {/if}
+    {/each}
+  {:else}
+    <!-- Fallback to highlight text if no words available -->
+    {highlight.text || highlight.videoClipName}
+  {/if}
+  
+  <!-- Eye icon inside highlight -->
+  <span class="inline-flex items-center ml-1">
     <HighlightMenu
       {highlight}
       {onEdit}
@@ -54,8 +88,8 @@
       iconSize="w-3 h-3"
       triggerSize="w-5 h-5"
     />
-  </span></span
->
+  </span>
+</span>
 
 <style>
   /* Natural text flow highlight spans */

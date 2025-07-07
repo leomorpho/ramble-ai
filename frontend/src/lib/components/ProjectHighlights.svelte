@@ -1,6 +1,6 @@
 <script>
   import { onDestroy } from "svelte";
-  import { GetVideoURL } from "$lib/wailsjs/go/main/App";
+  import { GetVideoURL, GetVideoClipsByProject } from "$lib/wailsjs/go/main/App";
   import { toast } from "svelte-sonner";
   import { Play, Film, Sparkles, Clock, Undo, Redo } from "@lucide/svelte";
   import {
@@ -17,7 +17,6 @@
   import ClipEditor from "$lib/components/ClipEditor.svelte";
   import HighlightItem from "$lib/components/HighlightItem.svelte";
   import AIReorderSheet from "$lib/components/AIReorderSheet.svelte";
-  import TimeGap from "$lib/components/ui/TimeGap.svelte";
   import {
     updateHighlightOrder,
     deleteHighlight,
@@ -62,12 +61,48 @@
 
   // AI silence improvement state
   let aiSilenceLoading = $state(false);
+  
+  // Video clips with transcription words for internal pause analysis
+  let videoClipsWithWords = $state(new Map());
 
   // Video player play/pause function reference
   let playPauseRef = $state({ current: null });
 
   // Popover state management
   let popoverStates = $state(new Map());
+
+  // Load video clips with transcription words for pause analysis
+  $effect(() => {
+    if (projectId && highlights.length > 0) {
+      loadVideoClipsWithWords();
+    }
+  });
+  
+  async function loadVideoClipsWithWords() {
+    try {
+      const clips = await GetVideoClipsByProject(projectId);
+      const clipsMap = new Map();
+      clips.forEach(clip => {
+        if (clip.transcriptionWords && clip.transcriptionWords.length > 0) {
+          clipsMap.set(clip.id, clip.transcriptionWords);
+        }
+      });
+      videoClipsWithWords = clipsMap;
+    } catch (error) {
+      console.error("Failed to load video clips with words:", error);
+    }
+  }
+  
+  // Function to get transcription words for a highlight
+  function getHighlightWords(highlight) {
+    const words = videoClipsWithWords.get(highlight.videoClipId);
+    if (!words || words.length === 0) return [];
+    
+    // Find words within this highlight's time range
+    return words.filter(word => 
+      word.start >= highlight.start && word.end <= highlight.end
+    );
+  }
 
   // Cleanup on unmount
   onDestroy(() => {
@@ -667,18 +702,8 @@
                   closePopover(highlight.id);
                 }
               }}
+              words={getHighlightWords(highlight)}
             />
-            
-            <!-- Time gap between highlights -->
-            {#if index < highlights.length - 1}
-              {@const currentEnd = highlight.end}
-              {@const nextStart = highlights[index + 1].start}
-              {@const gapDuration = nextStart - currentEnd}
-              
-              {#if gapDuration > 0}
-                <TimeGap duration={gapDuration} showNormal={true} size="sm" />
-              {/if}
-            {/if}
           {/each}
 
           <!-- Drop indicator at the end -->
