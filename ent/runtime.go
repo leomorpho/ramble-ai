@@ -99,6 +99,10 @@ func init() {
 	projectDescActiveTab := projectFields[12].Descriptor()
 	// project.DefaultActiveTab holds the default value on creation for the active_tab field.
 	project.DefaultActiveTab = projectDescActiveTab.Default.(string)
+	// projectDescOrderHistoryIndex is the schema descriptor for order_history_index field.
+	projectDescOrderHistoryIndex := projectFields[17].Descriptor()
+	// project.DefaultOrderHistoryIndex holds the default value on creation for the order_history_index field.
+	project.DefaultOrderHistoryIndex = projectDescOrderHistoryIndex.Default.(int)
 	settingsFields := schema.Settings{}.Fields()
 	_ = settingsFields
 	// settingsDescKey is the schema descriptor for key field.
@@ -135,4 +139,8 @@ func init() {
 	videoclip.DefaultUpdatedAt = videoclipDescUpdatedAt.Default.(func() time.Time)
 	// videoclip.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
 	videoclip.UpdateDefaultUpdatedAt = videoclipDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// videoclipDescHighlightsHistoryIndex is the schema descriptor for highlights_history_index field.
+	videoclipDescHighlightsHistoryIndex := videoclipFields[17].Descriptor()
+	// videoclip.DefaultHighlightsHistoryIndex holds the default value on creation for the highlights_history_index field.
+	videoclip.DefaultHighlightsHistoryIndex = videoclipDescHighlightsHistoryIndex.Default.(int)
 }

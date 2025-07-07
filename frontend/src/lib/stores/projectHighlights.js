@@ -1,5 +1,5 @@
 import { writable, derived, get } from 'svelte/store';
-import { GetProjectHighlights, GetProjectHighlightOrder, UpdateProjectHighlightOrder, DeleteHighlight, UpdateVideoClipHighlights } from '$lib/wailsjs/go/main/App';
+import { GetProjectHighlights, GetProjectHighlightOrder, UpdateProjectHighlightOrder, DeleteHighlight, UpdateVideoClipHighlights, UndoOrderChange, RedoOrderChange, GetOrderHistoryStatus, UndoHighlightsChange, RedoHighlightsChange, GetHighlightsHistoryStatus } from '$lib/wailsjs/go/main/App';
 import { toast } from 'svelte-sonner';
 
 // Store for the raw highlights data from the database
@@ -13,6 +13,10 @@ export const currentProjectId = writable(null);
 
 // Store for loading states
 export const highlightsLoading = writable(false);
+
+// Store for history status (undo/redo availability)
+export const orderHistoryStatus = writable({ canUndo: false, canRedo: false });
+export const highlightsHistoryStatus = writable(new Map()); // Map of clipId -> { canUndo, canRedo }
 
 // Derived store that combines highlights with their custom order
 export const orderedHighlights = derived(
@@ -97,6 +101,9 @@ export async function loadProjectHighlights(projectId) {
     rawHighlights.set(flattenedHighlights);
     highlightOrder.set(order || []);
     
+    // Initialize history status
+    await updateOrderHistoryStatus();
+    
   } catch (error) {
     console.error('Failed to load project highlights:', error);
     toast.error('Failed to load project highlights');
@@ -128,6 +135,9 @@ export async function updateHighlightOrder(newOrder) {
     // Save to database
     await UpdateProjectHighlightOrder(projectId, highlightIds);
     
+    // Update history status after successful order change
+    await updateOrderHistoryStatus();
+    
     console.log('Updated highlight order in database:', highlightIds);
     toast.success('Highlight order updated successfully');
     
@@ -158,6 +168,8 @@ export function clearHighlights() {
   highlightOrder.set([]);
   currentProjectId.set(null);
   highlightsLoading.set(false);
+  orderHistoryStatus.set({ canUndo: false, canRedo: false });
+  highlightsHistoryStatus.set(new Map());
 }
 
 // Function to edit a highlight
@@ -211,6 +223,9 @@ export async function deleteHighlight(highlightId, videoClipId) {
     // Refresh highlights from database to get updated state
     await loadProjectHighlights(projectId);
     
+    // Update history status for this clip
+    await updateHighlightsHistoryStatus(videoClipId);
+    
     toast.success('Highlight deleted successfully');
     return true;
   } catch (error) {
@@ -255,6 +270,9 @@ export async function addHighlight(videoClipId, highlight) {
     // Refresh from database to ensure consistency
     await loadProjectHighlights(projectId);
     
+    // Update history status for this clip
+    await updateHighlightsHistoryStatus(videoClipId);
+    
     toast.success('Highlight added successfully');
     return true;
   } catch (error) {
@@ -289,11 +307,157 @@ export async function updateVideoHighlights(videoClipId, highlights) {
     // Refresh from database to ensure consistency
     await loadProjectHighlights(projectId);
     
+    // Update history status for this clip
+    await updateHighlightsHistoryStatus(videoClipId);
+    
     toast.success('Highlights updated successfully');
     return true;
   } catch (error) {
     console.error('Failed to update video highlights:', error);
     toast.error('Failed to update highlights');
+    return false;
+  }
+}
+
+// History Management Functions
+
+// Function to update order history status
+export async function updateOrderHistoryStatus() {
+  const projectId = get(currentProjectId);
+  
+  if (!projectId) {
+    orderHistoryStatus.set({ canUndo: false, canRedo: false });
+    return;
+  }
+  
+  try {
+    const status = await GetOrderHistoryStatus(projectId);
+    orderHistoryStatus.set(status);
+  } catch (error) {
+    console.error('Failed to get order history status:', error);
+    orderHistoryStatus.set({ canUndo: false, canRedo: false });
+  }
+}
+
+// Function to update highlights history status for a video clip
+export async function updateHighlightsHistoryStatus(clipId) {
+  try {
+    const status = await GetHighlightsHistoryStatus(clipId);
+    const currentMap = get(highlightsHistoryStatus);
+    currentMap.set(clipId, status);
+    highlightsHistoryStatus.set(new Map(currentMap));
+  } catch (error) {
+    console.error('Failed to get highlights history status:', error);
+    const currentMap = get(highlightsHistoryStatus);
+    currentMap.set(clipId, { canUndo: false, canRedo: false });
+    highlightsHistoryStatus.set(new Map(currentMap));
+  }
+}
+
+// Function to undo order change
+export async function undoOrderChange() {
+  const projectId = get(currentProjectId);
+  
+  if (!projectId) {
+    console.warn('No project ID available for undo order change');
+    return false;
+  }
+  
+  try {
+    const newOrder = await UndoOrderChange(projectId);
+    
+    // Update local store
+    highlightOrder.set(newOrder);
+    
+    // Update history status
+    await updateOrderHistoryStatus();
+    
+    toast.success('Order change undone');
+    return true;
+  } catch (error) {
+    console.error('Failed to undo order change:', error);
+    toast.error('Failed to undo order change');
+    return false;
+  }
+}
+
+// Function to redo order change
+export async function redoOrderChange() {
+  const projectId = get(currentProjectId);
+  
+  if (!projectId) {
+    console.warn('No project ID available for redo order change');
+    return false;
+  }
+  
+  try {
+    const newOrder = await RedoOrderChange(projectId);
+    
+    // Update local store
+    highlightOrder.set(newOrder);
+    
+    // Update history status
+    await updateOrderHistoryStatus();
+    
+    toast.success('Order change redone');
+    return true;
+  } catch (error) {
+    console.error('Failed to redo order change:', error);
+    toast.error('Failed to redo order change');
+    return false;
+  }
+}
+
+// Function to undo highlights change for a video clip
+export async function undoHighlightsChange(clipId) {
+  const projectId = get(currentProjectId);
+  
+  if (!projectId) {
+    console.warn('No project ID available for undo highlights change');
+    return false;
+  }
+  
+  try {
+    await UndoHighlightsChange(clipId);
+    
+    // Refresh highlights from database to reflect changes
+    await loadProjectHighlights(projectId);
+    
+    // Update history status for this clip
+    await updateHighlightsHistoryStatus(clipId);
+    
+    toast.success('Highlights change undone');
+    return true;
+  } catch (error) {
+    console.error('Failed to undo highlights change:', error);
+    toast.error('Failed to undo highlights change');
+    return false;
+  }
+}
+
+// Function to redo highlights change for a video clip
+export async function redoHighlightsChange(clipId) {
+  const projectId = get(currentProjectId);
+  
+  if (!projectId) {
+    console.warn('No project ID available for redo highlights change');
+    return false;
+  }
+  
+  try {
+    await RedoHighlightsChange(clipId);
+    
+    // Refresh highlights from database to reflect changes
+    await loadProjectHighlights(projectId);
+    
+    // Update history status for this clip
+    await updateHighlightsHistoryStatus(clipId);
+    
+    toast.success('Highlights change redone');
+    return true;
+  } catch (error) {
+    console.error('Failed to redo highlights change:', error);
+    toast.error('Failed to redo highlights change');
     return false;
   }
 }

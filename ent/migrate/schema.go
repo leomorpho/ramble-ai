@@ -61,6 +61,8 @@ var (
 		{Name: "ai_silence_improvements", Type: field.TypeJSON, Nullable: true},
 		{Name: "ai_silence_model", Type: field.TypeString, Nullable: true},
 		{Name: "ai_silence_created_at", Type: field.TypeTime, Nullable: true},
+		{Name: "order_history", Type: field.TypeJSON, Nullable: true},
+		{Name: "order_history_index", Type: field.TypeInt, Nullable: true, Default: -1},
 	}
 	// ProjectsTable holds the schema information for the "projects" table.
 	ProjectsTable = &schema.Table{
@@ -101,6 +103,8 @@ var (
 		{Name: "suggested_highlights", Type: field.TypeJSON, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "highlights_history", Type: field.TypeJSON, Nullable: true},
+		{Name: "highlights_history_index", Type: field.TypeInt, Nullable: true, Default: -1},
 		{Name: "project_video_clips", Type: field.TypeInt, Nullable: true},
 	}
 	// VideoClipsTable holds the schema information for the "video_clips" table.
@@ -111,7 +115,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "video_clips_projects_video_clips",
-				Columns:    []*schema.Column{VideoClipsColumns[17]},
+				Columns:    []*schema.Column{VideoClipsColumns[19]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},

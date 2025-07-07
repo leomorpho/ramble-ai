@@ -299,6 +299,20 @@ export namespace highlights {
 
 export namespace main {
 	
+	export class HistoryStatus {
+	    canUndo: boolean;
+	    canRedo: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new HistoryStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.canUndo = source["canUndo"];
+	        this.canRedo = source["canRedo"];
+	    }
+	}
 	export class ProjectAISilenceResult {
 	    improvements: highlights.ProjectHighlight[];
 	    createdAt: string;

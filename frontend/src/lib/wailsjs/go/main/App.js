@@ -66,12 +66,20 @@ export function GetExportProgress(arg1) {
   return window['go']['main']['App']['GetExportProgress'](arg1);
 }
 
+export function GetHighlightsHistoryStatus(arg1) {
+  return window['go']['main']['App']['GetHighlightsHistoryStatus'](arg1);
+}
+
 export function GetOpenAIApiKey() {
   return window['go']['main']['App']['GetOpenAIApiKey']();
 }
 
 export function GetOpenRouterApiKey() {
   return window['go']['main']['App']['GetOpenRouterApiKey']();
+}
+
+export function GetOrderHistoryStatus(arg1) {
+  return window['go']['main']['App']['GetOrderHistoryStatus'](arg1);
 }
 
 export function GetProjectAISettings(arg1) {
@@ -146,6 +154,14 @@ export function RecoverActiveExportJobs() {
   return window['go']['main']['App']['RecoverActiveExportJobs']();
 }
 
+export function RedoHighlightsChange(arg1) {
+  return window['go']['main']['App']['RedoHighlightsChange'](arg1);
+}
+
+export function RedoOrderChange(arg1) {
+  return window['go']['main']['App']['RedoOrderChange'](arg1);
+}
+
 export function ReorderHighlightsWithAI(arg1, arg2) {
   return window['go']['main']['App']['ReorderHighlightsWithAI'](arg1, arg2);
 }
@@ -196,6 +212,14 @@ export function TestOpenRouterApiKey() {
 
 export function TranscribeVideoClip(arg1) {
   return window['go']['main']['App']['TranscribeVideoClip'](arg1);
+}
+
+export function UndoHighlightsChange(arg1) {
+  return window['go']['main']['App']['UndoHighlightsChange'](arg1);
+}
+
+export function UndoOrderChange(arg1) {
+  return window['go']['main']['App']['UndoOrderChange'](arg1);
 }
 
 export function UpdateProject(arg1, arg2, arg3) {

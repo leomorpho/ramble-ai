@@ -68,6 +68,13 @@ func (Project) Fields() []ent.Field {
 		field.Time("ai_silence_created_at").
 			Optional().
 			Comment("When the AI silence improvements were created"),
+		field.JSON("order_history", [][]string{}).
+			Optional().
+			Comment("FIFO history of highlight orders (last 20 states)"),
+		field.Int("order_history_index").
+			Optional().
+			Default(-1).
+			Comment("Current position in order history (-1 = no history)"),
 	}
 }
 

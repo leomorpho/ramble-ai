@@ -293,6 +293,12 @@ type ProjectAISilenceResult struct {
 	Model        string                        `json:"model"`
 }
 
+// HistoryStatus represents the undo/redo status for Wails compatibility
+type HistoryStatus struct {
+	CanUndo bool `json:"canUndo"`
+	CanRedo bool `json:"canRedo"`
+}
+
 // GetProjectHighlights returns all highlights from all video clips in a project
 func (a *App) GetProjectHighlights(projectID int) ([]ProjectHighlight, error) {
 	service := highlights.NewHighlightService(a.client, a.ctx)
@@ -446,4 +452,58 @@ func (a *App) GetProjectAISilenceResult(projectID int) (*ProjectAISilenceResult,
 // ClearAISilenceImprovements clears cached AI silence improvements for a project
 func (a *App) ClearAISilenceImprovements(projectID int) error {
 	return highlights.ClearAISilenceImprovementsCache(a.ctx, a.client, projectID)
+}
+
+// History Management - Project Order Undo/Redo
+
+// UndoOrderChange reverts to previous state in project highlight order history
+func (a *App) UndoOrderChange(projectID int) ([]string, error) {
+	service := projects.NewProjectService(a.client, a.ctx)
+	return service.UndoOrderChange(projectID)
+}
+
+// RedoOrderChange moves forward in project highlight order history
+func (a *App) RedoOrderChange(projectID int) ([]string, error) {
+	service := projects.NewProjectService(a.client, a.ctx)
+	return service.RedoOrderChange(projectID)
+}
+
+// GetOrderHistoryStatus returns current undo/redo availability for project order
+func (a *App) GetOrderHistoryStatus(projectID int) (*HistoryStatus, error) {
+	service := projects.NewProjectService(a.client, a.ctx)
+	canUndo, canRedo, err := service.GetOrderHistoryStatus(projectID)
+	if err != nil {
+		return nil, err
+	}
+	return &HistoryStatus{
+		CanUndo: canUndo,
+		CanRedo: canRedo,
+	}, nil
+}
+
+// History Management - Video Clip Highlights Undo/Redo
+
+// UndoHighlightsChange reverts to previous state in video clip highlights history
+func (a *App) UndoHighlightsChange(clipID int) ([]projects.Highlight, error) {
+	service := projects.NewProjectService(a.client, a.ctx)
+	return service.UndoHighlightsChange(clipID)
+}
+
+// RedoHighlightsChange moves forward in video clip highlights history
+func (a *App) RedoHighlightsChange(clipID int) ([]projects.Highlight, error) {
+	service := projects.NewProjectService(a.client, a.ctx)
+	return service.RedoHighlightsChange(clipID)
+}
+
+// GetHighlightsHistoryStatus returns current undo/redo availability for video clip highlights
+func (a *App) GetHighlightsHistoryStatus(clipID int) (*HistoryStatus, error) {
+	service := projects.NewProjectService(a.client, a.ctx)
+	canUndo, canRedo, err := service.GetHighlightsHistoryStatus(clipID)
+	if err != nil {
+		return nil, err
+	}
+	return &HistoryStatus{
+		CanUndo: canUndo,
+		CanRedo: canRedo,
+	}, nil
 }

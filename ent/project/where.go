@@ -125,6 +125,11 @@ func AiSilenceCreatedAt(v time.Time) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldAiSilenceCreatedAt, v))
 }
 
+// OrderHistoryIndex applies equality check predicate on the "order_history_index" field. It's identical to OrderHistoryIndexEQ.
+func OrderHistoryIndex(v int) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldOrderHistoryIndex, v))
+}
+
 // NameEQ applies the EQ predicate on the "name" field.
 func NameEQ(v string) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldName, v))
@@ -1053,6 +1058,66 @@ func AiSilenceCreatedAtIsNil() predicate.Project {
 // AiSilenceCreatedAtNotNil applies the NotNil predicate on the "ai_silence_created_at" field.
 func AiSilenceCreatedAtNotNil() predicate.Project {
 	return predicate.Project(sql.FieldNotNull(FieldAiSilenceCreatedAt))
+}
+
+// OrderHistoryIsNil applies the IsNil predicate on the "order_history" field.
+func OrderHistoryIsNil() predicate.Project {
+	return predicate.Project(sql.FieldIsNull(FieldOrderHistory))
+}
+
+// OrderHistoryNotNil applies the NotNil predicate on the "order_history" field.
+func OrderHistoryNotNil() predicate.Project {
+	return predicate.Project(sql.FieldNotNull(FieldOrderHistory))
+}
+
+// OrderHistoryIndexEQ applies the EQ predicate on the "order_history_index" field.
+func OrderHistoryIndexEQ(v int) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldOrderHistoryIndex, v))
+}
+
+// OrderHistoryIndexNEQ applies the NEQ predicate on the "order_history_index" field.
+func OrderHistoryIndexNEQ(v int) predicate.Project {
+	return predicate.Project(sql.FieldNEQ(FieldOrderHistoryIndex, v))
+}
+
+// OrderHistoryIndexIn applies the In predicate on the "order_history_index" field.
+func OrderHistoryIndexIn(vs ...int) predicate.Project {
+	return predicate.Project(sql.FieldIn(FieldOrderHistoryIndex, vs...))
+}
+
+// OrderHistoryIndexNotIn applies the NotIn predicate on the "order_history_index" field.
+func OrderHistoryIndexNotIn(vs ...int) predicate.Project {
+	return predicate.Project(sql.FieldNotIn(FieldOrderHistoryIndex, vs...))
+}
+
+// OrderHistoryIndexGT applies the GT predicate on the "order_history_index" field.
+func OrderHistoryIndexGT(v int) predicate.Project {
+	return predicate.Project(sql.FieldGT(FieldOrderHistoryIndex, v))
+}
+
+// OrderHistoryIndexGTE applies the GTE predicate on the "order_history_index" field.
+func OrderHistoryIndexGTE(v int) predicate.Project {
+	return predicate.Project(sql.FieldGTE(FieldOrderHistoryIndex, v))
+}
+
+// OrderHistoryIndexLT applies the LT predicate on the "order_history_index" field.
+func OrderHistoryIndexLT(v int) predicate.Project {
+	return predicate.Project(sql.FieldLT(FieldOrderHistoryIndex, v))
+}
+
+// OrderHistoryIndexLTE applies the LTE predicate on the "order_history_index" field.
+func OrderHistoryIndexLTE(v int) predicate.Project {
+	return predicate.Project(sql.FieldLTE(FieldOrderHistoryIndex, v))
+}
+
+// OrderHistoryIndexIsNil applies the IsNil predicate on the "order_history_index" field.
+func OrderHistoryIndexIsNil() predicate.Project {
+	return predicate.Project(sql.FieldIsNull(FieldOrderHistoryIndex))
+}
+
+// OrderHistoryIndexNotNil applies the NotNil predicate on the "order_history_index" field.
+func OrderHistoryIndexNotNil() predicate.Project {
+	return predicate.Project(sql.FieldNotNull(FieldOrderHistoryIndex))
 }
 
 // HasVideoClips applies the HasEdge predicate on the "video_clips" edge.

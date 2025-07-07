@@ -348,6 +348,51 @@ func (vcu *VideoClipUpdate) SetUpdatedAt(t time.Time) *VideoClipUpdate {
 	return vcu
 }
 
+// SetHighlightsHistory sets the "highlights_history" field.
+func (vcu *VideoClipUpdate) SetHighlightsHistory(s [][]schema.Highlight) *VideoClipUpdate {
+	vcu.mutation.SetHighlightsHistory(s)
+	return vcu
+}
+
+// AppendHighlightsHistory appends s to the "highlights_history" field.
+func (vcu *VideoClipUpdate) AppendHighlightsHistory(s [][]schema.Highlight) *VideoClipUpdate {
+	vcu.mutation.AppendHighlightsHistory(s)
+	return vcu
+}
+
+// ClearHighlightsHistory clears the value of the "highlights_history" field.
+func (vcu *VideoClipUpdate) ClearHighlightsHistory() *VideoClipUpdate {
+	vcu.mutation.ClearHighlightsHistory()
+	return vcu
+}
+
+// SetHighlightsHistoryIndex sets the "highlights_history_index" field.
+func (vcu *VideoClipUpdate) SetHighlightsHistoryIndex(i int) *VideoClipUpdate {
+	vcu.mutation.ResetHighlightsHistoryIndex()
+	vcu.mutation.SetHighlightsHistoryIndex(i)
+	return vcu
+}
+
+// SetNillableHighlightsHistoryIndex sets the "highlights_history_index" field if the given value is not nil.
+func (vcu *VideoClipUpdate) SetNillableHighlightsHistoryIndex(i *int) *VideoClipUpdate {
+	if i != nil {
+		vcu.SetHighlightsHistoryIndex(*i)
+	}
+	return vcu
+}
+
+// AddHighlightsHistoryIndex adds i to the "highlights_history_index" field.
+func (vcu *VideoClipUpdate) AddHighlightsHistoryIndex(i int) *VideoClipUpdate {
+	vcu.mutation.AddHighlightsHistoryIndex(i)
+	return vcu
+}
+
+// ClearHighlightsHistoryIndex clears the value of the "highlights_history_index" field.
+func (vcu *VideoClipUpdate) ClearHighlightsHistoryIndex() *VideoClipUpdate {
+	vcu.mutation.ClearHighlightsHistoryIndex()
+	return vcu
+}
+
 // SetProjectID sets the "project" edge to the Project entity by ID.
 func (vcu *VideoClipUpdate) SetProjectID(id int) *VideoClipUpdate {
 	vcu.mutation.SetProjectID(id)
@@ -554,6 +599,26 @@ func (vcu *VideoClipUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := vcu.mutation.UpdatedAt(); ok {
 		_spec.SetField(videoclip.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if value, ok := vcu.mutation.HighlightsHistory(); ok {
+		_spec.SetField(videoclip.FieldHighlightsHistory, field.TypeJSON, value)
+	}
+	if value, ok := vcu.mutation.AppendedHighlightsHistory(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, videoclip.FieldHighlightsHistory, value)
+		})
+	}
+	if vcu.mutation.HighlightsHistoryCleared() {
+		_spec.ClearField(videoclip.FieldHighlightsHistory, field.TypeJSON)
+	}
+	if value, ok := vcu.mutation.HighlightsHistoryIndex(); ok {
+		_spec.SetField(videoclip.FieldHighlightsHistoryIndex, field.TypeInt, value)
+	}
+	if value, ok := vcu.mutation.AddedHighlightsHistoryIndex(); ok {
+		_spec.AddField(videoclip.FieldHighlightsHistoryIndex, field.TypeInt, value)
+	}
+	if vcu.mutation.HighlightsHistoryIndexCleared() {
+		_spec.ClearField(videoclip.FieldHighlightsHistoryIndex, field.TypeInt)
 	}
 	if vcu.mutation.ProjectCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -921,6 +986,51 @@ func (vcuo *VideoClipUpdateOne) SetUpdatedAt(t time.Time) *VideoClipUpdateOne {
 	return vcuo
 }
 
+// SetHighlightsHistory sets the "highlights_history" field.
+func (vcuo *VideoClipUpdateOne) SetHighlightsHistory(s [][]schema.Highlight) *VideoClipUpdateOne {
+	vcuo.mutation.SetHighlightsHistory(s)
+	return vcuo
+}
+
+// AppendHighlightsHistory appends s to the "highlights_history" field.
+func (vcuo *VideoClipUpdateOne) AppendHighlightsHistory(s [][]schema.Highlight) *VideoClipUpdateOne {
+	vcuo.mutation.AppendHighlightsHistory(s)
+	return vcuo
+}
+
+// ClearHighlightsHistory clears the value of the "highlights_history" field.
+func (vcuo *VideoClipUpdateOne) ClearHighlightsHistory() *VideoClipUpdateOne {
+	vcuo.mutation.ClearHighlightsHistory()
+	return vcuo
+}
+
+// SetHighlightsHistoryIndex sets the "highlights_history_index" field.
+func (vcuo *VideoClipUpdateOne) SetHighlightsHistoryIndex(i int) *VideoClipUpdateOne {
+	vcuo.mutation.ResetHighlightsHistoryIndex()
+	vcuo.mutation.SetHighlightsHistoryIndex(i)
+	return vcuo
+}
+
+// SetNillableHighlightsHistoryIndex sets the "highlights_history_index" field if the given value is not nil.
+func (vcuo *VideoClipUpdateOne) SetNillableHighlightsHistoryIndex(i *int) *VideoClipUpdateOne {
+	if i != nil {
+		vcuo.SetHighlightsHistoryIndex(*i)
+	}
+	return vcuo
+}
+
+// AddHighlightsHistoryIndex adds i to the "highlights_history_index" field.
+func (vcuo *VideoClipUpdateOne) AddHighlightsHistoryIndex(i int) *VideoClipUpdateOne {
+	vcuo.mutation.AddHighlightsHistoryIndex(i)
+	return vcuo
+}
+
+// ClearHighlightsHistoryIndex clears the value of the "highlights_history_index" field.
+func (vcuo *VideoClipUpdateOne) ClearHighlightsHistoryIndex() *VideoClipUpdateOne {
+	vcuo.mutation.ClearHighlightsHistoryIndex()
+	return vcuo
+}
+
 // SetProjectID sets the "project" edge to the Project entity by ID.
 func (vcuo *VideoClipUpdateOne) SetProjectID(id int) *VideoClipUpdateOne {
 	vcuo.mutation.SetProjectID(id)
@@ -1157,6 +1267,26 @@ func (vcuo *VideoClipUpdateOne) sqlSave(ctx context.Context) (_node *VideoClip, 
 	}
 	if value, ok := vcuo.mutation.UpdatedAt(); ok {
 		_spec.SetField(videoclip.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if value, ok := vcuo.mutation.HighlightsHistory(); ok {
+		_spec.SetField(videoclip.FieldHighlightsHistory, field.TypeJSON, value)
+	}
+	if value, ok := vcuo.mutation.AppendedHighlightsHistory(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, videoclip.FieldHighlightsHistory, value)
+		})
+	}
+	if vcuo.mutation.HighlightsHistoryCleared() {
+		_spec.ClearField(videoclip.FieldHighlightsHistory, field.TypeJSON)
+	}
+	if value, ok := vcuo.mutation.HighlightsHistoryIndex(); ok {
+		_spec.SetField(videoclip.FieldHighlightsHistoryIndex, field.TypeInt, value)
+	}
+	if value, ok := vcuo.mutation.AddedHighlightsHistoryIndex(); ok {
+		_spec.AddField(videoclip.FieldHighlightsHistoryIndex, field.TypeInt, value)
+	}
+	if vcuo.mutation.HighlightsHistoryIndexCleared() {
+		_spec.ClearField(videoclip.FieldHighlightsHistoryIndex, field.TypeInt)
 	}
 	if vcuo.mutation.ProjectCleared() {
 		edge := &sqlgraph.EdgeSpec{

@@ -19,7 +19,7 @@
   import TextHighlighter from "$lib/components/TextHighlighter.svelte";
   import EtroVideoPlayer from "$lib/components/videoplayback/EtroVideoPlayer.svelte";
   import { toast } from "svelte-sonner";
-  import { Sparkles } from "@lucide/svelte";
+  import { Sparkles, Undo, Redo } from "@lucide/svelte";
   import {
     SuggestHighlightsWithAI,
     GetProjectHighlightAISettings,
@@ -28,7 +28,11 @@
     UpdateVideoClipSuggestedHighlights,
   } from "$lib/wailsjs/go/main/App";
   import { 
-    updateVideoHighlights, 
+    updateVideoHighlights,
+    undoHighlightsChange,
+    redoHighlightsChange,
+    highlightsHistoryStatus,
+    updateHighlightsHistoryStatus,
   } from "$lib/stores/projectHighlights.js";
 
   let { 
@@ -392,6 +396,36 @@ Return segments that would work well as standalone content pieces.`;
     }
   }
 
+  // Undo/Redo handlers for highlights
+  async function handleUndoHighlights() {
+    if (!video) return;
+    
+    try {
+      await undoHighlightsChange(video.id);
+      // The store will handle reloading data and updating transcriptPlayerHighlights
+    } catch (error) {
+      console.error("Failed to undo highlights:", error);
+    }
+  }
+
+  async function handleRedoHighlights() {
+    if (!video) return;
+    
+    try {
+      await redoHighlightsChange(video.id);
+      // The store will handle reloading data and updating transcriptPlayerHighlights
+    } catch (error) {
+      console.error("Failed to redo highlights:", error);
+    }
+  }
+
+  // Effect to update highlights history status when video changes
+  $effect(() => {
+    if (video?.id) {
+      updateHighlightsHistoryStatus(video.id);
+    }
+  });
+
 </script>
 
 <Dialog bind:open>
@@ -445,6 +479,29 @@ Return segments that would work well as standalone content pieces.`;
                           {formatTimestamp(video.transcriptionDuration)}
                         </span>
                       {/if}
+                      <!-- Undo/Redo buttons for highlights -->
+                      <div class="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onclick={handleUndoHighlights}
+                          disabled={!$highlightsHistoryStatus.get(video.id)?.canUndo}
+                          class="text-xs px-2"
+                          title="Undo highlights change (Ctrl+Z)"
+                        >
+                          <Undo class="w-3 h-3" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onclick={handleRedoHighlights}
+                          disabled={!$highlightsHistoryStatus.get(video.id)?.canRedo}
+                          class="text-xs px-2"
+                          title="Redo highlights change (Ctrl+Y)"
+                        >
+                          <Redo class="w-3 h-3" />
+                        </Button>
+                      </div>
                       <Button 
                         variant="outline" 
                         size="sm"

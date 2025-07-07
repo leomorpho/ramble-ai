@@ -120,6 +120,11 @@ func UpdatedAt(v time.Time) predicate.VideoClip {
 	return predicate.VideoClip(sql.FieldEQ(FieldUpdatedAt, v))
 }
 
+// HighlightsHistoryIndex applies equality check predicate on the "highlights_history_index" field. It's identical to HighlightsHistoryIndexEQ.
+func HighlightsHistoryIndex(v int) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldEQ(FieldHighlightsHistoryIndex, v))
+}
+
 // NameEQ applies the EQ predicate on the "name" field.
 func NameEQ(v string) predicate.VideoClip {
 	return predicate.VideoClip(sql.FieldEQ(FieldName, v))
@@ -908,6 +913,66 @@ func UpdatedAtLT(v time.Time) predicate.VideoClip {
 // UpdatedAtLTE applies the LTE predicate on the "updated_at" field.
 func UpdatedAtLTE(v time.Time) predicate.VideoClip {
 	return predicate.VideoClip(sql.FieldLTE(FieldUpdatedAt, v))
+}
+
+// HighlightsHistoryIsNil applies the IsNil predicate on the "highlights_history" field.
+func HighlightsHistoryIsNil() predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldIsNull(FieldHighlightsHistory))
+}
+
+// HighlightsHistoryNotNil applies the NotNil predicate on the "highlights_history" field.
+func HighlightsHistoryNotNil() predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldNotNull(FieldHighlightsHistory))
+}
+
+// HighlightsHistoryIndexEQ applies the EQ predicate on the "highlights_history_index" field.
+func HighlightsHistoryIndexEQ(v int) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldEQ(FieldHighlightsHistoryIndex, v))
+}
+
+// HighlightsHistoryIndexNEQ applies the NEQ predicate on the "highlights_history_index" field.
+func HighlightsHistoryIndexNEQ(v int) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldNEQ(FieldHighlightsHistoryIndex, v))
+}
+
+// HighlightsHistoryIndexIn applies the In predicate on the "highlights_history_index" field.
+func HighlightsHistoryIndexIn(vs ...int) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldIn(FieldHighlightsHistoryIndex, vs...))
+}
+
+// HighlightsHistoryIndexNotIn applies the NotIn predicate on the "highlights_history_index" field.
+func HighlightsHistoryIndexNotIn(vs ...int) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldNotIn(FieldHighlightsHistoryIndex, vs...))
+}
+
+// HighlightsHistoryIndexGT applies the GT predicate on the "highlights_history_index" field.
+func HighlightsHistoryIndexGT(v int) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldGT(FieldHighlightsHistoryIndex, v))
+}
+
+// HighlightsHistoryIndexGTE applies the GTE predicate on the "highlights_history_index" field.
+func HighlightsHistoryIndexGTE(v int) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldGTE(FieldHighlightsHistoryIndex, v))
+}
+
+// HighlightsHistoryIndexLT applies the LT predicate on the "highlights_history_index" field.
+func HighlightsHistoryIndexLT(v int) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldLT(FieldHighlightsHistoryIndex, v))
+}
+
+// HighlightsHistoryIndexLTE applies the LTE predicate on the "highlights_history_index" field.
+func HighlightsHistoryIndexLTE(v int) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldLTE(FieldHighlightsHistoryIndex, v))
+}
+
+// HighlightsHistoryIndexIsNil applies the IsNil predicate on the "highlights_history_index" field.
+func HighlightsHistoryIndexIsNil() predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldIsNull(FieldHighlightsHistoryIndex))
+}
+
+// HighlightsHistoryIndexNotNil applies the NotNil predicate on the "highlights_history_index" field.
+func HighlightsHistoryIndexNotNil() predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldNotNull(FieldHighlightsHistoryIndex))
 }
 
 // HasProject applies the HasEdge predicate on the "project" edge.

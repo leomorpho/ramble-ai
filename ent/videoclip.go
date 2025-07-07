@@ -52,6 +52,10 @@ type VideoClip struct {
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Last update timestamp
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
+	// FIFO history of highlight states (last 20 states)
+	HighlightsHistory [][]schema.Highlight `json:"highlights_history,omitempty"`
+	// Current position in highlights history (-1 = no history)
+	HighlightsHistoryIndex int `json:"highlights_history_index,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the VideoClipQuery when eager-loading is set.
 	Edges               VideoClipEdges `json:"edges"`
@@ -84,11 +88,11 @@ func (*VideoClip) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case videoclip.FieldTranscriptionWords, videoclip.FieldHighlights, videoclip.FieldSuggestedHighlights:
+		case videoclip.FieldTranscriptionWords, videoclip.FieldHighlights, videoclip.FieldSuggestedHighlights, videoclip.FieldHighlightsHistory:
 			values[i] = new([]byte)
 		case videoclip.FieldDuration, videoclip.FieldTranscriptionDuration:
 			values[i] = new(sql.NullFloat64)
-		case videoclip.FieldID, videoclip.FieldWidth, videoclip.FieldHeight, videoclip.FieldFileSize:
+		case videoclip.FieldID, videoclip.FieldWidth, videoclip.FieldHeight, videoclip.FieldFileSize, videoclip.FieldHighlightsHistoryIndex:
 			values[i] = new(sql.NullInt64)
 		case videoclip.FieldName, videoclip.FieldDescription, videoclip.FieldFilePath, videoclip.FieldFormat, videoclip.FieldTranscription, videoclip.FieldTranscriptionLanguage:
 			values[i] = new(sql.NullString)
@@ -219,6 +223,20 @@ func (vc *VideoClip) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				vc.UpdatedAt = value.Time
 			}
+		case videoclip.FieldHighlightsHistory:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field highlights_history", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &vc.HighlightsHistory); err != nil {
+					return fmt.Errorf("unmarshal field highlights_history: %w", err)
+				}
+			}
+		case videoclip.FieldHighlightsHistoryIndex:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field highlights_history_index", values[i])
+			} else if value.Valid {
+				vc.HighlightsHistoryIndex = int(value.Int64)
+			}
 		case videoclip.ForeignKeys[0]:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for edge-field project_video_clips", value)
@@ -314,6 +332,12 @@ func (vc *VideoClip) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("updated_at=")
 	builder.WriteString(vc.UpdatedAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("highlights_history=")
+	builder.WriteString(fmt.Sprintf("%v", vc.HighlightsHistory))
+	builder.WriteString(", ")
+	builder.WriteString("highlights_history_index=")
+	builder.WriteString(fmt.Sprintf("%v", vc.HighlightsHistoryIndex))
 	builder.WriteByte(')')
 	return builder.String()
 }

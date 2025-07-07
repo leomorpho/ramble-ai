@@ -214,6 +214,26 @@ func (pc *ProjectCreate) SetNillableAiSilenceCreatedAt(t *time.Time) *ProjectCre
 	return pc
 }
 
+// SetOrderHistory sets the "order_history" field.
+func (pc *ProjectCreate) SetOrderHistory(s [][]string) *ProjectCreate {
+	pc.mutation.SetOrderHistory(s)
+	return pc
+}
+
+// SetOrderHistoryIndex sets the "order_history_index" field.
+func (pc *ProjectCreate) SetOrderHistoryIndex(i int) *ProjectCreate {
+	pc.mutation.SetOrderHistoryIndex(i)
+	return pc
+}
+
+// SetNillableOrderHistoryIndex sets the "order_history_index" field if the given value is not nil.
+func (pc *ProjectCreate) SetNillableOrderHistoryIndex(i *int) *ProjectCreate {
+	if i != nil {
+		pc.SetOrderHistoryIndex(*i)
+	}
+	return pc
+}
+
 // AddVideoClipIDs adds the "video_clips" edge to the VideoClip entity by IDs.
 func (pc *ProjectCreate) AddVideoClipIDs(ids ...int) *ProjectCreate {
 	pc.mutation.AddVideoClipIDs(ids...)
@@ -298,6 +318,10 @@ func (pc *ProjectCreate) defaults() {
 	if _, ok := pc.mutation.ActiveTab(); !ok {
 		v := project.DefaultActiveTab
 		pc.mutation.SetActiveTab(v)
+	}
+	if _, ok := pc.mutation.OrderHistoryIndex(); !ok {
+		v := project.DefaultOrderHistoryIndex
+		pc.mutation.SetOrderHistoryIndex(v)
 	}
 }
 
@@ -414,6 +438,14 @@ func (pc *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 	if value, ok := pc.mutation.AiSilenceCreatedAt(); ok {
 		_spec.SetField(project.FieldAiSilenceCreatedAt, field.TypeTime, value)
 		_node.AiSilenceCreatedAt = value
+	}
+	if value, ok := pc.mutation.OrderHistory(); ok {
+		_spec.SetField(project.FieldOrderHistory, field.TypeJSON, value)
+		_node.OrderHistory = value
+	}
+	if value, ok := pc.mutation.OrderHistoryIndex(); ok {
+		_spec.SetField(project.FieldOrderHistoryIndex, field.TypeInt, value)
+		_node.OrderHistoryIndex = value
 	}
 	if nodes := pc.mutation.VideoClipsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

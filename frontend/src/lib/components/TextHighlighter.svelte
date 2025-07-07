@@ -14,7 +14,7 @@
   let {
     text = "",
     words = [],
-    highlights: initialHighlights = [],
+    highlights = [],
     suggestedHighlights = [],
     onHighlightsChange,
     videoId,
@@ -70,8 +70,23 @@
   });
 
   // === CORE STATE ===
-  let highlights = $state([]);
+  // highlights is now a prop - no local state
   let usedColors = $state(new Set());
+  
+  // Convert timestamp-based highlights to word-index-based for UI operations
+  let indexHighlights = $derived(
+    highlights.map((h) => ({
+      ...h,
+      start: words && words.length > 0 ? findWordIndexByTime(h.start) : 0,
+      end: words && words.length > 0 ? findWordIndexByTime(h.end) : 0,
+    }))
+  );
+  
+  // Update used colors when highlights change
+  $effect(() => {
+    usedColors.clear();
+    highlights.forEach((h) => usedColors.add(h.color));
+  });
 
   // === SELECTION STATE ===
   let isSelecting = $state(false);
@@ -107,28 +122,10 @@
     }
   }
 
-  // Initialize highlights - NO EFFECTS
-  function initializeHighlights() {
-    if (
-      initialHighlights &&
-      initialHighlights.length > 0 &&
-      displayWords.length > 0
-    ) {
-      highlights = initialHighlights.map((h) => ({
-        ...h,
-        // Convert timestamps back to word indices for simple approach
-        start: words && words.length > 0 ? findWordIndexByTime(h.start) : 0,
-        end: words && words.length > 0 ? findWordIndexByTime(h.end) : 0,
-      }));
-      highlights.forEach((h) => usedColors.add(h.color));
-    }
-  }
-
   // Single initialization function
   function initialize() {
     if (initialized) return;
     initializeDisplayWords();
-    initializeHighlights();
     initialized = true;
   }
 
@@ -157,10 +154,10 @@
     return closestIndex;
   }
 
-  function emitChanges() {
+  function emitChanges(newIndexHighlights) {
     if (onHighlightsChange) {
       // Convert indices back to timestamps for storage
-      const timestampHighlights = highlights.map((h) => ({
+      const timestampHighlights = newIndexHighlights.map((h) => ({
         ...h,
         start: words && words.length > 0 ? words[h.start]?.start || 0 : 0,
         end: words && words.length > 0 ? words[h.end]?.end || 0 : 0,
@@ -279,16 +276,16 @@
     const startIndex = suggestion.start;
     const endIndex = suggestion.end;
 
-    if (!checkOverlap(startIndex, endIndex, highlights)) {
+    if (!checkOverlap(startIndex, endIndex, indexHighlights)) {
       const result = addHighlight(
-        highlights,
+        indexHighlights,
         startIndex,
         endIndex,
         usedColors,
         color
       );
-      highlights = result.highlights;
       usedColors.add(result.newHighlight.color);
+      emitChanges(result.highlights);
       
       // Delete the suggestion from the database since it's now accepted
       if (videoId && suggestion.id) {
@@ -299,8 +296,6 @@
           console.error("Failed to delete accepted suggestion:", error);
         }
       }
-      
-      emitChanges();
     }
   }
 
@@ -324,7 +319,7 @@
       // Trigger a change event to force parent to reload
       // This ensures the parent's suggestedHighlights array stays in sync
       if (onHighlightsChange) {
-        onHighlightsChange(highlights);
+        onHighlightsChange(highlights); // Keep current highlights unchanged
       }
     } catch (error) {
       console.error("Failed to reject suggestion:", error);
@@ -339,7 +334,7 @@
       return;
     }
 
-    const existingHighlight = findHighlightForWord(wordIndex, highlights);
+    const existingHighlight = findHighlightForWord(wordIndex, indexHighlights);
 
     if (existingHighlight) {
       // Start drag operation on existing highlight
@@ -399,7 +394,7 @@
   }
 
   function handleWordClick(wordIndex, event) {
-    const highlight = findHighlightForWord(wordIndex, highlights);
+    const highlight = findHighlightForWord(wordIndex, indexHighlights);
 
     if (highlight) {
       const rect = event.target.getBoundingClientRect();
@@ -426,16 +421,15 @@
     }
 
     // Don't create highlight if word is already highlighted
-    if (findHighlightForWord(wordIndex, highlights)) {
+    if (findHighlightForWord(wordIndex, indexHighlights)) {
       return;
     }
 
     // Check if single word would overlap with existing highlights
-    if (!checkOverlap(wordIndex, wordIndex, highlights)) {
-      const result = addHighlight(highlights, wordIndex, wordIndex, usedColors);
-      highlights = result.highlights;
+    if (!checkOverlap(wordIndex, wordIndex, indexHighlights)) {
+      const result = addHighlight(indexHighlights, wordIndex, wordIndex, usedColors);
       usedColors.add(result.newHighlight.color);
-      emitChanges();
+      emitChanges(result.highlights);
     }
 
     event.preventDefault();
@@ -459,7 +453,7 @@
       dragMode
     ) {
       // Apply word-based expansion/contraction
-      const currentHighlight = highlights.find(
+      const currentHighlight = indexHighlights.find(
         (h) => h.id === dragTarget.highlightId
       );
       if (currentHighlight) {
@@ -492,18 +486,17 @@
             !checkOverlap(
               newStartIndex,
               newEndIndex,
-              highlights,
+              indexHighlights,
               dragTarget.highlightId
             )
           ) {
             const result = updateHighlight(
-              highlights,
+              indexHighlights,
               dragTarget.highlightId,
               newStartIndex,
               newEndIndex
             );
-            highlights = result;
-            emitChanges();
+            emitChanges(result);
           }
         }
       }
@@ -517,16 +510,15 @@
       const endIndex = Math.max(selectionStart, selectionEnd);
 
       if (startIndex !== endIndex) {
-        if (!checkOverlap(startIndex, endIndex, highlights)) {
+        if (!checkOverlap(startIndex, endIndex, indexHighlights)) {
           const result = addHighlight(
-            highlights,
+            indexHighlights,
             startIndex,
             endIndex,
             usedColors
           );
-          highlights = result.highlights;
           usedColors.add(result.newHighlight.color);
-          emitChanges();
+          emitChanges(result.highlights);
         }
       }
     }
@@ -545,10 +537,10 @@
     if (highlight) {
       usedColors.delete(highlight.color);
     }
-    highlights = removeHighlight(highlights, highlightId);
+    const newHighlights = removeHighlight(indexHighlights, highlightId);
     showDeleteButton = false;
     deleteButtonHighlight = null;
-    emitChanges();
+    emitChanges(newHighlights);
   }
 
   // === MOUNT ===
@@ -571,7 +563,7 @@
 
 <div class="leading-relaxed select-none" class:dragging={isDragging}>
   {#each displayWords as word, wordIndex}
-    {@const highlight = findHighlightForWord(wordIndex, highlights)}
+    {@const highlight = findHighlightForWord(wordIndex, indexHighlights)}
     {@const suggestedHighlight = findSuggestedHighlightForWord(
       wordIndex,
       suggestedHighlights

@@ -1369,6 +1369,10 @@ type ProjectMutation struct {
 	appendai_silence_improvements []map[string]interface{}
 	ai_silence_model              *string
 	ai_silence_created_at         *time.Time
+	order_history                 *[][]string
+	appendorder_history           [][]string
+	order_history_index           *int
+	addorder_history_index        *int
 	clearedFields                 map[string]struct{}
 	video_clips                   map[int]struct{}
 	removedvideo_clips            map[int]struct{}
@@ -2243,6 +2247,141 @@ func (m *ProjectMutation) ResetAiSilenceCreatedAt() {
 	delete(m.clearedFields, project.FieldAiSilenceCreatedAt)
 }
 
+// SetOrderHistory sets the "order_history" field.
+func (m *ProjectMutation) SetOrderHistory(s [][]string) {
+	m.order_history = &s
+	m.appendorder_history = nil
+}
+
+// OrderHistory returns the value of the "order_history" field in the mutation.
+func (m *ProjectMutation) OrderHistory() (r [][]string, exists bool) {
+	v := m.order_history
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOrderHistory returns the old "order_history" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldOrderHistory(ctx context.Context) (v [][]string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOrderHistory is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOrderHistory requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOrderHistory: %w", err)
+	}
+	return oldValue.OrderHistory, nil
+}
+
+// AppendOrderHistory adds s to the "order_history" field.
+func (m *ProjectMutation) AppendOrderHistory(s [][]string) {
+	m.appendorder_history = append(m.appendorder_history, s...)
+}
+
+// AppendedOrderHistory returns the list of values that were appended to the "order_history" field in this mutation.
+func (m *ProjectMutation) AppendedOrderHistory() ([][]string, bool) {
+	if len(m.appendorder_history) == 0 {
+		return nil, false
+	}
+	return m.appendorder_history, true
+}
+
+// ClearOrderHistory clears the value of the "order_history" field.
+func (m *ProjectMutation) ClearOrderHistory() {
+	m.order_history = nil
+	m.appendorder_history = nil
+	m.clearedFields[project.FieldOrderHistory] = struct{}{}
+}
+
+// OrderHistoryCleared returns if the "order_history" field was cleared in this mutation.
+func (m *ProjectMutation) OrderHistoryCleared() bool {
+	_, ok := m.clearedFields[project.FieldOrderHistory]
+	return ok
+}
+
+// ResetOrderHistory resets all changes to the "order_history" field.
+func (m *ProjectMutation) ResetOrderHistory() {
+	m.order_history = nil
+	m.appendorder_history = nil
+	delete(m.clearedFields, project.FieldOrderHistory)
+}
+
+// SetOrderHistoryIndex sets the "order_history_index" field.
+func (m *ProjectMutation) SetOrderHistoryIndex(i int) {
+	m.order_history_index = &i
+	m.addorder_history_index = nil
+}
+
+// OrderHistoryIndex returns the value of the "order_history_index" field in the mutation.
+func (m *ProjectMutation) OrderHistoryIndex() (r int, exists bool) {
+	v := m.order_history_index
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOrderHistoryIndex returns the old "order_history_index" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldOrderHistoryIndex(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOrderHistoryIndex is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOrderHistoryIndex requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOrderHistoryIndex: %w", err)
+	}
+	return oldValue.OrderHistoryIndex, nil
+}
+
+// AddOrderHistoryIndex adds i to the "order_history_index" field.
+func (m *ProjectMutation) AddOrderHistoryIndex(i int) {
+	if m.addorder_history_index != nil {
+		*m.addorder_history_index += i
+	} else {
+		m.addorder_history_index = &i
+	}
+}
+
+// AddedOrderHistoryIndex returns the value that was added to the "order_history_index" field in this mutation.
+func (m *ProjectMutation) AddedOrderHistoryIndex() (r int, exists bool) {
+	v := m.addorder_history_index
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearOrderHistoryIndex clears the value of the "order_history_index" field.
+func (m *ProjectMutation) ClearOrderHistoryIndex() {
+	m.order_history_index = nil
+	m.addorder_history_index = nil
+	m.clearedFields[project.FieldOrderHistoryIndex] = struct{}{}
+}
+
+// OrderHistoryIndexCleared returns if the "order_history_index" field was cleared in this mutation.
+func (m *ProjectMutation) OrderHistoryIndexCleared() bool {
+	_, ok := m.clearedFields[project.FieldOrderHistoryIndex]
+	return ok
+}
+
+// ResetOrderHistoryIndex resets all changes to the "order_history_index" field.
+func (m *ProjectMutation) ResetOrderHistoryIndex() {
+	m.order_history_index = nil
+	m.addorder_history_index = nil
+	delete(m.clearedFields, project.FieldOrderHistoryIndex)
+}
+
 // AddVideoClipIDs adds the "video_clips" edge to the VideoClip entity by ids.
 func (m *ProjectMutation) AddVideoClipIDs(ids ...int) {
 	if m.video_clips == nil {
@@ -2385,7 +2524,7 @@ func (m *ProjectMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProjectMutation) Fields() []string {
-	fields := make([]string, 0, 16)
+	fields := make([]string, 0, 18)
 	if m.name != nil {
 		fields = append(fields, project.FieldName)
 	}
@@ -2434,6 +2573,12 @@ func (m *ProjectMutation) Fields() []string {
 	if m.ai_silence_created_at != nil {
 		fields = append(fields, project.FieldAiSilenceCreatedAt)
 	}
+	if m.order_history != nil {
+		fields = append(fields, project.FieldOrderHistory)
+	}
+	if m.order_history_index != nil {
+		fields = append(fields, project.FieldOrderHistoryIndex)
+	}
 	return fields
 }
 
@@ -2474,6 +2619,10 @@ func (m *ProjectMutation) Field(name string) (ent.Value, bool) {
 		return m.AiSilenceModel()
 	case project.FieldAiSilenceCreatedAt:
 		return m.AiSilenceCreatedAt()
+	case project.FieldOrderHistory:
+		return m.OrderHistory()
+	case project.FieldOrderHistoryIndex:
+		return m.OrderHistoryIndex()
 	}
 	return nil, false
 }
@@ -2515,6 +2664,10 @@ func (m *ProjectMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldAiSilenceModel(ctx)
 	case project.FieldAiSilenceCreatedAt:
 		return m.OldAiSilenceCreatedAt(ctx)
+	case project.FieldOrderHistory:
+		return m.OldOrderHistory(ctx)
+	case project.FieldOrderHistoryIndex:
+		return m.OldOrderHistoryIndex(ctx)
 	}
 	return nil, fmt.Errorf("unknown Project field %s", name)
 }
@@ -2636,6 +2789,20 @@ func (m *ProjectMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetAiSilenceCreatedAt(v)
 		return nil
+	case project.FieldOrderHistory:
+		v, ok := value.([][]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOrderHistory(v)
+		return nil
+	case project.FieldOrderHistoryIndex:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOrderHistoryIndex(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Project field %s", name)
 }
@@ -2643,13 +2810,21 @@ func (m *ProjectMutation) SetField(name string, value ent.Value) error {
 // AddedFields returns all numeric fields that were incremented/decremented during
 // this mutation.
 func (m *ProjectMutation) AddedFields() []string {
-	return nil
+	var fields []string
+	if m.addorder_history_index != nil {
+		fields = append(fields, project.FieldOrderHistoryIndex)
+	}
+	return fields
 }
 
 // AddedField returns the numeric value that was incremented/decremented on a field
 // with the given name. The second boolean return value indicates that this field
 // was not set, or was not defined in the schema.
 func (m *ProjectMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case project.FieldOrderHistoryIndex:
+		return m.AddedOrderHistoryIndex()
+	}
 	return nil, false
 }
 
@@ -2658,6 +2833,13 @@ func (m *ProjectMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *ProjectMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case project.FieldOrderHistoryIndex:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddOrderHistoryIndex(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Project numeric field %s", name)
 }
@@ -2701,6 +2883,12 @@ func (m *ProjectMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(project.FieldAiSilenceCreatedAt) {
 		fields = append(fields, project.FieldAiSilenceCreatedAt)
+	}
+	if m.FieldCleared(project.FieldOrderHistory) {
+		fields = append(fields, project.FieldOrderHistory)
+	}
+	if m.FieldCleared(project.FieldOrderHistoryIndex) {
+		fields = append(fields, project.FieldOrderHistoryIndex)
 	}
 	return fields
 }
@@ -2751,6 +2939,12 @@ func (m *ProjectMutation) ClearField(name string) error {
 		return nil
 	case project.FieldAiSilenceCreatedAt:
 		m.ClearAiSilenceCreatedAt()
+		return nil
+	case project.FieldOrderHistory:
+		m.ClearOrderHistory()
+		return nil
+	case project.FieldOrderHistoryIndex:
+		m.ClearOrderHistoryIndex()
 		return nil
 	}
 	return fmt.Errorf("unknown Project nullable field %s", name)
@@ -2807,6 +3001,12 @@ func (m *ProjectMutation) ResetField(name string) error {
 		return nil
 	case project.FieldAiSilenceCreatedAt:
 		m.ResetAiSilenceCreatedAt()
+		return nil
+	case project.FieldOrderHistory:
+		m.ResetOrderHistory()
+		return nil
+	case project.FieldOrderHistoryIndex:
+		m.ResetOrderHistoryIndex()
 		return nil
 	}
 	return fmt.Errorf("unknown Project field %s", name)
@@ -3435,39 +3635,43 @@ func (m *SettingsMutation) ResetEdge(name string) error {
 // VideoClipMutation represents an operation that mutates the VideoClip nodes in the graph.
 type VideoClipMutation struct {
 	config
-	op                         Op
-	typ                        string
-	id                         *int
-	name                       *string
-	description                *string
-	file_path                  *string
-	duration                   *float64
-	addduration                *float64
-	format                     *string
-	width                      *int
-	addwidth                   *int
-	height                     *int
-	addheight                  *int
-	file_size                  *int64
-	addfile_size               *int64
-	transcription              *string
-	transcription_words        *[]schema.Word
-	appendtranscription_words  []schema.Word
-	transcription_language     *string
-	transcription_duration     *float64
-	addtranscription_duration  *float64
-	highlights                 *[]schema.Highlight
-	appendhighlights           []schema.Highlight
-	suggested_highlights       *[]schema.Highlight
-	appendsuggested_highlights []schema.Highlight
-	created_at                 *time.Time
-	updated_at                 *time.Time
-	clearedFields              map[string]struct{}
-	project                    *int
-	clearedproject             bool
-	done                       bool
-	oldValue                   func(context.Context) (*VideoClip, error)
-	predicates                 []predicate.VideoClip
+	op                          Op
+	typ                         string
+	id                          *int
+	name                        *string
+	description                 *string
+	file_path                   *string
+	duration                    *float64
+	addduration                 *float64
+	format                      *string
+	width                       *int
+	addwidth                    *int
+	height                      *int
+	addheight                   *int
+	file_size                   *int64
+	addfile_size                *int64
+	transcription               *string
+	transcription_words         *[]schema.Word
+	appendtranscription_words   []schema.Word
+	transcription_language      *string
+	transcription_duration      *float64
+	addtranscription_duration   *float64
+	highlights                  *[]schema.Highlight
+	appendhighlights            []schema.Highlight
+	suggested_highlights        *[]schema.Highlight
+	appendsuggested_highlights  []schema.Highlight
+	created_at                  *time.Time
+	updated_at                  *time.Time
+	highlights_history          *[][]schema.Highlight
+	appendhighlights_history    [][]schema.Highlight
+	highlights_history_index    *int
+	addhighlights_history_index *int
+	clearedFields               map[string]struct{}
+	project                     *int
+	clearedproject              bool
+	done                        bool
+	oldValue                    func(context.Context) (*VideoClip, error)
+	predicates                  []predicate.VideoClip
 }
 
 var _ ent.Mutation = (*VideoClipMutation)(nil)
@@ -4453,6 +4657,141 @@ func (m *VideoClipMutation) ResetUpdatedAt() {
 	m.updated_at = nil
 }
 
+// SetHighlightsHistory sets the "highlights_history" field.
+func (m *VideoClipMutation) SetHighlightsHistory(s [][]schema.Highlight) {
+	m.highlights_history = &s
+	m.appendhighlights_history = nil
+}
+
+// HighlightsHistory returns the value of the "highlights_history" field in the mutation.
+func (m *VideoClipMutation) HighlightsHistory() (r [][]schema.Highlight, exists bool) {
+	v := m.highlights_history
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldHighlightsHistory returns the old "highlights_history" field's value of the VideoClip entity.
+// If the VideoClip object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *VideoClipMutation) OldHighlightsHistory(ctx context.Context) (v [][]schema.Highlight, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldHighlightsHistory is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldHighlightsHistory requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldHighlightsHistory: %w", err)
+	}
+	return oldValue.HighlightsHistory, nil
+}
+
+// AppendHighlightsHistory adds s to the "highlights_history" field.
+func (m *VideoClipMutation) AppendHighlightsHistory(s [][]schema.Highlight) {
+	m.appendhighlights_history = append(m.appendhighlights_history, s...)
+}
+
+// AppendedHighlightsHistory returns the list of values that were appended to the "highlights_history" field in this mutation.
+func (m *VideoClipMutation) AppendedHighlightsHistory() ([][]schema.Highlight, bool) {
+	if len(m.appendhighlights_history) == 0 {
+		return nil, false
+	}
+	return m.appendhighlights_history, true
+}
+
+// ClearHighlightsHistory clears the value of the "highlights_history" field.
+func (m *VideoClipMutation) ClearHighlightsHistory() {
+	m.highlights_history = nil
+	m.appendhighlights_history = nil
+	m.clearedFields[videoclip.FieldHighlightsHistory] = struct{}{}
+}
+
+// HighlightsHistoryCleared returns if the "highlights_history" field was cleared in this mutation.
+func (m *VideoClipMutation) HighlightsHistoryCleared() bool {
+	_, ok := m.clearedFields[videoclip.FieldHighlightsHistory]
+	return ok
+}
+
+// ResetHighlightsHistory resets all changes to the "highlights_history" field.
+func (m *VideoClipMutation) ResetHighlightsHistory() {
+	m.highlights_history = nil
+	m.appendhighlights_history = nil
+	delete(m.clearedFields, videoclip.FieldHighlightsHistory)
+}
+
+// SetHighlightsHistoryIndex sets the "highlights_history_index" field.
+func (m *VideoClipMutation) SetHighlightsHistoryIndex(i int) {
+	m.highlights_history_index = &i
+	m.addhighlights_history_index = nil
+}
+
+// HighlightsHistoryIndex returns the value of the "highlights_history_index" field in the mutation.
+func (m *VideoClipMutation) HighlightsHistoryIndex() (r int, exists bool) {
+	v := m.highlights_history_index
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldHighlightsHistoryIndex returns the old "highlights_history_index" field's value of the VideoClip entity.
+// If the VideoClip object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *VideoClipMutation) OldHighlightsHistoryIndex(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldHighlightsHistoryIndex is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldHighlightsHistoryIndex requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldHighlightsHistoryIndex: %w", err)
+	}
+	return oldValue.HighlightsHistoryIndex, nil
+}
+
+// AddHighlightsHistoryIndex adds i to the "highlights_history_index" field.
+func (m *VideoClipMutation) AddHighlightsHistoryIndex(i int) {
+	if m.addhighlights_history_index != nil {
+		*m.addhighlights_history_index += i
+	} else {
+		m.addhighlights_history_index = &i
+	}
+}
+
+// AddedHighlightsHistoryIndex returns the value that was added to the "highlights_history_index" field in this mutation.
+func (m *VideoClipMutation) AddedHighlightsHistoryIndex() (r int, exists bool) {
+	v := m.addhighlights_history_index
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearHighlightsHistoryIndex clears the value of the "highlights_history_index" field.
+func (m *VideoClipMutation) ClearHighlightsHistoryIndex() {
+	m.highlights_history_index = nil
+	m.addhighlights_history_index = nil
+	m.clearedFields[videoclip.FieldHighlightsHistoryIndex] = struct{}{}
+}
+
+// HighlightsHistoryIndexCleared returns if the "highlights_history_index" field was cleared in this mutation.
+func (m *VideoClipMutation) HighlightsHistoryIndexCleared() bool {
+	_, ok := m.clearedFields[videoclip.FieldHighlightsHistoryIndex]
+	return ok
+}
+
+// ResetHighlightsHistoryIndex resets all changes to the "highlights_history_index" field.
+func (m *VideoClipMutation) ResetHighlightsHistoryIndex() {
+	m.highlights_history_index = nil
+	m.addhighlights_history_index = nil
+	delete(m.clearedFields, videoclip.FieldHighlightsHistoryIndex)
+}
+
 // SetProjectID sets the "project" edge to the Project entity by id.
 func (m *VideoClipMutation) SetProjectID(id int) {
 	m.project = &id
@@ -4526,7 +4865,7 @@ func (m *VideoClipMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *VideoClipMutation) Fields() []string {
-	fields := make([]string, 0, 16)
+	fields := make([]string, 0, 18)
 	if m.name != nil {
 		fields = append(fields, videoclip.FieldName)
 	}
@@ -4575,6 +4914,12 @@ func (m *VideoClipMutation) Fields() []string {
 	if m.updated_at != nil {
 		fields = append(fields, videoclip.FieldUpdatedAt)
 	}
+	if m.highlights_history != nil {
+		fields = append(fields, videoclip.FieldHighlightsHistory)
+	}
+	if m.highlights_history_index != nil {
+		fields = append(fields, videoclip.FieldHighlightsHistoryIndex)
+	}
 	return fields
 }
 
@@ -4615,6 +4960,10 @@ func (m *VideoClipMutation) Field(name string) (ent.Value, bool) {
 		return m.CreatedAt()
 	case videoclip.FieldUpdatedAt:
 		return m.UpdatedAt()
+	case videoclip.FieldHighlightsHistory:
+		return m.HighlightsHistory()
+	case videoclip.FieldHighlightsHistoryIndex:
+		return m.HighlightsHistoryIndex()
 	}
 	return nil, false
 }
@@ -4656,6 +5005,10 @@ func (m *VideoClipMutation) OldField(ctx context.Context, name string) (ent.Valu
 		return m.OldCreatedAt(ctx)
 	case videoclip.FieldUpdatedAt:
 		return m.OldUpdatedAt(ctx)
+	case videoclip.FieldHighlightsHistory:
+		return m.OldHighlightsHistory(ctx)
+	case videoclip.FieldHighlightsHistoryIndex:
+		return m.OldHighlightsHistoryIndex(ctx)
 	}
 	return nil, fmt.Errorf("unknown VideoClip field %s", name)
 }
@@ -4777,6 +5130,20 @@ func (m *VideoClipMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetUpdatedAt(v)
 		return nil
+	case videoclip.FieldHighlightsHistory:
+		v, ok := value.([][]schema.Highlight)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetHighlightsHistory(v)
+		return nil
+	case videoclip.FieldHighlightsHistoryIndex:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetHighlightsHistoryIndex(v)
+		return nil
 	}
 	return fmt.Errorf("unknown VideoClip field %s", name)
 }
@@ -4800,6 +5167,9 @@ func (m *VideoClipMutation) AddedFields() []string {
 	if m.addtranscription_duration != nil {
 		fields = append(fields, videoclip.FieldTranscriptionDuration)
 	}
+	if m.addhighlights_history_index != nil {
+		fields = append(fields, videoclip.FieldHighlightsHistoryIndex)
+	}
 	return fields
 }
 
@@ -4818,6 +5188,8 @@ func (m *VideoClipMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedFileSize()
 	case videoclip.FieldTranscriptionDuration:
 		return m.AddedTranscriptionDuration()
+	case videoclip.FieldHighlightsHistoryIndex:
+		return m.AddedHighlightsHistoryIndex()
 	}
 	return nil, false
 }
@@ -4862,6 +5234,13 @@ func (m *VideoClipMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddTranscriptionDuration(v)
 		return nil
+	case videoclip.FieldHighlightsHistoryIndex:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddHighlightsHistoryIndex(v)
+		return nil
 	}
 	return fmt.Errorf("unknown VideoClip numeric field %s", name)
 }
@@ -4905,6 +5284,12 @@ func (m *VideoClipMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(videoclip.FieldSuggestedHighlights) {
 		fields = append(fields, videoclip.FieldSuggestedHighlights)
+	}
+	if m.FieldCleared(videoclip.FieldHighlightsHistory) {
+		fields = append(fields, videoclip.FieldHighlightsHistory)
+	}
+	if m.FieldCleared(videoclip.FieldHighlightsHistoryIndex) {
+		fields = append(fields, videoclip.FieldHighlightsHistoryIndex)
 	}
 	return fields
 }
@@ -4955,6 +5340,12 @@ func (m *VideoClipMutation) ClearField(name string) error {
 		return nil
 	case videoclip.FieldSuggestedHighlights:
 		m.ClearSuggestedHighlights()
+		return nil
+	case videoclip.FieldHighlightsHistory:
+		m.ClearHighlightsHistory()
+		return nil
+	case videoclip.FieldHighlightsHistoryIndex:
+		m.ClearHighlightsHistoryIndex()
 		return nil
 	}
 	return fmt.Errorf("unknown VideoClip nullable field %s", name)
@@ -5011,6 +5402,12 @@ func (m *VideoClipMutation) ResetField(name string) error {
 		return nil
 	case videoclip.FieldUpdatedAt:
 		m.ResetUpdatedAt()
+		return nil
+	case videoclip.FieldHighlightsHistory:
+		m.ResetHighlightsHistory()
+		return nil
+	case videoclip.FieldHighlightsHistoryIndex:
+		m.ResetHighlightsHistoryIndex()
 		return nil
 	}
 	return fmt.Errorf("unknown VideoClip field %s", name)

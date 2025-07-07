@@ -49,7 +49,7 @@
 </script>
 
 <button
-  class="group relative h-8 {roundingClasses} transition-all duration-200 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-primary/50 {isDragging &&
+  class="group relative h-8 {roundingClasses} transition-all duration-200 hover:brightness-110 {isDragging &&
   dragStartIndex === index
     ? 'opacity-50 scale-95'
     : ''} cursor-pointer overflow-visible"

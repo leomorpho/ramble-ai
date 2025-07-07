@@ -206,6 +206,26 @@ func (vcc *VideoClipCreate) SetNillableUpdatedAt(t *time.Time) *VideoClipCreate 
 	return vcc
 }
 
+// SetHighlightsHistory sets the "highlights_history" field.
+func (vcc *VideoClipCreate) SetHighlightsHistory(s [][]schema.Highlight) *VideoClipCreate {
+	vcc.mutation.SetHighlightsHistory(s)
+	return vcc
+}
+
+// SetHighlightsHistoryIndex sets the "highlights_history_index" field.
+func (vcc *VideoClipCreate) SetHighlightsHistoryIndex(i int) *VideoClipCreate {
+	vcc.mutation.SetHighlightsHistoryIndex(i)
+	return vcc
+}
+
+// SetNillableHighlightsHistoryIndex sets the "highlights_history_index" field if the given value is not nil.
+func (vcc *VideoClipCreate) SetNillableHighlightsHistoryIndex(i *int) *VideoClipCreate {
+	if i != nil {
+		vcc.SetHighlightsHistoryIndex(*i)
+	}
+	return vcc
+}
+
 // SetProjectID sets the "project" edge to the Project entity by ID.
 func (vcc *VideoClipCreate) SetProjectID(id int) *VideoClipCreate {
 	vcc.mutation.SetProjectID(id)
@@ -267,6 +287,10 @@ func (vcc *VideoClipCreate) defaults() {
 	if _, ok := vcc.mutation.UpdatedAt(); !ok {
 		v := videoclip.DefaultUpdatedAt()
 		vcc.mutation.SetUpdatedAt(v)
+	}
+	if _, ok := vcc.mutation.HighlightsHistoryIndex(); !ok {
+		v := videoclip.DefaultHighlightsHistoryIndex
+		vcc.mutation.SetHighlightsHistoryIndex(v)
 	}
 }
 
@@ -383,6 +407,14 @@ func (vcc *VideoClipCreate) createSpec() (*VideoClip, *sqlgraph.CreateSpec) {
 	if value, ok := vcc.mutation.UpdatedAt(); ok {
 		_spec.SetField(videoclip.FieldUpdatedAt, field.TypeTime, value)
 		_node.UpdatedAt = value
+	}
+	if value, ok := vcc.mutation.HighlightsHistory(); ok {
+		_spec.SetField(videoclip.FieldHighlightsHistory, field.TypeJSON, value)
+		_node.HighlightsHistory = value
+	}
+	if value, ok := vcc.mutation.HighlightsHistoryIndex(); ok {
+		_spec.SetField(videoclip.FieldHighlightsHistoryIndex, field.TypeInt, value)
+		_node.HighlightsHistoryIndex = value
 	}
 	if nodes := vcc.mutation.ProjectIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

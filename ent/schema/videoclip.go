@@ -80,6 +80,13 @@ func (VideoClip) Fields() []ent.Field {
 			Default(time.Now).
 			UpdateDefault(time.Now).
 			Comment("Last update timestamp"),
+		field.JSON("highlights_history", [][]Highlight{}).
+			Optional().
+			Comment("FIFO history of highlight states (last 20 states)"),
+		field.Int("highlights_history_index").
+			Optional().
+			Default(-1).
+			Comment("Current position in highlights history (-1 = no history)"),
 	}
 }
 

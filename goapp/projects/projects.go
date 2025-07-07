@@ -14,6 +14,7 @@ import (
 	"MYAPP/ent/schema"
 	"MYAPP/ent/settings"
 	"MYAPP/ent/videoclip"
+	"MYAPP/goapp/highlights"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -423,6 +424,13 @@ func (s *ProjectService) GetVideoURL(filePath string) (string, error) {
 
 // UpdateVideoClipHighlights updates the highlights for a video clip
 func (s *ProjectService) UpdateVideoClipHighlights(clipID int, highlights []Highlight) error {
+	// Save current state to history before making changes
+	err := s.saveHighlightsState(clipID)
+	if err != nil {
+		// Log error but don't fail the update
+		fmt.Printf("Warning: failed to save highlights state to history: %v\n", err)
+	}
+
 	// Convert Highlights to schema.Highlights for database storage
 	var schemaHighlights []schema.Highlight
 	for _, h := range highlights {
@@ -434,7 +442,7 @@ func (s *ProjectService) UpdateVideoClipHighlights(clipID int, highlights []High
 		})
 	}
 	
-	_, err := s.client.VideoClip.
+	_, err = s.client.VideoClip.
 		UpdateOneID(clipID).
 		SetHighlights(schemaHighlights).
 		Save(s.ctx)
@@ -479,6 +487,13 @@ func (s *ProjectService) UpdateProjectActiveTab(projectID int, activeTab string)
 
 // UpdateProjectHighlightOrder updates the highlight order for a project
 func (s *ProjectService) UpdateProjectHighlightOrder(projectID int, highlightOrder []string) error {
+	// Save current state to history before making changes
+	err := s.saveOrderState(projectID)
+	if err != nil {
+		// Log error but don't fail the update
+		fmt.Printf("Warning: failed to save order state to history: %v\n", err)
+	}
+
 	// Convert highlight order to JSON for storage
 	highlightOrderJSON, err := json.Marshal(highlightOrder)
 	if err != nil {
@@ -575,4 +590,362 @@ func (s *ProjectService) schemaHighlightsToHighlights(schemaHighlights []schema.
 		})
 	}
 	return highlights
+}
+
+// History Management Functions
+
+// saveOrderState saves the current highlight order to history before making changes
+func (s *ProjectService) saveOrderState(projectID int) error {
+	// Get current project with history
+	project, err := s.client.Project.
+		Query().
+		Where(project.ID(projectID)).
+		Only(s.ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get project: %w", err)
+	}
+
+	// Get current order from settings using highlights service
+	highlightsService := highlights.NewHighlightService(s.client, s.ctx)
+	currentOrder, err := highlightsService.GetProjectHighlightOrder(projectID)
+	if err != nil {
+		// If no order exists, use empty slice
+		currentOrder = []string{}
+	}
+
+	// Get current history
+	history := project.OrderHistory
+	if history == nil {
+		history = [][]string{}
+	}
+
+	// Add current order to history (FIFO, max 20)
+	history = append(history, currentOrder)
+	if len(history) > 20 {
+		history = history[1:] // Remove oldest entry
+	}
+
+	// Update project with new history and reset index to -1 (new change, can't redo)
+	_, err = s.client.Project.
+		UpdateOneID(projectID).
+		SetOrderHistory(history).
+		SetOrderHistoryIndex(-1).
+		Save(s.ctx)
+
+	return err
+}
+
+// saveHighlightsState saves the current highlights to history before making changes
+func (s *ProjectService) saveHighlightsState(clipID int) error {
+	// Get current video clip with history
+	clip, err := s.client.VideoClip.
+		Query().
+		Where(videoclip.ID(clipID)).
+		Only(s.ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get video clip: %w", err)
+	}
+
+	// Get current highlights
+	currentHighlights := clip.Highlights
+
+	// Get current history
+	history := clip.HighlightsHistory
+	if history == nil {
+		history = [][]schema.Highlight{}
+	}
+
+	// Add current highlights to history (FIFO, max 20)
+	history = append(history, currentHighlights)
+	if len(history) > 20 {
+		history = history[1:] // Remove oldest entry
+	}
+
+	// Update clip with new history and reset index to -1 (new change, can't redo)
+	_, err = s.client.VideoClip.
+		UpdateOneID(clipID).
+		SetHighlightsHistory(history).
+		SetHighlightsHistoryIndex(-1).
+		Save(s.ctx)
+
+	return err
+}
+
+// UndoOrderChange moves backward in order history
+func (s *ProjectService) UndoOrderChange(projectID int) ([]string, error) {
+	// Get current project with history
+	project, err := s.client.Project.
+		Query().
+		Where(project.ID(projectID)).
+		Only(s.ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project: %w", err)
+	}
+
+	history := project.OrderHistory
+	if history == nil || len(history) == 0 {
+		return nil, fmt.Errorf("no history available")
+	}
+
+	currentIndex := project.OrderHistoryIndex
+	
+	// Calculate new index (move backward)
+	var newIndex int
+	if currentIndex == -1 {
+		// We're at current state, move to last history entry
+		newIndex = len(history) - 1
+	} else if currentIndex > 0 {
+		// Move backward in history
+		newIndex = currentIndex - 1
+	} else {
+		// Already at oldest entry
+		return nil, fmt.Errorf("cannot undo further")
+	}
+
+	// Get order from history
+	orderFromHistory := history[newIndex]
+
+	// Update project index and apply the order
+	_, err = s.client.Project.
+		UpdateOneID(projectID).
+		SetOrderHistoryIndex(newIndex).
+		Save(s.ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update history index: %w", err)
+	}
+
+	// Apply the order to settings
+	err = s.UpdateProjectHighlightOrderWithoutHistory(projectID, orderFromHistory)
+	if err != nil {
+		return nil, fmt.Errorf("failed to apply historical order: %w", err)
+	}
+
+	return orderFromHistory, nil
+}
+
+// RedoOrderChange moves forward in order history
+func (s *ProjectService) RedoOrderChange(projectID int) ([]string, error) {
+	// Get current project with history
+	project, err := s.client.Project.
+		Query().
+		Where(project.ID(projectID)).
+		Only(s.ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project: %w", err)
+	}
+
+	history := project.OrderHistory
+	if history == nil || len(history) == 0 {
+		return nil, fmt.Errorf("no history available")
+	}
+
+	currentIndex := project.OrderHistoryIndex
+	
+	// Calculate new index (move forward)
+	if currentIndex == -1 || currentIndex >= len(history)-1 {
+		// Already at newest entry or current state
+		return nil, fmt.Errorf("cannot redo further")
+	}
+
+	newIndex := currentIndex + 1
+
+	// Get order from history
+	orderFromHistory := history[newIndex]
+
+	// Update project index and apply the order
+	_, err = s.client.Project.
+		UpdateOneID(projectID).
+		SetOrderHistoryIndex(newIndex).
+		Save(s.ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update history index: %w", err)
+	}
+
+	// Apply the order to settings
+	err = s.UpdateProjectHighlightOrderWithoutHistory(projectID, orderFromHistory)
+	if err != nil {
+		return nil, fmt.Errorf("failed to apply historical order: %w", err)
+	}
+
+	return orderFromHistory, nil
+}
+
+// GetOrderHistoryStatus returns whether undo/redo is available
+func (s *ProjectService) GetOrderHistoryStatus(projectID int) (bool, bool, error) {
+	// Get current project with history
+	project, err := s.client.Project.
+		Query().
+		Where(project.ID(projectID)).
+		Only(s.ctx)
+	if err != nil {
+		return false, false, fmt.Errorf("failed to get project: %w", err)
+	}
+
+	history := project.OrderHistory
+	if history == nil || len(history) == 0 {
+		return false, false, nil
+	}
+
+	currentIndex := project.OrderHistoryIndex
+	
+	// Can undo if we have history and we're not at the oldest entry
+	canUndo := len(history) > 0 && (currentIndex == -1 || currentIndex > 0)
+	
+	// Can redo if we have history and we're not at the newest entry
+	canRedo := len(history) > 0 && currentIndex != -1 && currentIndex < len(history)-1
+
+	return canUndo, canRedo, nil
+}
+
+// UndoHighlightsChange moves backward in highlights history
+func (s *ProjectService) UndoHighlightsChange(clipID int) ([]Highlight, error) {
+	// Get current video clip with history
+	clip, err := s.client.VideoClip.
+		Query().
+		Where(videoclip.ID(clipID)).
+		Only(s.ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get video clip: %w", err)
+	}
+
+	history := clip.HighlightsHistory
+	if history == nil || len(history) == 0 {
+		return nil, fmt.Errorf("no history available")
+	}
+
+	currentIndex := clip.HighlightsHistoryIndex
+	
+	// Calculate new index (move backward)
+	var newIndex int
+	if currentIndex == -1 {
+		// We're at current state, move to last history entry
+		newIndex = len(history) - 1
+	} else if currentIndex > 0 {
+		// Move backward in history
+		newIndex = currentIndex - 1
+	} else {
+		// Already at oldest entry
+		return nil, fmt.Errorf("cannot undo further")
+	}
+
+	// Get highlights from history
+	highlightsFromHistory := history[newIndex]
+
+	// Update clip index and apply the highlights
+	_, err = s.client.VideoClip.
+		UpdateOneID(clipID).
+		SetHighlightsHistoryIndex(newIndex).
+		SetHighlights(highlightsFromHistory).
+		Save(s.ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to apply historical highlights: %w", err)
+	}
+
+	// Convert to return format
+	return s.schemaHighlightsToHighlights(highlightsFromHistory), nil
+}
+
+// RedoHighlightsChange moves forward in highlights history
+func (s *ProjectService) RedoHighlightsChange(clipID int) ([]Highlight, error) {
+	// Get current video clip with history
+	clip, err := s.client.VideoClip.
+		Query().
+		Where(videoclip.ID(clipID)).
+		Only(s.ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get video clip: %w", err)
+	}
+
+	history := clip.HighlightsHistory
+	if history == nil || len(history) == 0 {
+		return nil, fmt.Errorf("no history available")
+	}
+
+	currentIndex := clip.HighlightsHistoryIndex
+	
+	// Calculate new index (move forward)
+	if currentIndex == -1 || currentIndex >= len(history)-1 {
+		// Already at newest entry or current state
+		return nil, fmt.Errorf("cannot redo further")
+	}
+
+	newIndex := currentIndex + 1
+
+	// Get highlights from history
+	highlightsFromHistory := history[newIndex]
+
+	// Update clip index and apply the highlights
+	_, err = s.client.VideoClip.
+		UpdateOneID(clipID).
+		SetHighlightsHistoryIndex(newIndex).
+		SetHighlights(highlightsFromHistory).
+		Save(s.ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to apply historical highlights: %w", err)
+	}
+
+	// Convert to return format
+	return s.schemaHighlightsToHighlights(highlightsFromHistory), nil
+}
+
+// GetHighlightsHistoryStatus returns whether undo/redo is available for highlights
+func (s *ProjectService) GetHighlightsHistoryStatus(clipID int) (bool, bool, error) {
+	// Get current video clip with history
+	clip, err := s.client.VideoClip.
+		Query().
+		Where(videoclip.ID(clipID)).
+		Only(s.ctx)
+	if err != nil {
+		return false, false, fmt.Errorf("failed to get video clip: %w", err)
+	}
+
+	history := clip.HighlightsHistory
+	if history == nil || len(history) == 0 {
+		return false, false, nil
+	}
+
+	currentIndex := clip.HighlightsHistoryIndex
+	
+	// Can undo if we have history and we're not at the oldest entry
+	canUndo := len(history) > 0 && (currentIndex == -1 || currentIndex > 0)
+	
+	// Can redo if we have history and we're not at the newest entry
+	canRedo := len(history) > 0 && currentIndex != -1 && currentIndex < len(history)-1
+
+	return canUndo, canRedo, nil
+}
+
+// UpdateProjectHighlightOrderWithoutHistory updates order without saving to history (used for undo/redo)
+func (s *ProjectService) UpdateProjectHighlightOrderWithoutHistory(projectID int, highlightOrder []string) error {
+	// Convert highlight order to JSON for storage
+	highlightOrderJSON, err := json.Marshal(highlightOrder)
+	if err != nil {
+		return fmt.Errorf("failed to marshal highlight order: %w", err)
+	}
+	
+	// Store in settings table with project-specific key
+	settingKey := fmt.Sprintf("project_%d_highlight_order", projectID)
+	
+	// Check if setting exists
+	existing, err := s.client.Settings.
+		Query().
+		Where(settings.Key(settingKey)).
+		Only(s.ctx)
+		
+	if err != nil {
+		// Setting doesn't exist, create it
+		_, err = s.client.Settings.
+			Create().
+			SetKey(settingKey).
+			SetValue(string(highlightOrderJSON)).
+			Save(s.ctx)
+	} else {
+		// Setting exists, update it
+		_, err = s.client.Settings.
+			UpdateOne(existing).
+			SetValue(string(highlightOrderJSON)).
+			Save(s.ctx)
+	}
+	
+	return err
 }

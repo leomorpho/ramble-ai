@@ -315,6 +315,51 @@ func (pu *ProjectUpdate) ClearAiSilenceCreatedAt() *ProjectUpdate {
 	return pu
 }
 
+// SetOrderHistory sets the "order_history" field.
+func (pu *ProjectUpdate) SetOrderHistory(s [][]string) *ProjectUpdate {
+	pu.mutation.SetOrderHistory(s)
+	return pu
+}
+
+// AppendOrderHistory appends s to the "order_history" field.
+func (pu *ProjectUpdate) AppendOrderHistory(s [][]string) *ProjectUpdate {
+	pu.mutation.AppendOrderHistory(s)
+	return pu
+}
+
+// ClearOrderHistory clears the value of the "order_history" field.
+func (pu *ProjectUpdate) ClearOrderHistory() *ProjectUpdate {
+	pu.mutation.ClearOrderHistory()
+	return pu
+}
+
+// SetOrderHistoryIndex sets the "order_history_index" field.
+func (pu *ProjectUpdate) SetOrderHistoryIndex(i int) *ProjectUpdate {
+	pu.mutation.ResetOrderHistoryIndex()
+	pu.mutation.SetOrderHistoryIndex(i)
+	return pu
+}
+
+// SetNillableOrderHistoryIndex sets the "order_history_index" field if the given value is not nil.
+func (pu *ProjectUpdate) SetNillableOrderHistoryIndex(i *int) *ProjectUpdate {
+	if i != nil {
+		pu.SetOrderHistoryIndex(*i)
+	}
+	return pu
+}
+
+// AddOrderHistoryIndex adds i to the "order_history_index" field.
+func (pu *ProjectUpdate) AddOrderHistoryIndex(i int) *ProjectUpdate {
+	pu.mutation.AddOrderHistoryIndex(i)
+	return pu
+}
+
+// ClearOrderHistoryIndex clears the value of the "order_history_index" field.
+func (pu *ProjectUpdate) ClearOrderHistoryIndex() *ProjectUpdate {
+	pu.mutation.ClearOrderHistoryIndex()
+	return pu
+}
+
 // AddVideoClipIDs adds the "video_clips" edge to the VideoClip entity by IDs.
 func (pu *ProjectUpdate) AddVideoClipIDs(ids ...int) *ProjectUpdate {
 	pu.mutation.AddVideoClipIDs(ids...)
@@ -548,6 +593,26 @@ func (pu *ProjectUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if pu.mutation.AiSilenceCreatedAtCleared() {
 		_spec.ClearField(project.FieldAiSilenceCreatedAt, field.TypeTime)
+	}
+	if value, ok := pu.mutation.OrderHistory(); ok {
+		_spec.SetField(project.FieldOrderHistory, field.TypeJSON, value)
+	}
+	if value, ok := pu.mutation.AppendedOrderHistory(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, project.FieldOrderHistory, value)
+		})
+	}
+	if pu.mutation.OrderHistoryCleared() {
+		_spec.ClearField(project.FieldOrderHistory, field.TypeJSON)
+	}
+	if value, ok := pu.mutation.OrderHistoryIndex(); ok {
+		_spec.SetField(project.FieldOrderHistoryIndex, field.TypeInt, value)
+	}
+	if value, ok := pu.mutation.AddedOrderHistoryIndex(); ok {
+		_spec.AddField(project.FieldOrderHistoryIndex, field.TypeInt, value)
+	}
+	if pu.mutation.OrderHistoryIndexCleared() {
+		_spec.ClearField(project.FieldOrderHistoryIndex, field.TypeInt)
 	}
 	if pu.mutation.VideoClipsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -943,6 +1008,51 @@ func (puo *ProjectUpdateOne) ClearAiSilenceCreatedAt() *ProjectUpdateOne {
 	return puo
 }
 
+// SetOrderHistory sets the "order_history" field.
+func (puo *ProjectUpdateOne) SetOrderHistory(s [][]string) *ProjectUpdateOne {
+	puo.mutation.SetOrderHistory(s)
+	return puo
+}
+
+// AppendOrderHistory appends s to the "order_history" field.
+func (puo *ProjectUpdateOne) AppendOrderHistory(s [][]string) *ProjectUpdateOne {
+	puo.mutation.AppendOrderHistory(s)
+	return puo
+}
+
+// ClearOrderHistory clears the value of the "order_history" field.
+func (puo *ProjectUpdateOne) ClearOrderHistory() *ProjectUpdateOne {
+	puo.mutation.ClearOrderHistory()
+	return puo
+}
+
+// SetOrderHistoryIndex sets the "order_history_index" field.
+func (puo *ProjectUpdateOne) SetOrderHistoryIndex(i int) *ProjectUpdateOne {
+	puo.mutation.ResetOrderHistoryIndex()
+	puo.mutation.SetOrderHistoryIndex(i)
+	return puo
+}
+
+// SetNillableOrderHistoryIndex sets the "order_history_index" field if the given value is not nil.
+func (puo *ProjectUpdateOne) SetNillableOrderHistoryIndex(i *int) *ProjectUpdateOne {
+	if i != nil {
+		puo.SetOrderHistoryIndex(*i)
+	}
+	return puo
+}
+
+// AddOrderHistoryIndex adds i to the "order_history_index" field.
+func (puo *ProjectUpdateOne) AddOrderHistoryIndex(i int) *ProjectUpdateOne {
+	puo.mutation.AddOrderHistoryIndex(i)
+	return puo
+}
+
+// ClearOrderHistoryIndex clears the value of the "order_history_index" field.
+func (puo *ProjectUpdateOne) ClearOrderHistoryIndex() *ProjectUpdateOne {
+	puo.mutation.ClearOrderHistoryIndex()
+	return puo
+}
+
 // AddVideoClipIDs adds the "video_clips" edge to the VideoClip entity by IDs.
 func (puo *ProjectUpdateOne) AddVideoClipIDs(ids ...int) *ProjectUpdateOne {
 	puo.mutation.AddVideoClipIDs(ids...)
@@ -1206,6 +1316,26 @@ func (puo *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err e
 	}
 	if puo.mutation.AiSilenceCreatedAtCleared() {
 		_spec.ClearField(project.FieldAiSilenceCreatedAt, field.TypeTime)
+	}
+	if value, ok := puo.mutation.OrderHistory(); ok {
+		_spec.SetField(project.FieldOrderHistory, field.TypeJSON, value)
+	}
+	if value, ok := puo.mutation.AppendedOrderHistory(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, project.FieldOrderHistory, value)
+		})
+	}
+	if puo.mutation.OrderHistoryCleared() {
+		_spec.ClearField(project.FieldOrderHistory, field.TypeJSON)
+	}
+	if value, ok := puo.mutation.OrderHistoryIndex(); ok {
+		_spec.SetField(project.FieldOrderHistoryIndex, field.TypeInt, value)
+	}
+	if value, ok := puo.mutation.AddedOrderHistoryIndex(); ok {
+		_spec.AddField(project.FieldOrderHistoryIndex, field.TypeInt, value)
+	}
+	if puo.mutation.OrderHistoryIndexCleared() {
+		_spec.ClearField(project.FieldOrderHistoryIndex, field.TypeInt)
 	}
 	if puo.mutation.VideoClipsCleared() {
 		edge := &sqlgraph.EdgeSpec{

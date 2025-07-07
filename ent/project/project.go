@@ -46,6 +46,10 @@ const (
 	FieldAiSilenceModel = "ai_silence_model"
 	// FieldAiSilenceCreatedAt holds the string denoting the ai_silence_created_at field in the database.
 	FieldAiSilenceCreatedAt = "ai_silence_created_at"
+	// FieldOrderHistory holds the string denoting the order_history field in the database.
+	FieldOrderHistory = "order_history"
+	// FieldOrderHistoryIndex holds the string denoting the order_history_index field in the database.
+	FieldOrderHistoryIndex = "order_history_index"
 	// EdgeVideoClips holds the string denoting the video_clips edge name in mutations.
 	EdgeVideoClips = "video_clips"
 	// EdgeExportJobs holds the string denoting the export_jobs edge name in mutations.
@@ -87,6 +91,8 @@ var Columns = []string{
 	FieldAiSilenceImprovements,
 	FieldAiSilenceModel,
 	FieldAiSilenceCreatedAt,
+	FieldOrderHistory,
+	FieldOrderHistoryIndex,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -116,6 +122,8 @@ var (
 	DefaultAiHighlightModel string
 	// DefaultActiveTab holds the default value on creation for the "active_tab" field.
 	DefaultActiveTab string
+	// DefaultOrderHistoryIndex holds the default value on creation for the "order_history_index" field.
+	DefaultOrderHistoryIndex int
 )
 
 // OrderOption defines the ordering options for the Project queries.
@@ -194,6 +202,11 @@ func ByAiSilenceModel(opts ...sql.OrderTermOption) OrderOption {
 // ByAiSilenceCreatedAt orders the results by the ai_silence_created_at field.
 func ByAiSilenceCreatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAiSilenceCreatedAt, opts...).ToFunc()
+}
+
+// ByOrderHistoryIndex orders the results by the order_history_index field.
+func ByOrderHistoryIndex(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldOrderHistoryIndex, opts...).ToFunc()
 }
 
 // ByVideoClipsCount orders the results by video_clips count.

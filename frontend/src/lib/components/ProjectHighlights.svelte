@@ -2,7 +2,7 @@
   import { onDestroy } from "svelte";
   import { GetVideoURL } from "$lib/wailsjs/go/main/App";
   import { toast } from "svelte-sonner";
-  import { Play, Film, Sparkles, Clock } from "@lucide/svelte";
+  import { Play, Film, Sparkles, Clock, Undo, Redo } from "@lucide/svelte";
   import {
     Dialog,
     DialogContent,
@@ -21,6 +21,9 @@
     updateHighlightOrder,
     deleteHighlight,
     editHighlight,
+    undoOrderChange,
+    redoOrderChange,
+    orderHistoryStatus,
   } from "$lib/stores/projectHighlights.js";
   import { ImproveHighlightSilencesWithAI } from "$lib/wailsjs/go/main/App";
 
@@ -55,8 +58,8 @@
 
   // AI reordering state
   let aiSheetOpen = $state(false);
-  
-  // AI silence improvement state  
+
+  // AI silence improvement state
   let aiSilenceLoading = $state(false);
 
   // Video player play/pause function reference
@@ -304,17 +307,6 @@
     }
   }
 
-  // Handle drop zone drag over
-  function handleDropZoneDragOver(event, position) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    if (isDragging) {
-      event.dataTransfer.dropEffect = "move";
-      dropPosition = position;
-    }
-  }
-
   // Handle span drag over
   function handleSpanDragOver(event, index) {
     event.preventDefault();
@@ -345,17 +337,6 @@
 
       dropPosition = mouseX < centerX ? index : index + 1;
       console.log("handleSpanDrop: triggering drop", { index, dropPosition });
-      await performDrop();
-    }
-  }
-
-  // Handle drop zone drop
-  async function handleDropZoneDrop(event, position) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    if (isDragging) {
-      dropPosition = position;
       await performDrop();
     }
   }
@@ -507,25 +488,45 @@
     }
 
     aiSilenceLoading = true;
-    
+
     try {
-      const improvedHighlights = await ImproveHighlightSilencesWithAI(projectId);
-      
+      const improvedHighlights =
+        await ImproveHighlightSilencesWithAI(projectId);
+
       if (improvedHighlights && improvedHighlights.length > 0) {
         // Apply the improvements directly to the project highlights
         await updateHighlightOrder(improvedHighlights);
-        
-        toast.success(`Applied AI silence improvements to ${improvedHighlights.length} video(s)!`);
+
+        toast.success(
+          `Applied AI silence improvements to ${improvedHighlights.length} video(s)!`
+        );
       } else {
         toast.info("No silence improvements were suggested by AI");
       }
     } catch (error) {
       console.error("Failed to improve highlights with AI:", error);
       toast.error("Failed to improve highlights with AI", {
-        description: error.message || "An error occurred while processing"
+        description: error.message || "An error occurred while processing",
       });
     } finally {
       aiSilenceLoading = false;
+    }
+  }
+
+  // Undo/Redo handlers
+  async function handleUndo() {
+    try {
+      await undoOrderChange();
+    } catch (error) {
+      console.error("Failed to undo:", error);
+    }
+  }
+
+  async function handleRedo() {
+    try {
+      await redoOrderChange();
+    } catch (error) {
+      console.error("Failed to redo:", error);
     }
   }
 </script>
@@ -534,6 +535,29 @@
   <div class="flex items-center justify-between">
     <h2 class="text-xl font-semibold">Highlight Timeline</h2>
     <div class="flex items-center gap-3">
+      <!-- Undo/Redo buttons -->
+      <div class="flex items-center gap-1">
+        <Button
+          variant="outline"
+          size="sm"
+          onclick={handleUndo}
+          disabled={!$orderHistoryStatus.canUndo}
+          class="flex items-center gap-1 px-2"
+          title="Undo order change (Ctrl+Z)"
+        >
+          <Undo class="w-4 h-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onclick={handleRedo}
+          disabled={!$orderHistoryStatus.canRedo}
+          class="flex items-center gap-1 px-2"
+          title="Redo order change (Ctrl+Y)"
+        >
+          <Redo class="w-4 h-4" />
+        </Button>
+      </div>
       {#if highlights.length > 1}
         <Button
           variant="outline"
@@ -554,8 +578,18 @@
           class="flex items-center gap-2"
         >
           {#if aiSilenceLoading}
-            <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            <svg
+              class="w-4 h-4 animate-spin"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
             </svg>
             Improving...
           {:else}
@@ -608,31 +642,31 @@
           </div>
         {:else}
           {#each highlights as highlight, index}
-              <HighlightItem
-                {highlight}
-                {index}
-                isSelected={selectedHighlights.has(highlight.id)}
-                {isDragging}
-                isBeingDragged={isDragging &&
-                  draggedHighlights.includes(highlight.id) &&
-                  draggedHighlights[0] === highlight.id}
-                showDropIndicatorBefore={isDragging && dropPosition === index}
-                onSelect={handleHighlightSelect}
-                onDragStart={handleNewDragStart}
-                onDragEnd={handleNewDragEnd}
-                onDragOver={handleSpanDragOver}
-                onDrop={handleSpanDrop}
-                onEdit={handleEditHighlight}
-                onDelete={handleDeleteConfirm}
-                popoverOpen={isPopoverOpen(highlight.id)}
-                onPopoverOpenChange={(open) => {
-                  if (open) {
-                    openPopover(highlight.id);
-                  } else {
-                    closePopover(highlight.id);
-                  }
-                }}
-              />
+            <HighlightItem
+              {highlight}
+              {index}
+              isSelected={selectedHighlights.has(highlight.id)}
+              {isDragging}
+              isBeingDragged={isDragging &&
+                draggedHighlights.includes(highlight.id) &&
+                draggedHighlights[0] === highlight.id}
+              showDropIndicatorBefore={isDragging && dropPosition === index}
+              onSelect={handleHighlightSelect}
+              onDragStart={handleNewDragStart}
+              onDragEnd={handleNewDragEnd}
+              onDragOver={handleSpanDragOver}
+              onDrop={handleSpanDrop}
+              onEdit={handleEditHighlight}
+              onDelete={handleDeleteConfirm}
+              popoverOpen={isPopoverOpen(highlight.id)}
+              onPopoverOpenChange={(open) => {
+                if (open) {
+                  openPopover(highlight.id);
+                } else {
+                  closePopover(highlight.id);
+                }
+              }}
+            />
           {/each}
 
           <!-- Drop indicator at the end -->
@@ -645,7 +679,7 @@
   {/if}
 
   <!-- Etro Video Player with Keyboard Handler -->
-  <VideoPlayerKeyHandler 
+  <VideoPlayerKeyHandler
     onPlayPause={() => {
       if (playPauseRef.current) {
         playPauseRef.current();
@@ -663,7 +697,6 @@
   {highlights}
   onApply={handleAIApply}
 />
-
 
 <!-- Video Player Dialog -->
 <Dialog bind:open={videoDialogOpen}>
