@@ -112,6 +112,8 @@ Only include highlights where you recommend changes.`;
         hasCachedImprovements = true;
         cachedImprovementsDate = new Date(cachedResult.createdAt).toLocaleString();
         cachedImprovementsModel = cachedResult.model;
+        showOriginalForm = true; // Show comparison when loading cached results
+        console.log("Loaded cached improvements:", improvedHighlights.length, "videos", improvedHighlights);
       } else {
         improvedHighlights = [];
         hasCachedImprovements = false;
@@ -150,6 +152,7 @@ Only include highlights where you recommend changes.`;
       hasCachedImprovements = true;
       cachedImprovementsDate = new Date().toLocaleString();
       cachedImprovementsModel = modelToSave;
+      showOriginalForm = true; // Show comparison by default after generation
       
       toast.success(`Generated AI silence improvements for ${improvements.length} video(s)!`);
     } catch (error) {
@@ -204,6 +207,16 @@ Only include highlights where you recommend changes.`;
     }
   }
 
+  // Reset to original highlights before AI generation
+  function resetToOriginal() {
+    improvedHighlights = [];
+    showOriginalForm = false;
+    hasCachedImprovements = false;
+    cachedImprovementsDate = null;
+    cachedImprovementsModel = "";
+    toast.success("Reset to original highlight timings");
+  }
+
   function formatTimestamp(seconds) {
     const mins = Math.floor(seconds / 60);
     const secs = (seconds % 60).toFixed(1);
@@ -212,19 +225,31 @@ Only include highlights where you recommend changes.`;
 
   // Flatten improved highlights for display
   let flattenedImprovements = $derived(() => {
-    if (!improvedHighlights || improvedHighlights.length === 0) return [];
+    if (!improvedHighlights || improvedHighlights.length === 0) {
+      console.log("No improved highlights to flatten");
+      return [];
+    }
     
+    console.log("Flattening improved highlights:", improvedHighlights);
     const flattened = [];
-    improvedHighlights.forEach(video => {
-      video.highlights.forEach(highlight => {
-        flattened.push({
-          ...highlight,
-          videoClipName: video.videoClipName,
-          videoClipId: video.videoClipId,
-          filePath: video.filePath,
+    improvedHighlights.forEach((video, videoIndex) => {
+      console.log(`Video ${videoIndex}:`, video);
+      console.log(`Video highlights:`, video.highlights);
+      
+      if (video.highlights && video.highlights.length > 0) {
+        video.highlights.forEach(highlight => {
+          flattened.push({
+            ...highlight,
+            videoClipName: video.videoClipName,
+            videoClipId: video.videoClipId,
+            filePath: video.filePath,
+          });
         });
-      });
+      } else {
+        console.log(`Video ${videoIndex} has no highlights or highlights is empty/undefined`);
+      }
     });
+    console.log("Flattened improvements:", flattened.length, "highlights", flattened);
     return flattened;
   });
 
@@ -324,140 +349,208 @@ Only include highlights where you recommend changes.`;
             <div class="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md border">
               No highlights available to improve. Create some highlights first.
             </div>
-          {:else if flattenedImprovements.length > 0}
-            <div class="space-y-6">
-              <!-- Preview Video Player -->
-              <div class="bg-card border rounded-lg p-4">
-                <h3 class="text-sm font-medium mb-3 flex items-center gap-2">
-                  <Play class="w-4 h-4" />
-                  Preview AI Improved Timings
-                </h3>
-                <EtroVideoPlayer 
-                  highlights={improvedHighlights} 
-                  {projectId} 
-                  enableEyeButton={false}
-                />
-              </div>
-
-              <!-- AI Improved Timeline -->
-              <div class="bg-muted/30 rounded-lg p-4">
-                <div class="flex items-center justify-between mb-3">
-                  <h3 class="text-sm font-medium">
-                    AI Improved Highlights ({flattenedImprovements.length}):
-                  </h3>
-                  {#if showOriginalForm}
-                    <Button variant="outline" size="sm" onclick={() => showOriginalForm = false}>
-                      Hide Comparison
-                    </Button>
-                  {:else}
-                    <Button variant="outline" size="sm" onclick={() => showOriginalForm = true}>
-                      Show Original vs Improved
-                    </Button>
-                  {/if}
-                </div>
-
-                {#if showOriginalForm && flattenedOriginals.length > 0}
-                  <!-- Side-by-side comparison -->
-                  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <!-- Original highlights -->
-                    <div class="space-y-2">
-                      <h4 class="text-xs font-medium text-muted-foreground">Original Timings:</h4>
-                      <div class="p-4 bg-background rounded-lg min-h-[80px] relative leading-relaxed text-base border">
-                        {#each flattenedOriginals as highlight, index}
-                          <HighlightItem
-                            {highlight}
-                            {index}
-                            isSelected={false}
-                            isDragging={false}
-                            isBeingDragged={false}
-                            showDropIndicatorBefore={false}
-                            onSelect={() => {}}
-                            onDragStart={() => {}}
-                            onDragEnd={() => {}}
-                            onDragOver={() => {}}
-                            onDrop={() => {}}
-                            onEdit={() => {}}
-                            onDelete={() => {}}
-                            popoverOpen={false}
-                            onPopoverOpenChange={() => {}}
-                          />
-                          {#if index < flattenedOriginals.length - 1}
-                            <span class="mx-1"> </span>
-                          {/if}
-                        {/each}
-                      </div>
-                    </div>
-
-                    <!-- Improved highlights -->
-                    <div class="space-y-2">
-                      <h4 class="text-xs font-medium text-muted-foreground">AI Improved Timings:</h4>
-                      <div class="p-4 bg-background rounded-lg min-h-[80px] relative leading-relaxed text-base border border-primary/20">
-                        {#each flattenedImprovements as highlight, index}
-                          <HighlightItem
-                            {highlight}
-                            {index}
-                            isSelected={false}
-                            isDragging={false}
-                            isBeingDragged={false}
-                            showDropIndicatorBefore={false}
-                            onSelect={() => {}}
-                            onDragStart={() => {}}
-                            onDragEnd={() => {}}
-                            onDragOver={() => {}}
-                            onDrop={() => {}}
-                            onEdit={() => {}}
-                            onDelete={() => {}}
-                            popoverOpen={false}
-                            onPopoverOpenChange={() => {}}
-                          />
-                          {#if index < flattenedImprovements.length - 1}
-                            <span class="mx-1"> </span>
-                          {/if}
-                        {/each}
-                      </div>
-                    </div>
-                  </div>
-                {:else}
-                  <!-- Single view -->
-                  <div class="p-4 bg-background rounded-lg min-h-[80px] relative leading-relaxed text-base border border-primary/20">
-                    {#each flattenedImprovements as highlight, index}
-                      <HighlightItem
-                        {highlight}
-                        {index}
-                        isSelected={false}
-                        isDragging={false}
-                        isBeingDragged={false}
-                        showDropIndicatorBefore={false}
-                        onSelect={() => {}}
-                        onDragStart={() => {}}
-                        onDragEnd={() => {}}
-                        onDragOver={() => {}}
-                        onDrop={() => {}}
-                        onEdit={() => {}}
-                        onDelete={() => {}}
-                        popoverOpen={false}
-                        onPopoverOpenChange={() => {}}
-                      />
-                      {#if index < flattenedImprovements.length - 1}
-                        <span class="mx-1"> </span>
-                      {/if}
-                    {/each}
-                  </div>
-                {/if}
-              </div>
-            </div>
           {/if}
         {/snippet}
       </AISettings>
+
+      <!-- Debug Info (temporary) -->
+      <div class="bg-gray-100 p-2 text-xs rounded border">
+        <div>Debug: improvedHighlights.length = {improvedHighlights.length}</div>
+        <div>Debug: flattenedImprovements.length = {flattenedImprovements.length}</div>
+        <div>Debug: hasCachedImprovements = {hasCachedImprovements}</div>
+        <div>Debug: showOriginalForm = {showOriginalForm}</div>
+      </div>
+
+      <!-- Results Section -->
+      <div class="space-y-6">
+        {#if aiSilenceLoading}
+          <div class="p-8 text-center">
+            <div
+              class="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4"
+            ></div>
+            <p class="text-lg font-medium">
+              AI is analyzing speech patterns...
+            </p>
+            <p class="text-sm text-muted-foreground">
+              This may take a few moments
+            </p>
+          </div>
+        {:else if aiSilenceError}
+          <div class="p-6 text-center space-y-4">
+            <div
+              class="bg-destructive/10 text-destructive border border-destructive/20 rounded-lg p-4"
+            >
+              <p class="font-medium">Error</p>
+              <p class="text-sm">{aiSilenceError}</p>
+            </div>
+            <div class="flex justify-center gap-2">
+              <Button
+                variant="outline"
+                onclick={() => {
+                  aiSilenceError = "";
+                  improvedHighlights = [];
+                  instructionsOpen = true;
+                }}
+              >
+                Back to Instructions
+              </Button>
+            </div>
+          </div>
+        {:else if flattenedImprovements.length > 0}
+          <div class="space-y-6">
+            <!-- Preview Video Player -->
+            <div class="bg-card border rounded-lg p-4">
+              <h3 class="text-sm font-medium mb-3 flex items-center gap-2">
+                <Play class="w-4 h-4" />
+                Preview AI Improved Timings
+              </h3>
+              <EtroVideoPlayer 
+                highlights={improvedHighlights} 
+                {projectId} 
+                enableEyeButton={false}
+              />
+            </div>
+
+            <!-- AI Improved Timeline -->
+            <div class="bg-muted/30 rounded-lg p-4">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-medium">
+                  AI Improved Highlights ({flattenedImprovements.length}):
+                </h3>
+                {#if showOriginalForm}
+                  <Button variant="outline" size="sm" onclick={() => showOriginalForm = false}>
+                    Hide Comparison
+                  </Button>
+                {:else}
+                  <Button variant="outline" size="sm" onclick={() => showOriginalForm = true}>
+                    Show Original vs Improved
+                  </Button>
+                {/if}
+              </div>
+
+              {#if showOriginalForm && flattenedOriginals.length > 0}
+                <!-- Side-by-side comparison -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <!-- Original highlights -->
+                  <div class="space-y-2">
+                    <h4 class="text-xs font-medium text-muted-foreground">Original Timings:</h4>
+                    <div class="p-4 bg-background rounded-lg min-h-[80px] relative leading-relaxed text-base border">
+                      {#each flattenedOriginals as highlight, index}
+                        <HighlightItem
+                          {highlight}
+                          {index}
+                          isSelected={false}
+                          isDragging={false}
+                          isBeingDragged={false}
+                          showDropIndicatorBefore={false}
+                          onSelect={() => {}}
+                          onDragStart={() => {}}
+                          onDragEnd={() => {}}
+                          onDragOver={() => {}}
+                          onDrop={() => {}}
+                          onEdit={() => {}}
+                          onDelete={() => {}}
+                          popoverOpen={false}
+                          onPopoverOpenChange={() => {}}
+                        />
+                        {#if index < flattenedOriginals.length - 1}
+                          <span class="mx-1"> </span>
+                        {/if}
+                      {/each}
+                    </div>
+                  </div>
+
+                  <!-- Improved highlights -->
+                  <div class="space-y-2">
+                    <h4 class="text-xs font-medium text-muted-foreground">AI Improved Timings:</h4>
+                    <div class="p-4 bg-background rounded-lg min-h-[80px] relative leading-relaxed text-base border border-primary/20">
+                      {#each flattenedImprovements as highlight, index}
+                        <HighlightItem
+                          {highlight}
+                          {index}
+                          isSelected={false}
+                          isDragging={false}
+                          isBeingDragged={false}
+                          showDropIndicatorBefore={false}
+                          onSelect={() => {}}
+                          onDragStart={() => {}}
+                          onDragEnd={() => {}}
+                          onDragOver={() => {}}
+                          onDrop={() => {}}
+                          onEdit={() => {}}
+                          onDelete={() => {}}
+                          popoverOpen={false}
+                          onPopoverOpenChange={() => {}}
+                        />
+                        {#if index < flattenedImprovements.length - 1}
+                          <span class="mx-1"> </span>
+                        {/if}
+                      {/each}
+                    </div>
+                  </div>
+                </div>
+              {:else}
+                <!-- Single view - showing improved highlights -->
+                <div class="p-4 bg-background rounded-lg min-h-[80px] relative leading-relaxed text-base border border-primary/20">
+                  {#each flattenedImprovements as highlight, index}
+                    <HighlightItem
+                      {highlight}
+                      {index}
+                      isSelected={false}
+                      isDragging={false}
+                      isBeingDragged={false}
+                      showDropIndicatorBefore={false}
+                      onSelect={() => {}}
+                      onDragStart={() => {}}
+                      onDragEnd={() => {}}
+                      onDragOver={() => {}}
+                      onDrop={() => {}}
+                      onEdit={() => {}}
+                      onDelete={() => {}}
+                      popoverOpen={false}
+                      onPopoverOpenChange={() => {}}
+                    />
+                    {#if index < flattenedImprovements.length - 1}
+                      <span class="mx-1"> </span>
+                    {/if}
+                  {/each}
+                </div>
+              {/if}
+            </div>
+          </div>
+        {:else if highlights.length > 0}
+          <div class="p-8 text-center text-muted-foreground">
+            <p class="text-lg font-medium">No results yet</p>
+            <p class="text-sm">
+              Generate AI improvements using the instructions above to see results here
+            </p>
+          </div>
+        {/if}
+      </div>
     </div>
 
-    <!-- Footer Actions -->
-    <div class="p-6 pt-0">
-      <div class="flex justify-between gap-2">
-        <Button variant="outline" onclick={() => open = false}>
+  {/snippet}
+  
+  {#snippet footer({ closeSheet })}
+    <div class="flex justify-between gap-2">
+      <div class="flex gap-2">
+        {#if showOriginalForm}
+          <Button
+            variant="outline"
+            onclick={resetToOriginal}
+            disabled={aiSilenceLoading}
+          >
+            Reset to Original
+          </Button>
+        {/if}
+      </div>
+      <div class="flex gap-2">
+        <Button
+          variant="outline"
+          onclick={closeSheet}
+        >
           Cancel
         </Button>
-        
         {#if flattenedImprovements.length > 0}
           <Button onclick={applyImprovements} class="flex items-center gap-2">
             <Clock class="w-4 h-4" />

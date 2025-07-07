@@ -17,12 +17,12 @@
   import ClipEditor from "$lib/components/ClipEditor.svelte";
   import HighlightItem from "$lib/components/HighlightItem.svelte";
   import AIReorderSheet from "$lib/components/AIReorderSheet.svelte";
-  import AISilenceImprovementSheet from "$lib/components/AISilenceImprovementSheet.svelte";
   import {
     updateHighlightOrder,
     deleteHighlight,
     editHighlight,
   } from "$lib/stores/projectHighlights.js";
+  import { ImproveHighlightSilencesWithAI } from "$lib/wailsjs/go/main/App";
 
   let { projectId, highlights, loading } = $props();
 
@@ -57,7 +57,7 @@
   let aiSheetOpen = $state(false);
   
   // AI silence improvement state  
-  let aiSilenceSheetOpen = $state(false);
+  let aiSilenceLoading = $state(false);
 
   // Video player play/pause function reference
   let playPauseRef = $state({ current: null });
@@ -500,22 +500,33 @@
     );
   }
 
-  function handleAISilenceImprovement() {
+  async function handleAISilenceImprovement() {
     if (!projectId || highlights.length === 0) {
       toast.error("No highlights to improve");
       return;
     }
 
-    aiSilenceSheetOpen = true;
-  }
-
-  // Handle AI silence improvement apply callback
-  function handleAISilenceApply(improvedHighlights) {
-    console.log(
-      "AI silence improvements applied:",
-      improvedHighlights.length,
-      "video highlights"
-    );
+    aiSilenceLoading = true;
+    
+    try {
+      const improvedHighlights = await ImproveHighlightSilencesWithAI(projectId);
+      
+      if (improvedHighlights && improvedHighlights.length > 0) {
+        // Apply the improvements directly to the project highlights
+        await updateHighlightOrder(improvedHighlights);
+        
+        toast.success(`Applied AI silence improvements to ${improvedHighlights.length} video(s)!`);
+      } else {
+        toast.info("No silence improvements were suggested by AI");
+      }
+    } catch (error) {
+      console.error("Failed to improve highlights with AI:", error);
+      toast.error("Failed to improve highlights with AI", {
+        description: error.message || "An error occurred while processing"
+      });
+    } finally {
+      aiSilenceLoading = false;
+    }
   }
 </script>
 
@@ -539,10 +550,18 @@
           variant="outline"
           size="sm"
           onclick={handleAISilenceImprovement}
+          disabled={aiSilenceLoading}
           class="flex items-center gap-2"
         >
-          <Clock class="w-4 h-4" />
-          AI Improve Silences
+          {#if aiSilenceLoading}
+            <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Improving...
+          {:else}
+            <Clock class="w-4 h-4" />
+            AI Improve Silences
+          {/if}
         </Button>
       {/if}
       <div class="text-sm text-muted-foreground">
@@ -645,13 +664,6 @@
   onApply={handleAIApply}
 />
 
-<!-- AI Silence Improvement Sheet -->
-<AISilenceImprovementSheet
-  bind:open={aiSilenceSheetOpen}
-  {projectId}
-  {highlights}
-  onApply={handleAISilenceApply}
-/>
 
 <!-- Video Player Dialog -->
 <Dialog bind:open={videoDialogOpen}>
