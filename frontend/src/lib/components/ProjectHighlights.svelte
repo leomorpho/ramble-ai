@@ -17,6 +17,7 @@
   import ClipEditor from "$lib/components/ClipEditor.svelte";
   import HighlightItem from "$lib/components/HighlightItem.svelte";
   import AIReorderSheet from "$lib/components/AIReorderSheet.svelte";
+  import TimeGap from "$lib/components/ui/TimeGap.svelte";
   import {
     updateHighlightOrder,
     deleteHighlight,
@@ -667,6 +668,17 @@
                 }
               }}
             />
+            
+            <!-- Time gap between highlights -->
+            {#if index < highlights.length - 1}
+              {@const currentEnd = highlight.end}
+              {@const nextStart = highlights[index + 1].start}
+              {@const gapDuration = nextStart - currentEnd}
+              
+              {#if gapDuration > 0}
+                <TimeGap duration={gapDuration} showNormal={true} size="sm" />
+              {/if}
+            {/if}
           {/each}
 
           <!-- Drop indicator at the end -->
