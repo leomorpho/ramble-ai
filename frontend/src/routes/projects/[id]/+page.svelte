@@ -66,6 +66,7 @@
     Check,
   } from "@lucide/svelte";
   import { updateVideoHighlights } from "$lib/stores/projectHighlights.js";
+  import CopyToClipboardButton from "$lib/components/CopyToClipboardButton.svelte";
 
   let project = $state(null);
   let loading = $state(false);
@@ -100,9 +101,6 @@
   // Tabs state
   let activeTab = $state("clips");
   let debounceTimer = null;
-
-  // Copy button state
-  let pathCopied = $state(false);
 
   // Get project ID from route params
   let projectId = $derived(parseInt($page.params.id));
@@ -157,7 +155,7 @@
 
     // Clean up highlights store
     clearHighlights();
-    
+
     // Clean up tab save timer
     if (debounceTimer) {
       clearTimeout(debounceTimer);
@@ -174,7 +172,7 @@
       loading = true;
       error = "";
       project = await GetProjectByID(projectId);
-      
+
       // Set the active tab from project settings
       if (project && project.activeTab) {
         activeTab = project.activeTab;
@@ -604,22 +602,6 @@
     goto("/");
   }
 
-  async function copyToClipboard(text) {
-    try {
-      await navigator.clipboard.writeText(text);
-      pathCopied = true;
-      toast.success("Copied to clipboard");
-      
-      // Reset the copied state after 2 seconds
-      setTimeout(() => {
-        pathCopied = false;
-      }, 2000);
-    } catch (err) {
-      console.error("Failed to copy:", err);
-      toast.error("Failed to copy to clipboard");
-    }
-  }
-
   async function startTranscription(clip) {
     try {
       // Check if OpenAI API key is configured
@@ -884,7 +866,7 @@
 
   async function saveActiveTab(tab) {
     if (!projectId || isNaN(projectId)) return;
-    
+
     try {
       await UpdateProjectActiveTab(projectId, tab);
     } catch (err) {
@@ -899,12 +881,12 @@
     if (debounceTimer) {
       clearTimeout(debounceTimer);
     }
-    
+
     // Clear clip errors when switching away from clips tab
     if (activeTab !== "clips" && clipError) {
       clipError = "";
     }
-    
+
     // Only save if project is loaded
     if (project && activeTab) {
       // Debounce the save to avoid too many API calls
@@ -1047,12 +1029,14 @@
                       <div class="text-2xl font-bold text-primary mb-1">
                         {Math.floor(
                           highlights.reduce(
-                            (sum, highlight) => sum + (highlight.end - highlight.start),
+                            (sum, highlight) =>
+                              sum + (highlight.end - highlight.start),
                             0
                           ) / 60
                         )}:{Math.floor(
                           highlights.reduce(
-                            (sum, highlight) => sum + (highlight.end - highlight.start),
+                            (sum, highlight) =>
+                              sum + (highlight.end - highlight.start),
                             0
                           ) % 60
                         )
@@ -1158,19 +1142,7 @@
                             class="text-sm bg-secondary px-3 py-2 rounded flex-1 break-all"
                             >{project.path}</code
                           >
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onclick={() => copyToClipboard(project.path)}
-                            class="flex-shrink-0 transition-all"
-                            disabled={pathCopied}
-                          >
-                            {#if pathCopied}
-                              <Check class="w-4 h-4 text-green-600" />
-                            {:else}
-                              <Copy class="w-4 h-4" />
-                            {/if}
-                          </Button>
+                          <CopyToClipboardButton text={project.path} />
                         </div>
                       </div>
                     </div>

@@ -1,18 +1,18 @@
 <script>
   import { tick } from "svelte";
   import { Button } from "$lib/components/ui/button";
-  import { 
-    Dialog, 
-    DialogContent, 
-    DialogDescription, 
-    DialogHeader, 
-    DialogTitle, 
+  import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
   } from "$lib/components/ui/dialog";
-  import { 
-    Tabs, 
-    TabsContent, 
-    TabsList, 
-    TabsTrigger 
+  import {
+    Tabs,
+    TabsContent,
+    TabsList,
+    TabsTrigger,
   } from "$lib/components/ui/tabs";
   import { ScrollArea } from "$lib/components/ui/scroll-area";
   import AISettings from "$lib/components/ui/AISettings.svelte";
@@ -27,30 +27,31 @@
     GetSuggestedHighlights,
     UpdateVideoClipSuggestedHighlights,
   } from "$lib/wailsjs/go/main/App";
-  import { 
+  import {
     updateVideoHighlights,
     undoHighlightsChange,
     redoHighlightsChange,
     highlightsHistoryStatus,
     updateHighlightsHistoryStatus,
   } from "$lib/stores/projectHighlights.js";
+  import CopyToClipboardButton from "./CopyToClipboardButton.svelte";
 
-  let { 
+  let {
     open = $bindable(false),
     video = $bindable(null),
     projectId,
     highlights = [],
-    onHighlightsChange
+    onHighlightsChange,
   } = $props();
 
   // Transcript video player state (separate from main highlights)
   let transcriptPlayerHighlights = $state([]);
-  
+
   // AI suggestion state - Map to track loading state per video ID
   let aiSuggestLoadingMap = $state(new Map());
   let suggestedHighlights = $state([]);
   let loadingSuggestedHighlights = $state(false);
-  
+
   // AI settings state
   let selectedModel = $state("anthropic/claude-sonnet-4");
   let customPrompt = $state("");
@@ -60,15 +61,21 @@
   // Available AI models (same as in AISettings component)
   const availableModels = [
     { value: "anthropic/claude-3.5-haiku-20241022", label: "Claude 3.5 Haiku" },
-    { value: "anthropic/claude-3.5-sonnet-20241022", label: "Claude 3.5 Sonnet" },
-    { value: "anthropic/claude-3-5-sonnet-20241022", label: "Claude 3.5 Sonnet (Latest)" },
+    {
+      value: "anthropic/claude-3.5-sonnet-20241022",
+      label: "Claude 3.5 Sonnet",
+    },
+    {
+      value: "anthropic/claude-3-5-sonnet-20241022",
+      label: "Claude 3.5 Sonnet (Latest)",
+    },
     { value: "anthropic/claude-3-opus-20240229", label: "Claude 3 Opus" },
     { value: "openai/gpt-4o", label: "GPT-4o" },
     { value: "openai/gpt-4o-mini", label: "GPT-4o Mini" },
     { value: "google/gemini-2.0-flash-exp", label: "Gemini 2.0 Flash" },
     { value: "google/gemini-exp-1206", label: "Gemini Experimental" },
     { value: "x-ai/grok-2-1212", label: "Grok 2" },
-    { value: "custom", label: "Custom Model (Enter Below)" }
+    { value: "custom", label: "Custom Model (Enter Below)" },
   ];
 
   // Default highlight suggestion prompt
@@ -83,17 +90,17 @@ Analyze the transcript and identify segments that are:
 - Contains key insights or takeaways
 
 Return segments that would work well as standalone content pieces.`;
-  
+
   // Derived highlights formatted for EtroVideoPlayer (adds filePath from video)
   let formattedTranscriptHighlights = $derived(
-    video && transcriptPlayerHighlights.length > 0 
+    video && transcriptPlayerHighlights.length > 0
       ? [...transcriptPlayerHighlights] // Create a copy to avoid mutation
           .sort((a, b) => a.start - b.start) // Order by start time (temporal order)
-          .map(highlight => ({
+          .map((highlight) => ({
             ...highlight,
             filePath: video.filePath,
             videoClipId: video.id,
-            videoClipName: video.name
+            videoClipName: video.name,
           }))
       : []
   );
@@ -103,15 +110,15 @@ Return segments that would work well as standalone content pieces.`;
     if (video && highlights) {
       // Get highlights for this specific video clip from props
       // Filter by both videoClipId and filePath for extra safety
-      const videoHighlights = highlights.filter(h => 
-        h.videoClipId === video.id && h.filePath === video.filePath
+      const videoHighlights = highlights.filter(
+        (h) => h.videoClipId === video.id && h.filePath === video.filePath
       );
-      transcriptPlayerHighlights = videoHighlights.map(h => ({
+      transcriptPlayerHighlights = videoHighlights.map((h) => ({
         id: h.id,
         start: h.start,
         end: h.end,
         color: h.color,
-        text: h.text
+        text: h.text,
       }));
     }
   });
@@ -123,14 +130,14 @@ Return segments that would work well as standalone content pieces.`;
       loadSuggestedHighlights();
     }
   });
-  
+
   // Load AI settings from project
   async function loadAISettings() {
     try {
       const aiSettings = await GetProjectHighlightAISettings(projectId);
       selectedModel = aiSettings.aiModel || "anthropic/claude-sonnet-4";
       customPrompt = aiSettings.aiPrompt || defaultPrompt;
-      
+
       // If using custom model, extract the value
       if (!availableModels.find((m) => m.value === selectedModel)) {
         customModelValue = selectedModel;
@@ -146,32 +153,32 @@ Return segments that would work well as standalone content pieces.`;
   // Load suggested highlights from database
   async function loadSuggestedHighlights() {
     if (!video?.id) return;
-    
+
     loadingSuggestedHighlights = true;
     try {
       const suggestions = await GetSuggestedHighlights(video.id);
       console.log("📥 Loaded suggested highlights from DB:", suggestions);
-      
+
       // Convert to frontend format (already have timestamps from backend)
-      const newSuggestions = suggestions.map(suggestion => ({
+      const newSuggestions = suggestions.map((suggestion) => ({
         id: suggestion.id,
         start: suggestion.start,
         end: suggestion.end,
         color: suggestion.color,
         text: suggestion.text,
-        isSuggestion: true
+        isSuggestion: true,
       }));
-      
+
       // Force reactive update by creating new array
       suggestedHighlights = [...newSuggestions];
-      
+
       // Ensure Svelte processes the update
       await tick();
-      
+
       console.log("✅ Updated suggestedHighlights array:", {
         count: suggestedHighlights.length,
         highlights: suggestedHighlights,
-        dbCount: suggestions.length
+        dbCount: suggestions.length,
       });
     } catch (error) {
       console.error("Failed to load suggested highlights:", error);
@@ -183,28 +190,32 @@ Return segments that would work well as standalone content pieces.`;
 
   async function handleHighlightsChangeInternal(highlights) {
     if (!video) return;
-    
-    console.log("🔄 handleHighlightsChangeInternal called with", highlights.length, "highlights");
-    
+
+    console.log(
+      "🔄 handleHighlightsChangeInternal called with",
+      highlights.length,
+      "highlights"
+    );
+
     try {
       // Update the transcript player highlights (local state)
       transcriptPlayerHighlights = [...highlights];
-      
+
       // Use the store function to update highlights
       await updateVideoHighlights(video.id, highlights);
-      
+
       // Still call the parent's handler if provided for backward compatibility
       if (onHighlightsChange) {
         await onHighlightsChange(highlights);
       }
-      
+
       // Reload suggested highlights to ensure we're in sync with database
       // This is important when accepting suggestions
       console.log("🔄 Reloading suggested highlights after change...");
-      
+
       // Add a small delay to ensure DB operations complete
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
       try {
         await loadSuggestedHighlights();
         console.log("✅ Successfully reloaded suggested highlights");
@@ -214,7 +225,7 @@ Return segments that would work well as standalone content pieces.`;
     } catch (err) {
       console.error("Failed to save highlights:", err);
       toast.error("Failed to save highlights", {
-        description: "An error occurred while saving your highlights"
+        description: "An error occurred while saving your highlights",
       });
     }
   }
@@ -222,14 +233,7 @@ Return segments that would work well as standalone content pieces.`;
   function formatTimestamp(seconds) {
     const mins = Math.floor(seconds / 60);
     const secs = (seconds % 60).toFixed(1);
-    return `${mins}:${secs.padStart(4, '0')}`;
-  }
-
-  async function copyTranscript() {
-    if (video?.transcription) {
-      await navigator.clipboard.writeText(video.transcription);
-      toast.success("Copied to clipboard");
-    }
+    return `${mins}:${secs.padStart(4, "0")}`;
   }
 
   // Suggest highlights inline
@@ -242,7 +246,7 @@ Return segments that would work well as standalone content pieces.`;
       hasTranscriptionWords: !!video?.transcriptionWords,
       transcriptionWordsCount: video?.transcriptionWords?.length,
       projectId,
-      videoId: video?.id
+      videoId: video?.id,
     });
 
     if (!video?.transcription) {
@@ -255,21 +259,25 @@ Return segments that would work well as standalone content pieces.`;
     aiSuggestLoadingMap.set(video.id, true);
     aiSuggestLoadingMap = new Map(aiSuggestLoadingMap); // Trigger reactivity
     console.log("⏳ Setting loading state to true for video:", video.id);
-    
+
     try {
       // Save current AI settings before processing
       console.log("💾 Saving AI settings...");
-      const modelToSave = selectedModel === "custom" ? customModelValue : selectedModel;
+      const modelToSave =
+        selectedModel === "custom" ? customModelValue : selectedModel;
       await SaveProjectHighlightAISettings(projectId, {
         aiModel: modelToSave,
         aiPrompt: customPrompt,
       });
-      console.log("✅ Saved AI settings:", { model: modelToSave, prompt: customPrompt });
+      console.log("✅ Saved AI settings:", {
+        model: modelToSave,
+        prompt: customPrompt,
+      });
 
       console.log("🤖 Calling SuggestHighlightsWithAI...", {
         projectId,
         videoId: video.id,
-        prompt: customPrompt || "default"
+        prompt: customPrompt || "default",
       });
 
       // Call the AI highlight suggestion API
@@ -280,40 +288,47 @@ Return segments that would work well as standalone content pieces.`;
       );
 
       console.log("📝 Raw AI suggestions received:", suggestions);
-      console.log("📝 Suggestions type:", typeof suggestions, Array.isArray(suggestions));
+      console.log(
+        "📝 Suggestions type:",
+        typeof suggestions,
+        Array.isArray(suggestions)
+      );
 
       // AI suggestions already come with timestamps from backend
       const newSuggestions = suggestions.map((suggestion, index) => {
         console.log(`🔄 Processing suggestion ${index}:`, suggestion);
-        
+
         const converted = {
           id: suggestion.id,
           start: suggestion.start, // Already in timestamp format
-          end: suggestion.end,     // Already in timestamp format
+          end: suggestion.end, // Already in timestamp format
           color: suggestion.color,
           text: suggestion.text,
-          isSuggestion: true
+          isSuggestion: true,
         };
-        
+
         console.log(`✨ Converted suggestion ${index}:`, converted);
         return converted;
       });
 
       console.log("🎯 AI generation complete, reloading from database");
-      
+
       // Reload suggested highlights from database
       await loadSuggestedHighlights();
-      
-      toast.success(`Generated ${suggestions.length} AI highlight suggestions!`);
+
+      toast.success(
+        `Generated ${suggestions.length} AI highlight suggestions!`
+      );
     } catch (error) {
       console.error("💥 AI highlight suggestion error:", error);
       console.error("💥 Error details:", {
         message: error.message,
         stack: error.stack,
-        name: error.name
+        name: error.name,
       });
       toast.error("Failed to generate highlight suggestions", {
-        description: error.message || "An error occurred while generating suggestions"
+        description:
+          error.message || "An error occurred while generating suggestions",
       });
     } finally {
       // Clear loading state for this specific video
@@ -323,7 +338,6 @@ Return segments that would work well as standalone content pieces.`;
     }
   }
 
-
   // Accept all suggested highlights
   async function acceptAllSuggestions() {
     if (suggestedHighlights.length === 0 || !video) return;
@@ -331,44 +345,61 @@ Return segments that would work well as standalone content pieces.`;
     try {
       // Get all available colors
       const availableColors = [
-        '#FFEB3B', '#FF9800', '#F44336', '#E91E63', '#9C27B0',
-        '#673AB7', '#3F51B5', '#2196F3', '#03A9F4', '#00BCD4',
-        '#009688', '#4CAF50', '#8BC34A', '#CDDC39', '#FFC107'
+        "#FFEB3B",
+        "#FF9800",
+        "#F44336",
+        "#E91E63",
+        "#9C27B0",
+        "#673AB7",
+        "#3F51B5",
+        "#2196F3",
+        "#03A9F4",
+        "#00BCD4",
+        "#009688",
+        "#4CAF50",
+        "#8BC34A",
+        "#CDDC39",
+        "#FFC107",
       ];
-      
+
       // Get used colors from existing highlights for this specific video clip
-      const videoHighlights = highlights.filter(h => 
-        h.videoClipId === video.id && h.filePath === video.filePath
+      const videoHighlights = highlights.filter(
+        (h) => h.videoClipId === video.id && h.filePath === video.filePath
       );
-      const usedColors = new Set(videoHighlights.map(h => h.color));
-      
+      const usedColors = new Set(videoHighlights.map((h) => h.color));
+
       // Convert all suggestions to regular highlights
       const newHighlights = suggestedHighlights.map((suggestion, index) => {
         // Find an available color
-        let color = availableColors.find(c => !usedColors.has(c)) || availableColors[index % availableColors.length];
+        let color =
+          availableColors.find((c) => !usedColors.has(c)) ||
+          availableColors[index % availableColors.length];
         usedColors.add(color);
-        
+
         return {
           id: `highlight_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
           start: suggestion.start,
           end: suggestion.end,
-          color: color
+          color: color,
         };
       });
 
       // Use the store function to update all highlights at once
-      const updatedHighlights = [...transcriptPlayerHighlights, ...newHighlights];
+      const updatedHighlights = [
+        ...transcriptPlayerHighlights,
+        ...newHighlights,
+      ];
       await updateVideoHighlights(video.id, updatedHighlights);
-      
+
       // Update local state immediately
       transcriptPlayerHighlights = updatedHighlights;
-      
+
       // Clear suggestions locally
       suggestedHighlights = [];
-      
+
       // Update suggested highlights in database (empty array)
       await UpdateVideoClipSuggestedHighlights(video.id, []);
-      
+
       toast.success(`Accepted ${newHighlights.length} highlight suggestions!`);
     } catch (err) {
       console.error("Failed to accept all suggestions:", err);
@@ -379,17 +410,19 @@ Return segments that would work well as standalone content pieces.`;
   // Reject all suggested highlights
   async function rejectAllSuggestions() {
     if (!video) return;
-    
+
     const count = suggestedHighlights.length;
-    
+
     try {
       // Clear suggestions locally
       suggestedHighlights = [];
-      
+
       // Update suggested highlights in database (empty array)
       await UpdateVideoClipSuggestedHighlights(video.id, []);
-      
-      toast.success(`Rejected ${count} highlight suggestion${count === 1 ? '' : 's'}`);
+
+      toast.success(
+        `Rejected ${count} highlight suggestion${count === 1 ? "" : "s"}`
+      );
     } catch (err) {
       console.error("Failed to reject all suggestions:", err);
       toast.error("Failed to reject all suggestions");
@@ -399,7 +432,7 @@ Return segments that would work well as standalone content pieces.`;
   // Undo/Redo handlers for highlights
   async function handleUndoHighlights() {
     if (!video) return;
-    
+
     try {
       await undoHighlightsChange(video.id);
       // The store will handle reloading data and updating transcriptPlayerHighlights
@@ -410,7 +443,7 @@ Return segments that would work well as standalone content pieces.`;
 
   async function handleRedoHighlights() {
     if (!video) return;
-    
+
     try {
       await redoHighlightsChange(video.id);
       // The store will handle reloading data and updating transcriptPlayerHighlights
@@ -425,7 +458,6 @@ Return segments that would work well as standalone content pieces.`;
       updateHighlightsHistoryStatus(video.id);
     }
   });
-
 </script>
 
 <Dialog bind:open>
@@ -438,7 +470,7 @@ Return segments that would work well as standalone content pieces.`;
         {/if}
       </DialogDescription>
     </DialogHeader>
-    
+
     <ScrollArea class="h-[70vh]">
       {#snippet children()}
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pr-4 pb-4">
@@ -449,9 +481,9 @@ Return segments that would work well as standalone content pieces.`;
               <div class="bg-background border rounded-lg p-4">
                 <h3 class="font-medium mb-3">Video Preview</h3>
                 <div class="aspect-video">
-                  <EtroVideoPlayer 
+                  <EtroVideoPlayer
                     highlights={formattedTranscriptHighlights}
-                    projectId={projectId}
+                    {projectId}
                     enableEyeButton={false}
                     enableReordering={false}
                   />
@@ -459,7 +491,7 @@ Return segments that would work well as standalone content pieces.`;
               </div>
             {/if}
           </div>
-          
+
           <!-- Transcript Column -->
           <div class="space-y-4">
             {#if video}
@@ -470,12 +502,16 @@ Return segments that would work well as standalone content pieces.`;
                     <h3 class="font-medium">Transcript</h3>
                     <div class="flex gap-2 items-center">
                       {#if video.transcriptionLanguage}
-                        <span class="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-md">
+                        <span
+                          class="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-md"
+                        >
                           {video.transcriptionLanguage.toUpperCase()}
                         </span>
                       {/if}
                       {#if video.transcriptionDuration}
-                        <span class="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-md">
+                        <span
+                          class="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-md"
+                        >
                           {formatTimestamp(video.transcriptionDuration)}
                         </span>
                       {/if}
@@ -485,7 +521,8 @@ Return segments that would work well as standalone content pieces.`;
                           variant="outline"
                           size="sm"
                           onclick={handleUndoHighlights}
-                          disabled={!$highlightsHistoryStatus.get(video.id)?.canUndo}
+                          disabled={!$highlightsHistoryStatus.get(video.id)
+                            ?.canUndo}
                           class="text-xs px-2"
                           title="Undo highlights change (Ctrl+Z)"
                         >
@@ -495,34 +532,32 @@ Return segments that would work well as standalone content pieces.`;
                           variant="outline"
                           size="sm"
                           onclick={handleRedoHighlights}
-                          disabled={!$highlightsHistoryStatus.get(video.id)?.canRedo}
+                          disabled={!$highlightsHistoryStatus.get(video.id)
+                            ?.canRedo}
                           class="text-xs px-2"
                           title="Redo highlights change (Ctrl+Y)"
                         >
                           <Redo class="w-3 h-3" />
                         </Button>
                       </div>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
                         onclick={suggestHighlightsInline}
                         class="text-xs"
-                        disabled={!video.transcription || aiSuggestLoadingMap.get(video.id)}
+                        disabled={!video.transcription ||
+                          aiSuggestLoadingMap.get(video.id)}
                       >
                         <Sparkles class="w-3 h-3 mr-1" />
-                        {aiSuggestLoadingMap.get(video.id) ? "AI Analyzing..." : "AI Suggest"}
+                        {aiSuggestLoadingMap.get(video.id)
+                          ? "AI Analyzing..."
+                          : "AI Suggest"}
                       </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onclick={copyTranscript}
-                        class="text-xs"
-                      >
-                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                        Copy
-                      </Button>
+                      <CopyToClipboardButton
+                        text={video?.transcription}
+                        confirmationText={"Copied transcript to clipboard"}
+                        failureText={"Failed to copy transcript to clipboard"}
+                      />
                     </div>
                   </div>
 
@@ -541,30 +576,55 @@ Return segments that would work well as standalone content pieces.`;
 
                   <!-- Bulk suggestion actions -->
                   {#if suggestedHighlights.length > 0}
-                    <div class="flex items-center justify-between p-3 bg-secondary/30 rounded-lg">
+                    <div
+                      class="flex items-center justify-between p-3 bg-secondary/30 rounded-lg"
+                    >
                       <span class="text-sm text-muted-foreground">
-                        {suggestedHighlights.length} AI suggestion{suggestedHighlights.length === 1 ? '' : 's'}
+                        {suggestedHighlights.length} AI suggestion{suggestedHighlights.length ===
+                        1
+                          ? ""
+                          : "s"}
                       </span>
                       <div class="flex gap-2">
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           size="sm"
                           onclick={acceptAllSuggestions}
                           class="text-xs"
                         >
-                          <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                          <svg
+                            class="w-3 h-3 mr-1"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M5 13l4 4L19 7"
+                            />
                           </svg>
                           Accept All
                         </Button>
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           size="sm"
                           onclick={rejectAllSuggestions}
                           class="text-xs"
                         >
-                          <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                          <svg
+                            class="w-3 h-3 mr-1"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M6 18L18 6M6 6l12 12"
+                            />
                           </svg>
                           Reject All
                         </Button>
@@ -575,18 +635,22 @@ Return segments that would work well as standalone content pieces.`;
                   <Tabs value="full-text" class="w-full">
                     <TabsList class="grid w-full grid-cols-2">
                       <TabsTrigger value="full-text">Full Text</TabsTrigger>
-                      <TabsTrigger value="word-by-word" disabled={!video.transcriptionWords || video.transcriptionWords.length === 0}>
+                      <TabsTrigger
+                        value="word-by-word"
+                        disabled={!video.transcriptionWords ||
+                          video.transcriptionWords.length === 0}
+                      >
                         Word by Word
                       </TabsTrigger>
                     </TabsList>
-                    
+
                     <TabsContent value="full-text" class="space-y-3">
                       <ScrollArea class="h-80 bg-background border rounded-lg">
                         {#snippet children()}
                           <div class="p-4 text-sm leading-relaxed">
-                            <TextHighlighter 
-                              text={video.transcription} 
-                              words={video.transcriptionWords || []} 
+                            <TextHighlighter
+                              text={video.transcription}
+                              words={video.transcriptionWords || []}
                               highlights={transcriptPlayerHighlights}
                               {suggestedHighlights}
                               videoId={video.id}
@@ -599,21 +663,31 @@ Return segments that would work well as standalone content pieces.`;
                         Character count: {video.transcription.length}
                       </div>
                     </TabsContent>
-                    
+
                     <TabsContent value="word-by-word" class="space-y-3">
                       {#if video.transcriptionWords && video.transcriptionWords.length > 0}
-                        <ScrollArea class="h-80 bg-background border rounded-lg">
+                        <ScrollArea
+                          class="h-80 bg-background border rounded-lg"
+                        >
                           {#snippet children()}
                             <div class="p-4 space-y-1">
                               {#each video.transcriptionWords as word, index}
-                                <div class="flex items-center gap-3 p-2 hover:bg-secondary/30 rounded-md group">
-                                  <div class="flex-shrink-0 text-xs text-muted-foreground font-mono bg-secondary px-2 py-1 rounded">
+                                <div
+                                  class="flex items-center gap-3 p-2 hover:bg-secondary/30 rounded-md group"
+                                >
+                                  <div
+                                    class="flex-shrink-0 text-xs text-muted-foreground font-mono bg-secondary px-2 py-1 rounded"
+                                  >
                                     {formatTimestamp(word.start)}
                                   </div>
                                   <div class="flex-1">
-                                    <span class="text-sm">{word.word.trim()}</span>
+                                    <span class="text-sm"
+                                      >{word.word.trim()}</span
+                                    >
                                   </div>
-                                  <div class="flex-shrink-0 text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <div
+                                    class="flex-shrink-0 text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                                  >
                                     {(word.end - word.start).toFixed(1)}s
                                   </div>
                                 </div>
@@ -621,17 +695,36 @@ Return segments that would work well as standalone content pieces.`;
                             </div>
                           {/snippet}
                         </ScrollArea>
-                        <div class="text-xs text-muted-foreground flex-shrink-0">
+                        <div
+                          class="text-xs text-muted-foreground flex-shrink-0"
+                        >
                           Word count: {video.transcriptionWords.length}
                         </div>
                       {:else}
-                        <div class="flex-1 flex items-center justify-center text-muted-foreground">
+                        <div
+                          class="flex-1 flex items-center justify-center text-muted-foreground"
+                        >
                           <div class="text-center">
-                            <svg class="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            <svg
+                              class="w-12 h-12 mx-auto mb-3 text-muted-foreground/50"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
                             </svg>
-                            <p class="text-lg font-medium">No word-level timing available</p>
-                            <p class="text-sm">Word timestamps weren't generated for this transcription.</p>
+                            <p class="text-lg font-medium">
+                              No word-level timing available
+                            </p>
+                            <p class="text-sm">
+                              Word timestamps weren't generated for this
+                              transcription.
+                            </p>
                           </div>
                         </div>
                       {/if}
@@ -639,13 +732,27 @@ Return segments that would work well as standalone content pieces.`;
                   </Tabs>
                 </div>
               {:else}
-                <div class="flex-1 flex items-center justify-center text-muted-foreground">
+                <div
+                  class="flex-1 flex items-center justify-center text-muted-foreground"
+                >
                   <div class="text-center">
-                    <svg class="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    <svg
+                      class="w-12 h-12 mx-auto mb-3 text-muted-foreground/50"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
                     </svg>
                     <p class="text-lg font-medium">No transcript available</p>
-                    <p class="text-sm">This video hasn't been transcribed yet.</p>
+                    <p class="text-sm">
+                      This video hasn't been transcribed yet.
+                    </p>
                   </div>
                 </div>
               {/if}
@@ -654,12 +761,10 @@ Return segments that would work well as standalone content pieces.`;
         </div>
       {/snippet}
     </ScrollArea>
-    
+
     <!-- Fixed footer buttons -->
     <div class="flex justify-end gap-2 pt-1.5 border-t flex-shrink-0">
-      <Button variant="outline" onclick={() => open = false}>
-        Close
-      </Button>
+      <Button variant="outline" onclick={() => (open = false)}>Close</Button>
     </div>
   </DialogContent>
 </Dialog>
