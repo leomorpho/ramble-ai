@@ -73,6 +73,10 @@
   // highlights is now a prop - no local state
   let usedColors = $state(new Set());
   
+  // Pause detection settings
+  const LONG_PAUSE_THRESHOLD = 0.8; // seconds - noticeable pause
+  const VERY_LONG_PAUSE_THRESHOLD = 1.5; // seconds - significant pause
+  
   // Convert timestamp-based highlights to word-index-based for UI operations
   let indexHighlights = $derived(
     highlights.map((h) => ({
@@ -86,6 +90,33 @@
   $effect(() => {
     usedColors.clear();
     highlights.forEach((h) => usedColors.add(h.color));
+  });
+  
+  // Debug pause detection when words change
+  $effect(() => {
+    if (words && words.length > 1) {
+      let longPauses = 0;
+      let veryLongPauses = 0;
+      
+      for (let i = 0; i < words.length - 1; i++) {
+        const pauseDuration = getPauseDuration(i);
+        if (pauseDuration >= VERY_LONG_PAUSE_THRESHOLD) {
+          veryLongPauses++;
+        } else if (pauseDuration >= LONG_PAUSE_THRESHOLD) {
+          longPauses++;
+        }
+      }
+      
+      console.log("⏸️ Pause analysis:", {
+        totalWords: words.length,
+        longPauses,
+        veryLongPauses,
+        thresholds: {
+          long: LONG_PAUSE_THRESHOLD,
+          veryLong: VERY_LONG_PAUSE_THRESHOLD
+        }
+      });
+    }
   });
 
   // === SELECTION STATE ===
@@ -152,6 +183,33 @@
     }
 
     return closestIndex;
+  }
+  
+  // Calculate pause duration between two consecutive words
+  function getPauseDuration(wordIndex) {
+    if (!words || words.length === 0 || wordIndex >= words.length - 1) {
+      return 0;
+    }
+    
+    const currentWord = words[wordIndex];
+    const nextWord = words[wordIndex + 1];
+    
+    if (!currentWord || !nextWord) {
+      return 0;
+    }
+    
+    // Pause is the gap between current word end and next word start
+    return nextWord.start - currentWord.end;
+  }
+  
+  // Get pause type for styling
+  function getPauseType(pauseDuration) {
+    if (pauseDuration >= VERY_LONG_PAUSE_THRESHOLD) {
+      return 'very-long';
+    } else if (pauseDuration >= LONG_PAUSE_THRESHOLD) {
+      return 'long';
+    }
+    return 'normal';
   }
 
   function emitChanges(newIndexHighlights) {
@@ -707,8 +765,41 @@
       </span>
     {/if}
 
-    <!-- Space between words -->
-    {#if wordIndex < displayWords.length - 1}{" "}{/if}
+    <!-- Pause indicator between words -->
+    {#if wordIndex < displayWords.length - 1}
+      {#if words && words.length > 0}
+        {@const pauseDuration = getPauseDuration(wordIndex)}
+        {@const pauseType = getPauseType(pauseDuration)}
+        
+        {#if pauseType === 'very-long'}
+        <span 
+          class="inline-flex items-center mx-0.5 px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive text-xs font-medium border border-destructive/20 hover:bg-destructive/20 transition-colors"
+          title="Very long pause: {pauseDuration.toFixed(2)}s - this may indicate an unnatural break"
+        >
+          <svg class="w-2.5 h-2.5 mr-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+          </svg>
+          {pauseDuration.toFixed(1)}s
+        </span>
+      {:else if pauseType === 'long'}
+        <span 
+          class="inline-flex items-center mx-0.5 px-1 py-0.5 rounded bg-warning/10 text-warning-foreground text-xs font-medium border border-warning/20 hover:bg-warning/20 transition-colors"
+          title="Noticeable pause: {pauseDuration.toFixed(2)}s"
+        >
+          <svg class="w-2 h-2 mr-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+          </svg>
+          {pauseDuration.toFixed(1)}s
+        </span>
+        {:else}
+          <!-- Normal space for short pauses -->
+          <span class="inline-block w-1"></span>
+        {/if}
+      {:else}
+        <!-- Fallback space when no timing data -->
+        {" "}
+      {/if}
+    {/if}
   {/each}
 </div>
 
