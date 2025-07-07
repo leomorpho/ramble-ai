@@ -1348,33 +1348,37 @@ func (m *ExportJobMutation) ResetEdge(name string) error {
 // ProjectMutation represents an operation that mutates the Project nodes in the graph.
 type ProjectMutation struct {
 	config
-	op                        Op
-	typ                       string
-	id                        *int
-	name                      *string
-	description               *string
-	_path                     *string
-	created_at                *time.Time
-	updated_at                *time.Time
-	ai_model                  *string
-	ai_prompt                 *string
-	ai_suggestion_order       *[]string
-	appendai_suggestion_order []string
-	ai_suggestion_model       *string
-	ai_suggestion_created_at  *time.Time
-	ai_highlight_model        *string
-	ai_highlight_prompt       *string
-	active_tab                *string
-	clearedFields             map[string]struct{}
-	video_clips               map[int]struct{}
-	removedvideo_clips        map[int]struct{}
-	clearedvideo_clips        bool
-	export_jobs               map[int]struct{}
-	removedexport_jobs        map[int]struct{}
-	clearedexport_jobs        bool
-	done                      bool
-	oldValue                  func(context.Context) (*Project, error)
-	predicates                []predicate.Project
+	op                            Op
+	typ                           string
+	id                            *int
+	name                          *string
+	description                   *string
+	_path                         *string
+	created_at                    *time.Time
+	updated_at                    *time.Time
+	ai_model                      *string
+	ai_prompt                     *string
+	ai_suggestion_order           *[]string
+	appendai_suggestion_order     []string
+	ai_suggestion_model           *string
+	ai_suggestion_created_at      *time.Time
+	ai_highlight_model            *string
+	ai_highlight_prompt           *string
+	active_tab                    *string
+	ai_silence_improvements       *[]map[string]interface{}
+	appendai_silence_improvements []map[string]interface{}
+	ai_silence_model              *string
+	ai_silence_created_at         *time.Time
+	clearedFields                 map[string]struct{}
+	video_clips                   map[int]struct{}
+	removedvideo_clips            map[int]struct{}
+	clearedvideo_clips            bool
+	export_jobs                   map[int]struct{}
+	removedexport_jobs            map[int]struct{}
+	clearedexport_jobs            bool
+	done                          bool
+	oldValue                      func(context.Context) (*Project, error)
+	predicates                    []predicate.Project
 }
 
 var _ ent.Mutation = (*ProjectMutation)(nil)
@@ -2076,6 +2080,169 @@ func (m *ProjectMutation) ResetActiveTab() {
 	delete(m.clearedFields, project.FieldActiveTab)
 }
 
+// SetAiSilenceImprovements sets the "ai_silence_improvements" field.
+func (m *ProjectMutation) SetAiSilenceImprovements(value []map[string]interface{}) {
+	m.ai_silence_improvements = &value
+	m.appendai_silence_improvements = nil
+}
+
+// AiSilenceImprovements returns the value of the "ai_silence_improvements" field in the mutation.
+func (m *ProjectMutation) AiSilenceImprovements() (r []map[string]interface{}, exists bool) {
+	v := m.ai_silence_improvements
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAiSilenceImprovements returns the old "ai_silence_improvements" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldAiSilenceImprovements(ctx context.Context) (v []map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAiSilenceImprovements is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAiSilenceImprovements requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAiSilenceImprovements: %w", err)
+	}
+	return oldValue.AiSilenceImprovements, nil
+}
+
+// AppendAiSilenceImprovements adds value to the "ai_silence_improvements" field.
+func (m *ProjectMutation) AppendAiSilenceImprovements(value []map[string]interface{}) {
+	m.appendai_silence_improvements = append(m.appendai_silence_improvements, value...)
+}
+
+// AppendedAiSilenceImprovements returns the list of values that were appended to the "ai_silence_improvements" field in this mutation.
+func (m *ProjectMutation) AppendedAiSilenceImprovements() ([]map[string]interface{}, bool) {
+	if len(m.appendai_silence_improvements) == 0 {
+		return nil, false
+	}
+	return m.appendai_silence_improvements, true
+}
+
+// ClearAiSilenceImprovements clears the value of the "ai_silence_improvements" field.
+func (m *ProjectMutation) ClearAiSilenceImprovements() {
+	m.ai_silence_improvements = nil
+	m.appendai_silence_improvements = nil
+	m.clearedFields[project.FieldAiSilenceImprovements] = struct{}{}
+}
+
+// AiSilenceImprovementsCleared returns if the "ai_silence_improvements" field was cleared in this mutation.
+func (m *ProjectMutation) AiSilenceImprovementsCleared() bool {
+	_, ok := m.clearedFields[project.FieldAiSilenceImprovements]
+	return ok
+}
+
+// ResetAiSilenceImprovements resets all changes to the "ai_silence_improvements" field.
+func (m *ProjectMutation) ResetAiSilenceImprovements() {
+	m.ai_silence_improvements = nil
+	m.appendai_silence_improvements = nil
+	delete(m.clearedFields, project.FieldAiSilenceImprovements)
+}
+
+// SetAiSilenceModel sets the "ai_silence_model" field.
+func (m *ProjectMutation) SetAiSilenceModel(s string) {
+	m.ai_silence_model = &s
+}
+
+// AiSilenceModel returns the value of the "ai_silence_model" field in the mutation.
+func (m *ProjectMutation) AiSilenceModel() (r string, exists bool) {
+	v := m.ai_silence_model
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAiSilenceModel returns the old "ai_silence_model" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldAiSilenceModel(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAiSilenceModel is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAiSilenceModel requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAiSilenceModel: %w", err)
+	}
+	return oldValue.AiSilenceModel, nil
+}
+
+// ClearAiSilenceModel clears the value of the "ai_silence_model" field.
+func (m *ProjectMutation) ClearAiSilenceModel() {
+	m.ai_silence_model = nil
+	m.clearedFields[project.FieldAiSilenceModel] = struct{}{}
+}
+
+// AiSilenceModelCleared returns if the "ai_silence_model" field was cleared in this mutation.
+func (m *ProjectMutation) AiSilenceModelCleared() bool {
+	_, ok := m.clearedFields[project.FieldAiSilenceModel]
+	return ok
+}
+
+// ResetAiSilenceModel resets all changes to the "ai_silence_model" field.
+func (m *ProjectMutation) ResetAiSilenceModel() {
+	m.ai_silence_model = nil
+	delete(m.clearedFields, project.FieldAiSilenceModel)
+}
+
+// SetAiSilenceCreatedAt sets the "ai_silence_created_at" field.
+func (m *ProjectMutation) SetAiSilenceCreatedAt(t time.Time) {
+	m.ai_silence_created_at = &t
+}
+
+// AiSilenceCreatedAt returns the value of the "ai_silence_created_at" field in the mutation.
+func (m *ProjectMutation) AiSilenceCreatedAt() (r time.Time, exists bool) {
+	v := m.ai_silence_created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAiSilenceCreatedAt returns the old "ai_silence_created_at" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldAiSilenceCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAiSilenceCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAiSilenceCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAiSilenceCreatedAt: %w", err)
+	}
+	return oldValue.AiSilenceCreatedAt, nil
+}
+
+// ClearAiSilenceCreatedAt clears the value of the "ai_silence_created_at" field.
+func (m *ProjectMutation) ClearAiSilenceCreatedAt() {
+	m.ai_silence_created_at = nil
+	m.clearedFields[project.FieldAiSilenceCreatedAt] = struct{}{}
+}
+
+// AiSilenceCreatedAtCleared returns if the "ai_silence_created_at" field was cleared in this mutation.
+func (m *ProjectMutation) AiSilenceCreatedAtCleared() bool {
+	_, ok := m.clearedFields[project.FieldAiSilenceCreatedAt]
+	return ok
+}
+
+// ResetAiSilenceCreatedAt resets all changes to the "ai_silence_created_at" field.
+func (m *ProjectMutation) ResetAiSilenceCreatedAt() {
+	m.ai_silence_created_at = nil
+	delete(m.clearedFields, project.FieldAiSilenceCreatedAt)
+}
+
 // AddVideoClipIDs adds the "video_clips" edge to the VideoClip entity by ids.
 func (m *ProjectMutation) AddVideoClipIDs(ids ...int) {
 	if m.video_clips == nil {
@@ -2218,7 +2385,7 @@ func (m *ProjectMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProjectMutation) Fields() []string {
-	fields := make([]string, 0, 13)
+	fields := make([]string, 0, 16)
 	if m.name != nil {
 		fields = append(fields, project.FieldName)
 	}
@@ -2258,6 +2425,15 @@ func (m *ProjectMutation) Fields() []string {
 	if m.active_tab != nil {
 		fields = append(fields, project.FieldActiveTab)
 	}
+	if m.ai_silence_improvements != nil {
+		fields = append(fields, project.FieldAiSilenceImprovements)
+	}
+	if m.ai_silence_model != nil {
+		fields = append(fields, project.FieldAiSilenceModel)
+	}
+	if m.ai_silence_created_at != nil {
+		fields = append(fields, project.FieldAiSilenceCreatedAt)
+	}
 	return fields
 }
 
@@ -2292,6 +2468,12 @@ func (m *ProjectMutation) Field(name string) (ent.Value, bool) {
 		return m.AiHighlightPrompt()
 	case project.FieldActiveTab:
 		return m.ActiveTab()
+	case project.FieldAiSilenceImprovements:
+		return m.AiSilenceImprovements()
+	case project.FieldAiSilenceModel:
+		return m.AiSilenceModel()
+	case project.FieldAiSilenceCreatedAt:
+		return m.AiSilenceCreatedAt()
 	}
 	return nil, false
 }
@@ -2327,6 +2509,12 @@ func (m *ProjectMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldAiHighlightPrompt(ctx)
 	case project.FieldActiveTab:
 		return m.OldActiveTab(ctx)
+	case project.FieldAiSilenceImprovements:
+		return m.OldAiSilenceImprovements(ctx)
+	case project.FieldAiSilenceModel:
+		return m.OldAiSilenceModel(ctx)
+	case project.FieldAiSilenceCreatedAt:
+		return m.OldAiSilenceCreatedAt(ctx)
 	}
 	return nil, fmt.Errorf("unknown Project field %s", name)
 }
@@ -2427,6 +2615,27 @@ func (m *ProjectMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetActiveTab(v)
 		return nil
+	case project.FieldAiSilenceImprovements:
+		v, ok := value.([]map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAiSilenceImprovements(v)
+		return nil
+	case project.FieldAiSilenceModel:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAiSilenceModel(v)
+		return nil
+	case project.FieldAiSilenceCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAiSilenceCreatedAt(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Project field %s", name)
 }
@@ -2484,6 +2693,15 @@ func (m *ProjectMutation) ClearedFields() []string {
 	if m.FieldCleared(project.FieldActiveTab) {
 		fields = append(fields, project.FieldActiveTab)
 	}
+	if m.FieldCleared(project.FieldAiSilenceImprovements) {
+		fields = append(fields, project.FieldAiSilenceImprovements)
+	}
+	if m.FieldCleared(project.FieldAiSilenceModel) {
+		fields = append(fields, project.FieldAiSilenceModel)
+	}
+	if m.FieldCleared(project.FieldAiSilenceCreatedAt) {
+		fields = append(fields, project.FieldAiSilenceCreatedAt)
+	}
 	return fields
 }
 
@@ -2524,6 +2742,15 @@ func (m *ProjectMutation) ClearField(name string) error {
 		return nil
 	case project.FieldActiveTab:
 		m.ClearActiveTab()
+		return nil
+	case project.FieldAiSilenceImprovements:
+		m.ClearAiSilenceImprovements()
+		return nil
+	case project.FieldAiSilenceModel:
+		m.ClearAiSilenceModel()
+		return nil
+	case project.FieldAiSilenceCreatedAt:
+		m.ClearAiSilenceCreatedAt()
 		return nil
 	}
 	return fmt.Errorf("unknown Project nullable field %s", name)
@@ -2571,6 +2798,15 @@ func (m *ProjectMutation) ResetField(name string) error {
 		return nil
 	case project.FieldActiveTab:
 		m.ResetActiveTab()
+		return nil
+	case project.FieldAiSilenceImprovements:
+		m.ResetAiSilenceImprovements()
+		return nil
+	case project.FieldAiSilenceModel:
+		m.ResetAiSilenceModel()
+		return nil
+	case project.FieldAiSilenceCreatedAt:
+		m.ResetAiSilenceCreatedAt()
 		return nil
 	}
 	return fmt.Errorf("unknown Project field %s", name)

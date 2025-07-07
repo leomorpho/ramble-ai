@@ -44,6 +44,12 @@ type Project struct {
 	AiHighlightPrompt string `json:"ai_highlight_prompt,omitempty"`
 	// Last active tab for this project
 	ActiveTab string `json:"active_tab,omitempty"`
+	// Cached AI silence improvement suggestions
+	AiSilenceImprovements []map[string]interface{} `json:"ai_silence_improvements,omitempty"`
+	// AI model used for cached silence improvements
+	AiSilenceModel string `json:"ai_silence_model,omitempty"`
+	// When the AI silence improvements were created
+	AiSilenceCreatedAt time.Time `json:"ai_silence_created_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ProjectQuery when eager-loading is set.
 	Edges        ProjectEdges `json:"edges"`
@@ -84,13 +90,13 @@ func (*Project) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case project.FieldAiSuggestionOrder:
+		case project.FieldAiSuggestionOrder, project.FieldAiSilenceImprovements:
 			values[i] = new([]byte)
 		case project.FieldID:
 			values[i] = new(sql.NullInt64)
-		case project.FieldName, project.FieldDescription, project.FieldPath, project.FieldAiModel, project.FieldAiPrompt, project.FieldAiSuggestionModel, project.FieldAiHighlightModel, project.FieldAiHighlightPrompt, project.FieldActiveTab:
+		case project.FieldName, project.FieldDescription, project.FieldPath, project.FieldAiModel, project.FieldAiPrompt, project.FieldAiSuggestionModel, project.FieldAiHighlightModel, project.FieldAiHighlightPrompt, project.FieldActiveTab, project.FieldAiSilenceModel:
 			values[i] = new(sql.NullString)
-		case project.FieldCreatedAt, project.FieldUpdatedAt, project.FieldAiSuggestionCreatedAt:
+		case project.FieldCreatedAt, project.FieldUpdatedAt, project.FieldAiSuggestionCreatedAt, project.FieldAiSilenceCreatedAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -193,6 +199,26 @@ func (pr *Project) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				pr.ActiveTab = value.String
 			}
+		case project.FieldAiSilenceImprovements:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field ai_silence_improvements", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &pr.AiSilenceImprovements); err != nil {
+					return fmt.Errorf("unmarshal field ai_silence_improvements: %w", err)
+				}
+			}
+		case project.FieldAiSilenceModel:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field ai_silence_model", values[i])
+			} else if value.Valid {
+				pr.AiSilenceModel = value.String
+			}
+		case project.FieldAiSilenceCreatedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field ai_silence_created_at", values[i])
+			} else if value.Valid {
+				pr.AiSilenceCreatedAt = value.Time
+			}
 		default:
 			pr.selectValues.Set(columns[i], values[i])
 		}
@@ -277,6 +303,15 @@ func (pr *Project) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("active_tab=")
 	builder.WriteString(pr.ActiveTab)
+	builder.WriteString(", ")
+	builder.WriteString("ai_silence_improvements=")
+	builder.WriteString(fmt.Sprintf("%v", pr.AiSilenceImprovements))
+	builder.WriteString(", ")
+	builder.WriteString("ai_silence_model=")
+	builder.WriteString(pr.AiSilenceModel)
+	builder.WriteString(", ")
+	builder.WriteString("ai_silence_created_at=")
+	builder.WriteString(pr.AiSilenceCreatedAt.Format(time.ANSIC))
 	builder.WriteByte(')')
 	return builder.String()
 }

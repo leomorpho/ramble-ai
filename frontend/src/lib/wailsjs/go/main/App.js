@@ -6,6 +6,10 @@ export function CancelExport(arg1) {
   return window['go']['main']['App']['CancelExport'](arg1);
 }
 
+export function ClearAISilenceImprovements(arg1) {
+  return window['go']['main']['App']['ClearAISilenceImprovements'](arg1);
+}
+
 export function ClearSuggestedHighlights(arg1) {
   return window['go']['main']['App']['ClearSuggestedHighlights'](arg1);
 }
@@ -74,6 +78,10 @@ export function GetProjectAISettings(arg1) {
   return window['go']['main']['App']['GetProjectAISettings'](arg1);
 }
 
+export function GetProjectAISilenceResult(arg1) {
+  return window['go']['main']['App']['GetProjectAISilenceResult'](arg1);
+}
+
 export function GetProjectAISuggestion(arg1) {
   return window['go']['main']['App']['GetProjectAISuggestion'](arg1);
 }
@@ -128,6 +136,10 @@ export function GetVideoURL(arg1) {
 
 export function Greet(arg1) {
   return window['go']['main']['App']['Greet'](arg1);
+}
+
+export function ImproveHighlightSilencesWithAI(arg1) {
+  return window['go']['main']['App']['ImproveHighlightSilencesWithAI'](arg1);
 }
 
 export function RecoverActiveExportJobs() {

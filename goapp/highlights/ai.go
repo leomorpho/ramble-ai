@@ -832,3 +832,478 @@ func (s *AIService) parseAIReorderingResponse(response string) ([]string, error)
 
 	return reorderedIDs, nil
 }
+
+// ImproveHighlightSilencesWithAI uses AI to suggest improved timings for highlights with natural silence buffers
+func (s *AIService) ImproveHighlightSilencesWithAI(projectID int, getAPIKey func() (string, error)) ([]ProjectHighlight, error) {
+	// Get OpenRouter API key
+	apiKey, err := getAPIKey()
+	if err != nil || apiKey == "" {
+		return nil, fmt.Errorf("OpenRouter API key not configured")
+	}
+
+	// Get project AI settings
+	aiSettings, err := s.GetProjectAISettings(projectID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project AI settings: %w", err)
+	}
+
+	// Get all project highlights with their transcription words
+	projectHighlights, err := s.highlightService.GetProjectHighlights(projectID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project highlights: %w", err)
+	}
+
+	if len(projectHighlights) == 0 {
+		return []ProjectHighlight{}, nil
+	}
+
+	// Get all video clips with transcription words for boundary calculation
+	clips, err := s.client.VideoClip.
+		Query().
+		Where(videoclip.HasProjectWith(project.IDEQ(projectID))).
+		All(s.ctx)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get video clips: %w", err)
+	}
+
+	// Create map of video clip ID to transcription words
+	clipWordsMap := make(map[int][]schema.Word)
+	for _, clip := range clips {
+		clipWordsMap[clip.ID] = clip.TranscriptionWords
+	}
+
+	// Process each highlight to get word boundaries and improved timings
+	var improvedHighlights []ProjectHighlight
+	for _, ph := range projectHighlights {
+		transcriptWords, exists := clipWordsMap[ph.VideoClipID]
+		if !exists || len(transcriptWords) == 0 {
+			// Skip if no transcript words available
+			improvedHighlights = append(improvedHighlights, ph)
+			continue
+		}
+
+		// Get improved highlights for this video
+		improvedVideoHighlights, err := s.improveVideoHighlights(apiKey, aiSettings.AIModel, ph, transcriptWords)
+		if err != nil {
+			log.Printf("Failed to improve highlights for video %d: %v", ph.VideoClipID, err)
+			// Keep original on error
+			improvedHighlights = append(improvedHighlights, ph)
+			continue
+		}
+
+		improvedHighlights = append(improvedHighlights, improvedVideoHighlights)
+	}
+
+	// Save AI silence improvements to database cache
+	err = s.saveAISilenceImprovements(projectID, improvedHighlights, aiSettings.AIModel)
+	if err != nil {
+		log.Printf("Failed to save AI silence improvements to database: %v", err)
+		// Don't fail the request if saving fails, just log the error
+	}
+
+	return improvedHighlights, nil
+}
+
+// improveVideoHighlights improves highlights for a single video
+func (s *AIService) improveVideoHighlights(apiKey string, model string, videoHighlights ProjectHighlight, transcriptWords []schema.Word) (ProjectHighlight, error) {
+	if len(videoHighlights.Highlights) == 0 {
+		return videoHighlights, nil
+	}
+
+	// Prepare highlight boundaries for AI
+	var boundaries []struct {
+		ID            string  `json:"id"`
+		Text          string  `json:"text"`
+		CurrentStart  float64 `json:"currentStart"`
+		CurrentEnd    float64 `json:"currentEnd"`
+		PrevWordEnd   float64 `json:"prevWordEnd"`
+		NextWordStart float64 `json:"nextWordStart"`
+	}
+
+	for _, h := range videoHighlights.Highlights {
+		// Find word indices for current highlight boundaries
+		startIdx := s.highlightService.TimeToWordIndex(h.Start, transcriptWords)
+		endIdx := s.highlightService.TimeToWordIndex(h.End, transcriptWords)
+
+		// Get previous word end time
+		prevWordEnd := float64(0)
+		if startIdx > 0 {
+			prevWordEnd = transcriptWords[startIdx-1].End
+		}
+
+		// Get next word start time
+		nextWordStart := h.End // Default to current end
+		if endIdx < len(transcriptWords)-1 {
+			// Find the next word after the highlight
+			for i := endIdx; i < len(transcriptWords); i++ {
+				if transcriptWords[i].Start > h.End {
+					nextWordStart = transcriptWords[i].Start
+					break
+				}
+			}
+		} else if len(transcriptWords) > 0 {
+			// If at the end, use video duration as boundary
+			nextWordStart = transcriptWords[len(transcriptWords)-1].End + 0.5
+		}
+
+		boundaries = append(boundaries, struct {
+			ID            string  `json:"id"`
+			Text          string  `json:"text"`
+			CurrentStart  float64 `json:"currentStart"`
+			CurrentEnd    float64 `json:"currentEnd"`
+			PrevWordEnd   float64 `json:"prevWordEnd"`
+			NextWordStart float64 `json:"nextWordStart"`
+		}{
+			ID:            h.ID,
+			Text:          h.Text,
+			CurrentStart:  h.Start,
+			CurrentEnd:    h.End,
+			PrevWordEnd:   prevWordEnd,
+			NextWordStart: nextWordStart,
+		})
+	}
+
+	// Call AI to get improved timings
+	improvedTimings, err := s.callOpenRouterForSilenceImprovement(apiKey, model, boundaries)
+	if err != nil {
+		return videoHighlights, fmt.Errorf("failed to get AI silence improvements: %w", err)
+	}
+
+	// Apply improved timings to highlights
+	improved := ProjectHighlight{
+		VideoClipID:   videoHighlights.VideoClipID,
+		VideoClipName: videoHighlights.VideoClipName,
+		FilePath:      videoHighlights.FilePath,
+		Duration:      videoHighlights.Duration,
+		Highlights:    make([]HighlightWithText, len(videoHighlights.Highlights)),
+	}
+
+	// Create a map for quick lookup of improved timings
+	timingMap := make(map[string]struct {
+		Start float64
+		End   float64
+	})
+	for _, timing := range improvedTimings {
+		timingMap[timing.ID] = struct {
+			Start float64
+			End   float64
+		}{Start: timing.Start, End: timing.End}
+	}
+
+	// Apply improvements
+	for i, h := range videoHighlights.Highlights {
+		if timing, exists := timingMap[h.ID]; exists {
+			improved.Highlights[i] = HighlightWithText{
+				ID:    h.ID,
+				Start: timing.Start,
+				End:   timing.End,
+				Color: h.Color,
+				Text:  h.Text,
+			}
+		} else {
+			// Keep original if no improvement found
+			improved.Highlights[i] = h
+		}
+	}
+
+	return improved, nil
+}
+
+// callOpenRouterForSilenceImprovement calls AI to improve highlight timings
+func (s *AIService) callOpenRouterForSilenceImprovement(apiKey string, model string, boundaries []struct {
+	ID            string  `json:"id"`
+	Text          string  `json:"text"`
+	CurrentStart  float64 `json:"currentStart"`
+	CurrentEnd    float64 `json:"currentEnd"`
+	PrevWordEnd   float64 `json:"prevWordEnd"`
+	NextWordStart float64 `json:"nextWordStart"`
+}) ([]struct {
+	ID    string  `json:"id"`
+	Start float64 `json:"start"`
+	End   float64 `json:"end"`
+}, error) {
+	// Create HTTP client
+	client := &http.Client{
+		Timeout: 60 * time.Second,
+	}
+
+	// Build prompt
+	prompt := s.buildSilenceImprovementPrompt(boundaries)
+
+	// Create request
+	requestData := OpenRouterRequest{
+		Model: model,
+		Messages: []Message{
+			{
+				Role:    "user",
+				Content: prompt,
+			},
+		},
+	}
+
+	// Log the full request
+	log.Printf("=== AI SILENCE IMPROVEMENT LLM REQUEST ===")
+	log.Printf("Model: %s", model)
+	log.Printf("User Message: %s", prompt)
+	log.Printf("===========================================")
+
+	jsonData, err := json.Marshal(requestData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", "https://openrouter.ai/api/v1/chat/completions", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("HTTP-Referer", "https://github.com/yourusername/video-app")
+	req.Header.Set("X-Title", "Video Highlight Silence Improvement")
+
+	// Make request
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("OpenRouter API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	// Parse response
+	var openRouterResp OpenRouterResponse
+	err = json.Unmarshal(body, &openRouterResp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	if openRouterResp.Error != nil {
+		return nil, fmt.Errorf("OpenRouter API error: %s", openRouterResp.Error.Message)
+	}
+
+	if len(openRouterResp.Choices) == 0 {
+		return nil, fmt.Errorf("no response choices received from AI")
+	}
+
+	// Parse AI response
+	aiResponse := openRouterResp.Choices[0].Message.Content
+	
+	// Log the full response
+	log.Printf("=== AI SILENCE IMPROVEMENT LLM RESPONSE ===")
+	log.Printf("Model: %s", model)
+	log.Printf("Assistant Message: %s", aiResponse)
+	log.Printf("Response Length: %d characters", len(aiResponse))
+	log.Printf("============================================")
+	
+	return s.parseAISilenceImprovementResponse(aiResponse)
+}
+
+// buildSilenceImprovementPrompt creates the prompt for AI silence improvement
+func (s *AIService) buildSilenceImprovementPrompt(boundaries []struct {
+	ID            string  `json:"id"`
+	Text          string  `json:"text"`
+	CurrentStart  float64 `json:"currentStart"`
+	CurrentEnd    float64 `json:"currentEnd"`
+	PrevWordEnd   float64 `json:"prevWordEnd"`
+	NextWordStart float64 `json:"nextWordStart"`
+}) string {
+	prompt := `You are an expert video editor specializing in creating natural-sounding speech cuts. Your task is to improve highlight timings by including appropriate silence buffers that make the speech flow naturally.
+
+For each highlight, you're given:
+- The current start/end times
+- The text content
+- The end time of the word before the highlight starts
+- The start time of the word after the highlight ends
+
+Adjust the start and end times to include natural pauses while staying within the given boundaries. Consider:
+- Include slight pauses before sentences or thoughts (100-300ms)
+- Include natural breathing room after sentences (200-500ms)
+- For questions, include the pause before the answer
+- For dramatic statements, include the build-up pause
+- Never cut into the middle of words
+- Prefer to include complete breaths and natural speech rhythms
+
+Here are the highlights to improve:
+
+`
+
+	// Add highlight data
+	for i, b := range boundaries {
+		prompt += fmt.Sprintf("%d. Highlight ID: %s\n", i+1, b.ID)
+		prompt += fmt.Sprintf("   Text: \"%s\"\n", b.Text)
+		prompt += fmt.Sprintf("   Current timing: %.3f - %.3f seconds\n", b.CurrentStart, b.CurrentEnd)
+		prompt += fmt.Sprintf("   Available range: %.3f - %.3f seconds\n", b.PrevWordEnd, b.NextWordStart)
+		prompt += fmt.Sprintf("   Maximum buffer: %.3fms before, %.3fms after\n\n",
+			(b.CurrentStart-b.PrevWordEnd)*1000,
+			(b.NextWordStart-b.CurrentEnd)*1000)
+	}
+
+	prompt += `
+Return a JSON array with improved timings. Each object should have:
+- "id": The highlight ID
+- "start": The improved start time (must be >= prevWordEnd)
+- "end": The improved end time (must be <= nextWordStart)
+
+Only include highlights where you recommend changes. Format:
+[{"id": "highlight_1", "start": 1.234, "end": 5.678}, ...]`
+
+	return prompt
+}
+
+// parseAISilenceImprovementResponse parses the AI response for improved timings
+func (s *AIService) parseAISilenceImprovementResponse(response string) ([]struct {
+	ID    string  `json:"id"`
+	Start float64 `json:"start"`
+	End   float64 `json:"end"`
+}, error) {
+	// Extract JSON from response
+	jsonStart := strings.Index(response, "[")
+	jsonEnd := strings.LastIndex(response, "]")
+
+	if jsonStart == -1 || jsonEnd == -1 {
+		return nil, fmt.Errorf("no valid JSON array found in AI response")
+	}
+
+	jsonStr := response[jsonStart : jsonEnd+1]
+
+	var improvements []struct {
+		ID    string  `json:"id"`
+		Start float64 `json:"start"`
+		End   float64 `json:"end"`
+	}
+
+	err := json.Unmarshal([]byte(jsonStr), &improvements)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse AI improvements JSON: %w", err)
+	}
+
+	return improvements, nil
+}
+
+// saveAISilenceImprovements saves the AI silence improvements to the database cache
+func (s *AIService) saveAISilenceImprovements(projectID int, improvements []ProjectHighlight, model string) error {
+	log.Printf("=== SAVING AI SILENCE IMPROVEMENTS TO CACHE ===")
+	log.Printf("Project ID: %d", projectID)
+	log.Printf("Number of improvements: %d", len(improvements))
+	log.Printf("Model: %s", model)
+	
+	// Convert improvements to JSON-serializable format
+	improvementsData := make([]map[string]interface{}, 0, len(improvements))
+	
+	for _, ph := range improvements {
+		videoData := map[string]interface{}{
+			"videoClipId":   ph.VideoClipID,
+			"videoClipName": ph.VideoClipName,
+			"filePath":      ph.FilePath,
+			"duration":      ph.Duration,
+			"highlights":    make([]map[string]interface{}, 0, len(ph.Highlights)),
+		}
+		
+		for _, h := range ph.Highlights {
+			highlightData := map[string]interface{}{
+				"id":    h.ID,
+				"start": h.Start,
+				"end":   h.End,
+				"color": h.Color,
+				"text":  h.Text,
+			}
+			videoData["highlights"] = append(videoData["highlights"].([]map[string]interface{}), highlightData)
+		}
+		
+		improvementsData = append(improvementsData, videoData)
+	}
+
+	_, err := s.client.Project.
+		UpdateOneID(projectID).
+		SetAiSilenceImprovements(improvementsData).
+		SetAiSilenceModel(model).
+		SetAiSilenceCreatedAt(time.Now()).
+		Save(s.ctx)
+
+	if err != nil {
+		log.Printf("ERROR saving AI silence improvements: %v", err)
+		return fmt.Errorf("failed to save AI silence improvements: %w", err)
+	}
+
+	log.Printf("Successfully saved AI silence improvements to cache")
+	return nil
+}
+
+// GetProjectAISilenceImprovements retrieves cached AI silence improvements for a project
+func (s *AIService) GetProjectAISilenceImprovements(projectID int) ([]ProjectHighlight, time.Time, string, error) {
+	log.Printf("=== LOADING AI SILENCE IMPROVEMENTS FROM CACHE ===")
+	log.Printf("Project ID: %d", projectID)
+	
+	project, err := s.client.Project.
+		Query().
+		Where(project.ID(projectID)).
+		Only(s.ctx)
+
+	if err != nil {
+		log.Printf("ERROR getting project: %v", err)
+		return nil, time.Time{}, "", fmt.Errorf("failed to get project: %w", err)
+	}
+
+	log.Printf("Found project. AiSilenceImprovements is nil: %v", project.AiSilenceImprovements == nil)
+	if project.AiSilenceImprovements != nil {
+		log.Printf("AiSilenceImprovements length: %d", len(project.AiSilenceImprovements))
+	}
+	log.Printf("AiSilenceModel: %s", project.AiSilenceModel)
+	log.Printf("AiSilenceCreatedAt: %v", project.AiSilenceCreatedAt)
+
+	// Check if there's a cached AI silence improvement
+	if project.AiSilenceImprovements == nil || len(project.AiSilenceImprovements) == 0 {
+		log.Printf("No cached AI silence improvements found")
+		return nil, time.Time{}, "", nil // No cached improvements
+	}
+
+	// Convert from JSON format back to ProjectHighlight structs using JSON marshaling for reliability
+	var improvements []ProjectHighlight
+	
+	// First, convert the data back to JSON and then unmarshal it properly
+	jsonBytes, err := json.Marshal(project.AiSilenceImprovements)
+	if err != nil {
+		log.Printf("Error marshaling cached improvements: %v", err)
+		return nil, time.Time{}, "", fmt.Errorf("failed to marshal cached improvements: %w", err)
+	}
+	
+	log.Printf("Cached improvements JSON: %s", string(jsonBytes))
+	
+	// Unmarshal into our struct
+	err = json.Unmarshal(jsonBytes, &improvements)
+	if err != nil {
+		log.Printf("Error unmarshaling cached improvements: %v", err)
+		return nil, time.Time{}, "", fmt.Errorf("failed to unmarshal cached improvements: %w", err)
+	}
+	
+	log.Printf("Successfully loaded %d cached improvements", len(improvements))
+	
+	return improvements, project.AiSilenceCreatedAt, project.AiSilenceModel, nil
+}
+
+// ClearAISilenceImprovementsCache clears the cached AI silence improvements for a project
+func ClearAISilenceImprovementsCache(ctx context.Context, client *ent.Client, projectID int) error {
+	_, err := client.Project.
+		UpdateOneID(projectID).
+		ClearAiSilenceImprovements().
+		ClearAiSilenceModel().
+		ClearAiSilenceCreatedAt().
+		Save(ctx)
+	
+	if err != nil {
+		return fmt.Errorf("failed to clear AI silence improvements cache: %w", err)
+	}
+	
+	return nil
+}

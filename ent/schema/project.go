@@ -59,6 +59,15 @@ func (Project) Fields() []ent.Field {
 			Optional().
 			Default("clips").
 			Comment("Last active tab for this project"),
+		field.JSON("ai_silence_improvements", []map[string]interface{}{}).
+			Optional().
+			Comment("Cached AI silence improvement suggestions"),
+		field.String("ai_silence_model").
+			Optional().
+			Comment("AI model used for cached silence improvements"),
+		field.Time("ai_silence_created_at").
+			Optional().
+			Comment("When the AI silence improvements were created"),
 	}
 }
 

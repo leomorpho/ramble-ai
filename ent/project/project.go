@@ -40,6 +40,12 @@ const (
 	FieldAiHighlightPrompt = "ai_highlight_prompt"
 	// FieldActiveTab holds the string denoting the active_tab field in the database.
 	FieldActiveTab = "active_tab"
+	// FieldAiSilenceImprovements holds the string denoting the ai_silence_improvements field in the database.
+	FieldAiSilenceImprovements = "ai_silence_improvements"
+	// FieldAiSilenceModel holds the string denoting the ai_silence_model field in the database.
+	FieldAiSilenceModel = "ai_silence_model"
+	// FieldAiSilenceCreatedAt holds the string denoting the ai_silence_created_at field in the database.
+	FieldAiSilenceCreatedAt = "ai_silence_created_at"
 	// EdgeVideoClips holds the string denoting the video_clips edge name in mutations.
 	EdgeVideoClips = "video_clips"
 	// EdgeExportJobs holds the string denoting the export_jobs edge name in mutations.
@@ -78,6 +84,9 @@ var Columns = []string{
 	FieldAiHighlightModel,
 	FieldAiHighlightPrompt,
 	FieldActiveTab,
+	FieldAiSilenceImprovements,
+	FieldAiSilenceModel,
+	FieldAiSilenceCreatedAt,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -175,6 +184,16 @@ func ByAiHighlightPrompt(opts ...sql.OrderTermOption) OrderOption {
 // ByActiveTab orders the results by the active_tab field.
 func ByActiveTab(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldActiveTab, opts...).ToFunc()
+}
+
+// ByAiSilenceModel orders the results by the ai_silence_model field.
+func ByAiSilenceModel(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAiSilenceModel, opts...).ToFunc()
+}
+
+// ByAiSilenceCreatedAt orders the results by the ai_silence_created_at field.
+func ByAiSilenceCreatedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAiSilenceCreatedAt, opts...).ToFunc()
 }
 
 // ByVideoClipsCount orders the results by video_clips count.

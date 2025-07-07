@@ -3,9 +3,12 @@
 import {projects} from '../models';
 import {exports} from '../models';
 import {highlights} from '../models';
+import {main} from '../models';
 import {ai} from '../models';
 
 export function CancelExport(arg1:string):Promise<void>;
+
+export function ClearAISilenceImprovements(arg1:number):Promise<void>;
 
 export function ClearSuggestedHighlights(arg1:number):Promise<void>;
 
@@ -41,6 +44,8 @@ export function GetOpenRouterApiKey():Promise<string>;
 
 export function GetProjectAISettings(arg1:number):Promise<highlights.ProjectAISettings>;
 
+export function GetProjectAISilenceResult(arg1:number):Promise<main.ProjectAISilenceResult>;
+
 export function GetProjectAISuggestion(arg1:number):Promise<highlights.ProjectAISuggestion>;
 
 export function GetProjectByID(arg1:number):Promise<projects.ProjectResponse>;
@@ -68,6 +73,8 @@ export function GetVideoFileInfo(arg1:string):Promise<projects.LocalVideoFile>;
 export function GetVideoURL(arg1:string):Promise<string>;
 
 export function Greet(arg1:string):Promise<string>;
+
+export function ImproveHighlightSilencesWithAI(arg1:number):Promise<Array<highlights.ProjectHighlight>>;
 
 export function RecoverActiveExportJobs():Promise<void>;
 

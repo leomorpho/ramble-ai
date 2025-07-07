@@ -286,6 +286,13 @@ type ProjectHighlight = highlights.ProjectHighlight
 type ProjectHighlightAISettings = highlights.ProjectHighlightAISettings
 type HighlightSuggestion = highlights.HighlightSuggestion
 
+// ProjectAISilenceResult represents AI silence improvement result for Wails compatibility
+type ProjectAISilenceResult struct {
+	Improvements []highlights.ProjectHighlight `json:"improvements"`
+	CreatedAt    string                        `json:"createdAt"`
+	Model        string                        `json:"model"`
+}
+
 // GetProjectHighlights returns all highlights from all video clips in a project
 func (a *App) GetProjectHighlights(projectID int) ([]ProjectHighlight, error) {
 	service := highlights.NewHighlightService(a.client, a.ctx)
@@ -408,4 +415,35 @@ func (a *App) ClearSuggestedHighlights(videoID int) error {
 func (a *App) DeleteSuggestedHighlight(videoID int, suggestionID string) error {
 	service := highlights.NewHighlightService(a.client, a.ctx)
 	return service.DeleteSuggestedHighlight(videoID, suggestionID)
+}
+
+// ImproveHighlightSilencesWithAI uses AI to suggest improved timings for highlights with natural silence buffers
+func (a *App) ImproveHighlightSilencesWithAI(projectID int) ([]ProjectHighlight, error) {
+	service := highlights.NewAIService(a.client, a.ctx)
+	return service.ImproveHighlightSilencesWithAI(projectID, a.GetOpenRouterApiKey)
+}
+
+// GetProjectAISilenceResult retrieves cached AI silence improvements for a project
+func (a *App) GetProjectAISilenceResult(projectID int) (*ProjectAISilenceResult, error) {
+	service := highlights.NewAIService(a.client, a.ctx)
+	improvements, createdAt, model, err := service.GetProjectAISilenceImprovements(projectID)
+	if err != nil {
+		return nil, err
+	}
+	
+	// If no cached improvements, return nil
+	if len(improvements) == 0 {
+		return nil, nil
+	}
+	
+	return &ProjectAISilenceResult{
+		Improvements: improvements,
+		CreatedAt:    createdAt.Format("2006-01-02T15:04:05Z07:00"),
+		Model:        model,
+	}, nil
+}
+
+// ClearAISilenceImprovements clears cached AI silence improvements for a project
+func (a *App) ClearAISilenceImprovements(projectID int) error {
+	return highlights.ClearAISilenceImprovementsCache(a.ctx, a.client, projectID)
 }

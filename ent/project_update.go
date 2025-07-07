@@ -257,6 +257,64 @@ func (pu *ProjectUpdate) ClearActiveTab() *ProjectUpdate {
 	return pu
 }
 
+// SetAiSilenceImprovements sets the "ai_silence_improvements" field.
+func (pu *ProjectUpdate) SetAiSilenceImprovements(m []map[string]interface{}) *ProjectUpdate {
+	pu.mutation.SetAiSilenceImprovements(m)
+	return pu
+}
+
+// AppendAiSilenceImprovements appends m to the "ai_silence_improvements" field.
+func (pu *ProjectUpdate) AppendAiSilenceImprovements(m []map[string]interface{}) *ProjectUpdate {
+	pu.mutation.AppendAiSilenceImprovements(m)
+	return pu
+}
+
+// ClearAiSilenceImprovements clears the value of the "ai_silence_improvements" field.
+func (pu *ProjectUpdate) ClearAiSilenceImprovements() *ProjectUpdate {
+	pu.mutation.ClearAiSilenceImprovements()
+	return pu
+}
+
+// SetAiSilenceModel sets the "ai_silence_model" field.
+func (pu *ProjectUpdate) SetAiSilenceModel(s string) *ProjectUpdate {
+	pu.mutation.SetAiSilenceModel(s)
+	return pu
+}
+
+// SetNillableAiSilenceModel sets the "ai_silence_model" field if the given value is not nil.
+func (pu *ProjectUpdate) SetNillableAiSilenceModel(s *string) *ProjectUpdate {
+	if s != nil {
+		pu.SetAiSilenceModel(*s)
+	}
+	return pu
+}
+
+// ClearAiSilenceModel clears the value of the "ai_silence_model" field.
+func (pu *ProjectUpdate) ClearAiSilenceModel() *ProjectUpdate {
+	pu.mutation.ClearAiSilenceModel()
+	return pu
+}
+
+// SetAiSilenceCreatedAt sets the "ai_silence_created_at" field.
+func (pu *ProjectUpdate) SetAiSilenceCreatedAt(t time.Time) *ProjectUpdate {
+	pu.mutation.SetAiSilenceCreatedAt(t)
+	return pu
+}
+
+// SetNillableAiSilenceCreatedAt sets the "ai_silence_created_at" field if the given value is not nil.
+func (pu *ProjectUpdate) SetNillableAiSilenceCreatedAt(t *time.Time) *ProjectUpdate {
+	if t != nil {
+		pu.SetAiSilenceCreatedAt(*t)
+	}
+	return pu
+}
+
+// ClearAiSilenceCreatedAt clears the value of the "ai_silence_created_at" field.
+func (pu *ProjectUpdate) ClearAiSilenceCreatedAt() *ProjectUpdate {
+	pu.mutation.ClearAiSilenceCreatedAt()
+	return pu
+}
+
 // AddVideoClipIDs adds the "video_clips" edge to the VideoClip entity by IDs.
 func (pu *ProjectUpdate) AddVideoClipIDs(ids ...int) *ProjectUpdate {
 	pu.mutation.AddVideoClipIDs(ids...)
@@ -467,6 +525,29 @@ func (pu *ProjectUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if pu.mutation.ActiveTabCleared() {
 		_spec.ClearField(project.FieldActiveTab, field.TypeString)
+	}
+	if value, ok := pu.mutation.AiSilenceImprovements(); ok {
+		_spec.SetField(project.FieldAiSilenceImprovements, field.TypeJSON, value)
+	}
+	if value, ok := pu.mutation.AppendedAiSilenceImprovements(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, project.FieldAiSilenceImprovements, value)
+		})
+	}
+	if pu.mutation.AiSilenceImprovementsCleared() {
+		_spec.ClearField(project.FieldAiSilenceImprovements, field.TypeJSON)
+	}
+	if value, ok := pu.mutation.AiSilenceModel(); ok {
+		_spec.SetField(project.FieldAiSilenceModel, field.TypeString, value)
+	}
+	if pu.mutation.AiSilenceModelCleared() {
+		_spec.ClearField(project.FieldAiSilenceModel, field.TypeString)
+	}
+	if value, ok := pu.mutation.AiSilenceCreatedAt(); ok {
+		_spec.SetField(project.FieldAiSilenceCreatedAt, field.TypeTime, value)
+	}
+	if pu.mutation.AiSilenceCreatedAtCleared() {
+		_spec.ClearField(project.FieldAiSilenceCreatedAt, field.TypeTime)
 	}
 	if pu.mutation.VideoClipsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -804,6 +885,64 @@ func (puo *ProjectUpdateOne) ClearActiveTab() *ProjectUpdateOne {
 	return puo
 }
 
+// SetAiSilenceImprovements sets the "ai_silence_improvements" field.
+func (puo *ProjectUpdateOne) SetAiSilenceImprovements(m []map[string]interface{}) *ProjectUpdateOne {
+	puo.mutation.SetAiSilenceImprovements(m)
+	return puo
+}
+
+// AppendAiSilenceImprovements appends m to the "ai_silence_improvements" field.
+func (puo *ProjectUpdateOne) AppendAiSilenceImprovements(m []map[string]interface{}) *ProjectUpdateOne {
+	puo.mutation.AppendAiSilenceImprovements(m)
+	return puo
+}
+
+// ClearAiSilenceImprovements clears the value of the "ai_silence_improvements" field.
+func (puo *ProjectUpdateOne) ClearAiSilenceImprovements() *ProjectUpdateOne {
+	puo.mutation.ClearAiSilenceImprovements()
+	return puo
+}
+
+// SetAiSilenceModel sets the "ai_silence_model" field.
+func (puo *ProjectUpdateOne) SetAiSilenceModel(s string) *ProjectUpdateOne {
+	puo.mutation.SetAiSilenceModel(s)
+	return puo
+}
+
+// SetNillableAiSilenceModel sets the "ai_silence_model" field if the given value is not nil.
+func (puo *ProjectUpdateOne) SetNillableAiSilenceModel(s *string) *ProjectUpdateOne {
+	if s != nil {
+		puo.SetAiSilenceModel(*s)
+	}
+	return puo
+}
+
+// ClearAiSilenceModel clears the value of the "ai_silence_model" field.
+func (puo *ProjectUpdateOne) ClearAiSilenceModel() *ProjectUpdateOne {
+	puo.mutation.ClearAiSilenceModel()
+	return puo
+}
+
+// SetAiSilenceCreatedAt sets the "ai_silence_created_at" field.
+func (puo *ProjectUpdateOne) SetAiSilenceCreatedAt(t time.Time) *ProjectUpdateOne {
+	puo.mutation.SetAiSilenceCreatedAt(t)
+	return puo
+}
+
+// SetNillableAiSilenceCreatedAt sets the "ai_silence_created_at" field if the given value is not nil.
+func (puo *ProjectUpdateOne) SetNillableAiSilenceCreatedAt(t *time.Time) *ProjectUpdateOne {
+	if t != nil {
+		puo.SetAiSilenceCreatedAt(*t)
+	}
+	return puo
+}
+
+// ClearAiSilenceCreatedAt clears the value of the "ai_silence_created_at" field.
+func (puo *ProjectUpdateOne) ClearAiSilenceCreatedAt() *ProjectUpdateOne {
+	puo.mutation.ClearAiSilenceCreatedAt()
+	return puo
+}
+
 // AddVideoClipIDs adds the "video_clips" edge to the VideoClip entity by IDs.
 func (puo *ProjectUpdateOne) AddVideoClipIDs(ids ...int) *ProjectUpdateOne {
 	puo.mutation.AddVideoClipIDs(ids...)
@@ -1044,6 +1183,29 @@ func (puo *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err e
 	}
 	if puo.mutation.ActiveTabCleared() {
 		_spec.ClearField(project.FieldActiveTab, field.TypeString)
+	}
+	if value, ok := puo.mutation.AiSilenceImprovements(); ok {
+		_spec.SetField(project.FieldAiSilenceImprovements, field.TypeJSON, value)
+	}
+	if value, ok := puo.mutation.AppendedAiSilenceImprovements(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, project.FieldAiSilenceImprovements, value)
+		})
+	}
+	if puo.mutation.AiSilenceImprovementsCleared() {
+		_spec.ClearField(project.FieldAiSilenceImprovements, field.TypeJSON)
+	}
+	if value, ok := puo.mutation.AiSilenceModel(); ok {
+		_spec.SetField(project.FieldAiSilenceModel, field.TypeString, value)
+	}
+	if puo.mutation.AiSilenceModelCleared() {
+		_spec.ClearField(project.FieldAiSilenceModel, field.TypeString)
+	}
+	if value, ok := puo.mutation.AiSilenceCreatedAt(); ok {
+		_spec.SetField(project.FieldAiSilenceCreatedAt, field.TypeTime, value)
+	}
+	if puo.mutation.AiSilenceCreatedAtCleared() {
+		_spec.ClearField(project.FieldAiSilenceCreatedAt, field.TypeTime)
 	}
 	if puo.mutation.VideoClipsCleared() {
 		edge := &sqlgraph.EdgeSpec{

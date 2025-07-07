@@ -2,7 +2,7 @@
   import { onDestroy } from "svelte";
   import { GetVideoURL } from "$lib/wailsjs/go/main/App";
   import { toast } from "svelte-sonner";
-  import { Play, Film, Sparkles } from "@lucide/svelte";
+  import { Play, Film, Sparkles, Clock } from "@lucide/svelte";
   import {
     Dialog,
     DialogContent,
@@ -17,6 +17,7 @@
   import ClipEditor from "$lib/components/ClipEditor.svelte";
   import HighlightItem from "$lib/components/HighlightItem.svelte";
   import AIReorderSheet from "$lib/components/AIReorderSheet.svelte";
+  import AISilenceImprovementSheet from "$lib/components/AISilenceImprovementSheet.svelte";
   import {
     updateHighlightOrder,
     deleteHighlight,
@@ -54,6 +55,9 @@
 
   // AI reordering state
   let aiSheetOpen = $state(false);
+  
+  // AI silence improvement state  
+  let aiSilenceSheetOpen = $state(false);
 
   // Video player play/pause function reference
   let playPauseRef = $state({ current: null });
@@ -495,6 +499,24 @@
       "highlights"
     );
   }
+
+  function handleAISilenceImprovement() {
+    if (!projectId || highlights.length === 0) {
+      toast.error("No highlights to improve");
+      return;
+    }
+
+    aiSilenceSheetOpen = true;
+  }
+
+  // Handle AI silence improvement apply callback
+  function handleAISilenceApply(improvedHighlights) {
+    console.log(
+      "AI silence improvements applied:",
+      improvedHighlights.length,
+      "video highlights"
+    );
+  }
 </script>
 
 <div class="highlights-timeline space-y-4">
@@ -510,6 +532,17 @@
         >
           <Sparkles class="w-4 h-4" />
           AI Reorder
+        </Button>
+      {/if}
+      {#if highlights.length > 0}
+        <Button
+          variant="outline"
+          size="sm"
+          onclick={handleAISilenceImprovement}
+          class="flex items-center gap-2"
+        >
+          <Clock class="w-4 h-4" />
+          AI Improve Silences
         </Button>
       {/if}
       <div class="text-sm text-muted-foreground">
@@ -610,6 +643,14 @@
   {projectId}
   {highlights}
   onApply={handleAIApply}
+/>
+
+<!-- AI Silence Improvement Sheet -->
+<AISilenceImprovementSheet
+  bind:open={aiSilenceSheetOpen}
+  {projectId}
+  {highlights}
+  onApply={handleAISilenceApply}
 />
 
 <!-- Video Player Dialog -->

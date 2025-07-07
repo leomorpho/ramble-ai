@@ -115,6 +115,16 @@ func ActiveTab(v string) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldActiveTab, v))
 }
 
+// AiSilenceModel applies equality check predicate on the "ai_silence_model" field. It's identical to AiSilenceModelEQ.
+func AiSilenceModel(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldAiSilenceModel, v))
+}
+
+// AiSilenceCreatedAt applies equality check predicate on the "ai_silence_created_at" field. It's identical to AiSilenceCreatedAtEQ.
+func AiSilenceCreatedAt(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldAiSilenceCreatedAt, v))
+}
+
 // NameEQ applies the EQ predicate on the "name" field.
 func NameEQ(v string) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldName, v))
@@ -908,6 +918,141 @@ func ActiveTabEqualFold(v string) predicate.Project {
 // ActiveTabContainsFold applies the ContainsFold predicate on the "active_tab" field.
 func ActiveTabContainsFold(v string) predicate.Project {
 	return predicate.Project(sql.FieldContainsFold(FieldActiveTab, v))
+}
+
+// AiSilenceImprovementsIsNil applies the IsNil predicate on the "ai_silence_improvements" field.
+func AiSilenceImprovementsIsNil() predicate.Project {
+	return predicate.Project(sql.FieldIsNull(FieldAiSilenceImprovements))
+}
+
+// AiSilenceImprovementsNotNil applies the NotNil predicate on the "ai_silence_improvements" field.
+func AiSilenceImprovementsNotNil() predicate.Project {
+	return predicate.Project(sql.FieldNotNull(FieldAiSilenceImprovements))
+}
+
+// AiSilenceModelEQ applies the EQ predicate on the "ai_silence_model" field.
+func AiSilenceModelEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldAiSilenceModel, v))
+}
+
+// AiSilenceModelNEQ applies the NEQ predicate on the "ai_silence_model" field.
+func AiSilenceModelNEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldNEQ(FieldAiSilenceModel, v))
+}
+
+// AiSilenceModelIn applies the In predicate on the "ai_silence_model" field.
+func AiSilenceModelIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldIn(FieldAiSilenceModel, vs...))
+}
+
+// AiSilenceModelNotIn applies the NotIn predicate on the "ai_silence_model" field.
+func AiSilenceModelNotIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldNotIn(FieldAiSilenceModel, vs...))
+}
+
+// AiSilenceModelGT applies the GT predicate on the "ai_silence_model" field.
+func AiSilenceModelGT(v string) predicate.Project {
+	return predicate.Project(sql.FieldGT(FieldAiSilenceModel, v))
+}
+
+// AiSilenceModelGTE applies the GTE predicate on the "ai_silence_model" field.
+func AiSilenceModelGTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldGTE(FieldAiSilenceModel, v))
+}
+
+// AiSilenceModelLT applies the LT predicate on the "ai_silence_model" field.
+func AiSilenceModelLT(v string) predicate.Project {
+	return predicate.Project(sql.FieldLT(FieldAiSilenceModel, v))
+}
+
+// AiSilenceModelLTE applies the LTE predicate on the "ai_silence_model" field.
+func AiSilenceModelLTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldLTE(FieldAiSilenceModel, v))
+}
+
+// AiSilenceModelContains applies the Contains predicate on the "ai_silence_model" field.
+func AiSilenceModelContains(v string) predicate.Project {
+	return predicate.Project(sql.FieldContains(FieldAiSilenceModel, v))
+}
+
+// AiSilenceModelHasPrefix applies the HasPrefix predicate on the "ai_silence_model" field.
+func AiSilenceModelHasPrefix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasPrefix(FieldAiSilenceModel, v))
+}
+
+// AiSilenceModelHasSuffix applies the HasSuffix predicate on the "ai_silence_model" field.
+func AiSilenceModelHasSuffix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasSuffix(FieldAiSilenceModel, v))
+}
+
+// AiSilenceModelIsNil applies the IsNil predicate on the "ai_silence_model" field.
+func AiSilenceModelIsNil() predicate.Project {
+	return predicate.Project(sql.FieldIsNull(FieldAiSilenceModel))
+}
+
+// AiSilenceModelNotNil applies the NotNil predicate on the "ai_silence_model" field.
+func AiSilenceModelNotNil() predicate.Project {
+	return predicate.Project(sql.FieldNotNull(FieldAiSilenceModel))
+}
+
+// AiSilenceModelEqualFold applies the EqualFold predicate on the "ai_silence_model" field.
+func AiSilenceModelEqualFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldEqualFold(FieldAiSilenceModel, v))
+}
+
+// AiSilenceModelContainsFold applies the ContainsFold predicate on the "ai_silence_model" field.
+func AiSilenceModelContainsFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldContainsFold(FieldAiSilenceModel, v))
+}
+
+// AiSilenceCreatedAtEQ applies the EQ predicate on the "ai_silence_created_at" field.
+func AiSilenceCreatedAtEQ(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldAiSilenceCreatedAt, v))
+}
+
+// AiSilenceCreatedAtNEQ applies the NEQ predicate on the "ai_silence_created_at" field.
+func AiSilenceCreatedAtNEQ(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldNEQ(FieldAiSilenceCreatedAt, v))
+}
+
+// AiSilenceCreatedAtIn applies the In predicate on the "ai_silence_created_at" field.
+func AiSilenceCreatedAtIn(vs ...time.Time) predicate.Project {
+	return predicate.Project(sql.FieldIn(FieldAiSilenceCreatedAt, vs...))
+}
+
+// AiSilenceCreatedAtNotIn applies the NotIn predicate on the "ai_silence_created_at" field.
+func AiSilenceCreatedAtNotIn(vs ...time.Time) predicate.Project {
+	return predicate.Project(sql.FieldNotIn(FieldAiSilenceCreatedAt, vs...))
+}
+
+// AiSilenceCreatedAtGT applies the GT predicate on the "ai_silence_created_at" field.
+func AiSilenceCreatedAtGT(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldGT(FieldAiSilenceCreatedAt, v))
+}
+
+// AiSilenceCreatedAtGTE applies the GTE predicate on the "ai_silence_created_at" field.
+func AiSilenceCreatedAtGTE(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldGTE(FieldAiSilenceCreatedAt, v))
+}
+
+// AiSilenceCreatedAtLT applies the LT predicate on the "ai_silence_created_at" field.
+func AiSilenceCreatedAtLT(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldLT(FieldAiSilenceCreatedAt, v))
+}
+
+// AiSilenceCreatedAtLTE applies the LTE predicate on the "ai_silence_created_at" field.
+func AiSilenceCreatedAtLTE(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldLTE(FieldAiSilenceCreatedAt, v))
+}
+
+// AiSilenceCreatedAtIsNil applies the IsNil predicate on the "ai_silence_created_at" field.
+func AiSilenceCreatedAtIsNil() predicate.Project {
+	return predicate.Project(sql.FieldIsNull(FieldAiSilenceCreatedAt))
+}
+
+// AiSilenceCreatedAtNotNil applies the NotNil predicate on the "ai_silence_created_at" field.
+func AiSilenceCreatedAtNotNil() predicate.Project {
+	return predicate.Project(sql.FieldNotNull(FieldAiSilenceCreatedAt))
 }
 
 // HasVideoClips applies the HasEdge predicate on the "video_clips" edge.

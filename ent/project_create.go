@@ -180,6 +180,40 @@ func (pc *ProjectCreate) SetNillableActiveTab(s *string) *ProjectCreate {
 	return pc
 }
 
+// SetAiSilenceImprovements sets the "ai_silence_improvements" field.
+func (pc *ProjectCreate) SetAiSilenceImprovements(m []map[string]interface{}) *ProjectCreate {
+	pc.mutation.SetAiSilenceImprovements(m)
+	return pc
+}
+
+// SetAiSilenceModel sets the "ai_silence_model" field.
+func (pc *ProjectCreate) SetAiSilenceModel(s string) *ProjectCreate {
+	pc.mutation.SetAiSilenceModel(s)
+	return pc
+}
+
+// SetNillableAiSilenceModel sets the "ai_silence_model" field if the given value is not nil.
+func (pc *ProjectCreate) SetNillableAiSilenceModel(s *string) *ProjectCreate {
+	if s != nil {
+		pc.SetAiSilenceModel(*s)
+	}
+	return pc
+}
+
+// SetAiSilenceCreatedAt sets the "ai_silence_created_at" field.
+func (pc *ProjectCreate) SetAiSilenceCreatedAt(t time.Time) *ProjectCreate {
+	pc.mutation.SetAiSilenceCreatedAt(t)
+	return pc
+}
+
+// SetNillableAiSilenceCreatedAt sets the "ai_silence_created_at" field if the given value is not nil.
+func (pc *ProjectCreate) SetNillableAiSilenceCreatedAt(t *time.Time) *ProjectCreate {
+	if t != nil {
+		pc.SetAiSilenceCreatedAt(*t)
+	}
+	return pc
+}
+
 // AddVideoClipIDs adds the "video_clips" edge to the VideoClip entity by IDs.
 func (pc *ProjectCreate) AddVideoClipIDs(ids ...int) *ProjectCreate {
 	pc.mutation.AddVideoClipIDs(ids...)
@@ -368,6 +402,18 @@ func (pc *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 	if value, ok := pc.mutation.ActiveTab(); ok {
 		_spec.SetField(project.FieldActiveTab, field.TypeString, value)
 		_node.ActiveTab = value
+	}
+	if value, ok := pc.mutation.AiSilenceImprovements(); ok {
+		_spec.SetField(project.FieldAiSilenceImprovements, field.TypeJSON, value)
+		_node.AiSilenceImprovements = value
+	}
+	if value, ok := pc.mutation.AiSilenceModel(); ok {
+		_spec.SetField(project.FieldAiSilenceModel, field.TypeString, value)
+		_node.AiSilenceModel = value
+	}
+	if value, ok := pc.mutation.AiSilenceCreatedAt(); ok {
+		_spec.SetField(project.FieldAiSilenceCreatedAt, field.TypeTime, value)
+		_node.AiSilenceCreatedAt = value
 	}
 	if nodes := pc.mutation.VideoClipsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
