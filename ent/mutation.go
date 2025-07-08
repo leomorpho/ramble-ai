@@ -1369,6 +1369,8 @@ type ProjectMutation struct {
 	appendai_silence_improvements []map[string]interface{}
 	ai_silence_model              *string
 	ai_silence_created_at         *time.Time
+	highlight_order               *[]string
+	appendhighlight_order         []string
 	order_history                 *[][]string
 	appendorder_history           [][]string
 	order_history_index           *int
@@ -2247,6 +2249,71 @@ func (m *ProjectMutation) ResetAiSilenceCreatedAt() {
 	delete(m.clearedFields, project.FieldAiSilenceCreatedAt)
 }
 
+// SetHighlightOrder sets the "highlight_order" field.
+func (m *ProjectMutation) SetHighlightOrder(s []string) {
+	m.highlight_order = &s
+	m.appendhighlight_order = nil
+}
+
+// HighlightOrder returns the value of the "highlight_order" field in the mutation.
+func (m *ProjectMutation) HighlightOrder() (r []string, exists bool) {
+	v := m.highlight_order
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldHighlightOrder returns the old "highlight_order" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldHighlightOrder(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldHighlightOrder is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldHighlightOrder requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldHighlightOrder: %w", err)
+	}
+	return oldValue.HighlightOrder, nil
+}
+
+// AppendHighlightOrder adds s to the "highlight_order" field.
+func (m *ProjectMutation) AppendHighlightOrder(s []string) {
+	m.appendhighlight_order = append(m.appendhighlight_order, s...)
+}
+
+// AppendedHighlightOrder returns the list of values that were appended to the "highlight_order" field in this mutation.
+func (m *ProjectMutation) AppendedHighlightOrder() ([]string, bool) {
+	if len(m.appendhighlight_order) == 0 {
+		return nil, false
+	}
+	return m.appendhighlight_order, true
+}
+
+// ClearHighlightOrder clears the value of the "highlight_order" field.
+func (m *ProjectMutation) ClearHighlightOrder() {
+	m.highlight_order = nil
+	m.appendhighlight_order = nil
+	m.clearedFields[project.FieldHighlightOrder] = struct{}{}
+}
+
+// HighlightOrderCleared returns if the "highlight_order" field was cleared in this mutation.
+func (m *ProjectMutation) HighlightOrderCleared() bool {
+	_, ok := m.clearedFields[project.FieldHighlightOrder]
+	return ok
+}
+
+// ResetHighlightOrder resets all changes to the "highlight_order" field.
+func (m *ProjectMutation) ResetHighlightOrder() {
+	m.highlight_order = nil
+	m.appendhighlight_order = nil
+	delete(m.clearedFields, project.FieldHighlightOrder)
+}
+
 // SetOrderHistory sets the "order_history" field.
 func (m *ProjectMutation) SetOrderHistory(s [][]string) {
 	m.order_history = &s
@@ -2524,7 +2591,7 @@ func (m *ProjectMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProjectMutation) Fields() []string {
-	fields := make([]string, 0, 18)
+	fields := make([]string, 0, 19)
 	if m.name != nil {
 		fields = append(fields, project.FieldName)
 	}
@@ -2573,6 +2640,9 @@ func (m *ProjectMutation) Fields() []string {
 	if m.ai_silence_created_at != nil {
 		fields = append(fields, project.FieldAiSilenceCreatedAt)
 	}
+	if m.highlight_order != nil {
+		fields = append(fields, project.FieldHighlightOrder)
+	}
 	if m.order_history != nil {
 		fields = append(fields, project.FieldOrderHistory)
 	}
@@ -2619,6 +2689,8 @@ func (m *ProjectMutation) Field(name string) (ent.Value, bool) {
 		return m.AiSilenceModel()
 	case project.FieldAiSilenceCreatedAt:
 		return m.AiSilenceCreatedAt()
+	case project.FieldHighlightOrder:
+		return m.HighlightOrder()
 	case project.FieldOrderHistory:
 		return m.OrderHistory()
 	case project.FieldOrderHistoryIndex:
@@ -2664,6 +2736,8 @@ func (m *ProjectMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldAiSilenceModel(ctx)
 	case project.FieldAiSilenceCreatedAt:
 		return m.OldAiSilenceCreatedAt(ctx)
+	case project.FieldHighlightOrder:
+		return m.OldHighlightOrder(ctx)
 	case project.FieldOrderHistory:
 		return m.OldOrderHistory(ctx)
 	case project.FieldOrderHistoryIndex:
@@ -2789,6 +2863,13 @@ func (m *ProjectMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetAiSilenceCreatedAt(v)
 		return nil
+	case project.FieldHighlightOrder:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetHighlightOrder(v)
+		return nil
 	case project.FieldOrderHistory:
 		v, ok := value.([][]string)
 		if !ok {
@@ -2884,6 +2965,9 @@ func (m *ProjectMutation) ClearedFields() []string {
 	if m.FieldCleared(project.FieldAiSilenceCreatedAt) {
 		fields = append(fields, project.FieldAiSilenceCreatedAt)
 	}
+	if m.FieldCleared(project.FieldHighlightOrder) {
+		fields = append(fields, project.FieldHighlightOrder)
+	}
 	if m.FieldCleared(project.FieldOrderHistory) {
 		fields = append(fields, project.FieldOrderHistory)
 	}
@@ -2939,6 +3023,9 @@ func (m *ProjectMutation) ClearField(name string) error {
 		return nil
 	case project.FieldAiSilenceCreatedAt:
 		m.ClearAiSilenceCreatedAt()
+		return nil
+	case project.FieldHighlightOrder:
+		m.ClearHighlightOrder()
 		return nil
 	case project.FieldOrderHistory:
 		m.ClearOrderHistory()
@@ -3001,6 +3088,9 @@ func (m *ProjectMutation) ResetField(name string) error {
 		return nil
 	case project.FieldAiSilenceCreatedAt:
 		m.ResetAiSilenceCreatedAt()
+		return nil
+	case project.FieldHighlightOrder:
+		m.ResetHighlightOrder()
 		return nil
 	case project.FieldOrderHistory:
 		m.ResetOrderHistory()

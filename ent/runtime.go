@@ -100,7 +100,7 @@ func init() {
 	// project.DefaultActiveTab holds the default value on creation for the active_tab field.
 	project.DefaultActiveTab = projectDescActiveTab.Default.(string)
 	// projectDescOrderHistoryIndex is the schema descriptor for order_history_index field.
-	projectDescOrderHistoryIndex := projectFields[17].Descriptor()
+	projectDescOrderHistoryIndex := projectFields[18].Descriptor()
 	// project.DefaultOrderHistoryIndex holds the default value on creation for the order_history_index field.
 	project.DefaultOrderHistoryIndex = projectDescOrderHistoryIndex.Default.(int)
 	settingsFields := schema.Settings{}.Fields()

@@ -2,7 +2,6 @@ package projects
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
@@ -12,9 +11,7 @@ import (
 	"MYAPP/ent"
 	"MYAPP/ent/project"
 	"MYAPP/ent/schema"
-	"MYAPP/ent/settings"
 	"MYAPP/ent/videoclip"
-	"MYAPP/goapp/highlights"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -494,37 +491,17 @@ func (s *ProjectService) UpdateProjectHighlightOrder(projectID int, highlightOrd
 		fmt.Printf("Warning: failed to save order state to history: %v\n", err)
 	}
 
-	// Convert highlight order to JSON for storage
-	highlightOrderJSON, err := json.Marshal(highlightOrder)
+	// Update the highlight order in the project schema
+	_, err = s.client.Project.
+		UpdateOneID(projectID).
+		SetHighlightOrder(highlightOrder).
+		Save(s.ctx)
+	
 	if err != nil {
-		return fmt.Errorf("failed to marshal highlight order: %w", err)
+		return fmt.Errorf("failed to update project highlight order: %w", err)
 	}
 	
-	// Store in settings table with project-specific key
-	settingKey := fmt.Sprintf("project_%d_highlight_order", projectID)
-	
-	// Check if setting exists
-	existing, err := s.client.Settings.
-		Query().
-		Where(settings.Key(settingKey)).
-		Only(s.ctx)
-		
-	if err != nil {
-		// Setting doesn't exist, create it
-		_, err = s.client.Settings.
-			Create().
-			SetKey(settingKey).
-			SetValue(string(highlightOrderJSON)).
-			Save(s.ctx)
-	} else {
-		// Setting exists, update it
-		_, err = s.client.Settings.
-			UpdateOne(existing).
-			SetValue(string(highlightOrderJSON)).
-			Save(s.ctx)
-	}
-	
-	return err
+	return nil
 }
 
 // Helper functions
@@ -605,11 +582,9 @@ func (s *ProjectService) saveOrderState(projectID int) error {
 		return fmt.Errorf("failed to get project: %w", err)
 	}
 
-	// Get current order from settings using highlights service
-	highlightsService := highlights.NewHighlightService(s.client, s.ctx)
-	currentOrder, err := highlightsService.GetProjectHighlightOrder(projectID)
-	if err != nil {
-		// If no order exists, use empty slice
+	// Get current order from project schema
+	currentOrder := project.HighlightOrder
+	if currentOrder == nil {
 		currentOrder = []string{}
 	}
 
@@ -917,35 +892,15 @@ func (s *ProjectService) GetHighlightsHistoryStatus(clipID int) (bool, bool, err
 
 // UpdateProjectHighlightOrderWithoutHistory updates order without saving to history (used for undo/redo)
 func (s *ProjectService) UpdateProjectHighlightOrderWithoutHistory(projectID int, highlightOrder []string) error {
-	// Convert highlight order to JSON for storage
-	highlightOrderJSON, err := json.Marshal(highlightOrder)
+	// Update the highlight order in the project schema directly (no history save)
+	_, err := s.client.Project.
+		UpdateOneID(projectID).
+		SetHighlightOrder(highlightOrder).
+		Save(s.ctx)
+	
 	if err != nil {
-		return fmt.Errorf("failed to marshal highlight order: %w", err)
+		return fmt.Errorf("failed to update project highlight order: %w", err)
 	}
 	
-	// Store in settings table with project-specific key
-	settingKey := fmt.Sprintf("project_%d_highlight_order", projectID)
-	
-	// Check if setting exists
-	existing, err := s.client.Settings.
-		Query().
-		Where(settings.Key(settingKey)).
-		Only(s.ctx)
-		
-	if err != nil {
-		// Setting doesn't exist, create it
-		_, err = s.client.Settings.
-			Create().
-			SetKey(settingKey).
-			SetValue(string(highlightOrderJSON)).
-			Save(s.ctx)
-	} else {
-		// Setting exists, update it
-		_, err = s.client.Settings.
-			UpdateOne(existing).
-			SetValue(string(highlightOrderJSON)).
-			Save(s.ctx)
-	}
-	
-	return err
+	return nil
 }

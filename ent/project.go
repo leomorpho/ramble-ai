@@ -50,6 +50,8 @@ type Project struct {
 	AiSilenceModel string `json:"ai_silence_model,omitempty"`
 	// When the AI silence improvements were created
 	AiSilenceCreatedAt time.Time `json:"ai_silence_created_at,omitempty"`
+	// Current highlight order (array of highlight IDs)
+	HighlightOrder []string `json:"highlight_order,omitempty"`
 	// FIFO history of highlight orders (last 20 states)
 	OrderHistory [][]string `json:"order_history,omitempty"`
 	// Current position in order history (-1 = no history)
@@ -94,7 +96,7 @@ func (*Project) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case project.FieldAiSuggestionOrder, project.FieldAiSilenceImprovements, project.FieldOrderHistory:
+		case project.FieldAiSuggestionOrder, project.FieldAiSilenceImprovements, project.FieldHighlightOrder, project.FieldOrderHistory:
 			values[i] = new([]byte)
 		case project.FieldID, project.FieldOrderHistoryIndex:
 			values[i] = new(sql.NullInt64)
@@ -223,6 +225,14 @@ func (pr *Project) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				pr.AiSilenceCreatedAt = value.Time
 			}
+		case project.FieldHighlightOrder:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field highlight_order", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &pr.HighlightOrder); err != nil {
+					return fmt.Errorf("unmarshal field highlight_order: %w", err)
+				}
+			}
 		case project.FieldOrderHistory:
 			if value, ok := values[i].(*[]byte); !ok {
 				return fmt.Errorf("unexpected type %T for field order_history", values[i])
@@ -330,6 +340,9 @@ func (pr *Project) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("ai_silence_created_at=")
 	builder.WriteString(pr.AiSilenceCreatedAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("highlight_order=")
+	builder.WriteString(fmt.Sprintf("%v", pr.HighlightOrder))
 	builder.WriteString(", ")
 	builder.WriteString("order_history=")
 	builder.WriteString(fmt.Sprintf("%v", pr.OrderHistory))

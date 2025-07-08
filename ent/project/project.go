@@ -46,6 +46,8 @@ const (
 	FieldAiSilenceModel = "ai_silence_model"
 	// FieldAiSilenceCreatedAt holds the string denoting the ai_silence_created_at field in the database.
 	FieldAiSilenceCreatedAt = "ai_silence_created_at"
+	// FieldHighlightOrder holds the string denoting the highlight_order field in the database.
+	FieldHighlightOrder = "highlight_order"
 	// FieldOrderHistory holds the string denoting the order_history field in the database.
 	FieldOrderHistory = "order_history"
 	// FieldOrderHistoryIndex holds the string denoting the order_history_index field in the database.
@@ -91,6 +93,7 @@ var Columns = []string{
 	FieldAiSilenceImprovements,
 	FieldAiSilenceModel,
 	FieldAiSilenceCreatedAt,
+	FieldHighlightOrder,
 	FieldOrderHistory,
 	FieldOrderHistoryIndex,
 }

@@ -214,6 +214,12 @@ func (pc *ProjectCreate) SetNillableAiSilenceCreatedAt(t *time.Time) *ProjectCre
 	return pc
 }
 
+// SetHighlightOrder sets the "highlight_order" field.
+func (pc *ProjectCreate) SetHighlightOrder(s []string) *ProjectCreate {
+	pc.mutation.SetHighlightOrder(s)
+	return pc
+}
+
 // SetOrderHistory sets the "order_history" field.
 func (pc *ProjectCreate) SetOrderHistory(s [][]string) *ProjectCreate {
 	pc.mutation.SetOrderHistory(s)
@@ -438,6 +444,10 @@ func (pc *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 	if value, ok := pc.mutation.AiSilenceCreatedAt(); ok {
 		_spec.SetField(project.FieldAiSilenceCreatedAt, field.TypeTime, value)
 		_node.AiSilenceCreatedAt = value
+	}
+	if value, ok := pc.mutation.HighlightOrder(); ok {
+		_spec.SetField(project.FieldHighlightOrder, field.TypeJSON, value)
+		_node.HighlightOrder = value
 	}
 	if value, ok := pc.mutation.OrderHistory(); ok {
 		_spec.SetField(project.FieldOrderHistory, field.TypeJSON, value)
