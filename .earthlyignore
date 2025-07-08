@@ -1,0 +1,47 @@
+# Earthly ignore file
+
+# Build artifacts
+build/
+frontend/build/
+frontend/.svelte-kit/
+*.db
+
+# Test artifacts
+coverage.out
+coverage.html
+*.test
+
+# Dependencies
+node_modules/
+vendor/
+
+# IDE and OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Git
+.git/
+.gitignore
+
+# CI
+.github/
+.gitlab-ci.yml
+
+# Temporary files
+temp_*/
+tmp/
+*.tmp
+*.temp
+
+# Logs
+*.log
+npm-debug.log*
+
+# Thumbnails and media cache
+thumbnails/
+temp_audio/
+temp_export/

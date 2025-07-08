@@ -33,3 +33,5 @@ thumbnails/
 database.db 
 temp*
 gahara/
+coverage.out
+coverage.html

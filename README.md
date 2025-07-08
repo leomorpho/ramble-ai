@@ -1,224 +1,180 @@
-# This is the Unofficial Wails Svelte Kit Static-Adapter blank template.
-... and ... 
-## How-To Build any Svelte Kit Front End in Wails. (or others!)
+# MYAPP - Video Editor
 
-This is a minimally invasive template remix of [Wails.io](https://wails.io) to support [SvelteKit](https://kit.svelte.dev) out of the box. This results in a pretty straightforward addition of many useful features of Svelte Kit such as routing to a Wails.io app.
+[![CI](https://github.com/leomorpho/vidking-wails/actions/workflows/ci.yml/badge.svg)](https://github.com/leomorpho/vidking-wails/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/leomorpho/vidking-wails)](https://goreportcard.com/report/github.com/leomorpho/vidking-wails)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-## Why is the static site adapter needed in Svelte Kit and not Svelte?
+A powerful desktop video editor built with [Wails](https://wails.io), Go, and SvelteKit.
 
-The first thing to understand is that Vite is a web-server which is used for the dev mode. Wails uses this to locally host a website with live reload for development mode, which the application navigates to. This is commonly used for all the top frameworks and has robust features such as server side rendering(ssr).
+## Features
 
-* Wails.io is an application framework that by design packages the html, js, etc front end into the binary executable during `wails build`. This happens in main.go with:
-```go
-//go:embed all:frontend/dist
-var assets embed.FS
-```
+- 🎬 Video clip management and organization
+- ✂️ Highlight extraction with timestamp precision  
+- 🤖 AI-powered highlight suggestions
+- 📝 Automatic transcription with word-level timestamps
+- 🎯 Drag-to-resize highlight editing
+- 📤 Export highlights as individual clips or stitched compilations
+- 🌓 Dark/Light theme support
+- ⚡ Native desktop performance
 
-The default configuration of Vite for Svelte Kit projects includes ssr. But, this is normal for web served applications using **server** compute for more "consistent" web user experience by sending server rendered html to the client. This is more consistent than an api call to that same server, yes. But in a wails app, we're packaging the UI in the binary itself.
+## Getting Started
 
-This means that **unlike Vite,** wails doesn't provide a web-server with a Javascript back end built in. It uses the appropriate webclient to provide the Javascript runtime. 
+### Prerequisites
 
-## Dependencies:
+- Go 1.22+
+- Node.js 20+
+- FFmpeg (for video processing)
+- Wails CLI
 
-* A nodejs package manager. *Defaults to npm.*
-* Install wails.
-
-## Install:
-
-```bash
-wails init -n MYAPP -t https://github.com/plihelix/wails-template-sveltekit
-```
-
-## Live Development
-
-To run in live development mode, run `wails dev` in the project directory. This will run a Vite development server that will provide very fast hot reload of your frontend changes. If you want to develop in a browser and have access to your Go methods, there is also a dev server that runs on http://localhost:34115. Connect to this in your browser, and you can call your Go code from devtools.
-
-* `wails dev` should properly launch vite to serve the site for live development without needing to seperately launch 'npm run dev' or your flavor such as pnpm in the frontend directory seperately.
-
-The adapter combined with the option not to do server side rendering builds the site into the frontend/build directory which is embedded into the application during `wails build` or file referenced during `dev` mode. I find this to be great for live development stability; any error which stops a rebuild, avoids getting sent to the wails app webclient. Save early, save often with less fear.
-
-## Building
-
-To build a redistributable, production mode package, use `wails build`.
-
-## What's the difference? Why not just use Svelte?
-
-As already mentioned, server side rendering of html content moves API calls that the client would request and then need to format into the webpage skeleton to the server. There are various reasons you may want this capability, but at it's core ssr seeks to provide a user experience that *feels* more like a locally run app. By moving the api calls into the server farm, the user doesn't need to load the page and then stare at a blank page waiting on product data to show up. This makes for a more consistent user experience on everything from mobile to hpc.
-
-Wails, however, is for building applications that run on a users device with a golang back end and an embedded front end. The idea here is the opposite from ssr; the target client is expected to do some or all of the work, but is provided the assets. The commonality is in placing the work with the data. Wails with svelte is already pretty smooth at building sites dynamically around the data you provide it with.
-
-The addition of routing should not be understated. Basically, the big advantage to SvelteKit over svelte in wails is the routing. Since you have these endpoints for pages and can navigate through them you don't have to build a one-page app like svelte does; you can effectively load and unload modular parts of an interface.
-
-If the app is complex, let's say you were building your own 2d slider game, a one page app becomes a behemoth to contend with handling all the various flags and cross-talk. The fact that it only loads once, means that wails has to throw a flag to hide one pseudo-page to and unhide another. You probably want the hidden one to stop taking a steam of data. If you want it to be quick and snappy, you've got to do all that cleanup yourself.
-
-On this game, you want to do a bunch of levels with different art? You can probably imagine the monstrosity of 30+ level designs, art, menus, and all packed into a single page in memory terms let alone the design nightmare to manage it. 
-
-Using SvelteKit, the user can just navigate to the new endpoint. Automatically unloading the old page and cleaning up connections, while loading in just what you need. Just like wails svelte, the page is built around the data provided to it as it's loaded. So, for this example, the controls and hud can be loaded from their own endpoints, each level from it's own.
-
-# How to install any *SvelteKit* frontend into a new Wails project.
-
-Init your new project as normal
-- `wails init -n MYAPP -t svelte` 
-
-*I used the svelte base just in case I am misunderstanding how this all works together.*
-
-Remove the new `MYAPP/frontend` folder:
+### Installation
 
 ```bash
-cd MYAPP
-rm -r ./frontend
+# Install Wails CLI
+go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+# Clone the repository
+git clone https://github.com/leomorpho/vidking-wails.git
+cd vidking-wails/MYAPP
+
+# Install dependencies
+make setup
+
+# Run in development mode
+make dev
 ```
 
-Use npm create to generate a new /frontend from a template: (eg:)
+### Building
 
-- SvelteKit - and nothing else, yet.
-
-`npm create svelte@latest frontend`
-
-- [SkeletonUI](https://www.skeleton.dev/guides/install) - SvelteKit, Tailwindcss, lightweight UI
-
-`npm create skeleton-app@latest frontend`
-
-* The `Yes, using Typescript syntax` option is by recommended by SkeletonUI.
-
-Note: I don't see why this wouldn't be the go-to choice with most; since wails uses generated ts as well. The choices here will only matter if you open the **project** in your editor at the `/frontend`  or use their commands from within the front end folder.
-
-## Here is where we can replicate the main issue people have when attempting to use Wails with SvelteKit.
-
-* On `wails dev`, the binary of your app is compiled without the assets. Instead wails is expecting to connect to the Vite server at `localhost:5143` for live-reload.
-
-* On `wails build`, (default) `/frontend/dist/**/*` is stored into the binary. Wail apps, serves their *embedded* file-system to `localhost:5143`.
-
-Both are accessed by the web kit just like any website. Allowing for all of the clientside js in the svelte page, but not the code that would run on the server in a js runtime environment. A default Svelte Kit project in the `/frontend` folder expects a Vite to do server side rendering and included server side Javascript out of the `/frontend/[src]` directories. Wails can take advantage of this in dev mode because Vite is doing the work, it just navigates to the web socket.
-
-* Compare: Vite w/ Svelte embeds all the script that is in the `[whatever].svelte` into a single top page and builds that page once.
-
-If you compile now with `wails build`, you'll see the dreaded `Can't find index.html` message.
-
-## If you get "Can't find index.html" after a compile:
-
-#### check main.go for what is being embedded
-- When we disable ssr, Vite will compile the website into `/frontend/build` which is then served just as wails will in compile. This means that `main.go`s asset embed declaration needs to be changed to:
-```go
-//go:embed all:frontend/build
-var assets embed.FS
-```
-Note: Turning off ssr results in a minor launch hang time in dev mode as Vite compiles the assets into the build directory. This hang should be absent when compiled.
-
-## How to run off ssr with adapter-static.
-
-Go into the front end folder and install the dependencies adding @sveltejs/adapter-static.
 ```bash
-cd frontend
-npm i -D @sveltejs/adapter-static
+# Build for production
+make build
+
+# Build from scratch (clean build)
+make full-build
 ```
 
-## Edit the svelte.config.js file.
+## Testing
 
-```js
-// Change from adapter-auto to adapter-static
-import adapter from '@sveltejs/adapter-static';
-// Other imports may be present depending on your template.
-import preprocess from "svelte-preprocess";
+The project has comprehensive test coverage with multiple testing approaches:
 
-/** @type {import('@sveltejs/kit').Config} */
-const config = {
-  // SvelteKit's section:
-  kit: {
-    adapter: adapter({
-      // Static needs a fallback page.
-      fallback: 'index.html'
-    })
-  },
-  // (Vite's section):
-  // Others:
-  preprocess: [
-    preprocess({
-      postcss: true,
-    }),
-  ],
-}
+```bash
+# Run all tests
+make test
 
-export default config;
+# Run specific test suites
+make test-go          # Go tests only
+make test-frontend    # Frontend tests only
+make test-coverage    # Generate coverage report
+
+# Watch mode for frontend development
+make test-watch
 ```
 
-## **How to get access to the wailsjs folder:**
+For detailed testing documentation, see [docs/TESTING.md](docs/TESTING.md).
 
-In `wails.json`, the following option controls where wails places the `wailsjs/` directory. For easiest use, simply direct it into the default library alias for SvelteKit.
+## Development
 
-```js
-"wailsjsdir": "./frontend/src/lib",
+### Project Structure
+
+```
+MYAPP/
+├── app.go              # Main application logic
+├── goapp/              # Go backend modules
+│   ├── exports/        # Video export functionality
+│   ├── highlights/     # Highlight management
+│   ├── projects/       # Project management
+│   └── settings/       # Application settings
+├── frontend/           # SvelteKit frontend
+│   ├── src/
+│   │   ├── lib/        # Components and utilities
+│   │   └── routes/     # Application pages
+│   └── static/         # Static assets
+├── ent/                # Database ORM (Ent)
+└── Makefile           # Build and development commands
 ```
 
-While its probably best to just create this folder and reference it via `$lib/wailsjs/go/.../App.js`, I'm going to go ahead and show how to create an `@` link that begins at `frontend/`.
+### Key Technologies
 
-## Edit the `frontend/tsconfig.json` or `frontend/jsconfig.json` file and add paths to the bottom of the `"compilerOptions":`.
+- **Backend**: Go, Ent ORM, SQLite
+- **Frontend**: SvelteKit (Svelte 5), Tailwind CSS, shadcn-svelte
+- **Build**: Wails, Vite, Earthly
+- **Testing**: Vitest, Go testing, Earthly CI
 
-```js
-"paths": {
-  // Overwrites the defaults and $lib is required for svelte-kit.
-  "$lib": ["src/lib"],
-  "$lib/*": ["src/lib/*"],
-  
-  // Adds the ability to import from the `frontend/` folder.
-  "@/*": ["*"]
-}
+### Database Management
+
+```bash
+# Create new entity
+make new-entity name=EntityName
+
+# Generate Ent code
+make generate
+
+# Reset database (WARNING: deletes all data)
+make db-reset
 ```
 
-## Edit the `frontend/vite.config.js` file:
+## CI/CD
 
-```js
-import { sveltekit } from '@sveltejs/kit/vite';
-import path from 'path'
+The project uses GitHub Actions with Earthly for continuous integration:
 
-/** @type {import('vite').UserConfig} */
-const config = {
-  server: {
-    fs: {
-      // Allow serving files from the frontend project root
-      allow: ['.'],
-    },
-  },
-	plugins: [sveltekit()],
-  resolve: {
-    alias: {
-      // This alias finishes the ability to reference our
-      // frontend/ with `@path/to/file`.
-      //
-      '@': path.resolve(__dirname, './'), 
-    },
-  },
-};
+- ✅ Automated testing on every push
+- 🔍 Code linting and formatting checks
+- 📊 Test coverage reporting
+- 🏗️ Multi-platform builds (Linux, macOS, Windows)
 
-export default config;
+### Running CI Locally with Earthly
+
+```bash
+# Install Earthly
+brew install earthly/earthly/earthly
+
+# Run full CI pipeline locally
+earthly +ci
+
+# Run specific targets
+earthly +test
+earthly +lint
+earthly +build-frontend
 ```
 
-# Don't forget to include `.sveltekit` in your git or you'll probably have trouble after cloning as it is required.
+## Contributing
 
-## There is a simple shell script to do this with [SkeletonUI](https://www.skeleton.dev/guides/install) located in its own [repo](https://www.github.com/plihelix/wails-skeletonui-script). Feel free to customize to your needs!
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes and add tests
+4. Ensure all tests pass (`make test`)
+5. Commit your changes (commits are validated with conventional format)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
 
-That's it, go back to the root of the project and run `wails dev` or `wails build`. Enjoy!
+### Git Hooks
 
-# Expansion
+The project uses Lefthook for automated pre-commit and pre-push checks:
 
-Take a look at the models used by [sieve](https://www.sievedata.com/explore):
-- Speech denoising and enhancement
-  - [resemble-enhance](https://github.com/resemble-ai/resemble-enhance): AI powered speech denoising and enhancement 
-  - https://huggingface.co/speechbrain/sepformer-wham-enhancement
-  - https://huggingface.co/spaces/hshr/DeepFilterNet2
-- Active speaker detection
-  - https://huggingface.co/spaces?q=active+speaker+detection
-- Dubbing
-  - https://huggingface.co/spaces?q=dubbing
-- Lip sync for word edits
-  - https://huggingface.co/spaces?q=lip+sync
-- Video background removal
-  - https://huggingface.co/spaces?q=video+background+removal
-- Scene detection
-  - https://huggingface.co/spaces?q=scene+detection
-  - https://huggingface.co/spaces?category=object-detection
-- Animation generation
-- Voice cloning
-  - https://huggingface.co/spaces?category=voice-cloning
-- Video upscaling
-  - https://huggingface.co/spaces?category=image-upscaling
+```bash
+# Install git hooks
+lefthook install
+```
+
+This ensures:
+- Tests pass before commits
+- Code is properly formatted
+- Commit messages follow conventional format
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- [Wails](https://wails.io) - Desktop application framework
+- [Ent](https://entgo.io) - Entity framework for Go
+- [SvelteKit](https://kit.svelte.dev) - Frontend framework
+- [shadcn-svelte](https://shadcn-svelte.com) - UI components
+- [Earthly](https://earthly.dev) - Build automation
+
+## Support
+
+For bugs and feature requests, please [open an issue](https://github.com/leomorpho/vidking-wails/issues).
+
+For questions and discussions, use [GitHub Discussions](https://github.com/leomorpho/vidking-wails/discussions).
