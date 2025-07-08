@@ -125,6 +125,26 @@ func HighlightsHistoryIndex(v int) predicate.VideoClip {
 	return predicate.VideoClip(sql.FieldEQ(FieldHighlightsHistoryIndex, v))
 }
 
+// TranscriptionState applies equality check predicate on the "transcription_state" field. It's identical to TranscriptionStateEQ.
+func TranscriptionState(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldEQ(FieldTranscriptionState, v))
+}
+
+// TranscriptionError applies equality check predicate on the "transcription_error" field. It's identical to TranscriptionErrorEQ.
+func TranscriptionError(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldEQ(FieldTranscriptionError, v))
+}
+
+// TranscriptionStartedAt applies equality check predicate on the "transcription_started_at" field. It's identical to TranscriptionStartedAtEQ.
+func TranscriptionStartedAt(v time.Time) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldEQ(FieldTranscriptionStartedAt, v))
+}
+
+// TranscriptionCompletedAt applies equality check predicate on the "transcription_completed_at" field. It's identical to TranscriptionCompletedAtEQ.
+func TranscriptionCompletedAt(v time.Time) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldEQ(FieldTranscriptionCompletedAt, v))
+}
+
 // NameEQ applies the EQ predicate on the "name" field.
 func NameEQ(v string) predicate.VideoClip {
 	return predicate.VideoClip(sql.FieldEQ(FieldName, v))
@@ -973,6 +993,256 @@ func HighlightsHistoryIndexIsNil() predicate.VideoClip {
 // HighlightsHistoryIndexNotNil applies the NotNil predicate on the "highlights_history_index" field.
 func HighlightsHistoryIndexNotNil() predicate.VideoClip {
 	return predicate.VideoClip(sql.FieldNotNull(FieldHighlightsHistoryIndex))
+}
+
+// TranscriptionStateEQ applies the EQ predicate on the "transcription_state" field.
+func TranscriptionStateEQ(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldEQ(FieldTranscriptionState, v))
+}
+
+// TranscriptionStateNEQ applies the NEQ predicate on the "transcription_state" field.
+func TranscriptionStateNEQ(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldNEQ(FieldTranscriptionState, v))
+}
+
+// TranscriptionStateIn applies the In predicate on the "transcription_state" field.
+func TranscriptionStateIn(vs ...string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldIn(FieldTranscriptionState, vs...))
+}
+
+// TranscriptionStateNotIn applies the NotIn predicate on the "transcription_state" field.
+func TranscriptionStateNotIn(vs ...string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldNotIn(FieldTranscriptionState, vs...))
+}
+
+// TranscriptionStateGT applies the GT predicate on the "transcription_state" field.
+func TranscriptionStateGT(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldGT(FieldTranscriptionState, v))
+}
+
+// TranscriptionStateGTE applies the GTE predicate on the "transcription_state" field.
+func TranscriptionStateGTE(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldGTE(FieldTranscriptionState, v))
+}
+
+// TranscriptionStateLT applies the LT predicate on the "transcription_state" field.
+func TranscriptionStateLT(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldLT(FieldTranscriptionState, v))
+}
+
+// TranscriptionStateLTE applies the LTE predicate on the "transcription_state" field.
+func TranscriptionStateLTE(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldLTE(FieldTranscriptionState, v))
+}
+
+// TranscriptionStateContains applies the Contains predicate on the "transcription_state" field.
+func TranscriptionStateContains(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldContains(FieldTranscriptionState, v))
+}
+
+// TranscriptionStateHasPrefix applies the HasPrefix predicate on the "transcription_state" field.
+func TranscriptionStateHasPrefix(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldHasPrefix(FieldTranscriptionState, v))
+}
+
+// TranscriptionStateHasSuffix applies the HasSuffix predicate on the "transcription_state" field.
+func TranscriptionStateHasSuffix(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldHasSuffix(FieldTranscriptionState, v))
+}
+
+// TranscriptionStateIsNil applies the IsNil predicate on the "transcription_state" field.
+func TranscriptionStateIsNil() predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldIsNull(FieldTranscriptionState))
+}
+
+// TranscriptionStateNotNil applies the NotNil predicate on the "transcription_state" field.
+func TranscriptionStateNotNil() predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldNotNull(FieldTranscriptionState))
+}
+
+// TranscriptionStateEqualFold applies the EqualFold predicate on the "transcription_state" field.
+func TranscriptionStateEqualFold(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldEqualFold(FieldTranscriptionState, v))
+}
+
+// TranscriptionStateContainsFold applies the ContainsFold predicate on the "transcription_state" field.
+func TranscriptionStateContainsFold(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldContainsFold(FieldTranscriptionState, v))
+}
+
+// TranscriptionErrorEQ applies the EQ predicate on the "transcription_error" field.
+func TranscriptionErrorEQ(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldEQ(FieldTranscriptionError, v))
+}
+
+// TranscriptionErrorNEQ applies the NEQ predicate on the "transcription_error" field.
+func TranscriptionErrorNEQ(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldNEQ(FieldTranscriptionError, v))
+}
+
+// TranscriptionErrorIn applies the In predicate on the "transcription_error" field.
+func TranscriptionErrorIn(vs ...string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldIn(FieldTranscriptionError, vs...))
+}
+
+// TranscriptionErrorNotIn applies the NotIn predicate on the "transcription_error" field.
+func TranscriptionErrorNotIn(vs ...string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldNotIn(FieldTranscriptionError, vs...))
+}
+
+// TranscriptionErrorGT applies the GT predicate on the "transcription_error" field.
+func TranscriptionErrorGT(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldGT(FieldTranscriptionError, v))
+}
+
+// TranscriptionErrorGTE applies the GTE predicate on the "transcription_error" field.
+func TranscriptionErrorGTE(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldGTE(FieldTranscriptionError, v))
+}
+
+// TranscriptionErrorLT applies the LT predicate on the "transcription_error" field.
+func TranscriptionErrorLT(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldLT(FieldTranscriptionError, v))
+}
+
+// TranscriptionErrorLTE applies the LTE predicate on the "transcription_error" field.
+func TranscriptionErrorLTE(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldLTE(FieldTranscriptionError, v))
+}
+
+// TranscriptionErrorContains applies the Contains predicate on the "transcription_error" field.
+func TranscriptionErrorContains(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldContains(FieldTranscriptionError, v))
+}
+
+// TranscriptionErrorHasPrefix applies the HasPrefix predicate on the "transcription_error" field.
+func TranscriptionErrorHasPrefix(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldHasPrefix(FieldTranscriptionError, v))
+}
+
+// TranscriptionErrorHasSuffix applies the HasSuffix predicate on the "transcription_error" field.
+func TranscriptionErrorHasSuffix(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldHasSuffix(FieldTranscriptionError, v))
+}
+
+// TranscriptionErrorIsNil applies the IsNil predicate on the "transcription_error" field.
+func TranscriptionErrorIsNil() predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldIsNull(FieldTranscriptionError))
+}
+
+// TranscriptionErrorNotNil applies the NotNil predicate on the "transcription_error" field.
+func TranscriptionErrorNotNil() predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldNotNull(FieldTranscriptionError))
+}
+
+// TranscriptionErrorEqualFold applies the EqualFold predicate on the "transcription_error" field.
+func TranscriptionErrorEqualFold(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldEqualFold(FieldTranscriptionError, v))
+}
+
+// TranscriptionErrorContainsFold applies the ContainsFold predicate on the "transcription_error" field.
+func TranscriptionErrorContainsFold(v string) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldContainsFold(FieldTranscriptionError, v))
+}
+
+// TranscriptionStartedAtEQ applies the EQ predicate on the "transcription_started_at" field.
+func TranscriptionStartedAtEQ(v time.Time) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldEQ(FieldTranscriptionStartedAt, v))
+}
+
+// TranscriptionStartedAtNEQ applies the NEQ predicate on the "transcription_started_at" field.
+func TranscriptionStartedAtNEQ(v time.Time) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldNEQ(FieldTranscriptionStartedAt, v))
+}
+
+// TranscriptionStartedAtIn applies the In predicate on the "transcription_started_at" field.
+func TranscriptionStartedAtIn(vs ...time.Time) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldIn(FieldTranscriptionStartedAt, vs...))
+}
+
+// TranscriptionStartedAtNotIn applies the NotIn predicate on the "transcription_started_at" field.
+func TranscriptionStartedAtNotIn(vs ...time.Time) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldNotIn(FieldTranscriptionStartedAt, vs...))
+}
+
+// TranscriptionStartedAtGT applies the GT predicate on the "transcription_started_at" field.
+func TranscriptionStartedAtGT(v time.Time) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldGT(FieldTranscriptionStartedAt, v))
+}
+
+// TranscriptionStartedAtGTE applies the GTE predicate on the "transcription_started_at" field.
+func TranscriptionStartedAtGTE(v time.Time) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldGTE(FieldTranscriptionStartedAt, v))
+}
+
+// TranscriptionStartedAtLT applies the LT predicate on the "transcription_started_at" field.
+func TranscriptionStartedAtLT(v time.Time) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldLT(FieldTranscriptionStartedAt, v))
+}
+
+// TranscriptionStartedAtLTE applies the LTE predicate on the "transcription_started_at" field.
+func TranscriptionStartedAtLTE(v time.Time) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldLTE(FieldTranscriptionStartedAt, v))
+}
+
+// TranscriptionStartedAtIsNil applies the IsNil predicate on the "transcription_started_at" field.
+func TranscriptionStartedAtIsNil() predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldIsNull(FieldTranscriptionStartedAt))
+}
+
+// TranscriptionStartedAtNotNil applies the NotNil predicate on the "transcription_started_at" field.
+func TranscriptionStartedAtNotNil() predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldNotNull(FieldTranscriptionStartedAt))
+}
+
+// TranscriptionCompletedAtEQ applies the EQ predicate on the "transcription_completed_at" field.
+func TranscriptionCompletedAtEQ(v time.Time) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldEQ(FieldTranscriptionCompletedAt, v))
+}
+
+// TranscriptionCompletedAtNEQ applies the NEQ predicate on the "transcription_completed_at" field.
+func TranscriptionCompletedAtNEQ(v time.Time) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldNEQ(FieldTranscriptionCompletedAt, v))
+}
+
+// TranscriptionCompletedAtIn applies the In predicate on the "transcription_completed_at" field.
+func TranscriptionCompletedAtIn(vs ...time.Time) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldIn(FieldTranscriptionCompletedAt, vs...))
+}
+
+// TranscriptionCompletedAtNotIn applies the NotIn predicate on the "transcription_completed_at" field.
+func TranscriptionCompletedAtNotIn(vs ...time.Time) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldNotIn(FieldTranscriptionCompletedAt, vs...))
+}
+
+// TranscriptionCompletedAtGT applies the GT predicate on the "transcription_completed_at" field.
+func TranscriptionCompletedAtGT(v time.Time) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldGT(FieldTranscriptionCompletedAt, v))
+}
+
+// TranscriptionCompletedAtGTE applies the GTE predicate on the "transcription_completed_at" field.
+func TranscriptionCompletedAtGTE(v time.Time) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldGTE(FieldTranscriptionCompletedAt, v))
+}
+
+// TranscriptionCompletedAtLT applies the LT predicate on the "transcription_completed_at" field.
+func TranscriptionCompletedAtLT(v time.Time) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldLT(FieldTranscriptionCompletedAt, v))
+}
+
+// TranscriptionCompletedAtLTE applies the LTE predicate on the "transcription_completed_at" field.
+func TranscriptionCompletedAtLTE(v time.Time) predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldLTE(FieldTranscriptionCompletedAt, v))
+}
+
+// TranscriptionCompletedAtIsNil applies the IsNil predicate on the "transcription_completed_at" field.
+func TranscriptionCompletedAtIsNil() predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldIsNull(FieldTranscriptionCompletedAt))
+}
+
+// TranscriptionCompletedAtNotNil applies the NotNil predicate on the "transcription_completed_at" field.
+func TranscriptionCompletedAtNotNil() predicate.VideoClip {
+	return predicate.VideoClip(sql.FieldNotNull(FieldTranscriptionCompletedAt))
 }
 
 // HasProject applies the HasEdge predicate on the "project" edge.

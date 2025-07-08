@@ -226,6 +226,62 @@ func (vcc *VideoClipCreate) SetNillableHighlightsHistoryIndex(i *int) *VideoClip
 	return vcc
 }
 
+// SetTranscriptionState sets the "transcription_state" field.
+func (vcc *VideoClipCreate) SetTranscriptionState(s string) *VideoClipCreate {
+	vcc.mutation.SetTranscriptionState(s)
+	return vcc
+}
+
+// SetNillableTranscriptionState sets the "transcription_state" field if the given value is not nil.
+func (vcc *VideoClipCreate) SetNillableTranscriptionState(s *string) *VideoClipCreate {
+	if s != nil {
+		vcc.SetTranscriptionState(*s)
+	}
+	return vcc
+}
+
+// SetTranscriptionError sets the "transcription_error" field.
+func (vcc *VideoClipCreate) SetTranscriptionError(s string) *VideoClipCreate {
+	vcc.mutation.SetTranscriptionError(s)
+	return vcc
+}
+
+// SetNillableTranscriptionError sets the "transcription_error" field if the given value is not nil.
+func (vcc *VideoClipCreate) SetNillableTranscriptionError(s *string) *VideoClipCreate {
+	if s != nil {
+		vcc.SetTranscriptionError(*s)
+	}
+	return vcc
+}
+
+// SetTranscriptionStartedAt sets the "transcription_started_at" field.
+func (vcc *VideoClipCreate) SetTranscriptionStartedAt(t time.Time) *VideoClipCreate {
+	vcc.mutation.SetTranscriptionStartedAt(t)
+	return vcc
+}
+
+// SetNillableTranscriptionStartedAt sets the "transcription_started_at" field if the given value is not nil.
+func (vcc *VideoClipCreate) SetNillableTranscriptionStartedAt(t *time.Time) *VideoClipCreate {
+	if t != nil {
+		vcc.SetTranscriptionStartedAt(*t)
+	}
+	return vcc
+}
+
+// SetTranscriptionCompletedAt sets the "transcription_completed_at" field.
+func (vcc *VideoClipCreate) SetTranscriptionCompletedAt(t time.Time) *VideoClipCreate {
+	vcc.mutation.SetTranscriptionCompletedAt(t)
+	return vcc
+}
+
+// SetNillableTranscriptionCompletedAt sets the "transcription_completed_at" field if the given value is not nil.
+func (vcc *VideoClipCreate) SetNillableTranscriptionCompletedAt(t *time.Time) *VideoClipCreate {
+	if t != nil {
+		vcc.SetTranscriptionCompletedAt(*t)
+	}
+	return vcc
+}
+
 // SetProjectID sets the "project" edge to the Project entity by ID.
 func (vcc *VideoClipCreate) SetProjectID(id int) *VideoClipCreate {
 	vcc.mutation.SetProjectID(id)
@@ -291,6 +347,10 @@ func (vcc *VideoClipCreate) defaults() {
 	if _, ok := vcc.mutation.HighlightsHistoryIndex(); !ok {
 		v := videoclip.DefaultHighlightsHistoryIndex
 		vcc.mutation.SetHighlightsHistoryIndex(v)
+	}
+	if _, ok := vcc.mutation.TranscriptionState(); !ok {
+		v := videoclip.DefaultTranscriptionState
+		vcc.mutation.SetTranscriptionState(v)
 	}
 }
 
@@ -415,6 +475,22 @@ func (vcc *VideoClipCreate) createSpec() (*VideoClip, *sqlgraph.CreateSpec) {
 	if value, ok := vcc.mutation.HighlightsHistoryIndex(); ok {
 		_spec.SetField(videoclip.FieldHighlightsHistoryIndex, field.TypeInt, value)
 		_node.HighlightsHistoryIndex = value
+	}
+	if value, ok := vcc.mutation.TranscriptionState(); ok {
+		_spec.SetField(videoclip.FieldTranscriptionState, field.TypeString, value)
+		_node.TranscriptionState = value
+	}
+	if value, ok := vcc.mutation.TranscriptionError(); ok {
+		_spec.SetField(videoclip.FieldTranscriptionError, field.TypeString, value)
+		_node.TranscriptionError = value
+	}
+	if value, ok := vcc.mutation.TranscriptionStartedAt(); ok {
+		_spec.SetField(videoclip.FieldTranscriptionStartedAt, field.TypeTime, value)
+		_node.TranscriptionStartedAt = value
+	}
+	if value, ok := vcc.mutation.TranscriptionCompletedAt(); ok {
+		_spec.SetField(videoclip.FieldTranscriptionCompletedAt, field.TypeTime, value)
+		_node.TranscriptionCompletedAt = value
 	}
 	if nodes := vcc.mutation.ProjectIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

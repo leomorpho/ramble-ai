@@ -23,8 +23,6 @@
     GetVideoClipsByProject,
     DeleteVideoClip,
     SelectVideoFiles,
-    TranscribeVideoClip,
-    GetOpenAIApiKey,
     SelectExportFolder,
     ExportStitchedHighlights,
     ExportIndividualHighlights,
@@ -54,6 +52,7 @@
   import VideoClipCard from "$lib/components/VideoClipCard.svelte";
   import ProjectDetails from "$lib/components/ProjectDetails.svelte";
   import FileDropZone from "$lib/components/FileDropZone.svelte";
+  import { startTranscription as startTranscriptionHelper } from "$lib/utils/transcription.js";
   import {
     Video,
     Download,
@@ -80,7 +79,7 @@
   let dragActive = $state(false);
 
   // Transcription state
-  let transcribingClips = $state(new Set());
+  // Removed transcribingClips - now using state from database
 
   // Highlights component reference
   let projectHighlightsComponent = $state(null);
@@ -603,69 +602,52 @@
   }
 
   async function startTranscription(clip) {
+    // Immediately set the transcription state to show loading
+    const clipIndex = videoClips.findIndex((c) => c.id === clip.id);
+    if (clipIndex !== -1) {
+      videoClips[clipIndex] = {
+        ...videoClips[clipIndex],
+        transcriptionState: 'transcribing',
+        transcriptionError: '',
+        transcriptionStartedAt: new Date().toISOString(),
+      };
+      videoClips = [...videoClips]; // Trigger reactivity
+    }
+
     try {
-      // Check if OpenAI API key is configured
-      const apiKey = await GetOpenAIApiKey();
-      if (!apiKey || apiKey.trim() === "") {
-        toast.error("OpenAI API Key Required", {
-          description:
-            "Please configure your OpenAI API key in settings to use transcription.",
-        });
-
-        // Redirect to settings after a short delay
-        setTimeout(() => {
-          goto("/settings");
-        }, 2000);
-        return;
+      const result = await startTranscriptionHelper(clip);
+      
+      // Update the clip with transcription data
+      if (clipIndex !== -1) {
+        videoClips[clipIndex] = {
+          ...videoClips[clipIndex],
+          transcription: result.transcription,
+          transcriptionWords: result.words || [],
+          transcriptionLanguage: result.language,
+          transcriptionDuration: result.duration,
+          transcriptionState: result.transcriptionState || 'completed',
+          transcriptionError: result.transcriptionError || '',
+          transcriptionStartedAt: result.transcriptionStartedAt || videoClips[clipIndex].transcriptionStartedAt,
+          transcriptionCompletedAt: result.transcriptionCompletedAt || new Date().toISOString(),
+        };
+        videoClips = [...videoClips]; // Trigger reactivity
       }
 
-      // Add clip to transcribing set
-      transcribingClips.add(clip.id);
-      transcribingClips = new Set(transcribingClips); // Trigger reactivity
-
-      // Show starting toast
-      toast.info(`Starting transcription for ${clip.name}`, {
-        description: "Extracting audio and sending to OpenAI...",
-      });
-
-      const result = await TranscribeVideoClip(clip.id);
-
-      if (result.success) {
-        // Update the clip with transcription and words data
-        const clipIndex = videoClips.findIndex((c) => c.id === clip.id);
-        if (clipIndex !== -1) {
-          videoClips[clipIndex] = {
-            ...videoClips[clipIndex],
-            transcription: result.transcription,
-            transcriptionWords: result.words || [],
-            transcriptionLanguage: result.language,
-            transcriptionDuration: result.duration,
-          };
-          videoClips = [...videoClips]; // Trigger reactivity
-        }
-
-        // Show success toast
-        toast.success(`Transcription completed for ${clip.name}`, {
-          description: "Transcript is now available to view",
-        });
-
-        // Refresh highlights since new transcription might have highlights
-        await loadHighlights();
-      } else {
-        // Show error toast
-        toast.error(`Transcription failed for ${clip.name}`, {
-          description: result.message,
-        });
-      }
+      // Refresh highlights since new transcription might have highlights
+      await loadHighlights();
     } catch (err) {
       console.error("Transcription error:", err);
-      toast.error(`Transcription failed for ${clip.name}`, {
-        description: "An unexpected error occurred",
-      });
-    } finally {
-      // Remove clip from transcribing set
-      transcribingClips.delete(clip.id);
-      transcribingClips = new Set(transcribingClips); // Trigger reactivity
+      
+      // Update the clip with error state
+      if (clipIndex !== -1) {
+        videoClips[clipIndex] = {
+          ...videoClips[clipIndex],
+          transcriptionState: 'error',
+          transcriptionError: err.message || 'Unknown error occurred',
+          transcriptionCompletedAt: new Date().toISOString(),
+        };
+        videoClips = [...videoClips]; // Trigger reactivity
+      }
     }
   }
 
@@ -1210,7 +1192,7 @@
                     {#each videoClips as clip (clip.id)}
                       <VideoClipCard
                         {clip}
-                        isTranscribing={transcribingClips.has(clip.id)}
+                        isTranscribing={clip.transcriptionState === 'transcribing'}
                         onDelete={handleDeleteClip}
                         onStartTranscription={startTranscription}
                         {formatFileSize}

@@ -87,6 +87,19 @@ func (VideoClip) Fields() []ent.Field {
 			Optional().
 			Default(-1).
 			Comment("Current position in highlights history (-1 = no history)"),
+		field.String("transcription_state").
+			Optional().
+			Default("idle").
+			Comment("Current state of transcription: idle, checking, transcribing, completed, error"),
+		field.String("transcription_error").
+			Optional().
+			Comment("Error message if transcription failed"),
+		field.Time("transcription_started_at").
+			Optional().
+			Comment("When transcription was started"),
+		field.Time("transcription_completed_at").
+			Optional().
+			Comment("When transcription was completed"),
 	}
 }
 

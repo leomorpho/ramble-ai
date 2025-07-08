@@ -50,6 +50,14 @@ const (
 	FieldHighlightsHistory = "highlights_history"
 	// FieldHighlightsHistoryIndex holds the string denoting the highlights_history_index field in the database.
 	FieldHighlightsHistoryIndex = "highlights_history_index"
+	// FieldTranscriptionState holds the string denoting the transcription_state field in the database.
+	FieldTranscriptionState = "transcription_state"
+	// FieldTranscriptionError holds the string denoting the transcription_error field in the database.
+	FieldTranscriptionError = "transcription_error"
+	// FieldTranscriptionStartedAt holds the string denoting the transcription_started_at field in the database.
+	FieldTranscriptionStartedAt = "transcription_started_at"
+	// FieldTranscriptionCompletedAt holds the string denoting the transcription_completed_at field in the database.
+	FieldTranscriptionCompletedAt = "transcription_completed_at"
 	// EdgeProject holds the string denoting the project edge name in mutations.
 	EdgeProject = "project"
 	// Table holds the table name of the videoclip in the database.
@@ -84,6 +92,10 @@ var Columns = []string{
 	FieldUpdatedAt,
 	FieldHighlightsHistory,
 	FieldHighlightsHistoryIndex,
+	FieldTranscriptionState,
+	FieldTranscriptionError,
+	FieldTranscriptionStartedAt,
+	FieldTranscriptionCompletedAt,
 }
 
 // ForeignKeys holds the SQL foreign-keys that are owned by the "video_clips"
@@ -120,6 +132,8 @@ var (
 	UpdateDefaultUpdatedAt func() time.Time
 	// DefaultHighlightsHistoryIndex holds the default value on creation for the "highlights_history_index" field.
 	DefaultHighlightsHistoryIndex int
+	// DefaultTranscriptionState holds the default value on creation for the "transcription_state" field.
+	DefaultTranscriptionState string
 )
 
 // OrderOption defines the ordering options for the VideoClip queries.
@@ -198,6 +212,26 @@ func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
 // ByHighlightsHistoryIndex orders the results by the highlights_history_index field.
 func ByHighlightsHistoryIndex(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldHighlightsHistoryIndex, opts...).ToFunc()
+}
+
+// ByTranscriptionState orders the results by the transcription_state field.
+func ByTranscriptionState(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTranscriptionState, opts...).ToFunc()
+}
+
+// ByTranscriptionError orders the results by the transcription_error field.
+func ByTranscriptionError(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTranscriptionError, opts...).ToFunc()
+}
+
+// ByTranscriptionStartedAt orders the results by the transcription_started_at field.
+func ByTranscriptionStartedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTranscriptionStartedAt, opts...).ToFunc()
+}
+
+// ByTranscriptionCompletedAt orders the results by the transcription_completed_at field.
+func ByTranscriptionCompletedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTranscriptionCompletedAt, opts...).ToFunc()
 }
 
 // ByProjectField orders the results by project field.

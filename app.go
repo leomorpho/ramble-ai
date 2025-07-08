@@ -231,13 +231,13 @@ type TestOpenRouterApiKeyResponse = ai.TestOpenRouterApiKeyResponse
 
 // TestOpenAIApiKey tests if the stored OpenAI API key is valid
 func (a *App) TestOpenAIApiKey() (*TestOpenAIApiKeyResponse, error) {
-	service := ai.NewTranscriptionService(a.client, a.ctx)
+	service := ai.NewApiKeyService(a.client, a.ctx)
 	return service.TestOpenAIApiKey()
 }
 
 // TestOpenRouterApiKey tests if the stored OpenRouter API key is valid
 func (a *App) TestOpenRouterApiKey() (*TestOpenRouterApiKeyResponse, error) {
-	service := ai.NewTranscriptionService(a.client, a.ctx)
+	service := ai.NewApiKeyService(a.client, a.ctx)
 	return service.TestOpenRouterApiKey()
 }
 
@@ -256,10 +256,10 @@ type Highlight struct {
 	Color string  `json:"color"`
 }
 
-// TranscribeVideoClip transcribes audio from a video clip using the AI service
-func (a *App) TranscribeVideoClip(clipID int) (*ai.TranscriptionResponse, error) {
-	transcriptionService := ai.NewTranscriptionService(a.client, a.ctx)
-	return transcriptionService.TranscribeVideoClip(clipID)
+// TranscribeVideoClip transcribes audio from a video clip using the Projects service
+func (a *App) TranscribeVideoClip(clipID int) (*projects.TranscriptionResponse, error) {
+	projectService := projects.NewProjectService(a.client, a.ctx)
+	return projectService.TranscribeVideoClip(clipID)
 }
 
 // UpdateVideoClipHighlights updates the highlights for a video clip

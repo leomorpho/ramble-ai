@@ -110,7 +110,7 @@ export function TestOpenAIApiKey():Promise<ai.TestOpenAIApiKeyResponse>;
 
 export function TestOpenRouterApiKey():Promise<ai.TestOpenRouterApiKeyResponse>;
 
-export function TranscribeVideoClip(arg1:number):Promise<ai.TranscriptionResponse>;
+export function TranscribeVideoClip(arg1:number):Promise<projects.TranscriptionResponse>;
 
 export function UndoHighlightsChange(arg1:number):Promise<Array<projects.Highlight>>;
 

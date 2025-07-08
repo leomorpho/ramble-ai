@@ -56,6 +56,14 @@ type VideoClip struct {
 	HighlightsHistory [][]schema.Highlight `json:"highlights_history,omitempty"`
 	// Current position in highlights history (-1 = no history)
 	HighlightsHistoryIndex int `json:"highlights_history_index,omitempty"`
+	// Current state of transcription: idle, checking, transcribing, completed, error
+	TranscriptionState string `json:"transcription_state,omitempty"`
+	// Error message if transcription failed
+	TranscriptionError string `json:"transcription_error,omitempty"`
+	// When transcription was started
+	TranscriptionStartedAt time.Time `json:"transcription_started_at,omitempty"`
+	// When transcription was completed
+	TranscriptionCompletedAt time.Time `json:"transcription_completed_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the VideoClipQuery when eager-loading is set.
 	Edges               VideoClipEdges `json:"edges"`
@@ -94,9 +102,9 @@ func (*VideoClip) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullFloat64)
 		case videoclip.FieldID, videoclip.FieldWidth, videoclip.FieldHeight, videoclip.FieldFileSize, videoclip.FieldHighlightsHistoryIndex:
 			values[i] = new(sql.NullInt64)
-		case videoclip.FieldName, videoclip.FieldDescription, videoclip.FieldFilePath, videoclip.FieldFormat, videoclip.FieldTranscription, videoclip.FieldTranscriptionLanguage:
+		case videoclip.FieldName, videoclip.FieldDescription, videoclip.FieldFilePath, videoclip.FieldFormat, videoclip.FieldTranscription, videoclip.FieldTranscriptionLanguage, videoclip.FieldTranscriptionState, videoclip.FieldTranscriptionError:
 			values[i] = new(sql.NullString)
-		case videoclip.FieldCreatedAt, videoclip.FieldUpdatedAt:
+		case videoclip.FieldCreatedAt, videoclip.FieldUpdatedAt, videoclip.FieldTranscriptionStartedAt, videoclip.FieldTranscriptionCompletedAt:
 			values[i] = new(sql.NullTime)
 		case videoclip.ForeignKeys[0]: // project_video_clips
 			values[i] = new(sql.NullInt64)
@@ -237,6 +245,30 @@ func (vc *VideoClip) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				vc.HighlightsHistoryIndex = int(value.Int64)
 			}
+		case videoclip.FieldTranscriptionState:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field transcription_state", values[i])
+			} else if value.Valid {
+				vc.TranscriptionState = value.String
+			}
+		case videoclip.FieldTranscriptionError:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field transcription_error", values[i])
+			} else if value.Valid {
+				vc.TranscriptionError = value.String
+			}
+		case videoclip.FieldTranscriptionStartedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field transcription_started_at", values[i])
+			} else if value.Valid {
+				vc.TranscriptionStartedAt = value.Time
+			}
+		case videoclip.FieldTranscriptionCompletedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field transcription_completed_at", values[i])
+			} else if value.Valid {
+				vc.TranscriptionCompletedAt = value.Time
+			}
 		case videoclip.ForeignKeys[0]:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for edge-field project_video_clips", value)
@@ -338,6 +370,18 @@ func (vc *VideoClip) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("highlights_history_index=")
 	builder.WriteString(fmt.Sprintf("%v", vc.HighlightsHistoryIndex))
+	builder.WriteString(", ")
+	builder.WriteString("transcription_state=")
+	builder.WriteString(vc.TranscriptionState)
+	builder.WriteString(", ")
+	builder.WriteString("transcription_error=")
+	builder.WriteString(vc.TranscriptionError)
+	builder.WriteString(", ")
+	builder.WriteString("transcription_started_at=")
+	builder.WriteString(vc.TranscriptionStartedAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("transcription_completed_at=")
+	builder.WriteString(vc.TranscriptionCompletedAt.Format(time.ANSIC))
 	builder.WriteByte(')')
 	return builder.String()
 }

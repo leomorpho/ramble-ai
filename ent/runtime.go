@@ -143,4 +143,8 @@ func init() {
 	videoclipDescHighlightsHistoryIndex := videoclipFields[17].Descriptor()
 	// videoclip.DefaultHighlightsHistoryIndex holds the default value on creation for the highlights_history_index field.
 	videoclip.DefaultHighlightsHistoryIndex = videoclipDescHighlightsHistoryIndex.Default.(int)
+	// videoclipDescTranscriptionState is the schema descriptor for transcription_state field.
+	videoclipDescTranscriptionState := videoclipFields[18].Descriptor()
+	// videoclip.DefaultTranscriptionState holds the default value on creation for the transcription_state field.
+	videoclip.DefaultTranscriptionState = videoclipDescTranscriptionState.Default.(string)
 }

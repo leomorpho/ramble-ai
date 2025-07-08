@@ -3,10 +3,16 @@
   import { Captions, Mic, Video } from "@lucide/svelte";
   import VideoPreviewDialog from "./VideoPreviewDialog.svelte";
   import VideoTranscriptViewer from "./VideoTranscriptViewer.svelte";
+  import { 
+    getTranscriptionState, 
+    getTranscriptionButtonLabel, 
+    canTranscribe, 
+    isTranscribing as isTranscribingState,
+    TranscriptionState
+  } from "$lib/utils/transcription.js";
 
   let { 
     clip,
-    isTranscribing = false,
     onDelete,
     onStartTranscription,
     formatFileSize,
@@ -14,6 +20,11 @@
     highlights,
     onHighlightsChange
   } = $props();
+
+  let transcriptionState = $derived(getTranscriptionState(clip));
+  let transcriptionButtonLabel = $derived(getTranscriptionButtonLabel(clip));
+  let canTranscribeClip = $derived(canTranscribe(clip));
+  let isTranscribing = $derived(isTranscribingState(clip));
 
   let previewDialogOpen = $state(false);
   let transcriptionDialogOpen = $state(false);
@@ -127,7 +138,7 @@
 
       <!-- Transcription buttons -->
       <div class="flex gap-1.5">
-        {#if clip.transcription}
+        {#if transcriptionState === TranscriptionState.COMPLETED}
           <Button 
             variant="outline" 
             size="sm" 
@@ -154,18 +165,21 @@
             variant="outline" 
             size="sm" 
             onclick={() => onStartTranscription(clip)}
-            disabled={isTranscribing || !clip.exists}
-            class="w-full h-7 text-xs"
+            disabled={!canTranscribeClip || !clip.exists}
+            class="w-full h-7 text-xs {isTranscribing ? 'animate-pulse' : ''}"
           >
             {#if isTranscribing}
               <svg class="w-3 h-3 mr-1 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              Transcribing...
+            {:else if transcriptionState === TranscriptionState.ERROR}
+              <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
             {:else}
               <Mic class="w-3 h-3 mr-1"/>
-              Transcribe
             {/if}
+            {transcriptionButtonLabel}
           </Button>
         {/if}
       </div>

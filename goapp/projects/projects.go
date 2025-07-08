@@ -1,13 +1,22 @@
 package projects
 
 import (
+	"bytes"
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
+	"mime/multipart"
+	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"MYAPP/ent"
 	"MYAPP/ent/project"
@@ -44,28 +53,67 @@ type ProjectResponse struct {
 	ActiveTab   string `json:"activeTab"`
 }
 
+// Segment represents a segment of transcribed audio
+type Segment struct {
+	ID               int     `json:"id"`
+	Seek             int     `json:"seek"`
+	Start            float64 `json:"start"`
+	End              float64 `json:"end"`
+	Text             string  `json:"text"`
+	Tokens           []int   `json:"tokens"`
+	Temperature      float64 `json:"temperature"`
+	AvgLogprob       float64 `json:"avg_logprob"`
+	CompressionRatio float64 `json:"compression_ratio"`
+	NoSpeechProb     float64 `json:"no_speech_prob"`
+	Words            []Word  `json:"words"`
+}
+
+// WhisperResponse represents the response from OpenAI Whisper API
+type WhisperResponse struct {
+	Task     string    `json:"task"`
+	Language string    `json:"language"`
+	Duration float64   `json:"duration"`
+	Text     string    `json:"text"`
+	Segments []Segment `json:"segments"`
+	Words    []Word    `json:"words"`
+}
+
+// TranscriptionResponse represents the response returned to the frontend
+type TranscriptionResponse struct {
+	Success       bool    `json:"success"`
+	Message       string  `json:"message"`
+	Transcription string  `json:"transcription,omitempty"`
+	Words         []Word  `json:"words,omitempty"`
+	Language      string  `json:"language,omitempty"`
+	Duration      float64 `json:"duration,omitempty"`
+}
+
 // VideoClipResponse represents a video clip response for the frontend
 type VideoClipResponse struct {
-	ID                    int         `json:"id"`
-	Name                  string      `json:"name"`
-	Description           string      `json:"description"`
-	FilePath              string      `json:"filePath"`
-	FileName              string      `json:"fileName"`
-	FileSize              int64       `json:"fileSize"`
-	Duration              float64     `json:"duration"`
-	Format                string      `json:"format"`
-	Width                 int         `json:"width"`
-	Height                int         `json:"height"`
-	ProjectID             int         `json:"projectId"`
-	CreatedAt             string      `json:"createdAt"`
-	UpdatedAt             string      `json:"updatedAt"`
-	Exists                bool        `json:"exists"`
-	ThumbnailURL          string      `json:"thumbnailUrl"`
-	Transcription         string      `json:"transcription"`
-	TranscriptionWords    []Word      `json:"transcriptionWords"`
-	TranscriptionLanguage string      `json:"transcriptionLanguage"`
-	TranscriptionDuration float64     `json:"transcriptionDuration"`
-	Highlights            []Highlight `json:"highlights"`
+	ID                      int         `json:"id"`
+	Name                    string      `json:"name"`
+	Description             string      `json:"description"`
+	FilePath                string      `json:"filePath"`
+	FileName                string      `json:"fileName"`
+	FileSize                int64       `json:"fileSize"`
+	Duration                float64     `json:"duration"`
+	Format                  string      `json:"format"`
+	Width                   int         `json:"width"`
+	Height                  int         `json:"height"`
+	ProjectID               int         `json:"projectId"`
+	CreatedAt               string      `json:"createdAt"`
+	UpdatedAt               string      `json:"updatedAt"`
+	Exists                  bool        `json:"exists"`
+	ThumbnailURL            string      `json:"thumbnailUrl"`
+	Transcription           string      `json:"transcription"`
+	TranscriptionWords      []Word      `json:"transcriptionWords"`
+	TranscriptionLanguage   string      `json:"transcriptionLanguage"`
+	TranscriptionDuration   float64     `json:"transcriptionDuration"`
+	TranscriptionState      string      `json:"transcriptionState"`
+	TranscriptionError      string      `json:"transcriptionError"`
+	TranscriptionStartedAt  string      `json:"transcriptionStartedAt"`
+	TranscriptionCompletedAt string     `json:"transcriptionCompletedAt"`
+	Highlights              []Highlight `json:"highlights"`
 }
 
 // LocalVideoFile represents a local video file
@@ -233,26 +281,30 @@ func (s *ProjectService) CreateVideoClip(projectID int, filePath string) (*Video
 	}
 	
 	return &VideoClipResponse{
-		ID:                    clip.ID,
-		Name:                  clip.Name,
-		Description:           clip.Description,
-		FilePath:              clip.FilePath,
-		FileName:              fileName,
-		FileSize:              fileSize,
-		Duration:              clip.Duration,
-		Format:                format,
-		Width:                 clip.Width,
-		Height:                clip.Height,
-		ProjectID:             0, // Will need to be loaded separately
-		CreatedAt:             clip.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt:             clip.UpdatedAt.Format("2006-01-02 15:04:05"),
-		Exists:                exists,
-		ThumbnailURL:          s.getThumbnailURL(filePath),
-		Transcription:         clip.Transcription,
-		TranscriptionWords:    s.schemaWordsToWords(clip.TranscriptionWords),
-		TranscriptionLanguage: clip.TranscriptionLanguage,
-		TranscriptionDuration: clip.TranscriptionDuration,
-		Highlights:            s.schemaHighlightsToHighlights(clip.Highlights),
+		ID:                      clip.ID,
+		Name:                    clip.Name,
+		Description:             clip.Description,
+		FilePath:                clip.FilePath,
+		FileName:                fileName,
+		FileSize:                fileSize,
+		Duration:                clip.Duration,
+		Format:                  format,
+		Width:                   clip.Width,
+		Height:                  clip.Height,
+		ProjectID:               0, // Will need to be loaded separately
+		CreatedAt:               clip.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:               clip.UpdatedAt.Format("2006-01-02 15:04:05"),
+		Exists:                  exists,
+		ThumbnailURL:            s.getThumbnailURL(filePath),
+		Transcription:           clip.Transcription,
+		TranscriptionWords:      s.schemaWordsToWords(clip.TranscriptionWords),
+		TranscriptionLanguage:   clip.TranscriptionLanguage,
+		TranscriptionDuration:   clip.TranscriptionDuration,
+		TranscriptionState:      clip.TranscriptionState,
+		TranscriptionError:      clip.TranscriptionError,
+		TranscriptionStartedAt:  s.formatTime(clip.TranscriptionStartedAt),
+		TranscriptionCompletedAt: s.formatTime(clip.TranscriptionCompletedAt),
+		Highlights:              s.schemaHighlightsToHighlights(clip.Highlights),
 	}, nil
 }
 
@@ -273,26 +325,30 @@ func (s *ProjectService) GetVideoClipsByProject(projectID int) ([]*VideoClipResp
 		fileName := filepath.Base(clip.FilePath)
 		
 		responses = append(responses, &VideoClipResponse{
-			ID:                    clip.ID,
-			Name:                  clip.Name,
-			Description:           clip.Description,
-			FilePath:              clip.FilePath,
-			FileName:              fileName,
-			FileSize:              fileSize,
-			Duration:              clip.Duration,
-			Format:                format,
-			Width:                 clip.Width,
-			Height:                clip.Height,
-			ProjectID:             projectID,
-			CreatedAt:             clip.CreatedAt.Format("2006-01-02 15:04:05"),
-			UpdatedAt:             clip.UpdatedAt.Format("2006-01-02 15:04:05"),
-			Exists:                exists,
-			ThumbnailURL:          s.getThumbnailURL(clip.FilePath),
-			Transcription:         clip.Transcription,
-			TranscriptionWords:    s.schemaWordsToWords(clip.TranscriptionWords),
-			TranscriptionLanguage: clip.TranscriptionLanguage,
-			TranscriptionDuration: clip.TranscriptionDuration,
-			Highlights:            s.schemaHighlightsToHighlights(clip.Highlights),
+			ID:                      clip.ID,
+			Name:                    clip.Name,
+			Description:             clip.Description,
+			FilePath:                clip.FilePath,
+			FileName:                fileName,
+			FileSize:                fileSize,
+			Duration:                clip.Duration,
+			Format:                  format,
+			Width:                   clip.Width,
+			Height:                  clip.Height,
+			ProjectID:               projectID,
+			CreatedAt:               clip.CreatedAt.Format("2006-01-02 15:04:05"),
+			UpdatedAt:               clip.UpdatedAt.Format("2006-01-02 15:04:05"),
+			Exists:                  exists,
+			ThumbnailURL:            s.getThumbnailURL(clip.FilePath),
+			Transcription:           clip.Transcription,
+			TranscriptionWords:      s.schemaWordsToWords(clip.TranscriptionWords),
+			TranscriptionLanguage:   clip.TranscriptionLanguage,
+			TranscriptionDuration:   clip.TranscriptionDuration,
+			TranscriptionState:      clip.TranscriptionState,
+			TranscriptionError:      clip.TranscriptionError,
+			TranscriptionStartedAt:  s.formatTime(clip.TranscriptionStartedAt),
+			TranscriptionCompletedAt: s.formatTime(clip.TranscriptionCompletedAt),
+			Highlights:              s.schemaHighlightsToHighlights(clip.Highlights),
 		})
 	}
 	
@@ -315,26 +371,30 @@ func (s *ProjectService) UpdateVideoClip(id int, name, description string) (*Vid
 	fileName := filepath.Base(clip.FilePath)
 	
 	return &VideoClipResponse{
-		ID:                    clip.ID,
-		Name:                  clip.Name,
-		Description:           clip.Description,
-		FilePath:              clip.FilePath,
-		FileName:              fileName,
-		FileSize:              fileSize,
-		Duration:              clip.Duration,
-		Format:                format,
-		Width:                 clip.Width,
-		Height:                clip.Height,
-		ProjectID:             0, // Will need to be loaded separately
-		CreatedAt:             clip.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt:             clip.UpdatedAt.Format("2006-01-02 15:04:05"),
-		Exists:                exists,
-		ThumbnailURL:          s.getThumbnailURL(clip.FilePath),
-		Transcription:         clip.Transcription,
-		TranscriptionWords:    s.schemaWordsToWords(clip.TranscriptionWords),
-		TranscriptionLanguage: clip.TranscriptionLanguage,
-		TranscriptionDuration: clip.TranscriptionDuration,
-		Highlights:            s.schemaHighlightsToHighlights(clip.Highlights),
+		ID:                      clip.ID,
+		Name:                    clip.Name,
+		Description:             clip.Description,
+		FilePath:                clip.FilePath,
+		FileName:                fileName,
+		FileSize:                fileSize,
+		Duration:                clip.Duration,
+		Format:                  format,
+		Width:                   clip.Width,
+		Height:                  clip.Height,
+		ProjectID:               0, // Will need to be loaded separately
+		CreatedAt:               clip.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:               clip.UpdatedAt.Format("2006-01-02 15:04:05"),
+		Exists:                  exists,
+		ThumbnailURL:            s.getThumbnailURL(clip.FilePath),
+		Transcription:           clip.Transcription,
+		TranscriptionWords:      s.schemaWordsToWords(clip.TranscriptionWords),
+		TranscriptionLanguage:   clip.TranscriptionLanguage,
+		TranscriptionDuration:   clip.TranscriptionDuration,
+		TranscriptionState:      clip.TranscriptionState,
+		TranscriptionError:      clip.TranscriptionError,
+		TranscriptionStartedAt:  s.formatTime(clip.TranscriptionStartedAt),
+		TranscriptionCompletedAt: s.formatTime(clip.TranscriptionCompletedAt),
+		Highlights:              s.schemaHighlightsToHighlights(clip.Highlights),
 	}, nil
 }
 
@@ -590,6 +650,24 @@ func (s *ProjectService) schemaHighlightsToHighlights(schemaHighlights []schema.
 		})
 	}
 	return highlights
+}
+
+// formatTime formats a time value to a string, handling both time.Time and *time.Time
+func (s *ProjectService) formatTime(t interface{}) string {
+	switch v := t.(type) {
+	case *time.Time:
+		if v == nil {
+			return ""
+		}
+		return v.Format("2006-01-02 15:04:05")
+	case time.Time:
+		if v.IsZero() {
+			return ""
+		}
+		return v.Format("2006-01-02 15:04:05")
+	default:
+		return ""
+	}
 }
 
 // History Management Functions
@@ -947,5 +1025,283 @@ func (s *ProjectService) UpdateProjectHighlightOrderWithoutHistory(projectID int
 			Save(s.ctx)
 	}
 	
+	return err
+}
+
+// Transcription Methods
+
+// TranscribeVideoClip transcribes audio from a video clip using OpenAI Whisper
+func (s *ProjectService) TranscribeVideoClip(clipID int) (*TranscriptionResponse, error) {
+	// Update transcription state to checking
+	err := s.updateTranscriptionState(clipID, "checking", "")
+	if err != nil {
+		log.Printf("[TRANSCRIPTION] Warning: failed to update state to checking: %v", err)
+	}
+
+	// Get the video clip
+	clip, err := s.client.VideoClip.Get(s.ctx, clipID)
+	if err != nil {
+		s.updateTranscriptionState(clipID, "error", "Video clip not found")
+		return &TranscriptionResponse{
+			Success: false,
+			Message: "Video clip not found",
+		}, nil
+	}
+
+	// Check if file exists
+	if _, err := os.Stat(clip.FilePath); os.IsNotExist(err) {
+		s.updateTranscriptionState(clipID, "error", "Video file not found")
+		return &TranscriptionResponse{
+			Success: false,
+			Message: "Video file not found",
+		}, nil
+	}
+
+	// Get OpenAI API key
+	apiKey, err := s.getOpenAIApiKey()
+	if err != nil || apiKey == "" {
+		s.updateTranscriptionState(clipID, "error", "OpenAI API key not configured")
+		return &TranscriptionResponse{
+			Success: false,
+			Message: "OpenAI API key not configured",
+		}, nil
+	}
+
+	// Update state to transcribing
+	err = s.updateTranscriptionState(clipID, "transcribing", "")
+	if err != nil {
+		log.Printf("[TRANSCRIPTION] Warning: failed to update state to transcribing: %v", err)
+	}
+
+	// Extract audio from video
+	audioPath, err := s.extractAudio(clip.FilePath)
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to extract audio: %v", err)
+		s.updateTranscriptionState(clipID, "error", errMsg)
+		return &TranscriptionResponse{
+			Success: false,
+			Message: errMsg,
+		}, nil
+	}
+	defer os.Remove(audioPath) // Clean up temporary audio file
+
+	// Transcribe audio using OpenAI Whisper
+	whisperResponse, err := s.transcribeAudio(audioPath, apiKey)
+	if err != nil {
+		errMsg := fmt.Sprintf("Transcription failed: %v", err)
+		s.updateTranscriptionState(clipID, "error", errMsg)
+		return &TranscriptionResponse{
+			Success: false,
+			Message: errMsg,
+		}, nil
+	}
+
+	// Convert Word structs for storage
+	var wordsForStorage []schema.Word
+	for _, w := range whisperResponse.Words {
+		wordsForStorage = append(wordsForStorage, schema.Word{
+			Word:  w.Word,
+			Start: w.Start,
+			End:   w.End,
+		})
+	}
+
+	// Save transcription to database and update state to completed
+	_, err = s.client.VideoClip.
+		UpdateOneID(clipID).
+		SetTranscription(whisperResponse.Text).
+		SetTranscriptionWords(wordsForStorage).
+		SetTranscriptionLanguage(whisperResponse.Language).
+		SetTranscriptionDuration(whisperResponse.Duration).
+		SetTranscriptionState("completed").
+		SetTranscriptionError("").
+		SetTranscriptionCompletedAt(time.Now()).
+		Save(s.ctx)
+
+	if err != nil {
+		s.updateTranscriptionState(clipID, "error", "Failed to save transcription")
+		return &TranscriptionResponse{
+			Success: false,
+			Message: "Failed to save transcription",
+		}, nil
+	}
+
+	return &TranscriptionResponse{
+		Success:       true,
+		Message:       "Transcription completed successfully",
+		Transcription: whisperResponse.Text,
+		Words:         whisperResponse.Words,
+		Language:      whisperResponse.Language,
+		Duration:      whisperResponse.Duration,
+	}, nil
+}
+
+// extractAudio extracts audio from a video file using ffmpeg
+func (s *ProjectService) extractAudio(videoPath string) (string, error) {
+	// Create temp directory for audio files
+	tempDir := "temp_audio"
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create temp directory: %w", err)
+	}
+
+	// Generate unique audio filename
+	hash := md5.Sum([]byte(videoPath + fmt.Sprintf("%d", time.Now().UnixNano())))
+	audioFilename := hex.EncodeToString(hash[:]) + ".mp3"
+	audioPath := filepath.Join(tempDir, audioFilename)
+
+	log.Printf("[TRANSCRIPTION] Extracting audio from: %s to: %s", videoPath, audioPath)
+
+	// Use ffmpeg to extract audio
+	cmd := exec.Command("ffmpeg",
+		"-i", videoPath,
+		"-vn",            // No video
+		"-acodec", "mp3", // Audio codec
+		"-ar", "16000",   // Sample rate (16kHz for Whisper)
+		"-ac", "1",       // Mono channel
+		"-b:a", "64k",    // Bitrate
+		"-y",             // Overwrite output file
+		audioPath,
+	)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("[TRANSCRIPTION] ffmpeg error: %v, output: %s", err, string(output))
+		return "", fmt.Errorf("ffmpeg failed: %w", err)
+	}
+
+	log.Printf("[TRANSCRIPTION] Audio extracted successfully: %s", audioPath)
+	return audioPath, nil
+}
+
+// transcribeAudio transcribes audio using OpenAI Whisper API
+func (s *ProjectService) transcribeAudio(audioPath, apiKey string) (*WhisperResponse, error) {
+	// Create HTTP client with longer timeout for transcription
+	client := &http.Client{
+		Timeout: 120 * time.Second, // 2 minutes for transcription
+	}
+
+	// Open audio file
+	file, err := os.Open(audioPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open audio file: %w", err)
+	}
+	defer file.Close()
+
+	// Create multipart form
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+
+	// Add file field
+	fileWriter, err := writer.CreateFormFile("file", filepath.Base(audioPath))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create form file: %w", err)
+	}
+
+	_, err = io.Copy(fileWriter, file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to copy file data: %w", err)
+	}
+
+	// Add model field
+	err = writer.WriteField("model", "whisper-1")
+	if err != nil {
+		return nil, fmt.Errorf("failed to add model field: %w", err)
+	}
+
+	// Add response format field for verbose JSON with timestamps
+	err = writer.WriteField("response_format", "verbose_json")
+	if err != nil {
+		return nil, fmt.Errorf("failed to add response format field: %w", err)
+	}
+
+	// Add timestamp granularities for word-level timestamps
+	err = writer.WriteField("timestamp_granularities[]", "word")
+	if err != nil {
+		return nil, fmt.Errorf("failed to add timestamp granularities field: %w", err)
+	}
+
+	writer.Close()
+
+	// Create request
+	req, err := http.NewRequest("POST", "https://api.openai.com/v1/audio/transcriptions", &buf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	log.Printf("[TRANSCRIPTION] Sending audio to OpenAI Whisper API")
+
+	// Make request
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("OpenAI API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	// Parse JSON response
+	var whisperResponse WhisperResponse
+	err = json.Unmarshal(body, &whisperResponse)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse transcription response: %w", err)
+	}
+
+	log.Printf("[TRANSCRIPTION] Transcription completed, text length: %d characters, words: %d",
+		len(whisperResponse.Text), len(whisperResponse.Words))
+
+	return &whisperResponse, nil
+}
+
+// getOpenAIApiKey retrieves the OpenAI API key from settings
+func (s *ProjectService) getOpenAIApiKey() (string, error) {
+	return s.getSetting("openai_api_key")
+}
+
+// getSetting retrieves a setting value by key
+func (s *ProjectService) getSetting(key string) (string, error) {
+	if key == "" {
+		return "", fmt.Errorf("setting key cannot be empty")
+	}
+
+	setting, err := s.client.Settings.
+		Query().
+		Where(settings.Key(key)).
+		Only(s.ctx)
+
+	if err != nil {
+		// Return empty string if setting doesn't exist
+		return "", nil
+	}
+
+	return setting.Value, nil
+}
+
+// updateTranscriptionState updates the transcription state and error message for a video clip
+func (s *ProjectService) updateTranscriptionState(clipID int, state string, errorMsg string) error {
+	update := s.client.VideoClip.UpdateOneID(clipID).SetTranscriptionState(state)
+	
+	if state == "transcribing" && errorMsg == "" {
+		update = update.SetTranscriptionStartedAt(time.Now())
+	}
+	
+	if errorMsg != "" {
+		update = update.SetTranscriptionError(errorMsg)
+	} else {
+		update = update.ClearTranscriptionError()
+	}
+	
+	_, err := update.Save(s.ctx)
 	return err
 }

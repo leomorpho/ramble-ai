@@ -393,6 +393,86 @@ func (vcu *VideoClipUpdate) ClearHighlightsHistoryIndex() *VideoClipUpdate {
 	return vcu
 }
 
+// SetTranscriptionState sets the "transcription_state" field.
+func (vcu *VideoClipUpdate) SetTranscriptionState(s string) *VideoClipUpdate {
+	vcu.mutation.SetTranscriptionState(s)
+	return vcu
+}
+
+// SetNillableTranscriptionState sets the "transcription_state" field if the given value is not nil.
+func (vcu *VideoClipUpdate) SetNillableTranscriptionState(s *string) *VideoClipUpdate {
+	if s != nil {
+		vcu.SetTranscriptionState(*s)
+	}
+	return vcu
+}
+
+// ClearTranscriptionState clears the value of the "transcription_state" field.
+func (vcu *VideoClipUpdate) ClearTranscriptionState() *VideoClipUpdate {
+	vcu.mutation.ClearTranscriptionState()
+	return vcu
+}
+
+// SetTranscriptionError sets the "transcription_error" field.
+func (vcu *VideoClipUpdate) SetTranscriptionError(s string) *VideoClipUpdate {
+	vcu.mutation.SetTranscriptionError(s)
+	return vcu
+}
+
+// SetNillableTranscriptionError sets the "transcription_error" field if the given value is not nil.
+func (vcu *VideoClipUpdate) SetNillableTranscriptionError(s *string) *VideoClipUpdate {
+	if s != nil {
+		vcu.SetTranscriptionError(*s)
+	}
+	return vcu
+}
+
+// ClearTranscriptionError clears the value of the "transcription_error" field.
+func (vcu *VideoClipUpdate) ClearTranscriptionError() *VideoClipUpdate {
+	vcu.mutation.ClearTranscriptionError()
+	return vcu
+}
+
+// SetTranscriptionStartedAt sets the "transcription_started_at" field.
+func (vcu *VideoClipUpdate) SetTranscriptionStartedAt(t time.Time) *VideoClipUpdate {
+	vcu.mutation.SetTranscriptionStartedAt(t)
+	return vcu
+}
+
+// SetNillableTranscriptionStartedAt sets the "transcription_started_at" field if the given value is not nil.
+func (vcu *VideoClipUpdate) SetNillableTranscriptionStartedAt(t *time.Time) *VideoClipUpdate {
+	if t != nil {
+		vcu.SetTranscriptionStartedAt(*t)
+	}
+	return vcu
+}
+
+// ClearTranscriptionStartedAt clears the value of the "transcription_started_at" field.
+func (vcu *VideoClipUpdate) ClearTranscriptionStartedAt() *VideoClipUpdate {
+	vcu.mutation.ClearTranscriptionStartedAt()
+	return vcu
+}
+
+// SetTranscriptionCompletedAt sets the "transcription_completed_at" field.
+func (vcu *VideoClipUpdate) SetTranscriptionCompletedAt(t time.Time) *VideoClipUpdate {
+	vcu.mutation.SetTranscriptionCompletedAt(t)
+	return vcu
+}
+
+// SetNillableTranscriptionCompletedAt sets the "transcription_completed_at" field if the given value is not nil.
+func (vcu *VideoClipUpdate) SetNillableTranscriptionCompletedAt(t *time.Time) *VideoClipUpdate {
+	if t != nil {
+		vcu.SetTranscriptionCompletedAt(*t)
+	}
+	return vcu
+}
+
+// ClearTranscriptionCompletedAt clears the value of the "transcription_completed_at" field.
+func (vcu *VideoClipUpdate) ClearTranscriptionCompletedAt() *VideoClipUpdate {
+	vcu.mutation.ClearTranscriptionCompletedAt()
+	return vcu
+}
+
 // SetProjectID sets the "project" edge to the Project entity by ID.
 func (vcu *VideoClipUpdate) SetProjectID(id int) *VideoClipUpdate {
 	vcu.mutation.SetProjectID(id)
@@ -619,6 +699,30 @@ func (vcu *VideoClipUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if vcu.mutation.HighlightsHistoryIndexCleared() {
 		_spec.ClearField(videoclip.FieldHighlightsHistoryIndex, field.TypeInt)
+	}
+	if value, ok := vcu.mutation.TranscriptionState(); ok {
+		_spec.SetField(videoclip.FieldTranscriptionState, field.TypeString, value)
+	}
+	if vcu.mutation.TranscriptionStateCleared() {
+		_spec.ClearField(videoclip.FieldTranscriptionState, field.TypeString)
+	}
+	if value, ok := vcu.mutation.TranscriptionError(); ok {
+		_spec.SetField(videoclip.FieldTranscriptionError, field.TypeString, value)
+	}
+	if vcu.mutation.TranscriptionErrorCleared() {
+		_spec.ClearField(videoclip.FieldTranscriptionError, field.TypeString)
+	}
+	if value, ok := vcu.mutation.TranscriptionStartedAt(); ok {
+		_spec.SetField(videoclip.FieldTranscriptionStartedAt, field.TypeTime, value)
+	}
+	if vcu.mutation.TranscriptionStartedAtCleared() {
+		_spec.ClearField(videoclip.FieldTranscriptionStartedAt, field.TypeTime)
+	}
+	if value, ok := vcu.mutation.TranscriptionCompletedAt(); ok {
+		_spec.SetField(videoclip.FieldTranscriptionCompletedAt, field.TypeTime, value)
+	}
+	if vcu.mutation.TranscriptionCompletedAtCleared() {
+		_spec.ClearField(videoclip.FieldTranscriptionCompletedAt, field.TypeTime)
 	}
 	if vcu.mutation.ProjectCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1031,6 +1135,86 @@ func (vcuo *VideoClipUpdateOne) ClearHighlightsHistoryIndex() *VideoClipUpdateOn
 	return vcuo
 }
 
+// SetTranscriptionState sets the "transcription_state" field.
+func (vcuo *VideoClipUpdateOne) SetTranscriptionState(s string) *VideoClipUpdateOne {
+	vcuo.mutation.SetTranscriptionState(s)
+	return vcuo
+}
+
+// SetNillableTranscriptionState sets the "transcription_state" field if the given value is not nil.
+func (vcuo *VideoClipUpdateOne) SetNillableTranscriptionState(s *string) *VideoClipUpdateOne {
+	if s != nil {
+		vcuo.SetTranscriptionState(*s)
+	}
+	return vcuo
+}
+
+// ClearTranscriptionState clears the value of the "transcription_state" field.
+func (vcuo *VideoClipUpdateOne) ClearTranscriptionState() *VideoClipUpdateOne {
+	vcuo.mutation.ClearTranscriptionState()
+	return vcuo
+}
+
+// SetTranscriptionError sets the "transcription_error" field.
+func (vcuo *VideoClipUpdateOne) SetTranscriptionError(s string) *VideoClipUpdateOne {
+	vcuo.mutation.SetTranscriptionError(s)
+	return vcuo
+}
+
+// SetNillableTranscriptionError sets the "transcription_error" field if the given value is not nil.
+func (vcuo *VideoClipUpdateOne) SetNillableTranscriptionError(s *string) *VideoClipUpdateOne {
+	if s != nil {
+		vcuo.SetTranscriptionError(*s)
+	}
+	return vcuo
+}
+
+// ClearTranscriptionError clears the value of the "transcription_error" field.
+func (vcuo *VideoClipUpdateOne) ClearTranscriptionError() *VideoClipUpdateOne {
+	vcuo.mutation.ClearTranscriptionError()
+	return vcuo
+}
+
+// SetTranscriptionStartedAt sets the "transcription_started_at" field.
+func (vcuo *VideoClipUpdateOne) SetTranscriptionStartedAt(t time.Time) *VideoClipUpdateOne {
+	vcuo.mutation.SetTranscriptionStartedAt(t)
+	return vcuo
+}
+
+// SetNillableTranscriptionStartedAt sets the "transcription_started_at" field if the given value is not nil.
+func (vcuo *VideoClipUpdateOne) SetNillableTranscriptionStartedAt(t *time.Time) *VideoClipUpdateOne {
+	if t != nil {
+		vcuo.SetTranscriptionStartedAt(*t)
+	}
+	return vcuo
+}
+
+// ClearTranscriptionStartedAt clears the value of the "transcription_started_at" field.
+func (vcuo *VideoClipUpdateOne) ClearTranscriptionStartedAt() *VideoClipUpdateOne {
+	vcuo.mutation.ClearTranscriptionStartedAt()
+	return vcuo
+}
+
+// SetTranscriptionCompletedAt sets the "transcription_completed_at" field.
+func (vcuo *VideoClipUpdateOne) SetTranscriptionCompletedAt(t time.Time) *VideoClipUpdateOne {
+	vcuo.mutation.SetTranscriptionCompletedAt(t)
+	return vcuo
+}
+
+// SetNillableTranscriptionCompletedAt sets the "transcription_completed_at" field if the given value is not nil.
+func (vcuo *VideoClipUpdateOne) SetNillableTranscriptionCompletedAt(t *time.Time) *VideoClipUpdateOne {
+	if t != nil {
+		vcuo.SetTranscriptionCompletedAt(*t)
+	}
+	return vcuo
+}
+
+// ClearTranscriptionCompletedAt clears the value of the "transcription_completed_at" field.
+func (vcuo *VideoClipUpdateOne) ClearTranscriptionCompletedAt() *VideoClipUpdateOne {
+	vcuo.mutation.ClearTranscriptionCompletedAt()
+	return vcuo
+}
+
 // SetProjectID sets the "project" edge to the Project entity by ID.
 func (vcuo *VideoClipUpdateOne) SetProjectID(id int) *VideoClipUpdateOne {
 	vcuo.mutation.SetProjectID(id)
@@ -1287,6 +1471,30 @@ func (vcuo *VideoClipUpdateOne) sqlSave(ctx context.Context) (_node *VideoClip, 
 	}
 	if vcuo.mutation.HighlightsHistoryIndexCleared() {
 		_spec.ClearField(videoclip.FieldHighlightsHistoryIndex, field.TypeInt)
+	}
+	if value, ok := vcuo.mutation.TranscriptionState(); ok {
+		_spec.SetField(videoclip.FieldTranscriptionState, field.TypeString, value)
+	}
+	if vcuo.mutation.TranscriptionStateCleared() {
+		_spec.ClearField(videoclip.FieldTranscriptionState, field.TypeString)
+	}
+	if value, ok := vcuo.mutation.TranscriptionError(); ok {
+		_spec.SetField(videoclip.FieldTranscriptionError, field.TypeString, value)
+	}
+	if vcuo.mutation.TranscriptionErrorCleared() {
+		_spec.ClearField(videoclip.FieldTranscriptionError, field.TypeString)
+	}
+	if value, ok := vcuo.mutation.TranscriptionStartedAt(); ok {
+		_spec.SetField(videoclip.FieldTranscriptionStartedAt, field.TypeTime, value)
+	}
+	if vcuo.mutation.TranscriptionStartedAtCleared() {
+		_spec.ClearField(videoclip.FieldTranscriptionStartedAt, field.TypeTime)
+	}
+	if value, ok := vcuo.mutation.TranscriptionCompletedAt(); ok {
+		_spec.SetField(videoclip.FieldTranscriptionCompletedAt, field.TypeTime, value)
+	}
+	if vcuo.mutation.TranscriptionCompletedAtCleared() {
+		_spec.ClearField(videoclip.FieldTranscriptionCompletedAt, field.TypeTime)
 	}
 	if vcuo.mutation.ProjectCleared() {
 		edge := &sqlgraph.EdgeSpec{

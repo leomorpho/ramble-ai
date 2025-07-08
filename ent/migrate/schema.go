@@ -105,6 +105,10 @@ var (
 		{Name: "updated_at", Type: field.TypeTime},
 		{Name: "highlights_history", Type: field.TypeJSON, Nullable: true},
 		{Name: "highlights_history_index", Type: field.TypeInt, Nullable: true, Default: -1},
+		{Name: "transcription_state", Type: field.TypeString, Nullable: true, Default: "idle"},
+		{Name: "transcription_error", Type: field.TypeString, Nullable: true},
+		{Name: "transcription_started_at", Type: field.TypeTime, Nullable: true},
+		{Name: "transcription_completed_at", Type: field.TypeTime, Nullable: true},
 		{Name: "project_video_clips", Type: field.TypeInt, Nullable: true},
 	}
 	// VideoClipsTable holds the schema information for the "video_clips" table.
@@ -115,7 +119,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "video_clips_projects_video_clips",
-				Columns:    []*schema.Column{VideoClipsColumns[19]},
+				Columns:    []*schema.Column{VideoClipsColumns[23]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},

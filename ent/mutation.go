@@ -3666,6 +3666,10 @@ type VideoClipMutation struct {
 	appendhighlights_history    [][]schema.Highlight
 	highlights_history_index    *int
 	addhighlights_history_index *int
+	transcription_state         *string
+	transcription_error         *string
+	transcription_started_at    *time.Time
+	transcription_completed_at  *time.Time
 	clearedFields               map[string]struct{}
 	project                     *int
 	clearedproject              bool
@@ -4792,6 +4796,202 @@ func (m *VideoClipMutation) ResetHighlightsHistoryIndex() {
 	delete(m.clearedFields, videoclip.FieldHighlightsHistoryIndex)
 }
 
+// SetTranscriptionState sets the "transcription_state" field.
+func (m *VideoClipMutation) SetTranscriptionState(s string) {
+	m.transcription_state = &s
+}
+
+// TranscriptionState returns the value of the "transcription_state" field in the mutation.
+func (m *VideoClipMutation) TranscriptionState() (r string, exists bool) {
+	v := m.transcription_state
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTranscriptionState returns the old "transcription_state" field's value of the VideoClip entity.
+// If the VideoClip object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *VideoClipMutation) OldTranscriptionState(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTranscriptionState is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTranscriptionState requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTranscriptionState: %w", err)
+	}
+	return oldValue.TranscriptionState, nil
+}
+
+// ClearTranscriptionState clears the value of the "transcription_state" field.
+func (m *VideoClipMutation) ClearTranscriptionState() {
+	m.transcription_state = nil
+	m.clearedFields[videoclip.FieldTranscriptionState] = struct{}{}
+}
+
+// TranscriptionStateCleared returns if the "transcription_state" field was cleared in this mutation.
+func (m *VideoClipMutation) TranscriptionStateCleared() bool {
+	_, ok := m.clearedFields[videoclip.FieldTranscriptionState]
+	return ok
+}
+
+// ResetTranscriptionState resets all changes to the "transcription_state" field.
+func (m *VideoClipMutation) ResetTranscriptionState() {
+	m.transcription_state = nil
+	delete(m.clearedFields, videoclip.FieldTranscriptionState)
+}
+
+// SetTranscriptionError sets the "transcription_error" field.
+func (m *VideoClipMutation) SetTranscriptionError(s string) {
+	m.transcription_error = &s
+}
+
+// TranscriptionError returns the value of the "transcription_error" field in the mutation.
+func (m *VideoClipMutation) TranscriptionError() (r string, exists bool) {
+	v := m.transcription_error
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTranscriptionError returns the old "transcription_error" field's value of the VideoClip entity.
+// If the VideoClip object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *VideoClipMutation) OldTranscriptionError(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTranscriptionError is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTranscriptionError requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTranscriptionError: %w", err)
+	}
+	return oldValue.TranscriptionError, nil
+}
+
+// ClearTranscriptionError clears the value of the "transcription_error" field.
+func (m *VideoClipMutation) ClearTranscriptionError() {
+	m.transcription_error = nil
+	m.clearedFields[videoclip.FieldTranscriptionError] = struct{}{}
+}
+
+// TranscriptionErrorCleared returns if the "transcription_error" field was cleared in this mutation.
+func (m *VideoClipMutation) TranscriptionErrorCleared() bool {
+	_, ok := m.clearedFields[videoclip.FieldTranscriptionError]
+	return ok
+}
+
+// ResetTranscriptionError resets all changes to the "transcription_error" field.
+func (m *VideoClipMutation) ResetTranscriptionError() {
+	m.transcription_error = nil
+	delete(m.clearedFields, videoclip.FieldTranscriptionError)
+}
+
+// SetTranscriptionStartedAt sets the "transcription_started_at" field.
+func (m *VideoClipMutation) SetTranscriptionStartedAt(t time.Time) {
+	m.transcription_started_at = &t
+}
+
+// TranscriptionStartedAt returns the value of the "transcription_started_at" field in the mutation.
+func (m *VideoClipMutation) TranscriptionStartedAt() (r time.Time, exists bool) {
+	v := m.transcription_started_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTranscriptionStartedAt returns the old "transcription_started_at" field's value of the VideoClip entity.
+// If the VideoClip object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *VideoClipMutation) OldTranscriptionStartedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTranscriptionStartedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTranscriptionStartedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTranscriptionStartedAt: %w", err)
+	}
+	return oldValue.TranscriptionStartedAt, nil
+}
+
+// ClearTranscriptionStartedAt clears the value of the "transcription_started_at" field.
+func (m *VideoClipMutation) ClearTranscriptionStartedAt() {
+	m.transcription_started_at = nil
+	m.clearedFields[videoclip.FieldTranscriptionStartedAt] = struct{}{}
+}
+
+// TranscriptionStartedAtCleared returns if the "transcription_started_at" field was cleared in this mutation.
+func (m *VideoClipMutation) TranscriptionStartedAtCleared() bool {
+	_, ok := m.clearedFields[videoclip.FieldTranscriptionStartedAt]
+	return ok
+}
+
+// ResetTranscriptionStartedAt resets all changes to the "transcription_started_at" field.
+func (m *VideoClipMutation) ResetTranscriptionStartedAt() {
+	m.transcription_started_at = nil
+	delete(m.clearedFields, videoclip.FieldTranscriptionStartedAt)
+}
+
+// SetTranscriptionCompletedAt sets the "transcription_completed_at" field.
+func (m *VideoClipMutation) SetTranscriptionCompletedAt(t time.Time) {
+	m.transcription_completed_at = &t
+}
+
+// TranscriptionCompletedAt returns the value of the "transcription_completed_at" field in the mutation.
+func (m *VideoClipMutation) TranscriptionCompletedAt() (r time.Time, exists bool) {
+	v := m.transcription_completed_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTranscriptionCompletedAt returns the old "transcription_completed_at" field's value of the VideoClip entity.
+// If the VideoClip object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *VideoClipMutation) OldTranscriptionCompletedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTranscriptionCompletedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTranscriptionCompletedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTranscriptionCompletedAt: %w", err)
+	}
+	return oldValue.TranscriptionCompletedAt, nil
+}
+
+// ClearTranscriptionCompletedAt clears the value of the "transcription_completed_at" field.
+func (m *VideoClipMutation) ClearTranscriptionCompletedAt() {
+	m.transcription_completed_at = nil
+	m.clearedFields[videoclip.FieldTranscriptionCompletedAt] = struct{}{}
+}
+
+// TranscriptionCompletedAtCleared returns if the "transcription_completed_at" field was cleared in this mutation.
+func (m *VideoClipMutation) TranscriptionCompletedAtCleared() bool {
+	_, ok := m.clearedFields[videoclip.FieldTranscriptionCompletedAt]
+	return ok
+}
+
+// ResetTranscriptionCompletedAt resets all changes to the "transcription_completed_at" field.
+func (m *VideoClipMutation) ResetTranscriptionCompletedAt() {
+	m.transcription_completed_at = nil
+	delete(m.clearedFields, videoclip.FieldTranscriptionCompletedAt)
+}
+
 // SetProjectID sets the "project" edge to the Project entity by id.
 func (m *VideoClipMutation) SetProjectID(id int) {
 	m.project = &id
@@ -4865,7 +5065,7 @@ func (m *VideoClipMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *VideoClipMutation) Fields() []string {
-	fields := make([]string, 0, 18)
+	fields := make([]string, 0, 22)
 	if m.name != nil {
 		fields = append(fields, videoclip.FieldName)
 	}
@@ -4920,6 +5120,18 @@ func (m *VideoClipMutation) Fields() []string {
 	if m.highlights_history_index != nil {
 		fields = append(fields, videoclip.FieldHighlightsHistoryIndex)
 	}
+	if m.transcription_state != nil {
+		fields = append(fields, videoclip.FieldTranscriptionState)
+	}
+	if m.transcription_error != nil {
+		fields = append(fields, videoclip.FieldTranscriptionError)
+	}
+	if m.transcription_started_at != nil {
+		fields = append(fields, videoclip.FieldTranscriptionStartedAt)
+	}
+	if m.transcription_completed_at != nil {
+		fields = append(fields, videoclip.FieldTranscriptionCompletedAt)
+	}
 	return fields
 }
 
@@ -4964,6 +5176,14 @@ func (m *VideoClipMutation) Field(name string) (ent.Value, bool) {
 		return m.HighlightsHistory()
 	case videoclip.FieldHighlightsHistoryIndex:
 		return m.HighlightsHistoryIndex()
+	case videoclip.FieldTranscriptionState:
+		return m.TranscriptionState()
+	case videoclip.FieldTranscriptionError:
+		return m.TranscriptionError()
+	case videoclip.FieldTranscriptionStartedAt:
+		return m.TranscriptionStartedAt()
+	case videoclip.FieldTranscriptionCompletedAt:
+		return m.TranscriptionCompletedAt()
 	}
 	return nil, false
 }
@@ -5009,6 +5229,14 @@ func (m *VideoClipMutation) OldField(ctx context.Context, name string) (ent.Valu
 		return m.OldHighlightsHistory(ctx)
 	case videoclip.FieldHighlightsHistoryIndex:
 		return m.OldHighlightsHistoryIndex(ctx)
+	case videoclip.FieldTranscriptionState:
+		return m.OldTranscriptionState(ctx)
+	case videoclip.FieldTranscriptionError:
+		return m.OldTranscriptionError(ctx)
+	case videoclip.FieldTranscriptionStartedAt:
+		return m.OldTranscriptionStartedAt(ctx)
+	case videoclip.FieldTranscriptionCompletedAt:
+		return m.OldTranscriptionCompletedAt(ctx)
 	}
 	return nil, fmt.Errorf("unknown VideoClip field %s", name)
 }
@@ -5143,6 +5371,34 @@ func (m *VideoClipMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetHighlightsHistoryIndex(v)
+		return nil
+	case videoclip.FieldTranscriptionState:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTranscriptionState(v)
+		return nil
+	case videoclip.FieldTranscriptionError:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTranscriptionError(v)
+		return nil
+	case videoclip.FieldTranscriptionStartedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTranscriptionStartedAt(v)
+		return nil
+	case videoclip.FieldTranscriptionCompletedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTranscriptionCompletedAt(v)
 		return nil
 	}
 	return fmt.Errorf("unknown VideoClip field %s", name)
@@ -5291,6 +5547,18 @@ func (m *VideoClipMutation) ClearedFields() []string {
 	if m.FieldCleared(videoclip.FieldHighlightsHistoryIndex) {
 		fields = append(fields, videoclip.FieldHighlightsHistoryIndex)
 	}
+	if m.FieldCleared(videoclip.FieldTranscriptionState) {
+		fields = append(fields, videoclip.FieldTranscriptionState)
+	}
+	if m.FieldCleared(videoclip.FieldTranscriptionError) {
+		fields = append(fields, videoclip.FieldTranscriptionError)
+	}
+	if m.FieldCleared(videoclip.FieldTranscriptionStartedAt) {
+		fields = append(fields, videoclip.FieldTranscriptionStartedAt)
+	}
+	if m.FieldCleared(videoclip.FieldTranscriptionCompletedAt) {
+		fields = append(fields, videoclip.FieldTranscriptionCompletedAt)
+	}
 	return fields
 }
 
@@ -5346,6 +5614,18 @@ func (m *VideoClipMutation) ClearField(name string) error {
 		return nil
 	case videoclip.FieldHighlightsHistoryIndex:
 		m.ClearHighlightsHistoryIndex()
+		return nil
+	case videoclip.FieldTranscriptionState:
+		m.ClearTranscriptionState()
+		return nil
+	case videoclip.FieldTranscriptionError:
+		m.ClearTranscriptionError()
+		return nil
+	case videoclip.FieldTranscriptionStartedAt:
+		m.ClearTranscriptionStartedAt()
+		return nil
+	case videoclip.FieldTranscriptionCompletedAt:
+		m.ClearTranscriptionCompletedAt()
 		return nil
 	}
 	return fmt.Errorf("unknown VideoClip nullable field %s", name)
@@ -5408,6 +5688,18 @@ func (m *VideoClipMutation) ResetField(name string) error {
 		return nil
 	case videoclip.FieldHighlightsHistoryIndex:
 		m.ResetHighlightsHistoryIndex()
+		return nil
+	case videoclip.FieldTranscriptionState:
+		m.ResetTranscriptionState()
+		return nil
+	case videoclip.FieldTranscriptionError:
+		m.ResetTranscriptionError()
+		return nil
+	case videoclip.FieldTranscriptionStartedAt:
+		m.ResetTranscriptionStartedAt()
+		return nil
+	case videoclip.FieldTranscriptionCompletedAt:
+		m.ResetTranscriptionCompletedAt()
 		return nil
 	}
 	return fmt.Errorf("unknown VideoClip field %s", name)
