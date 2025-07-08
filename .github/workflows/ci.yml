@@ -78,7 +78,7 @@ jobs:
       
   build-check:
     runs-on: ubuntu-latest
-    needs: test
+    needs: earthly-test
     
     steps:
     - name: Checkout code
