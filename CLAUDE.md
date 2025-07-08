@@ -53,7 +53,18 @@ cd frontend && pnpm check:watch
 ```
 
 ### Testing
-No test configuration found - add test scripts to `frontend/package.json` if needed.
+```bash
+# Run all tests
+cd frontend && npm test
+
+# Run tests with UI
+cd frontend && npm run test:ui
+
+# Run tests once (CI mode)
+cd frontend && npm run test:run
+```
+
+The project uses **Vitest** with jsdom environment for testing. Test files should be named `*.test.js` or `*.spec.js` and placed alongside the code they test.
 
 ## Key Configuration
 
