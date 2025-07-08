@@ -3,8 +3,16 @@
   import { Button } from "$lib/components/ui/button";
   import TimeGap from "$lib/components/ui/TimeGap.svelte";
   import { DeleteSuggestedHighlight } from "$lib/wailsjs/go/main/App";
-  import { HighlightManager } from "./HighlightManager.js";
-  // All highlight operations are now handled through HighlightManager
+  import {
+    findWordByTimestamp,
+    addHighlight,
+    removeHighlight,
+    updateHighlight,
+    findHighlightForWord,
+    checkOverlap,
+    isWordInSelection as isWordInSelectionUtil,
+    calculateTimestamps
+  } from "./TextHighlighter.utils.js";
 
   let {
     text = "",
@@ -15,113 +23,29 @@
     videoId,
   } = $props();
 
-  // Debug logging for suggested highlights
-  $effect(() => {
-    console.log("🎨 TextHighlighter: suggestedHighlights changed:", {
-      count: suggestedHighlights.length,
-      highlights: suggestedHighlights,
-    });
-    
-    // Log word timing information for debugging
-    if (words && words.length > 0 && suggestedHighlights.length > 0) {
-      console.log("📊 Word timing info (first 10 words):", 
-        words.slice(0, 10).map((w, i) => ({
-          index: i,
-          word: w.word,
-          start: w.start,
-          end: w.end,
-          duration: (w.end - w.start).toFixed(3)
-        }))
-      );
-      
-      console.log("📊 Suggested highlight ranges (word indices):", 
-        suggestedHighlights.map(s => ({
-          id: s.id,
-          startIndex: s.start,
-          endIndex: s.end,
-          wordCount: s.end - s.start + 1,
-          text: s.text?.substring(0, 50) + "..."
-        }))
-      );
-      
-      // For each suggestion, show which words should be highlighted
-      console.log("🎯 Words per suggestion:");
-      suggestedHighlights.forEach((s, sIndex) => {
-        // Get words in the index range
-        const matchingWords = [];
-        for (let i = s.start; i <= s.end && i < words.length; i++) {
-          matchingWords.push({ ...words[i], index: i });
-        }
-        
-        console.log(`  Suggestion ${sIndex} (indices ${s.start}-${s.end}):`, {
-          wordCount: matchingWords.length,
-          wordIndices: matchingWords.map(w => w.index),
-          firstWord: matchingWords[0]?.word,
-          lastWord: matchingWords[matchingWords.length - 1]?.word,
-          text: matchingWords.map(w => w.word).join(' ').substring(0, 50) + "..."
-        });
-      });
-    }
-  });
-
   // === CORE STATE ===
-  let highlightManager = $state(null);
-  let indexHighlights = $state([]);
+  let usedColors = $state(new Set());
   
   // Pause detection settings
   const SHOW_ALL_PAUSES = false; // show even normal pauses with subtle indicators
   
-  // Initialize highlight manager when words are available
+  // Find highlight for a word by its timestamp
+  function findHighlightForWordByTime(wordIndex) {
+    if (!words || !highlights || wordIndex < 0 || wordIndex >= words.length) return null;
+    
+    const word = words[wordIndex];
+    return highlights.find(h => 
+      word.start >= h.start && word.end <= h.end
+    );
+  }
+  
+  // Update used colors when highlights prop changes
   $effect(() => {
-    if (words && words.length > 0 && !highlightManager) {
-      highlightManager = new HighlightManager(words);
+    if (highlights && highlights.length > 0) {
+      usedColors = new Set(highlights.map(h => h.color));
     }
   });
   
-  // Update highlights when they change from props (but not from our own changes)
-  $effect(() => {
-    if (highlightManager && highlights) {
-      // Only update if the highlights are different from what we have
-      const currentTimestampHighlights = highlightManager.getTimestampHighlights();
-      const highlightsChanged = JSON.stringify(highlights) !== JSON.stringify(currentTimestampHighlights);
-      
-      if (highlightsChanged) {
-        indexHighlights = highlightManager.setHighlights(highlights);
-      }
-    }
-  });
-  
-  // Debug pause detection when words change
-  $effect(() => {
-    if (words && words.length > 1) {
-      let normalPauses = 0;
-      let longPauses = 0;
-      let veryLongPauses = 0;
-      
-      for (let i = 0; i < words.length - 1; i++) {
-        const pauseDuration = getPauseDuration(i);
-        
-        if (pauseDuration >= 1.5) {
-          veryLongPauses++;
-        } else if (pauseDuration >= 0.8) {
-          longPauses++;
-        } else {
-          normalPauses++;
-        }
-      }
-      
-      console.log("⏸️ Pause analysis:", {
-        totalWords: words.length,
-        normalPauses,
-        longPauses,
-        veryLongPauses,
-        thresholds: {
-          long: 0.8,
-          veryLong: 1.5
-        }
-      });
-    }
-  });
 
   // === SELECTION STATE ===
   let isSelecting = $state(false);
@@ -183,12 +107,11 @@
   }
   
 
-  function emitChanges(result) {
+
+  function emitChanges(newTimestampHighlights) {
     if (onHighlightsChange) {
-      // Update our local state
-      indexHighlights = result.indexHighlights;
       // Notify parent of the change
-      onHighlightsChange(result.timestampHighlights);
+      onHighlightsChange(newTimestampHighlights);
     }
   }
 
@@ -233,16 +156,6 @@
       // Word is highlighted if its index is within the suggestion's start/end indices
       const isInRange = wordIndex >= s.start && wordIndex <= s.end;
       
-      // Log detailed info for debugging
-      if (wordIndex < 5 && suggestions.length > 0) {
-        console.log(`🔍 Word ${wordIndex} index check:`, {
-          wordIndex,
-          word: words[wordIndex].word,
-          suggestionStart: s.start,
-          suggestionEnd: s.end,
-          isInRange,
-        });
-      }
       
       return isInRange;
     });
@@ -255,31 +168,30 @@
     event.preventDefault();
     event.stopPropagation();
 
-    if (!highlightManager) {
-      console.error("Cannot accept suggestion: HighlightManager not initialized");
-      return;
-    }
-
-    // Suggested highlights already use word indices, not timestamps
+    // Convert suggestion indices to timestamps
     const startIndex = suggestion.start;
     const endIndex = suggestion.end;
-
-    try {
-      // Use HighlightManager to create the highlight
-      const result = highlightManager.createHighlightFromSelection(startIndex, endIndex);
-      emitChanges(result);
-      
-      // Delete the suggestion from the database since it's now accepted
-      if (videoId && suggestion.id) {
-        try {
-          await DeleteSuggestedHighlight(videoId, suggestion.id);
-          console.log("✅ Deleted accepted suggestion from DB:", suggestion.id);
-        } catch (error) {
-          console.error("Failed to delete accepted suggestion:", error);
-        }
+    
+    if (startIndex < 0 || endIndex >= words.length) {
+      console.warn("Invalid suggestion indices");
+      return;
+    }
+    
+    // Get timestamps from word indices
+    const startWord = words[startIndex];
+    const endWord = words[endIndex];
+    const result = addHighlight(highlights, startWord.start, endWord.end, usedColors);
+    const newTimestampHighlights = result.highlights;
+    
+    emitChanges(newTimestampHighlights);
+    
+    // Delete the suggestion from the database since it's now accepted
+    if (videoId && suggestion.id) {
+      try {
+        await DeleteSuggestedHighlight(videoId, suggestion.id);
+      } catch (error) {
+        console.error("Failed to delete accepted suggestion:", error);
       }
-    } catch (error) {
-      console.error("Failed to accept suggestion:", error);
     }
   }
 
@@ -318,12 +230,21 @@
       return;
     }
 
-    const existingHighlight = highlightManager ? highlightManager.findHighlightForWord(wordIndex) : null;
+    const existingHighlight = findHighlightForWordByTime(wordIndex);
 
     if (existingHighlight) {
       // Start drag operation on existing highlight
-      const isFirstWord = wordIndex === existingHighlight.start;
-      const isLastWord = wordIndex === existingHighlight.end;
+      const currentWord = words[wordIndex];
+      const isFirstWord = Math.abs(currentWord.start - existingHighlight.start) < 0.01;
+      const isLastWord = Math.abs(currentWord.end - existingHighlight.end) < 0.01;
+
+      console.log('🎯 Starting drag:', {
+        wordIndex,
+        isFirstWord,
+        isLastWord,
+        originalHighlight: existingHighlight,
+        word: words[wordIndex]
+      });
 
       isDragging = true;
       dragTarget = {
@@ -334,9 +255,10 @@
         originalHighlight: { ...existingHighlight },
       };
 
-      selectionStart = wordIndex;
-      selectionEnd = wordIndex;
-      selectionAnchor = wordIndex;
+      const dragWord = words[wordIndex];
+      selectionStart = dragWord.start;
+      selectionEnd = dragWord.end;
+      selectionAnchor = dragWord.start;
       showDeleteButton = false;
 
       event.preventDefault();
@@ -346,49 +268,81 @@
 
     // Start new selection
     isSelecting = true;
-    selectionStart = wordIndex;
-    selectionEnd = wordIndex;
-    selectionAnchor = wordIndex;
+    const selectedWord = words[wordIndex];
+    selectionStart = selectedWord.start;
+    selectionEnd = selectedWord.end;
+    selectionAnchor = selectedWord.start;
     showDeleteButton = false;
   }
 
   function handleWordMouseEnter(wordIndex) {
     if (isSelecting && selectionAnchor !== null) {
       // Update selection dynamically based on current position
-      // The selection should be from anchor to current position
-      selectionStart = Math.min(selectionAnchor, wordIndex);
-      selectionEnd = Math.max(selectionAnchor, wordIndex);
+      const hoveredWord = words[wordIndex];
+      selectionStart = Math.min(selectionAnchor, hoveredWord.start);
+      selectionEnd = Math.max(selectionAnchor, hoveredWord.end);
     }
 
     if (isDragging && dragTarget && selectionAnchor !== null) {
-      // Use HighlightManager to calculate drag selection
+      // Calculate drag selection
       const { originalHighlight, isFirstWord, isLastWord } = dragTarget;
       
-      if (highlightManager) {
-        try {
-          const dragResult = highlightManager.calculateDragSelection(
-            selectionAnchor, 
-            wordIndex, 
-            originalHighlight, 
-            isFirstWord, 
-            isLastWord
-          );
-          
-          selectionStart = dragResult.start;
-          selectionEnd = dragResult.end;
-          dragMode = dragResult.mode;
-        } catch (error) {
-          console.warn('Drag calculation error:', error);
-          dragMode = null;
+      // Determine boundaries based on which end is being dragged
+      let newStart, newEnd;
+      const draggedWord = words[wordIndex];
+      
+      if (isFirstWord) {
+        // Dragging the first word handle - adjust start timestamp
+        newStart = draggedWord.start;
+        newEnd = originalHighlight.end;
+        
+        // Don't allow dragging past the end
+        if (newStart >= newEnd) {
+          newStart = newEnd - 0.01;
+        }
+      } else if (isLastWord) {
+        // Dragging the last word handle - adjust end timestamp
+        newStart = originalHighlight.start;
+        newEnd = draggedWord.end;
+        
+        // Don't allow dragging past the start
+        if (newEnd <= newStart) {
+          newEnd = newStart + 0.01;
         }
       } else {
-        dragMode = null;
+        // Dragging from middle - shouldn't happen
+        newStart = originalHighlight.start;
+        newEnd = originalHighlight.end;
+      }
+      
+      // Store the new timestamps for preview
+      selectionStart = newStart;
+      selectionEnd = newEnd;
+      
+      console.log('🖱️ Drag update:', {
+        wordIndex,
+        currentWord: draggedWord,
+        originalStart: originalHighlight.start,
+        originalEnd: originalHighlight.end,
+        newStart,
+        newEnd,
+        isFirstWord,
+        isLastWord
+      });
+      
+      // Determine drag mode
+      if (Math.abs(newStart - originalHighlight.start) < 0.01 && Math.abs(newEnd - originalHighlight.end) < 0.01) {
+        dragMode = null; // No change
+      } else if (newStart < originalHighlight.start || newEnd > originalHighlight.end) {
+        dragMode = 'expand';
+      } else {
+        dragMode = 'contract';
       }
     }
   }
 
   function handleWordClick(wordIndex, event) {
-    const highlight = highlightManager ? highlightManager.findHighlightForWord(wordIndex) : null;
+    const highlight = findHighlightForWordByTime(wordIndex);
 
     if (highlight) {
       const rect = event.target.getBoundingClientRect();
@@ -415,19 +369,14 @@
     }
 
     // Don't create highlight if word is already highlighted
-    if (highlightManager && highlightManager.findHighlightForWord(wordIndex)) {
+    if (findHighlightForWordByTime(wordIndex)) {
       return;
     }
 
-    // Use HighlightManager to create single-word highlight
-    if (highlightManager) {
-      try {
-        const result = highlightManager.createHighlightFromSelection(wordIndex, wordIndex, null, true);
-        emitChanges(result);
-      } catch (error) {
-        console.error("Failed to create single-word highlight:", error);
-      }
-    }
+    // Create new highlight from word timestamps
+    const word = words[wordIndex];
+    const result = addHighlight(highlights, word.start, word.end, usedColors);
+    emitChanges(result.highlights);
 
     event.preventDefault();
     event.stopPropagation();
@@ -448,47 +397,35 @@
       selectionStart !== null &&
       selectionEnd !== null
     ) {
-      // Use HighlightManager to update highlight
-      if (highlightManager) {
-        try {
-          console.log("🎯 Applying drag selection:", {
-            highlightId: dragTarget.highlightId,
-            originalStart: dragTarget.originalHighlight.start,
-            originalEnd: dragTarget.originalHighlight.end,
-            newStart: selectionStart,
-            newEnd: selectionEnd,
-            dragMode,
-            isFirstWord: dragTarget.isFirstWord,
-            isLastWord: dragTarget.isLastWord
-          });
-
-          const result = highlightManager.updateHighlightBounds(
-            dragTarget.highlightId,
-            selectionStart,
-            selectionEnd
-          );
-          emitChanges(result);
-        } catch (error) {
-          console.error("Failed to update highlight:", error);
-        }
-      }
+      // Update the highlight with new timestamps
+      console.log('💾 Saving drag result:', {
+        dragTarget: dragTarget.highlightId,
+        originalTimestamps: { start: dragTarget.originalHighlight.start, end: dragTarget.originalHighlight.end },
+        newTimestamps: { start: selectionStart, end: selectionEnd }
+      });
+      
+      const updatedHighlights = updateHighlight(
+        highlights,
+        dragTarget.highlightId,
+        selectionStart,
+        selectionEnd
+      );
+      
+      emitChanges(updatedHighlights);
     } else if (
       isSelecting &&
       selectionStart !== null &&
       selectionEnd !== null &&
       selectionAnchor !== null
     ) {
-      // Use HighlightManager to create new highlight
+      // Create new highlight from selection
       const startIndex = selectionStart;
       const endIndex = selectionEnd;
 
-      if (startIndex !== endIndex && highlightManager) {
-        try {
-          const result = highlightManager.createHighlightFromSelection(startIndex, endIndex);
-          emitChanges(result);
-        } catch (error) {
-          console.error("Failed to create highlight:", error);
-        }
+      if (Math.abs(selectionStart - selectionEnd) > 0.01) {
+        // Create new highlight from timestamps
+        const result = addHighlight(highlights, selectionStart, selectionEnd, usedColors);
+        emitChanges(result.highlights);
       }
     }
 
@@ -503,16 +440,10 @@
   }
 
   function handleDeleteHighlight(highlightId) {
-    if (highlightManager) {
-      try {
-        const result = highlightManager.deleteHighlight(highlightId);
-        showDeleteButton = false;
-        deleteButtonHighlight = null;
-        emitChanges(result);
-      } catch (error) {
-        console.error("Failed to delete highlight:", error);
-      }
-    }
+    const updatedHighlights = removeHighlight(highlights, highlightId);
+    showDeleteButton = false;
+    deleteButtonHighlight = null;
+    emitChanges(updatedHighlights);
   }
 
   // === MOUNT ===
@@ -535,22 +466,20 @@
 
 <div class="leading-relaxed select-none" class:dragging={isDragging}>
   {#each displayWords as word, wordIndex}
-    {@const highlight = highlightManager ? highlightManager.findHighlightForWord(wordIndex) : null}
+    {@const highlight = findHighlightForWordByTime(wordIndex)}
     {@const suggestedHighlight = findSuggestedHighlightForWord(
       wordIndex,
       suggestedHighlights
     )}
-    {@const inSelection = isSelecting && highlightManager ? highlightManager.isWordInSelection(
-      wordIndex,
-      selectionStart,
-      selectionEnd
-    ) : false}
+    {@const inSelection = isSelecting && words[wordIndex] && 
+      words[wordIndex].start >= selectionStart && words[wordIndex].end <= selectionEnd}
     {@const inDragPreview =
       isDragging && dragTarget && isWordInDragPreview(wordIndex)}
 
     {#if isDragging && dragTarget && highlight && dragTarget.highlightId === highlight.id}
       <!-- Word is part of the highlight being dragged -->
-      {@const inNewSelection = wordIndex >= selectionStart && wordIndex <= selectionEnd}
+      {@const inNewSelection = words[wordIndex] && 
+        words[wordIndex].start >= selectionStart && words[wordIndex].end <= selectionEnd}
       {#if inNewSelection}
         <!-- Word will remain in the highlight -->
         <span
@@ -583,7 +512,8 @@
           {word.word}
         </span>
       {/if}
-    {:else if isDragging && dragTarget && wordIndex >= selectionStart && wordIndex <= selectionEnd && !highlight}
+    {:else if isDragging && dragTarget && words[wordIndex] && 
+      words[wordIndex].start >= selectionStart && words[wordIndex].end <= selectionEnd && !highlight}
       <!-- Drag expansion preview (word will be added) -->
       <span 
         class="inline cursor-pointer px-1.5 py-0.5 rounded bg-blue-300/40"

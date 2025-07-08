@@ -179,6 +179,8 @@ export namespace highlights {
 	    end: number;
 	    color: string;
 	    text: string;
+	    startIndex: number;
+	    endIndex: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new HighlightWithText(source);
@@ -191,6 +193,8 @@ export namespace highlights {
 	        this.end = source["end"];
 	        this.color = source["color"];
 	        this.text = source["text"];
+	        this.startIndex = source["startIndex"];
+	        this.endIndex = source["endIndex"];
 	    }
 	}
 	export class ProjectAISettings {

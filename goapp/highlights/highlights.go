@@ -25,11 +25,13 @@ type Highlight struct {
 
 // HighlightWithText represents a highlight with its text content
 type HighlightWithText struct {
-	ID    string  `json:"id"`
-	Start float64 `json:"start"`
-	End   float64 `json:"end"`
-	Color string  `json:"color"`
-	Text  string  `json:"text"`
+	ID         string  `json:"id"`
+	Start      float64 `json:"start"`
+	End        float64 `json:"end"`
+	Color      string  `json:"color"`
+	Text       string  `json:"text"`
+	StartIndex int     `json:"startIndex"` // Word index where highlight starts
+	EndIndex   int     `json:"endIndex"`   // Word index where highlight ends
 }
 
 // ProjectHighlight represents a video clip with its highlights
@@ -264,9 +266,15 @@ func (s *HighlightService) GetProjectHighlights(projectID int) ([]ProjectHighlig
 				Color: h.Color,
 			}
 
-			// Extract text for the highlight if transcription exists
+			// Extract text and word indices for the highlight if transcription exists
 			if clip.Transcription != "" && len(clip.TranscriptionWords) > 0 {
 				hwt.Text = s.extractHighlightText(h, clip.TranscriptionWords, clip.Transcription)
+				// Calculate word indices from timestamps
+				hwt.StartIndex = s.findWordIndexByTimestamp(h.Start, clip.TranscriptionWords, true)
+				hwt.EndIndex = s.findWordIndexByTimestamp(h.End, clip.TranscriptionWords, false)
+			} else {
+				hwt.StartIndex = -1
+				hwt.EndIndex = -1
 			}
 
 			highlightsWithText = append(highlightsWithText, hwt)
@@ -515,6 +523,32 @@ func (s *HighlightService) TimeToWordIndex(timeSeconds float64, transcriptWords 
 // WordIndexToTime converts word index to time in seconds (public method)
 func (s *HighlightService) WordIndexToTime(wordIndex int, transcriptWords []schema.Word) float64 {
 	return s.wordIndexToTime(wordIndex, transcriptWords)
+}
+
+// findWordIndexByTimestamp finds the word index for a given timestamp
+// isStart: true for finding start index, false for end index
+func (s *HighlightService) findWordIndexByTimestamp(timestamp float64, words []schema.Word, isStart bool) int {
+	if len(words) == 0 {
+		return -1
+	}
+
+	// For start timestamp, find first word that overlaps
+	if isStart {
+		for i, word := range words {
+			if word.End >= timestamp {
+				return i
+			}
+		}
+		return len(words) - 1
+	}
+
+	// For end timestamp, find last word that overlaps
+	for i := len(words) - 1; i >= 0; i-- {
+		if words[i].Start <= timestamp {
+			return i
+		}
+	}
+	return 0
 }
 
 // wordIndexToTime converts word index to time in seconds
