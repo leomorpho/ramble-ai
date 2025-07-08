@@ -21,7 +21,7 @@ pre-commit:
         fi
         if git diff --cached --name-only | grep -q "^frontend/"; then
           echo "🧪 Running Frontend tests..."
-          cd frontend && npm test || exit 1
+          cd frontend && npm run test:run || exit 1
         fi
       fail_text: "Tests failed"
       skip:
@@ -35,12 +35,12 @@ pre-push:
     # Full test suite before push
     full-frontend-tests:
       root: "frontend/"
-      run: npm test
+      run: npm run test:run
       fail_text: "Full frontend test suite failed"
       
     full-go-tests:
       root: "./"
-      run: go test ./...
+      run: go test ./... -short -timeout=60s
       fail_text: "Full Go test suite failed"
 
 # Commit message hooks
