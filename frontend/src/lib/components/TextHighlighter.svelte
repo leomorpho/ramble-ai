@@ -1,4 +1,43 @@
 <script>
+  /*
+   * ===============================================================================
+   * TEXThighlighter - TIMESTAMP-ONLY ARCHITECTURE
+   * ===============================================================================
+   * 
+   * CRITICAL: This component uses a TIMESTAMP-ONLY approach for all highlight operations.
+   * 
+   * DO NOT CONVERT TO INDEX-BASED SYSTEM:
+   * - Word indices cause precision errors during drag operations
+   * - Round-trip timestamp↔index conversions introduce off-by-one bugs
+   * - Users can resize word timespans, making indices unreliable
+   * 
+   * ARCHITECTURE PRINCIPLES:
+   * 1. All highlights are stored with START and END TIMESTAMPS (not indices)
+   * 2. All selection operations work with TIMESTAMPS (not indices) 
+   * 3. Word finding uses timestamp ranges, not index lookups
+   * 4. Drag operations modify timestamps directly, no conversions
+   * 5. Preview logic compares word timestamps to selection timestamps
+   * 
+   * FUNCTIONS THAT MUST REMAIN TIMESTAMP-BASED:
+   * - findHighlightForWordByTime() - finds highlights by timestamp overlap
+   * - handleWordMouseDown() - sets selection start/end to word timestamps
+   * - handleWordMouseEnter() - updates selection using timestamps
+   * - handleMouseUp() - saves highlights using timestamps directly
+   * 
+   * NEVER:
+   * - Convert highlights to indices for processing
+   * - Use word.index or similar index-based lookups
+   * - Create index-based selection variables
+   * - Convert back and forth between timestamps and indices
+   * 
+   * This architecture was implemented to fix critical drag bugs where:
+   * - Dragging first word left by 1 would add 2 words
+   * - Dragging to remove words would only remove 1 instead of selected amount  
+   * - Dragging last word would incorrectly add words to beginning
+   * 
+   * ===============================================================================
+   */
+  
   import { onMount } from "svelte";
   import { Button } from "$lib/components/ui/button";
   import TimeGap from "$lib/components/ui/TimeGap.svelte";
@@ -55,6 +94,7 @@
 
   // === DRAG STATE ===
   let isDragging = $state(false);
+  let dragPrepared = $state(false); // True when mousedown occurred but no movement yet
   let dragTarget = $state(null); // { highlightId, wordIndex, isFirstWord, isLastWord, originalHighlight }
   let dragMode = $state(null); // 'expand' | 'contract'
 
@@ -233,25 +273,21 @@
     const existingHighlight = findHighlightForWordByTime(wordIndex);
 
     if (existingHighlight) {
-      // Start drag operation on existing highlight
+      // Prepare for potential drag operation on existing highlight
       const currentWord = words[wordIndex];
       const isFirstWord = Math.abs(currentWord.start - existingHighlight.start) < 0.01;
       const isLastWord = Math.abs(currentWord.end - existingHighlight.end) < 0.01;
+      const isSingleWord = isFirstWord && isLastWord;
 
-      console.log('🎯 Starting drag:', {
-        wordIndex,
-        isFirstWord,
-        isLastWord,
-        originalHighlight: existingHighlight,
-        word: words[wordIndex]
-      });
-
-      isDragging = true;
+      // Only prepare drag, don't start it yet (wait for mouse movement)
+      dragPrepared = true;
       dragTarget = {
         highlightId: existingHighlight.id,
         wordIndex,
         isFirstWord,
         isLastWord,
+        isSingleWord,
+        originalWordIndex: wordIndex, // Store original word index for single-word highlights
         originalHighlight: { ...existingHighlight },
       };
 
@@ -283,15 +319,40 @@
       selectionEnd = Math.max(selectionAnchor, hoveredWord.end);
     }
 
+    // Start dragging if we're prepared and mouse moves
+    if (dragPrepared && !isDragging && dragTarget) {
+      isDragging = true;
+      dragPrepared = false;
+      console.log('🎯 Starting drag on movement:', {
+        wordIndex,
+        dragTarget
+      });
+    }
+
     if (isDragging && dragTarget && selectionAnchor !== null) {
       // Calculate drag selection
-      const { originalHighlight, isFirstWord, isLastWord } = dragTarget;
+      const { originalHighlight, isFirstWord, isLastWord, isSingleWord, originalWordIndex } = dragTarget;
       
       // Determine boundaries based on which end is being dragged
       let newStart, newEnd;
       const draggedWord = words[wordIndex];
       
-      if (isFirstWord) {
+      if (isSingleWord) {
+        // For single-word highlights, determine direction based on mouse movement
+        if (wordIndex < originalWordIndex) {
+          // Dragging left - expand the start (adjust start timestamp)
+          newStart = draggedWord.start;
+          newEnd = originalHighlight.end;
+        } else if (wordIndex > originalWordIndex) {
+          // Dragging right - expand the end (adjust end timestamp)
+          newStart = originalHighlight.start;
+          newEnd = draggedWord.end;
+        } else {
+          // Same word - no change
+          newStart = originalHighlight.start;
+          newEnd = originalHighlight.end;
+        }
+      } else if (isFirstWord) {
         // Dragging the first word handle - adjust start timestamp
         newStart = draggedWord.start;
         newEnd = originalHighlight.end;
@@ -321,13 +382,16 @@
       
       console.log('🖱️ Drag update:', {
         wordIndex,
+        originalWordIndex,
         currentWord: draggedWord,
         originalStart: originalHighlight.start,
         originalEnd: originalHighlight.end,
         newStart,
         newEnd,
         isFirstWord,
-        isLastWord
+        isLastWord,
+        isSingleWord,
+        dragDirection: isSingleWord ? (wordIndex < originalWordIndex ? 'left' : wordIndex > originalWordIndex ? 'right' : 'none') : 'N/A'
       });
       
       // Determine drag mode
@@ -435,6 +499,7 @@
     selectionEnd = null;
     selectionAnchor = null;
     isDragging = false;
+    dragPrepared = false;
     dragTarget = null;
     dragMode = null;
   }
