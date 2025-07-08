@@ -316,12 +316,10 @@ func TestHighlightService_GetProjectHighlightOrder_Integration(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, order)
 
-	// Manually create a highlight order setting
-	settingKey := "project_1_highlight_order"
-	_, err = client.Settings.
-		Create().
-		SetKey(settingKey).
-		SetValue(`["h3", "h1", "h2"]`).
+	// Update the project with a highlight order (using new project schema approach)
+	_, err = client.Project.
+		UpdateOneID(project.ID).
+		SetHighlightOrder([]string{"h3", "h1", "h2"}).
 		Save(ctx)
 	require.NoError(t, err)
 
