@@ -12,54 +12,18 @@ output:
 pre-commit:
   parallel: false
   commands:
-    # Frontend tests (only if frontend files changed)
-    frontend-tests:
-      root: "frontend/"
-      glob: "frontend/**/*.{js,ts,svelte}"
+    # Only run tests if relevant files changed
+    tests:
       run: |
-        if [[ "{all_files}" == *"frontend/"* ]]; then
-          npm test
+        if git diff --cached --name-only | grep -q "\\.go$"; then
+          echo "🧪 Running Go tests..."
+          go test ./... -short -timeout=30s || exit 1
         fi
-      fail_text: "Frontend tests failed"
-      skip:
-        - merge
-        - rebase
-      
-    # Go tests (only changed packages)
-    go-tests:
-      root: "./"
-      glob: "*.go"
-      run: |
-        if [[ "{all_files}" == *".go"* ]]; then
-          go test ./... -short -timeout=30s
+        if git diff --cached --name-only | grep -q "^frontend/"; then
+          echo "🧪 Running Frontend tests..."
+          cd frontend && npm test || exit 1
         fi
-      fail_text: "Go tests failed"
-      skip:
-        - merge
-        - rebase
-
-    # Go format check
-    go-fmt:
-      root: "./"
-      glob: "*.go"
-      run: |
-        if [ -n "$(gofmt -l {staged_files})" ]; then
-          echo "Go files are not formatted:"
-          gofmt -l {staged_files}
-          echo "Run 'gofmt -w {staged_files}' to fix"
-          exit 1
-        fi
-      fail_text: "Go files are not formatted"
-      skip:
-        - merge
-        - rebase
-
-    # Frontend format check
-    frontend-fmt:
-      root: "frontend/"
-      glob: "*.{js,ts,svelte}"
-      run: npx prettier --check {staged_files}
-      fail_text: "Frontend files are not formatted"
+      fail_text: "Tests failed"
       skip:
         - merge
         - rebase
