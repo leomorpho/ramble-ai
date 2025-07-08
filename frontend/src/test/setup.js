@@ -18,3 +18,38 @@ global.IntersectionObserver = vi.fn().mockImplementation(() => ({
   unobserve: vi.fn(),
   disconnect: vi.fn(),
 }));
+
+// Mock Wails JS bindings
+vi.mock('$lib/wailsjs/go/main/App', () => ({
+  DeleteSuggestedHighlight: vi.fn().mockResolvedValue(undefined)
+}));
+
+// Mock UI components
+vi.mock('$lib/components/ui/button', () => ({
+  Button: {
+    $$render: () => '<button>Mocked Button</button>'
+  }
+}));
+
+vi.mock('$lib/components/ui/TimeGap.svelte', () => ({
+  default: {
+    $$render: () => '<span> </span>'
+  }
+}));
+
+// Mock TextHighlighter utils
+vi.mock('./TextHighlighter.utils.js', () => ({
+  findWordByTimestamp: vi.fn(),
+  addHighlight: vi.fn((highlights, start, end, usedColors) => ({
+    highlights: [...highlights, { id: 'new', start, end, color: '#ffeb3b' }],
+    newHighlight: { id: 'new', start, end, color: '#ffeb3b' }
+  })),
+  removeHighlight: vi.fn((highlights, id) => highlights.filter(h => h.id !== id)),
+  updateHighlight: vi.fn((highlights, id, start, end) => 
+    highlights.map(h => h.id === id ? { ...h, start, end } : h)
+  ),
+  findHighlightForWord: vi.fn(),
+  checkOverlap: vi.fn(),
+  isWordInSelection: vi.fn(),
+  calculateTimestamps: vi.fn()
+}));
