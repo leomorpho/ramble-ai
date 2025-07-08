@@ -102,6 +102,10 @@
   let activeTab = $state("clips");
   let debounceTimer = null;
 
+  // Delete confirmation dialog state
+  let deleteDialogOpen = $state(false);
+  let clipToDelete = $state(null);
+
   // Get project ID from route params
   let projectId = $derived(parseInt($page.params.id));
 
@@ -577,17 +581,38 @@
     }
   }
 
-  async function handleDeleteClip(clipId) {
+  function handleDeleteClip(clipId) {
+    // Find the clip to delete
+    const clip = videoClips.find(c => c.id === clipId);
+    if (!clip) return;
+
+    // Set the clip to delete and show confirmation dialog
+    clipToDelete = clip;
+    deleteDialogOpen = true;
+  }
+
+  async function confirmDeleteClip() {
+    if (!clipToDelete) return;
+
     try {
-      await DeleteVideoClip(clipId);
-      videoClips = videoClips.filter((clip) => clip.id !== clipId);
+      await DeleteVideoClip(clipToDelete.id);
+      videoClips = videoClips.filter((clip) => clip.id !== clipToDelete.id);
 
       // Refresh highlights after deletion
       await loadHighlights();
+      
+      // Close dialog and reset state
+      deleteDialogOpen = false;
+      clipToDelete = null;
     } catch (err) {
       console.error("Failed to delete video clip:", err);
       clipError = "Failed to delete video clip";
     }
+  }
+
+  function cancelDeleteClip() {
+    deleteDialogOpen = false;
+    clipToDelete = null;
   }
 
   function formatFileSize(bytes) {
@@ -1590,3 +1615,41 @@
     {/if}
   </div>
 </main>
+
+<!-- Delete Video Clip Confirmation Dialog -->
+<Dialog bind:open={deleteDialogOpen}>
+  <DialogContent class="sm:max-w-[425px]">
+    <DialogHeader>
+      <DialogTitle>Delete Video Clip</DialogTitle>
+      <DialogDescription>
+        Are you sure you want to delete this video clip? This action cannot be undone.
+      </DialogDescription>
+    </DialogHeader>
+    
+    {#if clipToDelete}
+      <div class="py-4">
+        <div class="space-y-2">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-medium">Name:</span>
+            <span class="text-sm text-muted-foreground">{clipToDelete.name}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-medium">File:</span>
+            <span class="text-sm text-muted-foreground">{clipToDelete.fileName}</span>
+          </div>
+          {#if clipToDelete.transcription}
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-medium">Status:</span>
+              <span class="text-sm text-muted-foreground">Has transcription</span>
+            </div>
+          {/if}
+        </div>
+      </div>
+    {/if}
+    
+    <DialogFooter>
+      <Button variant="outline" onclick={cancelDeleteClip}>Cancel</Button>
+      <Button variant="destructive" onclick={confirmDeleteClip}>Delete Clip</Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
