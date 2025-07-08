@@ -19,28 +19,26 @@ describe('TextHighlighter Utils', () => {
     it('should return first base color when no colors used', () => {
       const usedColors = new Set();
       const color = generateUniqueColor(usedColors);
-      expect(color).toBe('#ffeb3b');
+      expect(color).toBe('var(--highlight-1)');
     });
 
     it('should return second base color when first is used', () => {
-      const usedColors = new Set(['#ffeb3b']);
+      const usedColors = new Set(['var(--highlight-1)']);
       const color = generateUniqueColor(usedColors);
-      expect(color).toBe('#81c784');
+      expect(color).toBe('var(--highlight-2)');
     });
 
-    it('should generate HSL color when all base colors are used', () => {
-      const usedColors = new Set(['#ffeb3b', '#81c784', '#64b5f6', '#ff8a65', '#f06292']);
+    it('should return extended color when base colors are used', () => {
+      const usedColors = new Set(['var(--highlight-1)', 'var(--highlight-2)', 'var(--highlight-3)', 'var(--highlight-4)', 'var(--highlight-5)']);
       const color = generateUniqueColor(usedColors);
-      expect(color).toMatch(/^hsl\(\d+, [\d.]+%, [\d.]+%\)$/);
+      expect(color).toBe('var(--highlight-6)');
     });
 
-    it('should generate different HSL colors on multiple calls', () => {
-      const usedColors = new Set(['#ffeb3b', '#81c784', '#64b5f6', '#ff8a65', '#f06292']);
-      const color1 = generateUniqueColor(usedColors);
-      const color2 = generateUniqueColor(usedColors);
-      // Since it's random, we can't guarantee they're different, but they should be HSL format
-      expect(color1).toMatch(/^hsl\(\d+, [\d.]+%, [\d.]+%\)$/);
-      expect(color2).toMatch(/^hsl\(\d+, [\d.]+%, [\d.]+%\)$/);
+    it('should fallback to random highlight when all extended colors used', () => {
+      const allColors = Array.from({ length: 15 }, (_, i) => `var(--highlight-${i + 1})`);
+      const usedColors = new Set(allColors);
+      const color = generateUniqueColor(usedColors);
+      expect(color).toMatch(/^var\(--highlight-\d+\)$/);
     });
   });
 
@@ -55,15 +53,15 @@ describe('TextHighlighter Utils', () => {
       expect(highlight).toMatchObject({
         start: 0,
         end: 5,
-        color: '#ffeb3b'
+        color: 'var(--highlight-1)'
       });
       expect(highlight.id).toMatch(/^highlight_\d+_[a-z0-9]+$/);
     });
 
     it('should use unique color from usedColors', () => {
-      const usedColors = new Set(['#ffeb3b']);
+      const usedColors = new Set(['var(--highlight-1)']);
       const highlight = createHighlight(0, 5, usedColors);
-      expect(highlight.color).toBe('#81c784');
+      expect(highlight.color).toBe('var(--highlight-2)');
     });
   });
 
@@ -368,7 +366,7 @@ describe('TextHighlighter Utils', () => {
       expect(result.newHighlight).toMatchObject({
         start: 5,
         end: 8,
-        color: '#ffeb3b'
+        color: 'var(--highlight-1)'
       });
       expect(result.highlights[1]).toEqual(result.newHighlight);
     });

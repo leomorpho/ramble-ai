@@ -1,0 +1,97 @@
+# Lefthook configuration for MYAPP
+# https://github.com/evilmartians/lefthook
+
+# Global configuration
+output:
+  - execution
+  - execution_out
+  - execution_info
+  - summary
+
+# Pre-commit hooks
+pre-commit:
+  parallel: false
+  commands:
+    # Frontend tests (only if frontend files changed)
+    frontend-tests:
+      root: "frontend/"
+      glob: "frontend/**/*.{js,ts,svelte}"
+      run: |
+        if [[ "{all_files}" == *"frontend/"* ]]; then
+          npm test
+        fi
+      fail_text: "Frontend tests failed"
+      skip:
+        - merge
+        - rebase
+      
+    # Go tests (only changed packages)
+    go-tests:
+      root: "./"
+      glob: "*.go"
+      run: |
+        if [[ "{all_files}" == *".go"* ]]; then
+          go test ./... -short -timeout=30s
+        fi
+      fail_text: "Go tests failed"
+      skip:
+        - merge
+        - rebase
+
+    # Go format check
+    go-fmt:
+      root: "./"
+      glob: "*.go"
+      run: |
+        if [ -n "$(gofmt -l {staged_files})" ]; then
+          echo "Go files are not formatted:"
+          gofmt -l {staged_files}
+          echo "Run 'gofmt -w {staged_files}' to fix"
+          exit 1
+        fi
+      fail_text: "Go files are not formatted"
+      skip:
+        - merge
+        - rebase
+
+    # Frontend format check
+    frontend-fmt:
+      root: "frontend/"
+      glob: "*.{js,ts,svelte}"
+      run: npx prettier --check {staged_files}
+      fail_text: "Frontend files are not formatted"
+      skip:
+        - merge
+        - rebase
+
+# Pre-push hooks
+pre-push:
+  parallel: false
+  commands:
+    # Full test suite before push
+    full-frontend-tests:
+      root: "frontend/"
+      run: npm test
+      fail_text: "Full frontend test suite failed"
+      
+    full-go-tests:
+      root: "./"
+      run: go test ./...
+      fail_text: "Full Go test suite failed"
+
+# Commit message hooks
+commit-msg:
+  commands:
+    # Check commit message format
+    commit-check:
+      run: |
+        if ! grep -qE '^(feat|fix|docs|style|refactor|test|chore)(\(.+\))?: .{1,50}' "{1}"; then
+          echo "Invalid commit message format."
+          echo "Use: type(scope): description"
+          echo "Types: feat, fix, docs, style, refactor, test, chore"
+          exit 1
+        fi
+      fail_text: "Commit message format is invalid"
+      skip:
+        - merge
+        - rebase

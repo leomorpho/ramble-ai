@@ -10,14 +10,22 @@ import (
 
 	"MYAPP/ent"
 	"MYAPP/ent/enttest"
+	"MYAPP/ent/migrate"
 	"MYAPP/ent/schema"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 // setupTestDB creates a test database for testing
 func setupTestDB(t testing.TB) (*ent.Client, context.Context) {
-	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	// Use unique database name per test to avoid sharing issues
+	dbName := fmt.Sprintf("file:ent_%d?mode=memory&cache=shared&_fk=1", time.Now().UnixNano())
+	client := enttest.Open(t, "sqlite3", dbName)
 	ctx := context.Background()
+	
+	// Ensure all migrations are run - use forceful recreation
+	err := client.Schema.Create(ctx, migrate.WithGlobalUniqueID(true))
+	require.NoError(t, err)
+	
 	return client, ctx
 }
 

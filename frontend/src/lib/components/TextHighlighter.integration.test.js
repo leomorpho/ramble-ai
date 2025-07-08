@@ -35,7 +35,7 @@ describe('TextHighlighter Integration Tests', () => {
       expect(result1.highlights).toHaveLength(1);
       expect(result1.newHighlight.start).toBe(1);
       expect(result1.newHighlight.end).toBe(2);
-      expect(result1.newHighlight.color).toBe('#ffeb3b');
+      expect(result1.newHighlight.color).toBe('var(--highlight-1)');
       
       // 2. Update used colors
       usedColors.add(result1.newHighlight.color);
@@ -43,7 +43,7 @@ describe('TextHighlighter Integration Tests', () => {
       // 3. Create second highlight with different color
       const result2 = addHighlight(result1.highlights, 4, 5, usedColors);
       expect(result2.highlights).toHaveLength(2);
-      expect(result2.newHighlight.color).toBe('#81c784'); // Next color
+      expect(result2.newHighlight.color).toBe('var(--highlight-2)'); // Next color
       
       // 4. Check grouping works correctly
       const groups = groupWordsAndHighlights(sampleWords, result2.highlights);
@@ -56,8 +56,8 @@ describe('TextHighlighter Integration Tests', () => {
 
     it('should handle highlight modification workflow', () => {
       let highlights = [
-        { id: 'h1', start: 1, end: 3, color: '#ffeb3b' },
-        { id: 'h2', start: 5, end: 6, color: '#81c784' }
+        { id: 'h1', start: 1, end: 3, color: 'var(--highlight-1)' },
+        { id: 'h2', start: 5, end: 6, color: 'var(--highlight-2)' }
       ];
       
       // 1. Update highlight position
@@ -168,24 +168,25 @@ describe('TextHighlighter Integration Tests', () => {
       let usedColors = new Set();
       
       // 1. Use all base colors
-      const baseColors = ['#ffeb3b', '#81c784', '#64b5f6', '#ff8a65', '#f06292'];
+      const baseColors = ['var(--highlight-1)', 'var(--highlight-2)', 'var(--highlight-3)', 'var(--highlight-4)', 'var(--highlight-5)'];
       baseColors.forEach(color => {
         const generatedColor = generateUniqueColor(usedColors);
         expect(generatedColor).toBe(color);
         usedColors.add(generatedColor);
       });
       
-      // 2. Generate HSL colors when base colors exhausted
-      const hslColor1 = generateUniqueColor(usedColors);
-      const hslColor2 = generateUniqueColor(usedColors);
+      // 2. Generate extended colors when base colors exhausted
+      const extendedColor1 = generateUniqueColor(usedColors);
+      usedColors.add(extendedColor1);
+      const extendedColor2 = generateUniqueColor(usedColors);
       
-      expect(hslColor1).toMatch(/^hsl\(\d+, [\d.]+%, [\d.]+%\)$/);
-      expect(hslColor2).toMatch(/^hsl\(\d+, [\d.]+%, [\d.]+%\)$/);
+      expect(extendedColor1).toBe('var(--highlight-6)');
+      expect(extendedColor2).toBe('var(--highlight-7)');
       
       // 3. Color recycling simulation
-      usedColors.delete('#ffeb3b');
+      usedColors.delete('var(--highlight-1)');
       const recycledColor = generateUniqueColor(usedColors);
-      expect(recycledColor).toBe('#ffeb3b');
+      expect(recycledColor).toBe('var(--highlight-1)');
     });
   });
 

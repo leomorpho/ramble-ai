@@ -98,12 +98,59 @@ frontend-check-watch: ## Type check frontend code in watch mode
 
 # Testing
 .PHONY: test
-test: ## Run tests
+test: ## Run all tests (Go + Frontend)
+	@echo "🧪 Running Go tests..."
+	go test ./... -short
+	@echo "🧪 Running Frontend tests..."
+	cd frontend && npm test
+
+.PHONY: test-go
+test-go: ## Run Go tests only
 	go test ./...
 
-.PHONY: test-verbose
-test-verbose: ## Run tests with verbose output
+.PHONY: test-go-short
+test-go-short: ## Run Go tests in short mode
+	go test ./... -short
+
+.PHONY: test-go-verbose
+test-go-verbose: ## Run Go tests with verbose output
 	go test -v ./...
+
+.PHONY: test-frontend
+test-frontend: ## Run Frontend tests only
+	cd frontend && npm test
+
+.PHONY: test-frontend-ui
+test-frontend-ui: ## Run Frontend tests with UI
+	cd frontend && npm run test:ui
+
+.PHONY: test-frontend-run
+test-frontend-run: ## Run Frontend tests once (CI mode)
+	cd frontend && npm run test:run
+
+.PHONY: test-verbose
+test-verbose: ## Run all tests with verbose output
+	@echo "🧪 Running Go tests (verbose)..."
+	go test -v ./...
+	@echo "🧪 Running Frontend tests..."
+	cd frontend && npm test
+
+.PHONY: test-coverage
+test-coverage: ## Run tests with coverage report
+	@echo "🧪 Running Go tests with coverage..."
+	go test ./... -short -coverprofile=coverage.out
+	@if [ -f coverage.out ]; then \
+		go tool cover -html=coverage.out -o coverage.html; \
+		echo "📊 Coverage report generated: coverage.html"; \
+	fi
+	@echo "🧪 Running Frontend tests..."
+	cd frontend && npm test
+
+.PHONY: test-watch
+test-watch: ## Run tests in watch mode
+	@echo "Starting test watchers..."
+	@echo "Frontend tests will watch for changes..."
+	cd frontend && npm run test:watch
 
 # Maintenance
 .PHONY: deps
