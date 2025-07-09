@@ -578,6 +578,12 @@ func (s *AIService) ReorderHighlightsWithAI(projectID int, customPrompt string, 
 		prompt = aiSettings.AIPrompt
 	}
 
+	// Get current highlight order to preserve existing newlines
+	currentOrder, err := s.highlightService.GetProjectHighlightOrder(projectID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current highlight order: %w", err)
+	}
+
 	// Get all project highlights
 	projectHighlights, err := getProjectHighlights(projectID)
 	if err != nil {
@@ -603,17 +609,65 @@ func (s *AIService) ReorderHighlightsWithAI(projectID int, customPrompt string, 
 		return []string{}, nil
 	}
 
-	// Call OpenRouter API to get AI reordering
+	// Call OpenRouter API to get AI reordering with newline support
 	reorderedIDs, err := s.callOpenRouterForReordering(apiKey, aiSettings.AIModel, highlightMap, prompt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get AI reordering: %w", err)
 	}
 
-	// Validate that all IDs are present in the reordered list
-	if len(reorderedIDs) != len(highlightIDs) {
-		log.Printf("AI reordering returned %d IDs but expected %d", len(reorderedIDs), len(highlightIDs))
+	// Debug log before deduplication
+	log.Printf("=== BEFORE DEDUPLICATION ===")
+	log.Printf("Reordered IDs count: %d", len(reorderedIDs))
+	for i, id := range reorderedIDs {
+		log.Printf("  %d. %s", i+1, id)
+	}
+	log.Printf("=============================")
+
+	// Clean up duplicates while preserving order and newlines
+	reorderedIDs = s.deduplicateHighlightIDs(reorderedIDs, highlightIDs)
+
+	// Debug log after deduplication
+	log.Printf("=== AFTER DEDUPLICATION ===")
+	log.Printf("Final reordered IDs count: %d", len(reorderedIDs))
+	for i, id := range reorderedIDs {
+		log.Printf("  %d. %s", i+1, id)
+	}
+	log.Printf("=============================")
+
+	// Flatten consecutive 'N' characters before returning
+	reorderedIDs = s.flattenConsecutiveNewlines(reorderedIDs)
+
+	// Debug log final return value
+	log.Printf("=== FINAL RETURN VALUE (after flattening) ===")
+	log.Printf("Returning %d items to frontend:", len(reorderedIDs))
+	for i, id := range reorderedIDs {
+		if id == "N" {
+			log.Printf("  %d. NEWLINE CHARACTER", i+1)
+		} else {
+			log.Printf("  %d. %s", i+1, id)
+		}
+	}
+	log.Printf("==============================================")
+
+	// Validate that all highlight IDs are present in the reordered list (excluding "N" characters)
+	// Handle duplicates by creating a set of unique IDs
+	actualHighlightIDSet := make(map[string]bool)
+	for _, id := range reorderedIDs {
+		if id != "N" {
+			actualHighlightIDSet[id] = true
+		}
+	}
+
+	// Convert to slice for counting
+	actualHighlightIDs := make([]string, 0, len(actualHighlightIDSet))
+	for id := range actualHighlightIDSet {
+		actualHighlightIDs = append(actualHighlightIDs, id)
+	}
+
+	if len(actualHighlightIDs) != len(highlightIDs) {
+		log.Printf("AI reordering returned %d unique highlight IDs but expected %d", len(actualHighlightIDs), len(highlightIDs))
 		// Fallback to original order if counts don't match
-		return highlightIDs, nil
+		return currentOrder, nil
 	}
 
 	// Validate that all original IDs are present
@@ -622,11 +676,20 @@ func (s *AIService) ReorderHighlightsWithAI(projectID int, customPrompt string, 
 		originalIDSet[id] = true
 	}
 
-	for _, id := range reorderedIDs {
+	for _, id := range actualHighlightIDs {
 		if !originalIDSet[id] {
 			log.Printf("AI reordering returned unknown ID: %s", id)
 			// Fallback to original order if unknown IDs are present
-			return highlightIDs, nil
+			return currentOrder, nil
+		}
+	}
+
+	// Check for missing IDs
+	for _, id := range highlightIDs {
+		if !actualHighlightIDSet[id] {
+			log.Printf("AI reordering is missing required ID: %s", id)
+			// Fallback to original order if IDs are missing
+			return currentOrder, nil
 		}
 	}
 
@@ -656,6 +719,7 @@ func (s *AIService) callOpenRouterForReordering(apiKey string, model string, hig
 	log.Printf("Highlight count: %d", len(highlightMap))
 	log.Printf("Prompt length: %d characters", len(prompt))
 	log.Printf("Prompt content: %s", prompt)
+	log.Printf("Contains newline instructions: %v", strings.Contains(prompt, "N\" characters"))
 	log.Printf("==============================")
 
 	// Create request payload
@@ -789,13 +853,21 @@ Here are the video highlight segments:
 		prompt += fmt.Sprintf("   Content: %s\n\n", entry.text)
 	}
 
+	// Always append the newline instructions regardless of custom prompt
 	prompt += `
 
 Analyze these segments and reorder them to create the highest quality video possible for maximum viewer engagement and retention.
 
-IMPORTANT: Respond with ONLY a JSON array containing the highlight IDs in the new order. Do not include any explanation, reasoning, or additional text.
+IMPORTANT: 
+1. Respond with ONLY a JSON array containing the highlight IDs in the new order
+2. You can add section breaks by including "N" characters in the array to separate different sections
+3. Place "N" characters strategically to create logical groups or chapters in the video
+4. Each "N" represents a visual break/newline in the final video timeline
+5. Use each highlight ID exactly once - do not duplicate any IDs
+6. Include ALL provided highlight IDs in your response (no IDs should be missing)
+7. Do not include any explanation, reasoning, or additional text
 
-Example format: ["id1", "id2", "id3", ...]`
+Example format: ["id1", "id2", "N", "id3", "id4", "N", "id5"]`
 
 	return prompt
 }
@@ -830,7 +902,49 @@ func (s *AIService) parseAIReorderingResponse(response string) ([]string, error)
 		}
 	}
 
+	// Validate that "N" characters are properly formatted
+	for i, id := range reorderedIDs {
+		if id != "N" && !strings.HasPrefix(id, "highlight_") {
+			log.Printf("Warning: unexpected ID format at position %d: %s", i, id)
+		}
+	}
+
 	return reorderedIDs, nil
+}
+
+// deduplicateHighlightIDs removes duplicate highlight IDs while preserving order and newlines
+func (s *AIService) deduplicateHighlightIDs(reorderedIDs []string, originalIDs []string) []string {
+	// Create a set of original IDs for validation
+	originalIDSet := make(map[string]bool)
+	for _, id := range originalIDs {
+		originalIDSet[id] = true
+	}
+
+	// Track which IDs we've seen to avoid duplicates
+	seenIDs := make(map[string]bool)
+	result := make([]string, 0)
+
+	for _, id := range reorderedIDs {
+		if id == "N" {
+			// Always include newline characters
+			result = append(result, id)
+		} else if originalIDSet[id] && !seenIDs[id] {
+			// Only include original IDs that we haven't seen before
+			result = append(result, id)
+			seenIDs[id] = true
+		}
+		// Skip duplicates and unknown IDs
+	}
+
+	// Add any missing original IDs at the end
+	for _, id := range originalIDs {
+		if !seenIDs[id] {
+			result = append(result, id)
+		}
+	}
+
+	log.Printf("Deduplication: input %d items, output %d items", len(reorderedIDs), len(result))
+	return result
 }
 
 // ImproveHighlightSilencesWithAI uses AI to suggest improved timings for highlights with natural silence buffers
@@ -845,6 +959,12 @@ func (s *AIService) ImproveHighlightSilencesWithAI(projectID int, getAPIKey func
 	aiSettings, err := s.GetProjectAISettings(projectID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get project AI settings: %w", err)
+	}
+
+	// Get current highlight order to preserve newlines
+	currentOrder, err := s.highlightService.GetProjectHighlightOrder(projectID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current highlight order: %w", err)
 	}
 
 	// Get all project highlights with their transcription words
@@ -902,7 +1022,21 @@ func (s *AIService) ImproveHighlightSilencesWithAI(projectID int, getAPIKey func
 		// Don't fail the request if saving fails, just log the error
 	}
 
+	log.Printf("ImproveHighlightSilencesWithAI: Current highlight order preserved (contains %d newlines)", 
+		len(currentOrder) - countHighlightIds(currentOrder))
+
 	return improvedHighlights, nil
+}
+
+// countHighlightIds counts the number of actual highlight IDs (excluding "N" characters)
+func countHighlightIds(order []string) int {
+	count := 0
+	for _, id := range order {
+		if id != "N" {
+			count++
+		}
+	}
+	return count
 }
 
 // improveVideoHighlights improves highlights for a single video
@@ -1306,4 +1440,29 @@ func ClearAISilenceImprovementsCache(ctx context.Context, client *ent.Client, pr
 	}
 	
 	return nil
+}
+
+// flattenConsecutiveNewlines removes consecutive 'N' characters from the array
+func (s *AIService) flattenConsecutiveNewlines(ids []string) []string {
+	if len(ids) <= 1 {
+		return ids
+	}
+
+	var result []string
+	lastWasNewline := false
+
+	for _, id := range ids {
+		if id == "N" {
+			if !lastWasNewline {
+				result = append(result, id)
+				lastWasNewline = true
+			}
+			// Skip consecutive newlines
+		} else {
+			result = append(result, id)
+			lastWasNewline = false
+		}
+	}
+
+	return result
 }

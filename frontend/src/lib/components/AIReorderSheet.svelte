@@ -12,7 +12,7 @@
   import AISettings from "$lib/components/ui/AISettings.svelte";
   import CustomSheet from "$lib/components/ui/CustomSheet.svelte";
   import EtroVideoPlayer from "$lib/components/videoplayback/EtroVideoPlayer.svelte";
-  import HighlightItem from "$lib/components/HighlightItem.svelte";
+  import ReorderableHighlights from "$lib/components/ReorderableHighlights.svelte";
   import { updateHighlightOrder } from "$lib/stores/projectHighlights.js";
 
   // Props
@@ -39,15 +39,6 @@
   // AI dialog independent state
   let aiDialogHighlights = $state([]);
   let aiSelectedHighlights = $state(new Set());
-  let aiIsDragging = $state(false);
-  let aiDraggedHighlights = $state([]);
-  let aiDropPosition = $state(null);
-  let aiDragStartPosition = $state(null);
-  let aiIsDropping = $state(false);
-
-  // AI dialog drag state
-  let aiDragStartIndex = $state(-1);
-  let aiDragOverIndex = $state(-1);
 
   let customModelValue = $state("");
 
@@ -112,11 +103,6 @@ Feel free to completely restructure the order - move any segment to any position
     aiDialogHighlights = [...highlights];
     originalHighlights = [...highlights];
     aiSelectedHighlights.clear();
-    aiIsDragging = false;
-    aiDraggedHighlights = [];
-    aiDropPosition = null;
-    aiDragStartPosition = null;
-    aiIsDropping = false;
 
     // Load project AI settings
     try {
@@ -152,11 +138,16 @@ Feel free to completely restructure the order - move any segment to any position
           highlightsMap.set(highlight.id, highlight);
         }
 
-        // Reorder based on cached suggestion
+        // Reorder based on cached suggestion - preserve 'N' characters for newlines
         for (const id of cachedSuggestion.order) {
-          const highlight = highlightsMap.get(id);
-          if (highlight) {
-            reorderedHighlights.push(highlight);
+          if (id === "N") {
+            // Preserve newline characters in the format expected by ReorderableHighlights
+            reorderedHighlights.push({ id: "N", type: "newline" });
+          } else {
+            const highlight = highlightsMap.get(id);
+            if (highlight) {
+              reorderedHighlights.push(highlight);
+            }
           }
         }
 
@@ -235,11 +226,16 @@ Feel free to completely restructure the order - move any segment to any position
         highlightsMap.set(highlight.id, highlight);
       }
 
-      // Build reordered array
+      // Build reordered array - preserve 'N' characters for newlines
       for (const id of reorderedIds) {
-        const highlight = highlightsMap.get(id);
-        if (highlight) {
-          reorderedHighlights.push(highlight);
+        if (id === "N") {
+          // Preserve newline characters in the format expected by ReorderableHighlights
+          reorderedHighlights.push({ id: "N", type: "newline" });
+        } else {
+          const highlight = highlightsMap.get(id);
+          if (highlight) {
+            reorderedHighlights.push(highlight);
+          }
         }
       }
 
@@ -274,8 +270,17 @@ Feel free to completely restructure the order - move any segment to any position
     if (aiReorderedHighlights.length === 0) return;
 
     try {
+      // Convert aiReorderedHighlights to the format expected by updateHighlightOrder
+      const highlightIds = aiReorderedHighlights.map(item => {
+        if (item.type === "newline" || item.id === "N") {
+          return "N";
+        } else {
+          return item.id;
+        }
+      });
+
       // Update via centralized store
-      const success = await updateHighlightOrder(aiReorderedHighlights);
+      const success = await updateHighlightOrder(highlightIds);
 
       if (success) {
         open = false; // Close the sheet
@@ -299,55 +304,11 @@ Feel free to completely restructure the order - move any segment to any position
     toast.success("Reset to original highlight order");
   }
 
-  // AI dialog drag handlers
-  function handleAIDragStart(event, index) {
-    aiDragStartIndex = index;
-    aiIsDragging = true;
-    aiDraggedHighlights = [aiDialogHighlights[index].id];
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", index.toString());
-  }
-
-  function handleAIDragEnd() {
-    aiDragStartIndex = -1;
-    aiDragOverIndex = -1;
-    aiIsDragging = false;
-    aiDraggedHighlights = [];
-    aiDropPosition = null;
-  }
-
-  function handleAIDragOver(event, targetIndex) {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-    aiDragOverIndex = targetIndex;
-    aiDropPosition = targetIndex;
-  }
-
-  async function handleAIDrop(event, targetIndex) {
-    event.preventDefault();
-
-    if (aiDragStartIndex === -1 || aiDragStartIndex === targetIndex) {
-      handleAIDragEnd();
-      return;
-    }
-
-    // Reorder the AI dialog highlights array
-    const newHighlights = [...aiDialogHighlights];
-    const draggedItem = newHighlights[aiDragStartIndex];
-
-    // Remove dragged item
-    newHighlights.splice(aiDragStartIndex, 1);
-
-    // Insert at new position
-    const insertIndex =
-      aiDragStartIndex < targetIndex ? targetIndex - 1 : targetIndex;
-    newHighlights.splice(insertIndex, 0, draggedItem);
-
+  // Handle reordering from the ReorderableHighlights component
+  async function handleAIReorder(newHighlights) {
     // Update both AI dialog highlights and reordered highlights for sync
     aiDialogHighlights = newHighlights;
     aiReorderedHighlights = newHighlights;
-
-    handleAIDragEnd();
   }
 
   // Handle reordering from the EtroVideoPlayer in AI preview mode
@@ -356,28 +317,6 @@ Feel free to completely restructure the order - move any segment to any position
     aiDialogHighlights = newHighlights;
     aiReorderedHighlights = newHighlights;
     return Promise.resolve(); // Return resolved promise for success
-  }
-
-  // AI dialog container drag functions
-  function handleAIContainerDragOver(event) {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-  }
-
-  function handleAIContainerDrop(event) {
-    event.preventDefault();
-    // Handle drop at end of timeline
-    if (aiDragStartIndex !== -1) {
-      const targetIndex = aiDialogHighlights.length;
-      handleAIDrop(event, targetIndex);
-    }
-  }
-
-  function handleAIContainerDragLeave(event) {
-    // Reset drag indicators when leaving container
-    if (!event.currentTarget.contains(event.relatedTarget)) {
-      aiDropPosition = null;
-    }
   }
 </script>
 
@@ -511,45 +450,24 @@ Feel free to completely restructure the order - move any segment to any position
                     </h3>
 
                     <!-- Timeline-style highlight display -->
-                    <div
-                      class="p-4 bg-background rounded-lg min-h-[80px] relative leading-relaxed text-base border"
-                      role="application"
-                      ondragover={(e) => handleAIContainerDragOver(e)}
-                      ondrop={(e) => handleAIContainerDrop(e)}
-                      ondragleave={handleAIContainerDragLeave}
-                    >
-                      {#if aiDialogHighlights.length === 0}
-                        <div class="text-center py-4 text-muted-foreground">
-                          <p class="text-sm">No highlights to display.</p>
-                        </div>
-                      {:else}
-                        {#each aiDialogHighlights as highlight, index}
-                          <HighlightItem
-                            {highlight}
-                            {index}
-                            isSelected={aiSelectedHighlights.has(highlight.id)}
-                            isDragging={aiIsDragging}
-                            isBeingDragged={aiIsDragging &&
-                              aiDraggedHighlights.includes(highlight.id) &&
-                              aiDraggedHighlights[0] === highlight.id}
-                            showDropIndicatorBefore={aiIsDragging &&
-                              aiDropPosition === index}
-                            onSelect={() => {}}
-                            onDragStart={(e, h, i) => handleAIDragStart(e, i)}
-                            onDragEnd={handleAIDragEnd}
-                            onDragOver={(e, i) => handleAIDragOver(e, i)}
-                            onDrop={(e, i) => handleAIDrop(e, i)}
-                            onEdit={() => {}}
-                            onDelete={() => {}}
-                            popoverOpen={false}
-                            onPopoverOpenChange={() => {}}
-                          />
-                          {#if index < aiDialogHighlights.length - 1}
-                            <span class="mx-1"> </span>
-                          {/if}
-                        {/each}
-                      {/if}
-                    </div>
+                    <ReorderableHighlights
+                      highlights={aiDialogHighlights}
+                      bind:selectedHighlights={aiSelectedHighlights}
+                      onReorder={handleAIReorder}
+                      onSelect={null}
+                      onEdit={() => {}}
+                      onDelete={() => {}}
+                      onPopoverOpenChange={() => {}}
+                      getHighlightWords={() => []}
+                      isPopoverOpen={() => false}
+                      enableMultiSelect={false}
+                      enableNewlines={true}
+                      enableSelection={false}
+                      enableEdit={false}
+                      enableDelete={false}
+                      showAddNewLineButtons={true}
+                      containerClass="p-4 bg-background rounded-lg min-h-[80px] relative leading-relaxed text-base border"
+                    />
                   </div>
                 </div>
               {:else}

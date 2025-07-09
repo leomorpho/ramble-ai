@@ -142,17 +142,23 @@ export async function updateHighlightOrder(newOrder) {
         return item.id;
       }
     });
+
+    // Flatten consecutive 'N' characters to prevent multiple blank lines
+    const flattenedIds = flattenConsecutiveNewlines(highlightIds);
+    
+    // Store original order for potential revert
+    const originalOrder = get(highlightOrder);
     
     // Update local state first (optimistic update)
-    highlightOrder.set(highlightIds);
+    highlightOrder.set(flattenedIds);
     
     // Save to database
-    await UpdateProjectHighlightOrder(projectId, highlightIds);
+    await UpdateProjectHighlightOrder(projectId, flattenedIds);
     
     // Update history status after successful order change
     await updateOrderHistoryStatus();
     
-    console.log('Updated highlight order in database:', highlightIds);
+    console.log('Updated highlight order in database:', flattenedIds);
     toast.success('Highlight order updated successfully');
     
     return true;
@@ -160,9 +166,14 @@ export async function updateHighlightOrder(newOrder) {
     console.error('Failed to update highlight order:', error);
     toast.error('Failed to save highlight order');
     
-    // Reload from database to revert optimistic update
-    const order = await GetProjectHighlightOrder(projectId).catch(() => []);
-    highlightOrder.set(order || []);
+    // Revert to original order on failure
+    try {
+      const order = await GetProjectHighlightOrder(projectId);
+      highlightOrder.set(order || []);
+    } catch (revertError) {
+      // If we can't load from database, revert to what we had before
+      highlightOrder.set(originalOrder);
+    }
     
     return false;
   }
@@ -171,8 +182,37 @@ export async function updateHighlightOrder(newOrder) {
 // Function to insert a new line indicator at a specific position
 export async function insertNewLine(position) {
   const currentOrder = get(highlightOrder);
+  const orderedHighlightsList = get(orderedHighlights);
+  
+  // Convert the visual position (in orderedHighlights) to the position in highlightOrder
+  let actualPosition = 0;
+  
+  // If position is 0, insert at the beginning
+  if (position === 0) {
+    actualPosition = 0;
+  } else {
+    // Find the position in currentOrder where we should insert
+    // We need to map the visual position to the database position
+    let highlightsSeen = 0;
+    let orderIndex = 0;
+    
+    for (let i = 0; i < position && i < orderedHighlightsList.length; i++) {
+      const item = orderedHighlightsList[i];
+      if (item.type !== 'newline') {
+        highlightsSeen++;
+        // Find this highlight in the current order
+        while (orderIndex < currentOrder.length && currentOrder[orderIndex] === 'N') {
+          orderIndex++;
+        }
+        orderIndex++; // Move past this highlight
+      }
+    }
+    
+    actualPosition = orderIndex;
+  }
+  
   const newOrder = [...currentOrder];
-  newOrder.splice(position, 0, 'N');
+  newOrder.splice(actualPosition, 0, 'N');
   
   return await updateHighlightOrder(newOrder);
 }
@@ -180,10 +220,42 @@ export async function insertNewLine(position) {
 // Function to remove a new line indicator at a specific position
 export async function removeNewLine(position) {
   const currentOrder = get(highlightOrder);
-  const newOrder = [...currentOrder];
-  newOrder.splice(position, 1);
+  const orderedHighlightsList = get(orderedHighlights);
   
-  return await updateHighlightOrder(newOrder);
+  // Check if the position is valid and contains a newline
+  if (position >= orderedHighlightsList.length || orderedHighlightsList[position].type !== 'newline') {
+    return false;
+  }
+  
+  // Find the actual position in highlightOrder corresponding to the visual position
+  let actualPosition = -1;
+  let orderIndex = 0;
+  
+  for (let i = 0; i <= position && i < orderedHighlightsList.length; i++) {
+    const item = orderedHighlightsList[i];
+    if (item.type === 'newline') {
+      if (i === position) {
+        actualPosition = orderIndex;
+        break;
+      } else {
+        orderIndex++; // Move past this newline
+      }
+    } else {
+      // This is a highlight, find it in the current order
+      while (orderIndex < currentOrder.length && currentOrder[orderIndex] === 'N') {
+        orderIndex++;
+      }
+      orderIndex++; // Move past this highlight
+    }
+  }
+  
+  if (actualPosition >= 0) {
+    const newOrder = [...currentOrder];
+    newOrder.splice(actualPosition, 1);
+    return await updateHighlightOrder(newOrder);
+  }
+  
+  return false;
 }
 
 // Function to refresh highlights from database
@@ -492,4 +564,29 @@ export async function redoHighlightsChange(clipId) {
     toast.error('Failed to redo highlights change');
     return false;
   }
+}
+
+// Utility function to flatten consecutive 'N' characters
+function flattenConsecutiveNewlines(ids) {
+  if (!ids || ids.length <= 1) {
+    return ids;
+  }
+
+  const result = [];
+  let lastWasNewline = false;
+
+  for (const id of ids) {
+    if (id === 'N') {
+      if (!lastWasNewline) {
+        result.push(id);
+        lastWasNewline = true;
+      }
+      // Skip consecutive newlines
+    } else {
+      result.push(id);
+      lastWasNewline = false;
+    }
+  }
+
+  return result;
 }

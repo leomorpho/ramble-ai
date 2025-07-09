@@ -15,9 +15,7 @@
   import EtroVideoPlayer from "$lib/components/videoplayback/EtroVideoPlayer.svelte";
   import VideoPlayerKeyHandler from "$lib/components/videoplayback/VideoPlayerKeyHandler.svelte";
   import ClipEditor from "$lib/components/ClipEditor.svelte";
-  import HighlightItem from "$lib/components/HighlightItem.svelte";
-  import NewLineItem from "$lib/components/NewLineItem.svelte";
-  import AddNewLineButton from "$lib/components/AddNewLineButton.svelte";
+  import ReorderableHighlights from "$lib/components/ReorderableHighlights.svelte";
   import AIReorderSheet from "$lib/components/AIReorderSheet.svelte";
   import {
     updateHighlightOrder,
@@ -36,13 +34,8 @@
   // Local state
   let error = $state("");
 
-  // New multiselect and drag state
+  // Multiselect state (managed by ReorderableHighlights component)
   let selectedHighlights = $state(new Set());
-  let isDragging = $state(false);
-  let draggedHighlights = $state([]);
-  let dropPosition = $state(null);
-  let dragStartPosition = $state(null);
-  let isDropping = $state(false); // Prevent concurrent drops
 
   // Video player dialog state
   let videoDialogOpen = $state(false);
@@ -276,251 +269,9 @@
     highlightToDelete = null;
   }
 
-  // New multiselect and drag handlers
-
-  // Handle highlight selection with multiselect support
-  function handleHighlightSelect(event, highlight) {
-    // Don't select new lines
-    if (highlight.type === 'newline') return;
-    
-    const isCtrlOrCmd = event.ctrlKey || event.metaKey;
-
-    if (isCtrlOrCmd) {
-      // Toggle selection for this highlight
-      const newSelection = new Set(selectedHighlights);
-      if (newSelection.has(highlight.id)) {
-        newSelection.delete(highlight.id);
-      } else {
-        newSelection.add(highlight.id);
-      }
-      selectedHighlights = newSelection;
-    } else {
-      // Single select - clear others and select this one, or play if already selected
-      if (
-        selectedHighlights.has(highlight.id) &&
-        selectedHighlights.size === 1
-      ) {
-        // If it's the only selected item, play it
-        handleHighlightClick(highlight);
-      } else {
-        // Single select this highlight
-        selectedHighlights = new Set([highlight.id]);
-      }
-    }
-  }
-
-  // Handle new drag start with multiselect support
-  function handleNewDragStart(event, highlight, index) {
-    event.dataTransfer.effectAllowed = "move";
-
-    if (highlight.type === 'newline') {
-      // New lines are draggable individually
-      isDragging = true;
-      dragStartPosition = index;
-      draggedHighlights = [highlight.id];
-    } else {
-      // If the dragged highlight is not selected, select only it
-      if (!selectedHighlights.has(highlight.id)) {
-        selectedHighlights = new Set([highlight.id]);
-      }
-
-      // Set up drag state
-      isDragging = true;
-      dragStartPosition = index;
-      draggedHighlights = Array.from(selectedHighlights);
-    }
-
-    // Store the highlight IDs in dataTransfer for the drag operation
-    event.dataTransfer.setData("text/plain", JSON.stringify(draggedHighlights));
-  }
-
-  // Handle container-level drag over
-  function handleContainerDragOver(event) {
-    event.preventDefault();
-    if (isDragging) {
-      event.dataTransfer.dropEffect = "move";
-    }
-  }
-
-  // Handle container-level drop
-  async function handleContainerDrop(event) {
-    event.preventDefault();
-
-    if (isDragging) {
-      // Default to dropping at the end if no position set
-      if (dropPosition === null) {
-        dropPosition = highlights.length;
-      }
-      console.log("handleContainerDrop: triggering drop", { dropPosition });
-      await performDrop();
-    }
-  }
-
-  // Handle container drag leave
-  function handleContainerDragLeave(event) {
-    // Only clear if we're leaving the container entirely
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = event.clientX;
-    const y = event.clientY;
-
-    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
-      dropPosition = null;
-    }
-  }
-
-  // Handle span drag over
-  function handleSpanDragOver(event, index) {
-    event.preventDefault();
-
-    if (isDragging) {
-      event.dataTransfer.dropEffect = "move";
-
-      // Calculate drop position based on mouse position within the span
-      const rect = event.currentTarget.getBoundingClientRect();
-      const mouseX = event.clientX;
-      const centerX = rect.left + rect.width / 2;
-
-      // If mouse is in the left half, drop before this item, otherwise after
-      dropPosition = mouseX < centerX ? index : index + 1;
-    }
-  }
-
-  // Handle span drop
-  async function handleSpanDrop(event, index) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    if (isDragging) {
-      // Calculate final drop position based on mouse position
-      const rect = event.currentTarget.getBoundingClientRect();
-      const mouseX = event.clientX;
-      const centerX = rect.left + rect.width / 2;
-
-      dropPosition = mouseX < centerX ? index : index + 1;
-      console.log("handleSpanDrop: triggering drop", { index, dropPosition });
-      await performDrop();
-    }
-  }
-
-  // Perform the actual drop operation
-  async function performDrop() {
-    if (
-      !isDragging ||
-      draggedHighlights.length === 0 ||
-      dropPosition === null ||
-      isDropping
-    ) {
-      console.log("performDrop: early return", {
-        isDragging,
-        draggedHighlights: draggedHighlights.length,
-        dropPosition,
-        isDropping,
-      });
-      return;
-    }
-
-    // Prevent concurrent drops
-    isDropping = true;
-
-    // Store current state before cleanup
-    const draggedIds = [...draggedHighlights];
-    const insertPosition = dropPosition;
-
-    console.log("performDrop: starting", {
-      draggedIds,
-      insertPosition,
-      totalHighlights: highlights.length,
-    });
-
-    try {
-      const currentHighlights = [...highlights]; // Create a copy
-
-      // Validate that we have valid data
-      if (currentHighlights.length === 0) {
-        console.error("performDrop: no highlights to reorder");
-        return;
-      }
-
-      // Create new order using a simpler, more reliable algorithm
-      const newOrder = [];
-      const draggedItems = [];
-      const remainingItems = [];
-
-      // Separate dragged items from remaining items, preserving order
-      for (const highlight of currentHighlights) {
-        if (draggedIds.includes(highlight.id)) {
-          draggedItems.push(highlight);
-        } else {
-          remainingItems.push(highlight);
-        }
-      }
-
-      // Validate we found all dragged items
-      if (draggedItems.length !== draggedIds.length) {
-        console.error("performDrop: could not find all dragged items", {
-          expected: draggedIds.length,
-          found: draggedItems.length,
-        });
-        return;
-      }
-
-      // Insert dragged items at the correct position
-      const adjustedInsertPosition = Math.min(
-        insertPosition,
-        remainingItems.length
-      );
-
-      // Build the new order
-      for (let i = 0; i <= remainingItems.length; i++) {
-        if (i === adjustedInsertPosition) {
-          newOrder.push(...draggedItems);
-        }
-        if (i < remainingItems.length) {
-          newOrder.push(remainingItems[i]);
-        }
-      }
-
-      // Validate the new order has the correct length
-      if (newOrder.length !== currentHighlights.length) {
-        console.error("performDrop: new order has wrong length", {
-          original: currentHighlights.length,
-          newOrder: newOrder.length,
-        });
-        return;
-      }
-
-      // Check if order actually changed
-      const orderChanged = !newOrder.every(
-        (item, index) => item.id === currentHighlights[index].id
-      );
-
-      if (!orderChanged) {
-        console.log("performDrop: order unchanged, skipping update");
-        return;
-      }
-
-      console.log("performDrop: updating order", {
-        oldOrder: currentHighlights.map((h) => h.id),
-        newOrder: newOrder.map((h) => h.id),
-      });
-
-      // Update via store
-      await updateHighlightOrder(newOrder);
-    } catch (error) {
-      console.error("performDrop: error during drop operation:", error);
-    } finally {
-      // Clean up drag state
-      isDropping = false;
-      handleNewDragEnd();
-    }
-  }
-
-  // Handle drag end cleanup
-  function handleNewDragEnd() {
-    isDragging = false;
-    draggedHighlights = [];
-    dropPosition = null;
-    dragStartPosition = null;
+  // Handle reordering via the ReorderableHighlights component
+  async function handleHighlightReorder(newOrder) {
+    await updateHighlightOrder(newOrder);
   }
 
   // Handle AI reordering - open sheet
@@ -687,84 +438,30 @@
   {:else}
     <!-- Natural text flow highlight timeline -->
     <div class="highlights-paragraph">
-      <div
-        class="p-4 bg-muted/30 rounded-lg min-h-[80px] relative leading-relaxed text-base"
-        role="application"
-        ondragover={(e) => handleContainerDragOver(e)}
-        ondrop={(e) => handleContainerDrop(e)}
-        ondragleave={handleContainerDragLeave}
-      >
-        {#if highlights.length === 0}
-          <div class="text-center py-4 text-muted-foreground">
-            <p class="text-sm">
-              No highlights yet. Create highlights in your video transcriptions
-              to see them here.
-            </p>
-          </div>
-        {:else}
-          {#each highlights as item, index}
-            {#if item.type === 'newline'}
-              <!-- New line creates actual line break -->
-              <br />
-              <NewLineItem
-                newlineItem={item}
-                {index}
-                {isDragging}
-                isBeingDragged={isDragging && draggedHighlights.includes(item.id)}
-                showDropIndicatorBefore={isDragging && dropPosition === index}
-                showDropIndicatorAfter={false}
-                onDragStart={handleNewDragStart}
-                onDragEnd={handleNewDragEnd}
-                onDragOver={handleSpanDragOver}
-                onDrop={handleSpanDrop}
-              />
-              <br />
-            {:else}
-              <!-- Add new line button before highlight (only if previous item is also a highlight) -->
-              {#if !isDragging && index > 0 && highlights[index - 1].type !== 'newline'}
-                <AddNewLineButton position={index} />
-              {/if}
-              
-              <HighlightItem
-                highlight={item}
-                {index}
-                isSelected={selectedHighlights.has(item.id)}
-                {isDragging}
-                isBeingDragged={isDragging &&
-                  draggedHighlights.includes(item.id) &&
-                  draggedHighlights[0] === item.id}
-                showDropIndicatorBefore={isDragging && dropPosition === index}
-                onSelect={handleHighlightSelect}
-                onDragStart={handleNewDragStart}
-                onDragEnd={handleNewDragEnd}
-                onDragOver={handleSpanDragOver}
-                onDrop={handleSpanDrop}
-                onEdit={handleEditHighlight}
-                onDelete={handleDeleteConfirm}
-                popoverOpen={isPopoverOpen(item.id)}
-                onPopoverOpenChange={(open) => {
-                  if (open) {
-                    openPopover(item.id);
-                  } else {
-                    closePopover(item.id);
-                  }
-                }}
-                words={getHighlightWords(item)}
-              />
-            {/if}
-          {/each}
-
-          <!-- Add new line button at the end (only if last item is a highlight) -->
-          {#if !isDragging && highlights.length > 0 && highlights[highlights.length - 1].type !== 'newline'}
-            <AddNewLineButton position={highlights.length} />
-          {/if}
-
-          <!-- Drop indicator at the end or after the last newline -->
-          {#if isDragging && (dropPosition >= highlights.length || (highlights.length > 0 && highlights[highlights.length - 1]?.type === 'newline' && dropPosition === highlights.length))}
-            <span class="drop-indicator">|</span>
-          {/if}
-        {/if}
-      </div>
+      <ReorderableHighlights
+        {highlights}
+        bind:selectedHighlights
+        onReorder={handleHighlightReorder}
+        onSelect={null}
+        onEdit={handleEditHighlight}
+        onDelete={handleDeleteConfirm}
+        onPopoverOpenChange={(highlightId, isOpen) => {
+          if (isOpen) {
+            openPopover(highlightId);
+          } else {
+            closePopover(highlightId);
+          }
+        }}
+        {getHighlightWords}
+        {isPopoverOpen}
+        onHighlightClick={handleHighlightClick}
+        enableMultiSelect={true}
+        enableNewlines={true}
+        enableSelection={true}
+        enableEdit={true}
+        enableDelete={true}
+        showAddNewLineButtons={true}
+      />
     </div>
   {/if}
 
@@ -985,12 +682,5 @@
   .highlights-paragraph {
     line-height: 1.8;
     word-spacing: 2px;
-  }
-
-  /* Natural text wrapping */
-  .highlights-paragraph > div {
-    word-break: break-word;
-    hyphens: auto;
-    text-align: justify;
   }
 </style>

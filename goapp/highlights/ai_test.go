@@ -181,6 +181,91 @@ func TestSaveSuggestedHighlights(t *testing.T) {
 	}
 }
 
+// TestFlattenConsecutiveNewlines tests the consecutive newline flattening logic
+func TestFlattenConsecutiveNewlines(t *testing.T) {
+	service := &AIService{
+		highlightService: &HighlightService{},
+	}
+
+	tests := []struct {
+		name     string
+		input    []string
+		expected []string
+	}{
+		{
+			name:     "No newlines",
+			input:    []string{"id1", "id2", "id3"},
+			expected: []string{"id1", "id2", "id3"},
+		},
+		{
+			name:     "Single newline",
+			input:    []string{"id1", "N", "id2"},
+			expected: []string{"id1", "N", "id2"},
+		},
+		{
+			name:     "Two consecutive newlines",
+			input:    []string{"id1", "N", "N", "id2"},
+			expected: []string{"id1", "N", "id2"},
+		},
+		{
+			name:     "Three consecutive newlines",
+			input:    []string{"id1", "N", "N", "N", "id2"},
+			expected: []string{"id1", "N", "id2"},
+		},
+		{
+			name:     "Multiple separated newlines",
+			input:    []string{"id1", "N", "id2", "N", "id3"},
+			expected: []string{"id1", "N", "id2", "N", "id3"},
+		},
+		{
+			name:     "Consecutive newlines at start",
+			input:    []string{"N", "N", "id1", "id2"},
+			expected: []string{"N", "id1", "id2"},
+		},
+		{
+			name:     "Consecutive newlines at end",
+			input:    []string{"id1", "id2", "N", "N"},
+			expected: []string{"id1", "id2", "N"},
+		},
+		{
+			name:     "Mixed consecutive newlines",
+			input:    []string{"id1", "N", "N", "id2", "N", "N", "N", "id3", "N", "id4"},
+			expected: []string{"id1", "N", "id2", "N", "id3", "N", "id4"},
+		},
+		{
+			name:     "All newlines",
+			input:    []string{"N", "N", "N", "N"},
+			expected: []string{"N"},
+		},
+		{
+			name:     "Empty array",
+			input:    []string{},
+			expected: []string{},
+		},
+		{
+			name:     "Single element",
+			input:    []string{"id1"},
+			expected: []string{"id1"},
+		},
+		{
+			name:     "Single newline",
+			input:    []string{"N"},
+			expected: []string{"N"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := service.flattenConsecutiveNewlines(tt.input)
+			
+			assert.Equal(t, len(tt.expected), len(result))
+			for i, expected := range tt.expected {
+				assert.Equal(t, expected, result[i])
+			}
+		})
+	}
+}
+
 // TestFilterValidHighlightSuggestions tests the overlap detection logic
 func TestFilterValidHighlightSuggestions(t *testing.T) {
 	service := &AIService{
@@ -351,6 +436,206 @@ func TestTimeToWordIndexForEnd(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			index := service.timeToWordIndexForEnd(tt.endTime, transcriptWords)
 			assert.Equal(t, tt.expectedIndex, index)
+		})
+	}
+}
+
+// TestParseAIReorderingResponse tests the AI reordering response parsing with N characters
+func TestParseAIReorderingResponse(t *testing.T) {
+	service := &AIService{
+		highlightService: &HighlightService{},
+	}
+
+	tests := []struct {
+		name     string
+		input    string
+		expected []string
+		wantErr  bool
+	}{
+		{
+			name:     "Valid response with N characters",
+			input:    `["id1", "id2", "N", "id3", "id4", "N", "id5"]`,
+			expected: []string{"id1", "id2", "N", "id3", "id4", "N", "id5"},
+			wantErr:  false,
+		},
+		{
+			name:     "Valid response without N characters",
+			input:    `["id1", "id2", "id3", "id4", "id5"]`,
+			expected: []string{"id1", "id2", "id3", "id4", "id5"},
+			wantErr:  false,
+		},
+		{
+			name:     "Response with markdown formatting",
+			input:    "```json\n[\"id1\", \"id2\", \"N\", \"id3\"]\n```",
+			expected: []string{"id1", "id2", "N", "id3"},
+			wantErr:  false,
+		},
+		{
+			name:     "Response with extra text",
+			input:    `Here is the reordered array: ["id1", "N", "id2"] - this should work well.`,
+			expected: []string{"id1", "N", "id2"},
+			wantErr:  false,
+		},
+		{
+			name:    "Invalid JSON",
+			input:   `["id1", "id2", "N", "id3"`,
+			wantErr: true,
+		},
+		{
+			name:    "No JSON array found",
+			input:   `This is just text without any JSON array.`,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := service.parseAIReorderingResponse(tt.input)
+			
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, len(tt.expected), len(result))
+
+			for i, expected := range tt.expected {
+				assert.Equal(t, expected, result[i])
+			}
+		})
+	}
+}
+
+// TestDeduplicateHighlightIDs tests the deduplication logic for highlight IDs
+func TestDeduplicateHighlightIDs(t *testing.T) {
+	service := &AIService{
+		highlightService: &HighlightService{},
+	}
+
+	tests := []struct {
+		name        string
+		reorderedIDs []string
+		originalIDs []string
+		expected    []string
+	}{
+		{
+			name:        "No duplicates with N characters",
+			reorderedIDs: []string{"id1", "id2", "N", "id3", "id4"},
+			originalIDs: []string{"id1", "id2", "id3", "id4"},
+			expected:    []string{"id1", "id2", "N", "id3", "id4"},
+		},
+		{
+			name:        "Duplicates with N characters",
+			reorderedIDs: []string{"id1", "id2", "N", "id1", "id3", "N", "id2", "id4"},
+			originalIDs: []string{"id1", "id2", "id3", "id4"},
+			expected:    []string{"id1", "id2", "N", "id3", "N", "id4"},
+		},
+		{
+			name:        "Missing ID gets added at end",
+			reorderedIDs: []string{"id1", "N", "id3"},
+			originalIDs: []string{"id1", "id2", "id3"},
+			expected:    []string{"id1", "N", "id3", "id2"},
+		},
+		{
+			name:        "Unknown IDs get filtered out",
+			reorderedIDs: []string{"id1", "unknown", "N", "id2", "another_unknown"},
+			originalIDs: []string{"id1", "id2"},
+			expected:    []string{"id1", "N", "id2"},
+		},
+		{
+			name:        "Complex case with duplicates and unknowns",
+			reorderedIDs: []string{"id1", "id2", "N", "id1", "unknown", "id3", "N", "id2", "id4"},
+			originalIDs: []string{"id1", "id2", "id3", "id4"},
+			expected:    []string{"id1", "id2", "N", "id3", "N", "id4"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := service.deduplicateHighlightIDs(tt.reorderedIDs, tt.originalIDs)
+			
+			assert.Equal(t, len(tt.expected), len(result))
+
+			for i, expected := range tt.expected {
+				assert.Equal(t, expected, result[i])
+			}
+		})
+	}
+}
+
+// TestAIReorderingWithNCharacters tests the complete flow from LLM response to final output
+func TestAIReorderingWithNCharacters(t *testing.T) {
+	service := &AIService{
+		highlightService: &HighlightService{},
+	}
+
+	// Test the complete flow from LLM response to final output
+	tests := []struct {
+		name         string
+		llmResponse  string
+		originalIDs  []string
+		expectedFinal []string
+	}{
+		{
+			name:         "Perfect LLM response with N characters",
+			llmResponse:  `["highlight_1", "highlight_2", "N", "highlight_3", "highlight_4"]`,
+			originalIDs:  []string{"highlight_1", "highlight_2", "highlight_3", "highlight_4"},
+			expectedFinal: []string{"highlight_1", "highlight_2", "N", "highlight_3", "highlight_4"},
+		},
+		{
+			name:         "LLM response with duplicates",
+			llmResponse:  `["highlight_1", "highlight_2", "N", "highlight_1", "highlight_3", "N", "highlight_2", "highlight_4"]`,
+			originalIDs:  []string{"highlight_1", "highlight_2", "highlight_3", "highlight_4"},
+			expectedFinal: []string{"highlight_1", "highlight_2", "N", "highlight_3", "N", "highlight_4"},
+		},
+		{
+			name:         "LLM response with missing ID",
+			llmResponse:  `["highlight_1", "N", "highlight_3"]`,
+			originalIDs:  []string{"highlight_1", "highlight_2", "highlight_3"},
+			expectedFinal: []string{"highlight_1", "N", "highlight_3", "highlight_2"},
+		},
+		{
+			name:         "LLM response with unknown and duplicate IDs",
+			llmResponse:  `["highlight_1", "unknown_id", "N", "highlight_1", "highlight_2", "N", "highlight_3"]`,
+			originalIDs:  []string{"highlight_1", "highlight_2", "highlight_3"},
+			expectedFinal: []string{"highlight_1", "N", "highlight_2", "N", "highlight_3"},
+		},
+		{
+			name:         "Real-world example from logs",
+			llmResponse:  `["highlight_1752086566479_yioxdt6gz", "highlight_1752086557450_lr1swkjaj", "N", "highlight_1752086566479_yioxdt6gz", "highlight_1752086564341_wmna40inb", "highlight_1752086565468_egogda0qe", "N", "highlight_1752086562788_zo9mju0n2", "highlight_1752086566479_yioxdt6gz", "highlight_1752086567716_54jz3puhk"]`,
+			originalIDs:  []string{"highlight_1752086566479_yioxdt6gz", "highlight_1752086557450_lr1swkjaj", "highlight_1752086564341_wmna40inb", "highlight_1752086565468_egogda0qe", "highlight_1752086562788_zo9mju0n2", "highlight_1752086567716_54jz3puhk"},
+			expectedFinal: []string{"highlight_1752086566479_yioxdt6gz", "highlight_1752086557450_lr1swkjaj", "N", "highlight_1752086564341_wmna40inb", "highlight_1752086565468_egogda0qe", "N", "highlight_1752086562788_zo9mju0n2", "highlight_1752086567716_54jz3puhk"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Parse the LLM response
+			parsed, err := service.parseAIReorderingResponse(tt.llmResponse)
+			assert.NoError(t, err)
+
+			// Deduplicate the IDs
+			result := service.deduplicateHighlightIDs(parsed, tt.originalIDs)
+
+			// Check the final result
+			assert.Equal(t, len(tt.expectedFinal), len(result))
+
+			for i, expected := range tt.expectedFinal {
+				assert.Equal(t, expected, result[i])
+			}
+
+			// Verify that all original IDs are present exactly once
+			idCount := make(map[string]int)
+			for _, id := range result {
+				if id != "N" {
+					idCount[id]++
+				}
+			}
+
+			for _, originalID := range tt.originalIDs {
+				assert.Equal(t, 1, idCount[originalID], "Expected original ID %s to appear exactly once", originalID)
+			}
 		})
 	}
 }

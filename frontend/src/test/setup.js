@@ -21,7 +21,28 @@ global.IntersectionObserver = vi.fn().mockImplementation(() => ({
 
 // Mock Wails JS bindings
 vi.mock('$lib/wailsjs/go/main/App', () => ({
-  DeleteSuggestedHighlight: vi.fn().mockResolvedValue(undefined)
+  DeleteSuggestedHighlight: vi.fn().mockResolvedValue(undefined),
+  GetProjectHighlights: vi.fn().mockResolvedValue([]),
+  GetProjectHighlightOrder: vi.fn().mockResolvedValue([]),
+  UpdateProjectHighlightOrder: vi.fn().mockResolvedValue(undefined),
+  DeleteHighlight: vi.fn().mockResolvedValue(undefined),
+  UpdateVideoClipHighlights: vi.fn().mockResolvedValue(undefined),
+  UndoOrderChange: vi.fn().mockResolvedValue([]),
+  RedoOrderChange: vi.fn().mockResolvedValue([]),
+  GetOrderHistoryStatus: vi.fn().mockResolvedValue({ canUndo: false, canRedo: false }),
+  UndoHighlightsChange: vi.fn().mockResolvedValue(undefined),
+  RedoHighlightsChange: vi.fn().mockResolvedValue(undefined),
+  GetHighlightsHistoryStatus: vi.fn().mockResolvedValue({ canUndo: false, canRedo: false })
+}));
+
+// Mock svelte-sonner
+vi.mock('svelte-sonner', () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn()
+  }
 }));
 
 // Mock UI components
