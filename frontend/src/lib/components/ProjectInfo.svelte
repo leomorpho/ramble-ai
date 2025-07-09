@@ -7,8 +7,15 @@
 
   // Calculate highlights duration
   function calculateHighlightsDuration() {
+    // Filter out newline items and only sum actual highlights
     const totalSeconds = highlights.reduce(
-      (sum, highlight) => sum + (highlight.end - highlight.start),
+      (sum, item) => {
+        // Only add duration if it's a highlight (has start and end properties)
+        if (item.type !== 'newline' && item.start !== undefined && item.end !== undefined) {
+          return sum + (item.end - item.start);
+        }
+        return sum;
+      },
       0
     );
     const minutes = Math.floor(totalSeconds / 60);
