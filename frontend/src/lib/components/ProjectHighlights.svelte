@@ -74,6 +74,11 @@
 
   // Popover state management
   let popoverStates = $state(new Map());
+  
+  // Filter highlights for video player (exclude newline items)
+  let videoHighlights = $derived(
+    highlights.filter(item => item.type !== 'newline')
+  );
 
   // Load video clips with transcription words for pause analysis
   $effect(() => {
@@ -771,7 +776,7 @@
       }
     }}
   >
-    <EtroVideoPlayer {highlights} {projectId} {playPauseRef} />
+    <EtroVideoPlayer highlights={videoHighlights} {projectId} {playPauseRef} />
   </VideoPlayerKeyHandler>
 </div>
 
