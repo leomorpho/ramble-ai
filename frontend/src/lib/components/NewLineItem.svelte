@@ -18,6 +18,13 @@
   let isHovering = $state(false);
   let deleting = $state(false);
 
+  // Debug logging
+  $effect(() => {
+    console.log("NewLineItem rendered with:", newlineItem);
+    console.log("NewLineItem index:", index);
+    console.log("NewLineItem isDragging:", isDragging);
+  });
+
   async function handleDelete() {
     if (deleting) return;
     
@@ -38,7 +45,7 @@
 {/if}
 
 <span
-  class="newline-container inline-block relative group w-full"
+  class="newline-container block relative group w-full"
   role="separator"
   draggable="true"
   ondragstart={(e) => onDragStart(e, newlineItem, index)}
@@ -50,9 +57,17 @@
   class:being-dragged={isBeingDragged}
   class:drag-active={isDragging}
 >
-  <div class="newline-visual flex items-center justify-center relative my-2">
+  <div class="newline-visual flex items-center justify-center relative my-3">
     <!-- Thin horizontal line -->
-    <div class="h-[1px] bg-border flex-1"></div>
+    <div class="h-[2px] bg-primary/30 flex-1"></div>
+    
+    <!-- Visual indicator for newline -->
+    <div class="px-3 py-1 text-xs font-medium text-primary bg-primary/5 border border-primary/20 rounded-md">
+      ⏎ Section Break
+    </div>
+    
+    <!-- Right side of the line -->
+    <div class="h-[2px] bg-primary/30 flex-1"></div>
     
     <!-- Delete button on hover -->
     {#if isHovering && !isDragging}
@@ -89,7 +104,7 @@
   }
 
   .newline-visual {
-    height: 16px;
+    height: 24px;
     position: relative;
   }
 

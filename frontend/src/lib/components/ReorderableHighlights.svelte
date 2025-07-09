@@ -261,8 +261,11 @@
         return;
       }
 
+      // Flatten consecutive newlines before calling the reorder callback
+      const flattenedOrder = flattenConsecutiveNewlines(newOrder);
+      
       // Call the reorder callback
-      await onReorder(newOrder);
+      await onReorder(flattenedOrder);
     } catch (error) {
       console.error("performDrop: error during drop operation:", error);
     } finally {
@@ -300,6 +303,32 @@
       onPopoverOpenChange(highlightId, isOpen);
     }
   }
+
+
+  // Utility function to flatten consecutive newlines
+  function flattenConsecutiveNewlines(highlights) {
+    if (!highlights || highlights.length <= 1) {
+      return highlights;
+    }
+
+    const result = [];
+    let lastWasNewline = false;
+
+    for (const highlight of highlights) {
+      if (highlight.type === 'newline' || highlight.id === 'N') {
+        if (!lastWasNewline) {
+          result.push(highlight);
+          lastWasNewline = true;
+        }
+        // Skip consecutive newlines
+      } else {
+        result.push(highlight);
+        lastWasNewline = false;
+      }
+    }
+
+    return result;
+  }
 </script>
 
 <div
@@ -317,7 +346,6 @@
     {#each highlights as item, index}
       {#if item.type === 'newline' && enableNewlines}
         <!-- New line creates actual line break -->
-        <br />
         <NewLineItem
           newlineItem={item}
           {index}
@@ -330,7 +358,6 @@
           onDragOver={handleSpanDragOver}
           onDrop={handleSpanDrop}
         />
-        <br />
       {:else if item.type !== 'newline'}
         <!-- Add new line button before highlight (only if previous item is also a highlight) -->
         {#if enableNewlines && showAddNewLineButtons && !isDragging && index > 0 && highlights[index - 1].type !== 'newline'}
