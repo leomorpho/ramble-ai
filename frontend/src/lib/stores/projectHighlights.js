@@ -18,7 +18,7 @@ export const highlightsLoading = writable(false);
 export const orderHistoryStatus = writable({ canUndo: false, canRedo: false });
 export const highlightsHistoryStatus = writable(new Map()); // Map of clipId -> { canUndo, canRedo }
 
-// Derived store that combines highlights with their custom order
+// Derived store that combines highlights with their custom order and new line indicators
 export const orderedHighlights = derived(
   [rawHighlights, highlightOrder],
   ([$rawHighlights, $highlightOrder]) => {
@@ -34,16 +34,24 @@ export const orderedHighlights = derived(
       });
     }
     
-    // Apply custom ordering
+    // Apply custom ordering including new line indicators
     const orderedList = [];
     const highlightMap = new Map($rawHighlights.map(h => [h.id, h]));
     
-    // Add highlights in custom order
+    // Add highlights and new lines in custom order
     for (const id of $highlightOrder) {
-      const highlight = highlightMap.get(id);
-      if (highlight) {
-        orderedList.push(highlight);
-        highlightMap.delete(id);
+      if (id === 'N') {
+        // Add new line indicator
+        orderedList.push({
+          id: `newline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          type: 'newline'
+        });
+      } else {
+        const highlight = highlightMap.get(id);
+        if (highlight) {
+          orderedList.push(highlight);
+          highlightMap.delete(id);
+        }
       }
     }
     
@@ -124,10 +132,16 @@ export async function updateHighlightOrder(newOrder) {
   }
   
   try {
-    // Extract highlight IDs if we received highlight objects instead of IDs
-    const highlightIds = newOrder.map(item => 
-      typeof item === 'string' ? item : item.id
-    );
+    // Extract highlight IDs and preserve new line indicators
+    const highlightIds = newOrder.map(item => {
+      if (typeof item === 'string') {
+        return item;
+      } else if (item.type === 'newline') {
+        return 'N';
+      } else {
+        return item.id;
+      }
+    });
     
     // Update local state first (optimistic update)
     highlightOrder.set(highlightIds);
@@ -152,6 +166,24 @@ export async function updateHighlightOrder(newOrder) {
     
     return false;
   }
+}
+
+// Function to insert a new line indicator at a specific position
+export async function insertNewLine(position) {
+  const currentOrder = get(highlightOrder);
+  const newOrder = [...currentOrder];
+  newOrder.splice(position, 0, 'N');
+  
+  return await updateHighlightOrder(newOrder);
+}
+
+// Function to remove a new line indicator at a specific position
+export async function removeNewLine(position) {
+  const currentOrder = get(highlightOrder);
+  const newOrder = [...currentOrder];
+  newOrder.splice(position, 1);
+  
+  return await updateHighlightOrder(newOrder);
 }
 
 // Function to refresh highlights from database
@@ -211,7 +243,7 @@ export async function deleteHighlight(highlightId, videoClipId) {
     // Call backend to delete the highlight
     await DeleteHighlight(videoClipId, highlightId);
     
-    // Remove from highlight order if it exists
+    // Remove from highlight order if it exists (preserve newlines)
     const currentOrder = get(highlightOrder);
     const updatedOrder = currentOrder.filter(id => id !== highlightId);
     if (updatedOrder.length !== currentOrder.length) {

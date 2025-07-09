@@ -95,7 +95,7 @@
   /* Natural text flow highlight spans */
   .highlight-span {
     display: inline;
-    padding: 2px 4px;
+    padding: 2px 2px;
     margin: 0px 2px;
     border-radius: 3px;
     cursor: move;

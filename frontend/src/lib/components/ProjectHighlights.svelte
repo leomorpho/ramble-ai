@@ -16,6 +16,8 @@
   import VideoPlayerKeyHandler from "$lib/components/videoplayback/VideoPlayerKeyHandler.svelte";
   import ClipEditor from "$lib/components/ClipEditor.svelte";
   import HighlightItem from "$lib/components/HighlightItem.svelte";
+  import NewLineItem from "$lib/components/NewLineItem.svelte";
+  import AddNewLineButton from "$lib/components/AddNewLineButton.svelte";
   import AIReorderSheet from "$lib/components/AIReorderSheet.svelte";
   import {
     updateHighlightOrder,
@@ -24,6 +26,8 @@
     undoOrderChange,
     redoOrderChange,
     orderHistoryStatus,
+    insertNewLine,
+    removeNewLine,
   } from "$lib/stores/projectHighlights.js";
   import { ImproveHighlightSilencesWithAI } from "$lib/wailsjs/go/main/App";
 
@@ -95,6 +99,9 @@
   
   // Function to get transcription words for a highlight
   function getHighlightWords(highlight) {
+    // New lines don't have transcription words
+    if (highlight.type === 'newline') return [];
+    
     const words = videoClipsWithWords.get(highlight.videoClipId);
     if (!words || words.length === 0) return [];
     
@@ -127,6 +134,9 @@
 
   // Handle highlight click
   async function handleHighlightClick(highlight) {
+    // Don't try to play new lines
+    if (highlight.type === 'newline') return;
+    
     closePopover(highlight.id);
     currentHighlight = highlight;
     videoLoading = true;
@@ -265,6 +275,9 @@
 
   // Handle highlight selection with multiselect support
   function handleHighlightSelect(event, highlight) {
+    // Don't select new lines
+    if (highlight.type === 'newline') return;
+    
     const isCtrlOrCmd = event.ctrlKey || event.metaKey;
 
     if (isCtrlOrCmd) {
@@ -295,15 +308,22 @@
   function handleNewDragStart(event, highlight, index) {
     event.dataTransfer.effectAllowed = "move";
 
-    // If the dragged highlight is not selected, select only it
-    if (!selectedHighlights.has(highlight.id)) {
-      selectedHighlights = new Set([highlight.id]);
-    }
+    if (highlight.type === 'newline') {
+      // New lines are draggable individually
+      isDragging = true;
+      dragStartPosition = index;
+      draggedHighlights = [highlight.id];
+    } else {
+      // If the dragged highlight is not selected, select only it
+      if (!selectedHighlights.has(highlight.id)) {
+        selectedHighlights = new Set([highlight.id]);
+      }
 
-    // Set up drag state
-    isDragging = true;
-    dragStartPosition = index;
-    draggedHighlights = Array.from(selectedHighlights);
+      // Set up drag state
+      isDragging = true;
+      dragStartPosition = index;
+      draggedHighlights = Array.from(selectedHighlights);
+    }
 
     // Store the highlight IDs in dataTransfer for the drag operation
     event.dataTransfer.setData("text/plain", JSON.stringify(draggedHighlights));
@@ -677,37 +697,65 @@
             </p>
           </div>
         {:else}
-          {#each highlights as highlight, index}
-            <HighlightItem
-              {highlight}
-              {index}
-              isSelected={selectedHighlights.has(highlight.id)}
-              {isDragging}
-              isBeingDragged={isDragging &&
-                draggedHighlights.includes(highlight.id) &&
-                draggedHighlights[0] === highlight.id}
-              showDropIndicatorBefore={isDragging && dropPosition === index}
-              onSelect={handleHighlightSelect}
-              onDragStart={handleNewDragStart}
-              onDragEnd={handleNewDragEnd}
-              onDragOver={handleSpanDragOver}
-              onDrop={handleSpanDrop}
-              onEdit={handleEditHighlight}
-              onDelete={handleDeleteConfirm}
-              popoverOpen={isPopoverOpen(highlight.id)}
-              onPopoverOpenChange={(open) => {
-                if (open) {
-                  openPopover(highlight.id);
-                } else {
-                  closePopover(highlight.id);
-                }
-              }}
-              words={getHighlightWords(highlight)}
-            />
+          {#each highlights as item, index}
+            {#if item.type === 'newline'}
+              <!-- New line creates actual line break -->
+              <br />
+              <NewLineItem
+                newlineItem={item}
+                {index}
+                {isDragging}
+                isBeingDragged={isDragging && draggedHighlights.includes(item.id)}
+                showDropIndicatorBefore={isDragging && dropPosition === index}
+                showDropIndicatorAfter={false}
+                onDragStart={handleNewDragStart}
+                onDragEnd={handleNewDragEnd}
+                onDragOver={handleSpanDragOver}
+                onDrop={handleSpanDrop}
+              />
+              <br />
+            {:else}
+              <!-- Add new line button before highlight (only if previous item is also a highlight) -->
+              {#if !isDragging && index > 0 && highlights[index - 1].type !== 'newline'}
+                <AddNewLineButton position={index} />
+              {/if}
+              
+              <HighlightItem
+                highlight={item}
+                {index}
+                isSelected={selectedHighlights.has(item.id)}
+                {isDragging}
+                isBeingDragged={isDragging &&
+                  draggedHighlights.includes(item.id) &&
+                  draggedHighlights[0] === item.id}
+                showDropIndicatorBefore={isDragging && dropPosition === index}
+                onSelect={handleHighlightSelect}
+                onDragStart={handleNewDragStart}
+                onDragEnd={handleNewDragEnd}
+                onDragOver={handleSpanDragOver}
+                onDrop={handleSpanDrop}
+                onEdit={handleEditHighlight}
+                onDelete={handleDeleteConfirm}
+                popoverOpen={isPopoverOpen(item.id)}
+                onPopoverOpenChange={(open) => {
+                  if (open) {
+                    openPopover(item.id);
+                  } else {
+                    closePopover(item.id);
+                  }
+                }}
+                words={getHighlightWords(item)}
+              />
+            {/if}
           {/each}
 
-          <!-- Drop indicator at the end -->
-          {#if isDragging && dropPosition === highlights.length}
+          <!-- Add new line button at the end (only if last item is a highlight) -->
+          {#if !isDragging && highlights.length > 0 && highlights[highlights.length - 1].type !== 'newline'}
+            <AddNewLineButton position={highlights.length} />
+          {/if}
+
+          <!-- Drop indicator at the end or after the last newline -->
+          {#if isDragging && (dropPosition >= highlights.length || (highlights.length > 0 && highlights[highlights.length - 1]?.type === 'newline' && dropPosition === highlights.length))}
             <span class="drop-indicator">|</span>
           {/if}
         {/if}
