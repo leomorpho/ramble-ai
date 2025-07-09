@@ -1,5 +1,5 @@
 <script>
-  import { X } from "@lucide/svelte";
+  import { X, Edit3, Check } from "@lucide/svelte";
   import { removeNewLine } from "$lib/stores/projectHighlights.js";
 
   let { 
@@ -12,17 +12,35 @@
     onDragStart, 
     onDragEnd, 
     onDragOver, 
-    onDrop 
+    onDrop,
+    // New props for title editing
+    onTitleChange = null
   } = $props();
 
   let isHovering = $state(false);
   let deleting = $state(false);
+  let editing = $state(false);
+  let editingTitle = $state('');
+  let titleInput = $state(null);
+
+  // Get title from newlineItem
+  $effect(() => {
+    if (newlineItem && newlineItem.title) {
+      editingTitle = newlineItem.title;
+    }
+  });
+
+  // Helper function to get title
+  function getTitle() {
+    return newlineItem?.title || '';
+  }
 
   // Debug logging
   $effect(() => {
     console.log("NewLineItem rendered with:", newlineItem);
     console.log("NewLineItem index:", index);
     console.log("NewLineItem isDragging:", isDragging);
+    console.log("NewLineItem title:", getTitle());
   });
 
   async function handleDelete() {
@@ -35,6 +53,35 @@
       console.error("Failed to remove new line:", error);
     } finally {
       deleting = false;
+    }
+  }
+
+  function startEditing() {
+    editing = true;
+    editingTitle = getTitle();
+    // Focus the input after it's rendered
+    setTimeout(() => {
+      titleInput?.focus();
+    }, 0);
+  }
+
+  function cancelEditing() {
+    editing = false;
+    editingTitle = getTitle();
+  }
+
+  function saveTitle() {
+    if (onTitleChange) {
+      onTitleChange(index, editingTitle);
+    }
+    editing = false;
+  }
+
+  function handleKeydown(event) {
+    if (event.key === 'Enter') {
+      saveTitle();
+    } else if (event.key === 'Escape') {
+      cancelEditing();
     }
   }
 </script>
@@ -61,23 +108,61 @@
     <!-- Thin horizontal line -->
     <div class="h-[2px] bg-primary/30 flex-1"></div>
     
-    <!-- Visual indicator for newline -->
-    <div class="px-3 py-1 text-xs font-medium text-primary bg-primary/5 border border-primary/20 rounded-md">
-      ⏎ Section Break
+    <!-- Visual indicator for newline with title -->
+    <div class="px-3 py-1 text-xs font-medium text-primary bg-primary/5 border border-primary/20 rounded-md flex items-center gap-2">
+      <span>⏎</span>
+      {#if editing}
+        <input
+          bind:this={titleInput}
+          bind:value={editingTitle}
+          onkeydown={handleKeydown}
+          onblur={saveTitle}
+          class="bg-transparent border-none outline-none text-xs font-medium text-primary placeholder:text-primary/50"
+          placeholder="Section title..."
+          style="width: {Math.max(80, editingTitle.length * 8)}px;"
+        />
+      {:else}
+        <span class="select-none">
+          {getTitle() || 'Section Break'}
+        </span>
+      {/if}
     </div>
     
     <!-- Right side of the line -->
     <div class="h-[2px] bg-primary/30 flex-1"></div>
     
-    <!-- Delete button on hover -->
-    {#if isHovering && !isDragging}
+    <!-- Action buttons on hover -->
+    {#if isHovering && !isDragging && !editing}
+      <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+        <!-- Edit button -->
+        <button
+          class="w-4 h-4 bg-primary text-primary-foreground rounded-full flex items-center justify-center opacity-75 hover:opacity-100 transition-opacity"
+          onclick={startEditing}
+          title="Edit section title"
+        >
+          <Edit3 class="w-2.5 h-2.5" />
+        </button>
+        
+        <!-- Delete button -->
+        <button
+          class="w-4 h-4 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-75 hover:opacity-100 transition-opacity"
+          onclick={handleDelete}
+          disabled={deleting}
+          title="Remove line break"
+        >
+          <X class="w-2.5 h-2.5" />
+        </button>
+      </div>
+    {/if}
+    
+    <!-- Save button when editing -->
+    {#if editing}
       <button
-        class="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-75 hover:opacity-100 transition-opacity"
-        onclick={handleDelete}
-        disabled={deleting}
-        title="Remove line break"
+        class="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-green-600 text-white rounded-full flex items-center justify-center opacity-75 hover:opacity-100 transition-opacity"
+        onclick={saveTitle}
+        title="Save title"
       >
-        <X class="w-2.5 h-2.5" />
+        <Check class="w-2.5 h-2.5" />
       </button>
     {/if}
   </div>

@@ -18,6 +18,36 @@ export const highlightsLoading = writable(false);
 export const orderHistoryStatus = writable({ canUndo: false, canRedo: false });
 export const highlightsHistoryStatus = writable(new Map()); // Map of clipId -> { canUndo, canRedo }
 
+// Utility functions for newline handling with titles
+function isNewline(item) {
+  return item === 'N' || item === 'n' || (typeof item === 'object' && item.type === 'N');
+}
+
+function getNewlineTitle(item) {
+  if (typeof item === 'object' && item.type === 'N') {
+    return item.title || '';
+  }
+  return '';
+}
+
+function createNewlineFromDb(dbItem) {
+  if (dbItem === 'N') {
+    return {
+      id: `newline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      type: 'newline',
+      title: ''
+    };
+  }
+  if (typeof dbItem === 'object' && dbItem.type === 'N') {
+    return {
+      id: `newline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      type: 'newline',
+      title: dbItem.title || ''
+    };
+  }
+  return dbItem;
+}
+
 // Derived store that combines highlights with their custom order and new line indicators
 export const orderedHighlights = derived(
   [rawHighlights, highlightOrder],
@@ -39,18 +69,15 @@ export const orderedHighlights = derived(
     const highlightMap = new Map($rawHighlights.map(h => [h.id, h]));
     
     // Add highlights and new lines in custom order
-    for (const id of $highlightOrder) {
-      if (id === 'N') {
-        // Add new line indicator
-        orderedList.push({
-          id: `newline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          type: 'newline'
-        });
+    for (const item of $highlightOrder) {
+      if (isNewline(item)) {
+        // Add new line indicator with title support
+        orderedList.push(createNewlineFromDb(item));
       } else {
-        const highlight = highlightMap.get(id);
+        const highlight = highlightMap.get(item);
         if (highlight) {
           orderedList.push(highlight);
-          highlightMap.delete(id);
+          highlightMap.delete(item);
         }
       }
     }
@@ -132,12 +159,13 @@ export async function updateHighlightOrder(newOrder) {
   }
   
   try {
-    // Extract highlight IDs and preserve new line indicators
+    // Extract highlight IDs and preserve new line indicators with titles
     const highlightIds = newOrder.map(item => {
       if (typeof item === 'string') {
         return item;
       } else if (item.type === 'newline') {
-        return 'N';
+        // Convert display format to database format
+        return item.title ? { type: 'N', title: item.title } : 'N';
       } else {
         return item.id;
       }
@@ -252,6 +280,43 @@ export async function removeNewLine(position) {
   if (actualPosition >= 0) {
     const newOrder = [...currentOrder];
     newOrder.splice(actualPosition, 1);
+    return await updateHighlightOrder(newOrder);
+  }
+  
+  return false;
+}
+
+// Function to update a newline title
+export async function updateNewLineTitle(position, newTitle) {
+  const currentOrder = get(highlightOrder);
+  const orderedHighlightsList = get(orderedHighlights);
+  
+  // Find the actual position in highlightOrder corresponding to the visual position
+  let actualPosition = -1;
+  let orderIndex = 0;
+  
+  for (let i = 0; i <= position && i < orderedHighlightsList.length; i++) {
+    const item = orderedHighlightsList[i];
+    if (isNewline(item)) {
+      if (i === position) {
+        actualPosition = orderIndex;
+        break;
+      } else {
+        orderIndex++; // Move past this newline
+      }
+    } else {
+      // This is a highlight, find it in the current order
+      while (orderIndex < currentOrder.length && isNewline(currentOrder[orderIndex])) {
+        orderIndex++;
+      }
+      orderIndex++; // Move past this highlight
+    }
+  }
+  
+  if (actualPosition >= 0) {
+    const newOrder = [...currentOrder];
+    // Update the newline with the new title
+    newOrder[actualPosition] = newTitle ? { type: 'N', title: newTitle } : 'N';
     return await updateHighlightOrder(newOrder);
   }
   
@@ -576,10 +641,20 @@ function flattenConsecutiveNewlines(ids) {
   let lastWasNewline = false;
 
   for (const id of ids) {
-    if (id === 'N') {
+    if (isNewline(id)) {
       if (!lastWasNewline) {
         result.push(id);
         lastWasNewline = true;
+      } else {
+        // When flattening consecutive newlines, preserve the title if the current one has one
+        const lastNewline = result[result.length - 1];
+        const currentTitle = getNewlineTitle(id);
+        const lastTitle = getNewlineTitle(lastNewline);
+        
+        if (currentTitle && !lastTitle) {
+          // Replace the last newline with the current one that has a title
+          result[result.length - 1] = id;
+        }
       }
       // Skip consecutive newlines
     } else {

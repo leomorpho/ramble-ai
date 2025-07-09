@@ -26,6 +26,7 @@
     orderHistoryStatus,
     insertNewLine,
     removeNewLine,
+    updateNewLineTitle,
   } from "$lib/stores/projectHighlights.js";
   import { ImproveHighlightSilencesWithAI } from "$lib/wailsjs/go/main/App";
 
@@ -341,6 +342,16 @@
       console.error("Failed to redo:", error);
     }
   }
+
+  // Handle title change for newlines
+  async function handleTitleChange(index, newTitle) {
+    try {
+      await updateNewLineTitle(index, newTitle);
+    } catch (error) {
+      console.error("Failed to update newline title:", error);
+      toast.error("Failed to update section title");
+    }
+  }
 </script>
 
 <div class="highlights-timeline space-y-4">
@@ -455,6 +466,7 @@
         {getHighlightWords}
         {isPopoverOpen}
         onHighlightClick={handleHighlightClick}
+        onTitleChange={handleTitleChange}
         enableMultiSelect={true}
         enableNewlines={true}
         enableSelection={true}

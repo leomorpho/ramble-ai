@@ -15,6 +15,8 @@
     onPopoverOpenChange = (highlightId, isOpen) => {},
     getHighlightWords = (highlight) => [],
     isPopoverOpen = (highlightId) => false,
+    // New callback for title changes
+    onTitleChange = (index, newTitle) => {},
     // Configuration
     enableMultiSelect = true,
     enableNewlines = true,
@@ -40,7 +42,7 @@
     if (!enableSelection) return;
     
     // Don't select new lines
-    if (highlight.type === 'newline') return;
+    if (isNewline(highlight)) return;
     
     if (enableMultiSelect) {
       const isCtrlOrCmd = event.ctrlKey || event.metaKey;
@@ -83,7 +85,7 @@
   function handleDragStart(event, highlight, index) {
     event.dataTransfer.effectAllowed = "move";
 
-    if (highlight.type === 'newline') {
+    if (isNewline(highlight)) {
       // New lines are draggable individually
       isDragging = true;
       dragStartPosition = index;
@@ -305,6 +307,45 @@
   }
 
 
+  // Utility functions for newline handling with titles
+  function isNewline(item) {
+    return item === 'N' || item === 'n' || (typeof item === 'object' && item.type === 'N') || (typeof item === 'object' && item.type === 'newline');
+  }
+
+  function getNewlineTitle(item) {
+    if (typeof item === 'object' && (item.type === 'N' || item.type === 'newline')) {
+      return item.title || '';
+    }
+    return '';
+  }
+
+  function createNewline(title = '') {
+    return {
+      type: 'newline',
+      id: `newline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      title: title
+    };
+  }
+
+  // Convert database format to display format
+  function convertDatabaseToDisplay(dbItem) {
+    if (dbItem === 'N') {
+      return createNewline('');
+    }
+    if (typeof dbItem === 'object' && dbItem.type === 'N') {
+      return createNewline(dbItem.title || '');
+    }
+    return dbItem;
+  }
+
+  // Convert display format to database format
+  function convertDisplayToDatabase(displayItem) {
+    if (displayItem.type === 'newline') {
+      return displayItem.title ? { type: 'N', title: displayItem.title } : 'N';
+    }
+    return displayItem;
+  }
+
   // Utility function to flatten consecutive newlines
   function flattenConsecutiveNewlines(highlights) {
     if (!highlights || highlights.length <= 1) {
@@ -315,10 +356,21 @@
     let lastWasNewline = false;
 
     for (const highlight of highlights) {
-      if (highlight.type === 'newline' || highlight.id === 'N') {
+      if (isNewline(highlight)) {
         if (!lastWasNewline) {
           result.push(highlight);
           lastWasNewline = true;
+        } else {
+          // When flattening consecutive newlines, preserve the title of the last one
+          // Only if the current newline has a title and the previous doesn't
+          const lastNewline = result[result.length - 1];
+          const currentTitle = getNewlineTitle(highlight);
+          const lastTitle = getNewlineTitle(lastNewline);
+          
+          if (currentTitle && !lastTitle) {
+            // Replace the last newline with the current one that has a title
+            result[result.length - 1] = highlight;
+          }
         }
         // Skip consecutive newlines
       } else {
@@ -344,7 +396,7 @@
     </div>
   {:else}
     {#each highlights as item, index}
-      {#if item.type === 'newline' && enableNewlines}
+      {#if isNewline(item) && enableNewlines}
         <!-- New line creates actual line break -->
         <NewLineItem
           newlineItem={item}
@@ -357,10 +409,11 @@
           onDragEnd={handleDragEnd}
           onDragOver={handleSpanDragOver}
           onDrop={handleSpanDrop}
+          onTitleChange={onTitleChange}
         />
-      {:else if item.type !== 'newline'}
+      {:else if !isNewline(item)}
         <!-- Add new line button before highlight (only if previous item is also a highlight) -->
-        {#if enableNewlines && showAddNewLineButtons && !isDragging && index > 0 && highlights[index - 1].type !== 'newline'}
+        {#if enableNewlines && showAddNewLineButtons && !isDragging && index > 0 && !isNewline(highlights[index - 1])}
           <AddNewLineButton position={index} />
         {/if}
         
@@ -388,12 +441,12 @@
     {/each}
 
     <!-- Add new line button at the end (only if last item is a highlight) -->
-    {#if enableNewlines && showAddNewLineButtons && !isDragging && highlights.length > 0 && highlights[highlights.length - 1].type !== 'newline'}
+    {#if enableNewlines && showAddNewLineButtons && !isDragging && highlights.length > 0 && !isNewline(highlights[highlights.length - 1])}
       <AddNewLineButton position={highlights.length} />
     {/if}
 
     <!-- Drop indicator at the end or after the last newline -->
-    {#if isDragging && (dropPosition >= highlights.length || (highlights.length > 0 && highlights[highlights.length - 1]?.type === 'newline' && dropPosition === highlights.length))}
+    {#if isDragging && (dropPosition >= highlights.length || (highlights.length > 0 && isNewline(highlights[highlights.length - 1]) && dropPosition === highlights.length))}
       <span class="drop-indicator">|</span>
     {/if}
   {/if}

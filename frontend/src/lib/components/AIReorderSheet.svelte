@@ -143,9 +143,9 @@ Feel free to completely restructure the order - move any segment to any position
         
         // Reorder based on cached suggestion - preserve 'N' characters for newlines
         for (const id of flattenedCachedOrder) {
-          if (id === "N") {
+          if (isNewline(id)) {
             // Preserve newline characters in the format expected by ReorderableHighlights
-            reorderedHighlights.push({ id: "N", type: "newline" });
+            reorderedHighlights.push(createNewlineFromDb(id));
           } else {
             const highlight = highlightsMap.get(id);
             if (highlight) {
@@ -156,7 +156,7 @@ Feel free to completely restructure the order - move any segment to any position
 
         // Add any highlights that weren't in the cached order (exclude newlines - they're handled separately)
         for (const highlight of aiDialogHighlights) {
-          if (!flattenedCachedOrder.includes(highlight.id) && highlight.type !== 'newline') {
+          if (!flattenedCachedOrder.includes(highlight.id) && !isNewline(highlight)) {
             reorderedHighlights.push(highlight);
           }
         }
@@ -235,10 +235,9 @@ Feel free to completely restructure the order - move any segment to any position
       
       // Build reordered array - preserve 'N' characters for newlines
       for (const id of flattenedReorderedIds) {
-        if (id === "N") {
+        if (isNewline(id)) {
           // Preserve newline characters in the format expected by ReorderableHighlights
-          const newlineItem = { id: "N", type: "newline" };
-          reorderedHighlights.push(newlineItem);
+          reorderedHighlights.push(createNewlineFromDb(id));
         } else {
           const highlight = highlightsMap.get(id);
           if (highlight) {
@@ -249,7 +248,7 @@ Feel free to completely restructure the order - move any segment to any position
 
       // Add any highlights that weren't in the AI response (exclude newlines - they're handled separately)
       for (const highlight of aiDialogHighlights) {
-        if (!flattenedReorderedIds.includes(highlight.id) && highlight.type !== 'newline') {
+        if (!flattenedReorderedIds.includes(highlight.id) && !isNewline(highlight)) {
           reorderedHighlights.push(highlight);
         }
       }
@@ -282,8 +281,9 @@ Feel free to completely restructure the order - move any segment to any position
     try {
       // Convert aiReorderedHighlights to the format expected by updateHighlightOrder
       const highlightIds = aiReorderedHighlights.map(item => {
-        if (item.type === "newline" || item.id === "N") {
-          return "N";
+        if (isNewline(item)) {
+          // Convert display format to database format
+          return item.title ? { type: 'N', title: item.title } : 'N';
         } else {
           return item.id;
         }
@@ -329,6 +329,50 @@ Feel free to completely restructure the order - move any segment to any position
     return Promise.resolve(); // Return resolved promise for success
   }
 
+  // Handle title change for newlines in AI dialog
+  function handleAITitleChange(index, newTitle) {
+    if (index < aiDialogHighlights.length && isNewline(aiDialogHighlights[index])) {
+      // Update the title in the current highlight
+      const updatedHighlights = [...aiDialogHighlights];
+      updatedHighlights[index] = {
+        ...updatedHighlights[index],
+        title: newTitle
+      };
+      aiDialogHighlights = updatedHighlights;
+      aiReorderedHighlights = updatedHighlights;
+    }
+  }
+
+  // Utility functions for newline handling with titles
+  function isNewline(item) {
+    return item === 'N' || item === 'n' || (typeof item === 'object' && item.type === 'N') || (typeof item === 'object' && item.type === 'newline');
+  }
+
+  function getNewlineTitle(item) {
+    if (typeof item === 'object' && (item.type === 'N' || item.type === 'newline')) {
+      return item.title || '';
+    }
+    return '';
+  }
+
+  function createNewlineFromDb(dbItem) {
+    if (dbItem === 'N') {
+      return {
+        id: `newline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        type: 'newline',
+        title: ''
+      };
+    }
+    if (typeof dbItem === 'object' && dbItem.type === 'N') {
+      return {
+        id: `newline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        type: 'newline',
+        title: dbItem.title || ''
+      };
+    }
+    return dbItem;
+  }
+
   // Utility function to flatten consecutive 'N' characters
   function flattenConsecutiveNewlines(ids) {
     if (!ids || ids.length <= 1) {
@@ -339,10 +383,20 @@ Feel free to completely restructure the order - move any segment to any position
     let lastWasNewline = false;
 
     for (const id of ids) {
-      if (id === 'N') {
+      if (isNewline(id)) {
         if (!lastWasNewline) {
           result.push(id);
           lastWasNewline = true;
+        } else {
+          // When flattening consecutive newlines, preserve the title if the current one has one
+          const lastNewline = result[result.length - 1];
+          const currentTitle = getNewlineTitle(id);
+          const lastTitle = getNewlineTitle(lastNewline);
+          
+          if (currentTitle && !lastTitle) {
+            // Replace the last newline with the current one that has a title
+            result[result.length - 1] = id;
+          }
         }
         // Skip consecutive newlines
       } else {
@@ -495,6 +549,7 @@ Feel free to completely restructure the order - move any segment to any position
                       onPopoverOpenChange={() => {}}
                       getHighlightWords={() => []}
                       isPopoverOpen={() => false}
+                      onTitleChange={handleAITitleChange}
                       enableMultiSelect={false}
                       enableNewlines={true}
                       enableSelection={false}
