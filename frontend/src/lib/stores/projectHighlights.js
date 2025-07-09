@@ -1,5 +1,5 @@
 import { writable, derived, get } from 'svelte/store';
-import { GetProjectHighlights, GetProjectHighlightOrder, UpdateProjectHighlightOrder, DeleteHighlight, UpdateVideoClipHighlights, UndoOrderChange, RedoOrderChange, GetOrderHistoryStatus, UndoHighlightsChange, RedoHighlightsChange, GetHighlightsHistoryStatus } from '$lib/wailsjs/go/main/App';
+import { GetProjectHighlights, GetProjectHighlightOrder, UpdateProjectHighlightOrder, UpdateProjectHighlightOrderWithTitles, DeleteHighlight, UpdateVideoClipHighlights, UndoOrderChange, RedoOrderChange, GetOrderHistoryStatus, UndoHighlightsChange, RedoHighlightsChange, GetHighlightsHistoryStatus, SaveSectionTitle, GetProjectHighlightOrderWithTitles } from '$lib/wailsjs/go/main/App';
 import { toast } from 'svelte-sonner';
 
 // Store for the raw highlights data from the database
@@ -108,7 +108,7 @@ export async function loadProjectHighlights(projectId) {
     // Load both highlights and order in parallel
     const [highlightsData, order] = await Promise.all([
       GetProjectHighlights(projectId),
-      GetProjectHighlightOrder(projectId)
+      GetProjectHighlightOrderWithTitles(projectId)
     ]);
     
     console.log('Loaded highlights data:', highlightsData?.length || 0, 'videos');
@@ -180,8 +180,8 @@ export async function updateHighlightOrder(newOrder) {
     // Update local state first (optimistic update)
     highlightOrder.set(flattenedIds);
     
-    // Save to database
-    await UpdateProjectHighlightOrder(projectId, flattenedIds);
+    // Save to database - use UpdateProjectHighlightOrderWithTitles to preserve title information
+    await UpdateProjectHighlightOrderWithTitles(projectId, flattenedIds);
     
     // Update history status after successful order change
     await updateOrderHistoryStatus();
@@ -288,39 +288,25 @@ export async function removeNewLine(position) {
 
 // Function to update a newline title
 export async function updateNewLineTitle(position, newTitle) {
-  const currentOrder = get(highlightOrder);
-  const orderedHighlightsList = get(orderedHighlights);
+  const projectId = get(currentProjectId);
   
-  // Find the actual position in highlightOrder corresponding to the visual position
-  let actualPosition = -1;
-  let orderIndex = 0;
-  
-  for (let i = 0; i <= position && i < orderedHighlightsList.length; i++) {
-    const item = orderedHighlightsList[i];
-    if (isNewline(item)) {
-      if (i === position) {
-        actualPosition = orderIndex;
-        break;
-      } else {
-        orderIndex++; // Move past this newline
-      }
-    } else {
-      // This is a highlight, find it in the current order
-      while (orderIndex < currentOrder.length && isNewline(currentOrder[orderIndex])) {
-        orderIndex++;
-      }
-      orderIndex++; // Move past this highlight
-    }
+  if (!projectId) {
+    console.warn('No project ID available for updating newline title');
+    return false;
   }
   
-  if (actualPosition >= 0) {
-    const newOrder = [...currentOrder];
-    // Update the newline with the new title
-    newOrder[actualPosition] = newTitle ? { type: 'N', title: newTitle } : 'N';
-    return await updateHighlightOrder(newOrder);
+  try {
+    // Use the new dedicated SaveSectionTitle backend function
+    await SaveSectionTitle(projectId, position, newTitle);
+    
+    // Refresh highlights from database to reflect the title change
+    await loadProjectHighlights(projectId);
+    
+    return true;
+  } catch (error) {
+    console.error('Failed to update newline title:', error);
+    throw error; // Re-throw so the UI can handle the error
   }
-  
-  return false;
 }
 
 // Function to refresh highlights from database
@@ -385,8 +371,8 @@ export async function deleteHighlight(highlightId, videoClipId) {
     const updatedOrder = currentOrder.filter(id => id !== highlightId);
     if (updatedOrder.length !== currentOrder.length) {
       highlightOrder.set(updatedOrder);
-      // Save updated order to database
-      await UpdateProjectHighlightOrder(projectId, updatedOrder);
+      // Save updated order to database - use UpdateProjectHighlightOrderWithTitles to preserve title information
+      await UpdateProjectHighlightOrderWithTitles(projectId, updatedOrder);
     }
     
     // Refresh highlights from database to get updated state

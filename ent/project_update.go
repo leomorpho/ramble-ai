@@ -316,14 +316,14 @@ func (pu *ProjectUpdate) ClearAiSilenceCreatedAt() *ProjectUpdate {
 }
 
 // SetHighlightOrder sets the "highlight_order" field.
-func (pu *ProjectUpdate) SetHighlightOrder(s []string) *ProjectUpdate {
-	pu.mutation.SetHighlightOrder(s)
+func (pu *ProjectUpdate) SetHighlightOrder(i []interface{}) *ProjectUpdate {
+	pu.mutation.SetHighlightOrder(i)
 	return pu
 }
 
-// AppendHighlightOrder appends s to the "highlight_order" field.
-func (pu *ProjectUpdate) AppendHighlightOrder(s []string) *ProjectUpdate {
-	pu.mutation.AppendHighlightOrder(s)
+// AppendHighlightOrder appends i to the "highlight_order" field.
+func (pu *ProjectUpdate) AppendHighlightOrder(i []interface{}) *ProjectUpdate {
+	pu.mutation.AppendHighlightOrder(i)
 	return pu
 }
 
@@ -1038,14 +1038,14 @@ func (puo *ProjectUpdateOne) ClearAiSilenceCreatedAt() *ProjectUpdateOne {
 }
 
 // SetHighlightOrder sets the "highlight_order" field.
-func (puo *ProjectUpdateOne) SetHighlightOrder(s []string) *ProjectUpdateOne {
-	puo.mutation.SetHighlightOrder(s)
+func (puo *ProjectUpdateOne) SetHighlightOrder(i []interface{}) *ProjectUpdateOne {
+	puo.mutation.SetHighlightOrder(i)
 	return puo
 }
 
-// AppendHighlightOrder appends s to the "highlight_order" field.
-func (puo *ProjectUpdateOne) AppendHighlightOrder(s []string) *ProjectUpdateOne {
-	puo.mutation.AppendHighlightOrder(s)
+// AppendHighlightOrder appends i to the "highlight_order" field.
+func (puo *ProjectUpdateOne) AppendHighlightOrder(i []interface{}) *ProjectUpdateOne {
+	puo.mutation.AppendHighlightOrder(i)
 	return puo
 }
 

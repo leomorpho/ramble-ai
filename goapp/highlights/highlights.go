@@ -351,7 +351,24 @@ func (s *HighlightService) GetProjectHighlightOrder(projectID int) ([]string, er
 		return []string{}, nil
 	}
 
-	return project.HighlightOrder, nil
+	// Convert []interface{} to []string
+	result := make([]string, 0, len(project.HighlightOrder))
+	for _, item := range project.HighlightOrder {
+		switch v := item.(type) {
+		case string:
+			result = append(result, v)
+		case map[string]interface{}:
+			// Convert newline objects back to simple "N" 
+			if typeVal, ok := v["type"].(string); ok && typeVal == "N" {
+				result = append(result, "N")
+			}
+		default:
+			// Handle other types as strings
+			result = append(result, fmt.Sprintf("%v", v))
+		}
+	}
+
+	return result, nil
 }
 
 // GetProjectHighlightsForExport gets highlights formatted for export

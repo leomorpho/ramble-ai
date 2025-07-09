@@ -319,7 +319,7 @@ func TestHighlightService_GetProjectHighlightOrder_Integration(t *testing.T) {
 	// Update the project with a highlight order (using new project schema approach)
 	_, err = client.Project.
 		UpdateOneID(project.ID).
-		SetHighlightOrder([]string{"h3", "h1", "h2"}).
+		SetHighlightOrder([]interface{}{"h3", "h1", "h2"}).
 		Save(ctx)
 	require.NoError(t, err)
 

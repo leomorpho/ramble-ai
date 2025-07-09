@@ -1369,8 +1369,8 @@ type ProjectMutation struct {
 	appendai_silence_improvements []map[string]interface{}
 	ai_silence_model              *string
 	ai_silence_created_at         *time.Time
-	highlight_order               *[]string
-	appendhighlight_order         []string
+	highlight_order               *[]interface{}
+	appendhighlight_order         []interface{}
 	order_history                 *[][]string
 	appendorder_history           [][]string
 	order_history_index           *int
@@ -2250,13 +2250,13 @@ func (m *ProjectMutation) ResetAiSilenceCreatedAt() {
 }
 
 // SetHighlightOrder sets the "highlight_order" field.
-func (m *ProjectMutation) SetHighlightOrder(s []string) {
-	m.highlight_order = &s
+func (m *ProjectMutation) SetHighlightOrder(i []interface{}) {
+	m.highlight_order = &i
 	m.appendhighlight_order = nil
 }
 
 // HighlightOrder returns the value of the "highlight_order" field in the mutation.
-func (m *ProjectMutation) HighlightOrder() (r []string, exists bool) {
+func (m *ProjectMutation) HighlightOrder() (r []interface{}, exists bool) {
 	v := m.highlight_order
 	if v == nil {
 		return
@@ -2267,7 +2267,7 @@ func (m *ProjectMutation) HighlightOrder() (r []string, exists bool) {
 // OldHighlightOrder returns the old "highlight_order" field's value of the Project entity.
 // If the Project object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ProjectMutation) OldHighlightOrder(ctx context.Context) (v []string, err error) {
+func (m *ProjectMutation) OldHighlightOrder(ctx context.Context) (v []interface{}, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldHighlightOrder is only allowed on UpdateOne operations")
 	}
@@ -2281,13 +2281,13 @@ func (m *ProjectMutation) OldHighlightOrder(ctx context.Context) (v []string, er
 	return oldValue.HighlightOrder, nil
 }
 
-// AppendHighlightOrder adds s to the "highlight_order" field.
-func (m *ProjectMutation) AppendHighlightOrder(s []string) {
-	m.appendhighlight_order = append(m.appendhighlight_order, s...)
+// AppendHighlightOrder adds i to the "highlight_order" field.
+func (m *ProjectMutation) AppendHighlightOrder(i []interface{}) {
+	m.appendhighlight_order = append(m.appendhighlight_order, i...)
 }
 
 // AppendedHighlightOrder returns the list of values that were appended to the "highlight_order" field in this mutation.
-func (m *ProjectMutation) AppendedHighlightOrder() ([]string, bool) {
+func (m *ProjectMutation) AppendedHighlightOrder() ([]interface{}, bool) {
 	if len(m.appendhighlight_order) == 0 {
 		return nil, false
 	}
@@ -2864,7 +2864,7 @@ func (m *ProjectMutation) SetField(name string, value ent.Value) error {
 		m.SetAiSilenceCreatedAt(v)
 		return nil
 	case project.FieldHighlightOrder:
-		v, ok := value.([]string)
+		v, ok := value.([]interface{})
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}

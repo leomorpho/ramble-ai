@@ -317,6 +317,36 @@ func (a *App) GetProjectHighlightOrder(projectID int) ([]string, error) {
 	return service.GetProjectHighlightOrder(projectID)
 }
 
+// NewlineSection represents a newline section with an optional title
+type NewlineSection struct {
+	Type  string `json:"type"`
+	Title string `json:"title"`
+}
+
+// SaveSectionTitle saves or updates the title for a newline section at a specific position
+func (a *App) SaveSectionTitle(projectID int, position int, title string) error {
+	service := projects.NewProjectService(a.client, a.ctx)
+	return service.SaveSectionTitle(projectID, position, title)
+}
+
+// GetSectionTitles retrieves all section titles from the project highlight order
+func (a *App) GetSectionTitles(projectID int) (map[int]string, error) {
+	service := projects.NewProjectService(a.client, a.ctx)
+	return service.GetSectionTitles(projectID)
+}
+
+// UpdateProjectHighlightOrderWithTitles updates the highlight order with rich newline objects
+func (a *App) UpdateProjectHighlightOrderWithTitles(projectID int, highlightOrder []interface{}) error {
+	service := projects.NewProjectService(a.client, a.ctx)
+	return service.UpdateProjectHighlightOrderWithTitles(projectID, highlightOrder)
+}
+
+// GetProjectHighlightOrderWithTitles retrieves the highlight order with rich newline objects
+func (a *App) GetProjectHighlightOrderWithTitles(projectID int) ([]interface{}, error) {
+	service := projects.NewProjectService(a.client, a.ctx)
+	return service.GetProjectHighlightOrderWithTitles(projectID)
+}
+
 // ReorderHighlightsWithAI uses OpenRouter API to intelligently reorder highlights
 func (a *App) ReorderHighlightsWithAI(projectID int, customPrompt string) ([]string, error) {
 	service := highlights.NewAIService(a.client, a.ctx)

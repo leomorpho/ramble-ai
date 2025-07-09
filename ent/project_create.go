@@ -215,8 +215,8 @@ func (pc *ProjectCreate) SetNillableAiSilenceCreatedAt(t *time.Time) *ProjectCre
 }
 
 // SetHighlightOrder sets the "highlight_order" field.
-func (pc *ProjectCreate) SetHighlightOrder(s []string) *ProjectCreate {
-	pc.mutation.SetHighlightOrder(s)
+func (pc *ProjectCreate) SetHighlightOrder(i []interface{}) *ProjectCreate {
+	pc.mutation.SetHighlightOrder(i)
 	return pc
 }
 

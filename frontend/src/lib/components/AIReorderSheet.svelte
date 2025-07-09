@@ -332,7 +332,8 @@ Feel free to completely restructure the order - move any segment to any position
   // Handle title change for newlines in AI dialog
   function handleAITitleChange(index, newTitle) {
     if (index < aiDialogHighlights.length && isNewline(aiDialogHighlights[index])) {
-      // Update the title in the current highlight
+      // Update the title in the current highlight (local state only)
+      // Titles will be saved to backend when user applies the reorder
       const updatedHighlights = [...aiDialogHighlights];
       updatedHighlights[index] = {
         ...updatedHighlights[index],

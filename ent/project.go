@@ -50,8 +50,8 @@ type Project struct {
 	AiSilenceModel string `json:"ai_silence_model,omitempty"`
 	// When the AI silence improvements were created
 	AiSilenceCreatedAt time.Time `json:"ai_silence_created_at,omitempty"`
-	// Current highlight order (array of highlight IDs)
-	HighlightOrder []string `json:"highlight_order,omitempty"`
+	// Current highlight order (array of highlight IDs, 'N' for newlines, or newline objects with titles)
+	HighlightOrder []interface{} `json:"highlight_order,omitempty"`
 	// FIFO history of highlight orders (last 20 states)
 	OrderHistory [][]string `json:"order_history,omitempty"`
 	// Current position in order history (-1 = no history)

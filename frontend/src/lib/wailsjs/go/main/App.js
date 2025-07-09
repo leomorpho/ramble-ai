@@ -110,12 +110,20 @@ export function GetProjectHighlightOrder(arg1) {
   return window['go']['main']['App']['GetProjectHighlightOrder'](arg1);
 }
 
+export function GetProjectHighlightOrderWithTitles(arg1) {
+  return window['go']['main']['App']['GetProjectHighlightOrderWithTitles'](arg1);
+}
+
 export function GetProjectHighlights(arg1) {
   return window['go']['main']['App']['GetProjectHighlights'](arg1);
 }
 
 export function GetProjects() {
   return window['go']['main']['App']['GetProjects']();
+}
+
+export function GetSectionTitles(arg1) {
+  return window['go']['main']['App']['GetSectionTitles'](arg1);
 }
 
 export function GetSetting(arg1) {
@@ -182,6 +190,10 @@ export function SaveProjectHighlightAISettings(arg1, arg2) {
   return window['go']['main']['App']['SaveProjectHighlightAISettings'](arg1, arg2);
 }
 
+export function SaveSectionTitle(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SaveSectionTitle'](arg1, arg2, arg3);
+}
+
 export function SaveSetting(arg1, arg2) {
   return window['go']['main']['App']['SaveSetting'](arg1, arg2);
 }
@@ -232,6 +244,10 @@ export function UpdateProjectActiveTab(arg1, arg2) {
 
 export function UpdateProjectHighlightOrder(arg1, arg2) {
   return window['go']['main']['App']['UpdateProjectHighlightOrder'](arg1, arg2);
+}
+
+export function UpdateProjectHighlightOrderWithTitles(arg1, arg2) {
+  return window['go']['main']['App']['UpdateProjectHighlightOrderWithTitles'](arg1, arg2);
 }
 
 export function UpdateVideoClip(arg1, arg2, arg3) {

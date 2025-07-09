@@ -9,7 +9,31 @@ import {
   updateHighlightOrder,
   currentProjectId
 } from './projectHighlights.js';
-import { UpdateProjectHighlightOrder, GetProjectHighlightOrder } from '$lib/wailsjs/go/main/App';
+import { 
+  UpdateProjectHighlightOrderWithTitles, 
+  GetProjectHighlightOrder,
+  UpdateProjectHighlightOrderWithTitlesWithTitles,
+  SaveSectionTitle,
+  GetProjectHighlightOrderWithTitles
+} from '$lib/wailsjs/go/main/App';
+
+// Mock all the Wails functions that are used in the store
+vi.mock('$lib/wailsjs/go/main/App', () => ({
+  GetProjectHighlights: vi.fn(),
+  GetProjectHighlightOrder: vi.fn(),
+  UpdateProjectHighlightOrderWithTitles: vi.fn(),
+  UpdateProjectHighlightOrderWithTitlesWithTitles: vi.fn(),
+  DeleteHighlight: vi.fn(),
+  UpdateVideoClipHighlights: vi.fn(),
+  UndoOrderChange: vi.fn(),
+  RedoOrderChange: vi.fn(),
+  GetOrderHistoryStatus: vi.fn(),
+  UndoHighlightsChange: vi.fn(),
+  RedoHighlightsChange: vi.fn(),
+  GetHighlightsHistoryStatus: vi.fn(),
+  SaveSectionTitle: vi.fn(),
+  GetProjectHighlightOrderWithTitles: vi.fn()
+}));
 
 describe('ProjectHighlights Store - Newline Functionality', () => {
   // Sample highlight data for testing
@@ -118,7 +142,7 @@ describe('ProjectHighlights Store - Newline Functionality', () => {
   describe('insertNewLine', () => {
     beforeEach(() => {
       // Mock the API call to succeed
-      UpdateProjectHighlightOrder.mockResolvedValue();
+      UpdateProjectHighlightOrderWithTitles.mockResolvedValue();
     });
 
     it('should insert newline at the beginning of empty timeline', async () => {
@@ -199,7 +223,7 @@ describe('ProjectHighlights Store - Newline Functionality', () => {
     });
 
     it('should handle API failure gracefully', async () => {
-      UpdateProjectHighlightOrder.mockRejectedValue(new Error('API Error'));
+      UpdateProjectHighlightOrderWithTitles.mockRejectedValue(new Error('API Error'));
       GetProjectHighlightOrder.mockResolvedValue(['highlight-1', 'highlight-2', 'highlight-3']);
       
       rawHighlights.set(mockHighlights);
@@ -216,7 +240,7 @@ describe('ProjectHighlights Store - Newline Functionality', () => {
   describe('removeNewLine', () => {
     beforeEach(() => {
       // Mock the API call to succeed
-      UpdateProjectHighlightOrder.mockResolvedValue();
+      UpdateProjectHighlightOrderWithTitles.mockResolvedValue();
     });
 
     it('should remove newline from the beginning of timeline', async () => {
@@ -300,7 +324,7 @@ describe('ProjectHighlights Store - Newline Functionality', () => {
     });
 
     it('should handle API failure gracefully', async () => {
-      UpdateProjectHighlightOrder.mockRejectedValue(new Error('API Error'));
+      UpdateProjectHighlightOrderWithTitles.mockRejectedValue(new Error('API Error'));
       GetProjectHighlightOrder.mockResolvedValue(['highlight-1', 'N', 'highlight-2', 'highlight-3']);
       
       rawHighlights.set(mockHighlights);
@@ -317,7 +341,7 @@ describe('ProjectHighlights Store - Newline Functionality', () => {
   describe('Integration tests - insertNewLine and removeNewLine', () => {
     beforeEach(() => {
       // Mock the API call to succeed
-      UpdateProjectHighlightOrder.mockResolvedValue();
+      UpdateProjectHighlightOrderWithTitles.mockResolvedValue();
     });
 
     it('should maintain correct positions through multiple insert/remove operations', async () => {
