@@ -59,16 +59,16 @@ type ProjectAISuggestion struct {
 
 // AIService provides AI-powered highlight functionality
 type AIService struct {
-	client *ent.Client
-	ctx    context.Context
+	client           *ent.Client
+	ctx              context.Context
 	highlightService *HighlightService
 }
 
 // NewAIService creates a new AI service
 func NewAIService(client *ent.Client, ctx context.Context) *AIService {
 	return &AIService{
-		client: client,
-		ctx:    ctx,
+		client:           client,
+		ctx:              ctx,
 		highlightService: NewHighlightService(client, ctx),
 	}
 }
@@ -642,7 +642,7 @@ func (s *AIService) ReorderHighlightsWithAI(projectID int, customPrompt string, 
 	log.Printf("Returning %d items to frontend:", len(reorderedIDs))
 	for i, id := range reorderedIDs {
 		if id == "N" {
-			log.Printf("  %d. NEWLINE CHARACTER", i+1)
+			log.Printf("  %d. N", i+1)
 		} else {
 			log.Printf("  %d. %s", i+1, id)
 		}
@@ -1022,8 +1022,8 @@ func (s *AIService) ImproveHighlightSilencesWithAI(projectID int, getAPIKey func
 		// Don't fail the request if saving fails, just log the error
 	}
 
-	log.Printf("ImproveHighlightSilencesWithAI: Current highlight order preserved (contains %d newlines)", 
-		len(currentOrder) - countHighlightIds(currentOrder))
+	log.Printf("ImproveHighlightSilencesWithAI: Current highlight order preserved (contains %d newlines)",
+		len(currentOrder)-countHighlightIds(currentOrder))
 
 	return improvedHighlights, nil
 }
@@ -1232,14 +1232,14 @@ func (s *AIService) callOpenRouterForSilenceImprovement(apiKey string, model str
 
 	// Parse AI response
 	aiResponse := openRouterResp.Choices[0].Message.Content
-	
+
 	// Log the full response
 	log.Printf("=== AI SILENCE IMPROVEMENT LLM RESPONSE ===")
 	log.Printf("Model: %s", model)
 	log.Printf("Assistant Message: %s", aiResponse)
 	log.Printf("Response Length: %d characters", len(aiResponse))
 	log.Printf("============================================")
-	
+
 	return s.parseAISilenceImprovementResponse(aiResponse)
 }
 
@@ -1331,10 +1331,10 @@ func (s *AIService) saveAISilenceImprovements(projectID int, improvements []Proj
 	log.Printf("Project ID: %d", projectID)
 	log.Printf("Number of improvements: %d", len(improvements))
 	log.Printf("Model: %s", model)
-	
+
 	// Convert improvements to JSON-serializable format
 	improvementsData := make([]map[string]interface{}, 0, len(improvements))
-	
+
 	for _, ph := range improvements {
 		videoData := map[string]interface{}{
 			"videoClipId":   ph.VideoClipID,
@@ -1343,7 +1343,7 @@ func (s *AIService) saveAISilenceImprovements(projectID int, improvements []Proj
 			"duration":      ph.Duration,
 			"highlights":    make([]map[string]interface{}, 0, len(ph.Highlights)),
 		}
-		
+
 		for _, h := range ph.Highlights {
 			highlightData := map[string]interface{}{
 				"id":    h.ID,
@@ -1354,7 +1354,7 @@ func (s *AIService) saveAISilenceImprovements(projectID int, improvements []Proj
 			}
 			videoData["highlights"] = append(videoData["highlights"].([]map[string]interface{}), highlightData)
 		}
-		
+
 		improvementsData = append(improvementsData, videoData)
 	}
 
@@ -1378,7 +1378,7 @@ func (s *AIService) saveAISilenceImprovements(projectID int, improvements []Proj
 func (s *AIService) GetProjectAISilenceImprovements(projectID int) ([]ProjectHighlight, time.Time, string, error) {
 	log.Printf("=== LOADING AI SILENCE IMPROVEMENTS FROM CACHE ===")
 	log.Printf("Project ID: %d", projectID)
-	
+
 	project, err := s.client.Project.
 		Query().
 		Where(project.ID(projectID)).
@@ -1404,25 +1404,25 @@ func (s *AIService) GetProjectAISilenceImprovements(projectID int) ([]ProjectHig
 
 	// Convert from JSON format back to ProjectHighlight structs using JSON marshaling for reliability
 	var improvements []ProjectHighlight
-	
+
 	// First, convert the data back to JSON and then unmarshal it properly
 	jsonBytes, err := json.Marshal(project.AiSilenceImprovements)
 	if err != nil {
 		log.Printf("Error marshaling cached improvements: %v", err)
 		return nil, time.Time{}, "", fmt.Errorf("failed to marshal cached improvements: %w", err)
 	}
-	
+
 	log.Printf("Cached improvements JSON: %s", string(jsonBytes))
-	
+
 	// Unmarshal into our struct
 	err = json.Unmarshal(jsonBytes, &improvements)
 	if err != nil {
 		log.Printf("Error unmarshaling cached improvements: %v", err)
 		return nil, time.Time{}, "", fmt.Errorf("failed to unmarshal cached improvements: %w", err)
 	}
-	
+
 	log.Printf("Successfully loaded %d cached improvements", len(improvements))
-	
+
 	return improvements, project.AiSilenceCreatedAt, project.AiSilenceModel, nil
 }
 
@@ -1434,11 +1434,11 @@ func ClearAISilenceImprovementsCache(ctx context.Context, client *ent.Client, pr
 		ClearAiSilenceModel().
 		ClearAiSilenceCreatedAt().
 		Save(ctx)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to clear AI silence improvements cache: %w", err)
 	}
-	
+
 	return nil
 }
 

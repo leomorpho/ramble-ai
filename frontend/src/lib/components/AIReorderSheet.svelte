@@ -138,16 +138,8 @@ Feel free to completely restructure the order - move any segment to any position
           highlightsMap.set(highlight.id, highlight);
         }
 
-        // Debug cached suggestion before flattening
-        console.log("=== CACHED SUGGESTION DEBUG ===");
-        console.log("Original cached order:", cachedSuggestion.order);
-        console.log("Last 5 items in cached order:", cachedSuggestion.order.slice(-5));
-        
         // Flatten consecutive 'N' characters before processing cached suggestion
         const flattenedCachedOrder = flattenConsecutiveNewlines(cachedSuggestion.order);
-        console.log("Flattened cached order:", flattenedCachedOrder);
-        console.log("Last 5 items after flattening:", flattenedCachedOrder.slice(-5));
-        console.log("==============================");
         
         // Reorder based on cached suggestion - preserve 'N' characters for newlines
         for (const id of flattenedCachedOrder) {
@@ -228,23 +220,6 @@ Feel free to completely restructure the order - move any segment to any position
         customPrompt
       );
 
-      console.log("=== FRONTEND: AI REORDERING RESPONSE ===");
-      console.log("Received from backend:", reorderedIds);
-      console.log("Length:", reorderedIds.length);
-      console.log("Last 5 items:", reorderedIds.slice(-5));
-      
-      // Count newlines
-      const newlineCount = reorderedIds.filter(id => id === "N").length;
-      console.log("Total newline characters (N):", newlineCount);
-      
-      reorderedIds.forEach((id, index) => {
-        if (id === "N") {
-          console.log(`  ${index + 1}. N`);
-        } else {
-          console.log(`  ${index + 1}. ${id}`);
-        }
-      });
-      console.log("==========================================");
 
       // Reorder the AI dialog highlights based on AI suggestion
       const reorderedHighlights = [];
@@ -257,13 +232,6 @@ Feel free to completely restructure the order - move any segment to any position
 
       // Flatten consecutive 'N' characters before processing
       const flattenedReorderedIds = flattenConsecutiveNewlines(reorderedIds);
-      
-      console.log("=== AFTER FLATTENING ===");
-      console.log("Flattened IDs:", flattenedReorderedIds);
-      console.log("Length after flattening:", flattenedReorderedIds.length);
-      console.log("Last 5 items after flattening:", flattenedReorderedIds.slice(-5));
-      console.log("Newlines after flattening:", flattenedReorderedIds.filter(id => id === "N").length);
-      console.log("=======================");
       
       // Build reordered array - preserve 'N' characters for newlines
       for (const id of flattenedReorderedIds) {
@@ -290,11 +258,6 @@ Feel free to completely restructure the order - move any segment to any position
       aiDialogHighlights = reorderedHighlights;
       aiReorderedHighlights = reorderedHighlights;
       
-      console.log("=== DEBUGGING NEWLINES ===");
-      console.log("Total items in reorderedHighlights:", reorderedHighlights.length);
-      console.log("Newline items:", reorderedHighlights.filter(item => item.type === "newline"));
-      console.log("Last 5 items:", reorderedHighlights.slice(-5));
-      console.log("=========================");
       
 
       // Update cache state - we now have a fresh suggestion

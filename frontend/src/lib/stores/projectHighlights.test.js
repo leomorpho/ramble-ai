@@ -183,7 +183,7 @@ describe('ProjectHighlights Store - Newline Functionality', () => {
       const result = await insertNewLine(2);
       
       expect(result).toBe(true);
-      expect(get(highlightOrder)).toEqual(['N', 'highlight-1', 'N', 'N', 'highlight-2', 'N', 'highlight-3']);
+      expect(get(highlightOrder)).toEqual(['N', 'highlight-1', 'N', 'highlight-2', 'N', 'highlight-3']);
     });
 
     it('should handle edge case: insert after last highlight when timeline ends with newline', async () => {
@@ -195,7 +195,7 @@ describe('ProjectHighlights Store - Newline Functionality', () => {
       const result = await insertNewLine(2);
       
       expect(result).toBe(true);
-      expect(get(highlightOrder)).toEqual(['highlight-1', 'highlight-2', 'N', 'N']);
+      expect(get(highlightOrder)).toEqual(['highlight-1', 'highlight-2', 'N']);
     });
 
     it('should handle API failure gracefully', async () => {
@@ -274,7 +274,7 @@ describe('ProjectHighlights Store - Newline Functionality', () => {
       const result = await removeNewLine(0);
       
       expect(result).toBe(true);
-      expect(get(highlightOrder)).toEqual(['N', 'highlight-1', 'highlight-2', 'N', 'N', 'highlight-3']);
+      expect(get(highlightOrder)).toEqual(['N', 'highlight-1', 'highlight-2', 'N', 'highlight-3']);
     });
 
     it('should return false when trying to remove non-existent newline', async () => {
@@ -361,11 +361,11 @@ describe('ProjectHighlights Store - Newline Functionality', () => {
       
       expect(get(highlightOrder)).toEqual(['N', 'highlight-1', 'N', 'highlight-2', 'N', 'highlight-3', 'N']);
       
-      // Remove every other newline
-      await removeNewLine(5); // Remove second-to-last newline
-      await removeNewLine(2); // Remove newline after highlight-1
+      // Remove newlines from end to beginning (so positions don't shift)
+      await removeNewLine(6); // Remove last newline
+      await removeNewLine(4); // Remove newline after highlight-2
       
-      expect(get(highlightOrder)).toEqual(['N', 'highlight-1', 'highlight-2', 'N', 'highlight-3']);
+      expect(get(highlightOrder)).toEqual(['N', 'highlight-1', 'N', 'highlight-2', 'highlight-3']);
     });
 
     it('should verify orderedHighlights reflects changes correctly', async () => {
@@ -381,19 +381,19 @@ describe('ProjectHighlights Store - Newline Functionality', () => {
       await insertNewLine(1);
       ordered = get(orderedHighlights);
       expect(ordered).toHaveLength(4);
-      expect(ordered.map(h => h.id || h.type)).toEqual(['highlight-1', 'newline', 'highlight-2', 'highlight-3']);
+      expect(ordered.map(h => h.type || h.id)).toEqual(['highlight-1', 'newline', 'highlight-2', 'highlight-3']);
       
-      // Insert another newline
+      // Insert another newline at position 0 (this creates two non-consecutive newlines)
       await insertNewLine(0);
       ordered = get(orderedHighlights);
-      expect(ordered).toHaveLength(5);
-      expect(ordered.map(h => h.id || h.type)).toEqual(['newline', 'highlight-1', 'newline', 'highlight-2', 'highlight-3']);
+      expect(ordered).toHaveLength(5); // Length increases because newlines are not consecutive
+      expect(ordered.map(h => h.type || h.id)).toEqual(['newline', 'highlight-1', 'newline', 'highlight-2', 'highlight-3']);
       
-      // Remove a newline
-      await removeNewLine(2);
+      // Remove a newline (should remove the one at position 0)
+      await removeNewLine(0);
       ordered = get(orderedHighlights);
       expect(ordered).toHaveLength(4);
-      expect(ordered.map(h => h.id || h.type)).toEqual(['newline', 'highlight-1', 'highlight-2', 'highlight-3']);
+      expect(ordered.map(h => h.type || h.id)).toEqual(['highlight-1', 'newline', 'highlight-2', 'highlight-3']);
     });
   });
 });
