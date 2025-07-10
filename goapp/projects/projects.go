@@ -23,7 +23,6 @@ import (
 	"MYAPP/ent/schema"
 	"MYAPP/ent/settings"
 	"MYAPP/ent/videoclip"
-	"MYAPP/goapp/highlights"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -40,6 +39,12 @@ type Highlight struct {
 	Start float64 `json:"start"`
 	End   float64 `json:"end"`
 	Color string  `json:"color"`
+}
+
+// NewlineSection represents a newline section with an optional title
+type NewlineSection struct {
+	Type  string `json:"type"`
+	Title string `json:"title"`
 }
 
 // ProjectResponse represents a project response for the frontend
@@ -554,37 +559,23 @@ func (s *ProjectService) UpdateProjectHighlightOrder(projectID int, highlightOrd
 		fmt.Printf("Warning: failed to save order state to history: %v\n", err)
 	}
 
-	// Convert highlight order to JSON for storage
-	highlightOrderJSON, err := json.Marshal(highlightOrder)
+	// Convert []string to []interface{} for database storage
+	interfaceOrder := make([]interface{}, len(highlightOrder))
+	for i, v := range highlightOrder {
+		interfaceOrder[i] = v
+	}
+
+	// Update the highlight order in the project schema
+	_, err = s.client.Project.
+		UpdateOneID(projectID).
+		SetHighlightOrder(interfaceOrder).
+		Save(s.ctx)
+	
 	if err != nil {
-		return fmt.Errorf("failed to marshal highlight order: %w", err)
+		return fmt.Errorf("failed to update project highlight order: %w", err)
 	}
 	
-	// Store in settings table with project-specific key
-	settingKey := fmt.Sprintf("project_%d_highlight_order", projectID)
-	
-	// Check if setting exists
-	existing, err := s.client.Settings.
-		Query().
-		Where(settings.Key(settingKey)).
-		Only(s.ctx)
-		
-	if err != nil {
-		// Setting doesn't exist, create it
-		_, err = s.client.Settings.
-			Create().
-			SetKey(settingKey).
-			SetValue(string(highlightOrderJSON)).
-			Save(s.ctx)
-	} else {
-		// Setting exists, update it
-		_, err = s.client.Settings.
-			UpdateOne(existing).
-			SetValue(string(highlightOrderJSON)).
-			Save(s.ctx)
-	}
-	
-	return err
+	return nil
 }
 
 // Helper functions
@@ -683,12 +674,26 @@ func (s *ProjectService) saveOrderState(projectID int) error {
 		return fmt.Errorf("failed to get project: %w", err)
 	}
 
-	// Get current order from settings using highlights service
-	highlightsService := highlights.NewHighlightService(s.client, s.ctx)
-	currentOrder, err := highlightsService.GetProjectHighlightOrder(projectID)
-	if err != nil {
-		// If no order exists, use empty slice
-		currentOrder = []string{}
+	// Get current order from project schema and convert to string array for history
+	var currentOrderStrings []string
+	if project.HighlightOrder != nil {
+		// Convert []interface{} to []string for history storage
+		for _, item := range project.HighlightOrder {
+			switch v := item.(type) {
+			case string:
+				currentOrderStrings = append(currentOrderStrings, v)
+			case map[string]interface{}:
+				// Convert newline objects back to simple "N" for history
+				if typeVal, ok := v["type"].(string); ok && typeVal == "N" {
+					currentOrderStrings = append(currentOrderStrings, "N")
+				}
+			default:
+				// Handle other types as strings
+				currentOrderStrings = append(currentOrderStrings, fmt.Sprintf("%v", v))
+			}
+		}
+	} else {
+		currentOrderStrings = []string{}
 	}
 
 	// Get current history
@@ -698,7 +703,7 @@ func (s *ProjectService) saveOrderState(projectID int) error {
 	}
 
 	// Add current order to history (FIFO, max 20)
-	history = append(history, currentOrder)
+	history = append(history, currentOrderStrings)
 	if len(history) > 20 {
 		history = history[1:] // Remove oldest entry
 	}
@@ -995,37 +1000,143 @@ func (s *ProjectService) GetHighlightsHistoryStatus(clipID int) (bool, bool, err
 
 // UpdateProjectHighlightOrderWithoutHistory updates order without saving to history (used for undo/redo)
 func (s *ProjectService) UpdateProjectHighlightOrderWithoutHistory(projectID int, highlightOrder []string) error {
-	// Convert highlight order to JSON for storage
-	highlightOrderJSON, err := json.Marshal(highlightOrder)
+	// Convert []string to []interface{} for database storage
+	interfaceOrder := make([]interface{}, len(highlightOrder))
+	for i, v := range highlightOrder {
+		interfaceOrder[i] = v
+	}
+
+	// Update the highlight order in the project schema directly (no history save)
+	_, err := s.client.Project.
+		UpdateOneID(projectID).
+		SetHighlightOrder(interfaceOrder).
+		Save(s.ctx)
+	
 	if err != nil {
-		return fmt.Errorf("failed to marshal highlight order: %w", err)
+		return fmt.Errorf("failed to update project highlight order: %w", err)
 	}
 	
-	// Store in settings table with project-specific key
-	settingKey := fmt.Sprintf("project_%d_highlight_order", projectID)
+	return nil
+}
+
+// SaveSectionTitle saves or updates the title for a newline section at a specific position
+func (s *ProjectService) SaveSectionTitle(projectID int, position int, title string) error {
+	// Get current highlight order
+	highlightOrder, err := s.getProjectHighlightOrderWithTitles(projectID)
+	if err != nil {
+		return fmt.Errorf("failed to get current highlight order: %w", err)
+	}
+
+	// Validate position
+	if position < 0 || position >= len(highlightOrder) {
+		return fmt.Errorf("invalid position %d for highlight order of length %d", position, len(highlightOrder))
+	}
+
+	// Check if the item at position is a newline
+	item := highlightOrder[position]
+	switch v := item.(type) {
+	case string:
+		if v == "N" {
+			// Convert simple "N" to rich newline object with title
+			highlightOrder[position] = NewlineSection{Type: "N", Title: title}
+		} else {
+			return fmt.Errorf("item at position %d is not a newline section", position)
+		}
+	case map[string]interface{}:
+		if typeVal, ok := v["type"].(string); ok && typeVal == "N" {
+			// Update existing newline object
+			v["title"] = title
+			highlightOrder[position] = v
+		} else {
+			return fmt.Errorf("item at position %d is not a newline section", position)
+		}
+	case NewlineSection:
+		if v.Type == "N" {
+			// Update existing NewlineSection
+			v.Title = title
+			highlightOrder[position] = v
+		} else {
+			return fmt.Errorf("item at position %d is not a newline section", position)
+		}
+	default:
+		return fmt.Errorf("item at position %d is not a newline section", position)
+	}
+
+	// Save the updated order
+	return s.UpdateProjectHighlightOrderWithTitles(projectID, highlightOrder)
+}
+
+// GetSectionTitles retrieves all section titles from the project highlight order
+func (s *ProjectService) GetSectionTitles(projectID int) (map[int]string, error) {
+	highlightOrder, err := s.getProjectHighlightOrderWithTitles(projectID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get highlight order: %w", err)
+	}
+
+	titles := make(map[int]string)
+	for i, item := range highlightOrder {
+		switch v := item.(type) {
+		case map[string]interface{}:
+			if typeVal, ok := v["type"].(string); ok && typeVal == "N" {
+				if titleVal, ok := v["title"].(string); ok && titleVal != "" {
+					titles[i] = titleVal
+				}
+			}
+		case NewlineSection:
+			if v.Type == "N" && v.Title != "" {
+				titles[i] = v.Title
+			}
+		}
+	}
+
+	return titles, nil
+}
+
+// UpdateProjectHighlightOrderWithTitles updates the highlight order with rich newline objects
+func (s *ProjectService) UpdateProjectHighlightOrderWithTitles(projectID int, highlightOrder []interface{}) error {
+	// Save current state to history before making changes
+	err := s.saveOrderState(projectID)
+	if err != nil {
+		// Log error but don't fail the update
+		fmt.Printf("Warning: failed to save order state to history: %v\n", err)
+	}
+
+	// Convert interface{} array to the format expected by the database
+	// The database expects a JSON-serializable array
+	_, err = s.client.Project.
+		UpdateOneID(projectID).
+		SetHighlightOrder(highlightOrder).
+		Save(s.ctx)
 	
-	// Check if setting exists
-	existing, err := s.client.Settings.
+	if err != nil {
+		return fmt.Errorf("failed to update project highlight order with titles: %w", err)
+	}
+	
+	return nil
+}
+
+// GetProjectHighlightOrderWithTitles retrieves the highlight order with rich newline objects
+func (s *ProjectService) GetProjectHighlightOrderWithTitles(projectID int) ([]interface{}, error) {
+	return s.getProjectHighlightOrderWithTitles(projectID)
+}
+
+// getProjectHighlightOrderWithTitles is a helper that gets the raw highlight order
+func (s *ProjectService) getProjectHighlightOrderWithTitles(projectID int) ([]interface{}, error) {
+	proj, err := s.client.Project.
 		Query().
-		Where(settings.Key(settingKey)).
+		Where(project.ID(projectID)).
 		Only(s.ctx)
-		
 	if err != nil {
-		// Setting doesn't exist, create it
-		_, err = s.client.Settings.
-			Create().
-			SetKey(settingKey).
-			SetValue(string(highlightOrderJSON)).
-			Save(s.ctx)
-	} else {
-		// Setting exists, update it
-		_, err = s.client.Settings.
-			UpdateOne(existing).
-			SetValue(string(highlightOrderJSON)).
-			Save(s.ctx)
+		return nil, fmt.Errorf("failed to get project: %w", err)
 	}
-	
-	return err
+
+	// Return the highlight order as-is, which can contain both strings and objects
+	if proj.HighlightOrder == nil {
+		return []interface{}{}, nil
+	}
+
+	// Since the database field is already []interface{}, just return it directly
+	return proj.HighlightOrder, nil
 }
 
 // Transcription Methods

@@ -17,6 +17,9 @@ import (
 
 // setupTestDB creates a test database for testing
 func setupTestDB(t testing.TB) (*ent.Client, context.Context) {
+	// Clean up any active jobs from previous tests
+	cleanupActiveJobs()
+	
 	// Use unique database name per test to avoid sharing issues
 	dbName := fmt.Sprintf("file:ent_%d?mode=memory&cache=shared&_fk=1", time.Now().UnixNano())
 	client := enttest.Open(t, "sqlite3", dbName)
@@ -25,6 +28,11 @@ func setupTestDB(t testing.TB) (*ent.Client, context.Context) {
 	// Ensure all migrations are run - use forceful recreation
 	err := client.Schema.Create(ctx, migrate.WithGlobalUniqueID(true))
 	require.NoError(t, err)
+	
+	// Set up cleanup for when the test completes
+	t.Cleanup(func() {
+		cleanupActiveJobs()
+	})
 	
 	return client, ctx
 }
@@ -92,4 +100,27 @@ func createTestHighlight(t testing.TB, client *ent.Client, ctx context.Context, 
 	require.NoError(t, err)
 	
 	return highlightID
+}
+
+// cleanupActiveJobs clears the global activeJobs map to prevent test interference
+func cleanupActiveJobs() {
+	activeJobsMutex.Lock()
+	defer activeJobsMutex.Unlock()
+	
+	// Cancel any active jobs gracefully
+	for jobID, activeJob := range activeJobs {
+		if activeJob.IsActive && activeJob.Cancel != nil {
+			// Send cancel signal without closing channel to avoid panics
+			select {
+			case activeJob.Cancel <- true:
+				// Signal sent successfully
+			default:
+				// Channel was full or closed, skip
+			}
+		}
+		delete(activeJobs, jobID)
+	}
+	
+	// Clear the map completely
+	activeJobs = make(map[string]*ActiveExportJob)
 }

@@ -61,6 +61,7 @@ var (
 		{Name: "ai_silence_improvements", Type: field.TypeJSON, Nullable: true},
 		{Name: "ai_silence_model", Type: field.TypeString, Nullable: true},
 		{Name: "ai_silence_created_at", Type: field.TypeTime, Nullable: true},
+		{Name: "highlight_order", Type: field.TypeJSON, Nullable: true},
 		{Name: "order_history", Type: field.TypeJSON, Nullable: true},
 		{Name: "order_history_index", Type: field.TypeInt, Nullable: true, Default: -1},
 	}

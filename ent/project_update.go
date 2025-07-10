@@ -315,6 +315,24 @@ func (pu *ProjectUpdate) ClearAiSilenceCreatedAt() *ProjectUpdate {
 	return pu
 }
 
+// SetHighlightOrder sets the "highlight_order" field.
+func (pu *ProjectUpdate) SetHighlightOrder(i []interface{}) *ProjectUpdate {
+	pu.mutation.SetHighlightOrder(i)
+	return pu
+}
+
+// AppendHighlightOrder appends i to the "highlight_order" field.
+func (pu *ProjectUpdate) AppendHighlightOrder(i []interface{}) *ProjectUpdate {
+	pu.mutation.AppendHighlightOrder(i)
+	return pu
+}
+
+// ClearHighlightOrder clears the value of the "highlight_order" field.
+func (pu *ProjectUpdate) ClearHighlightOrder() *ProjectUpdate {
+	pu.mutation.ClearHighlightOrder()
+	return pu
+}
+
 // SetOrderHistory sets the "order_history" field.
 func (pu *ProjectUpdate) SetOrderHistory(s [][]string) *ProjectUpdate {
 	pu.mutation.SetOrderHistory(s)
@@ -593,6 +611,17 @@ func (pu *ProjectUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if pu.mutation.AiSilenceCreatedAtCleared() {
 		_spec.ClearField(project.FieldAiSilenceCreatedAt, field.TypeTime)
+	}
+	if value, ok := pu.mutation.HighlightOrder(); ok {
+		_spec.SetField(project.FieldHighlightOrder, field.TypeJSON, value)
+	}
+	if value, ok := pu.mutation.AppendedHighlightOrder(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, project.FieldHighlightOrder, value)
+		})
+	}
+	if pu.mutation.HighlightOrderCleared() {
+		_spec.ClearField(project.FieldHighlightOrder, field.TypeJSON)
 	}
 	if value, ok := pu.mutation.OrderHistory(); ok {
 		_spec.SetField(project.FieldOrderHistory, field.TypeJSON, value)
@@ -1008,6 +1037,24 @@ func (puo *ProjectUpdateOne) ClearAiSilenceCreatedAt() *ProjectUpdateOne {
 	return puo
 }
 
+// SetHighlightOrder sets the "highlight_order" field.
+func (puo *ProjectUpdateOne) SetHighlightOrder(i []interface{}) *ProjectUpdateOne {
+	puo.mutation.SetHighlightOrder(i)
+	return puo
+}
+
+// AppendHighlightOrder appends i to the "highlight_order" field.
+func (puo *ProjectUpdateOne) AppendHighlightOrder(i []interface{}) *ProjectUpdateOne {
+	puo.mutation.AppendHighlightOrder(i)
+	return puo
+}
+
+// ClearHighlightOrder clears the value of the "highlight_order" field.
+func (puo *ProjectUpdateOne) ClearHighlightOrder() *ProjectUpdateOne {
+	puo.mutation.ClearHighlightOrder()
+	return puo
+}
+
 // SetOrderHistory sets the "order_history" field.
 func (puo *ProjectUpdateOne) SetOrderHistory(s [][]string) *ProjectUpdateOne {
 	puo.mutation.SetOrderHistory(s)
@@ -1316,6 +1363,17 @@ func (puo *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err e
 	}
 	if puo.mutation.AiSilenceCreatedAtCleared() {
 		_spec.ClearField(project.FieldAiSilenceCreatedAt, field.TypeTime)
+	}
+	if value, ok := puo.mutation.HighlightOrder(); ok {
+		_spec.SetField(project.FieldHighlightOrder, field.TypeJSON, value)
+	}
+	if value, ok := puo.mutation.AppendedHighlightOrder(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, project.FieldHighlightOrder, value)
+		})
+	}
+	if puo.mutation.HighlightOrderCleared() {
+		_spec.ClearField(project.FieldHighlightOrder, field.TypeJSON)
 	}
 	if value, ok := puo.mutation.OrderHistory(); ok {
 		_spec.SetField(project.FieldOrderHistory, field.TypeJSON, value)

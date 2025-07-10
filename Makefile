@@ -100,21 +100,21 @@ frontend-check-watch: ## Type check frontend code in watch mode
 .PHONY: test
 test: ## Run all tests (Go + Frontend)
 	@echo "🧪 Running Go tests..."
-	go test ./... -short
+	go test -p 1 ./... -short
 	@echo "🧪 Running Frontend tests..."
 	cd frontend && npm test
 
 .PHONY: test-go
 test-go: ## Run Go tests only
-	go test ./...
+	go test -p 1 ./...
 
 .PHONY: test-go-short
 test-go-short: ## Run Go tests in short mode
-	go test ./... -short
+	go test -p 1 ./... -short
 
 .PHONY: test-go-verbose
 test-go-verbose: ## Run Go tests with verbose output
-	go test -v ./...
+	go test -p 1 -v ./...
 
 .PHONY: test-frontend
 test-frontend: ## Run Frontend tests only
@@ -131,14 +131,14 @@ test-frontend-run: ## Run Frontend tests once (CI mode)
 .PHONY: test-verbose
 test-verbose: ## Run all tests with verbose output
 	@echo "🧪 Running Go tests (verbose)..."
-	go test -v ./...
+	go test -p 1 -v ./...
 	@echo "🧪 Running Frontend tests..."
 	cd frontend && npm test
 
 .PHONY: test-coverage
 test-coverage: ## Run tests with coverage report
 	@echo "🧪 Running Go tests with coverage..."
-	go test ./... -short -coverprofile=coverage.out
+	go test -p 1 ./... -short -coverprofile=coverage.out
 	@if [ -f coverage.out ]; then \
 		go tool cover -html=coverage.out -o coverage.html; \
 		echo "📊 Coverage report generated: coverage.html"; \

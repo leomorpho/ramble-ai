@@ -46,6 +46,9 @@
   let currentHighlightIndex = $state(0);
   let activeVideoSource = $state("");
   let preloadVideoSource = $state("");
+  
+  // Animation frame ID for smooth playhead updates
+  let animationFrameId = null;
 
   // Drag and drop state (use highlights prop directly from store)
   let isDragging = $state(false);
@@ -88,14 +91,14 @@
     const duration = highlights.reduce((sum, h) => sum + (h.end - h.start), 0);
     return duration;
   });
-  
+
   // Active segment display threshold
   const ACTIVE_SEGMENT_THRESHOLD = 0.2; // Show if any segment is less than 20% of total duration
-  
+
   // Video preloading and transition timing constants
   const PRELOAD_TIME_BEFORE_END = 3; // Start preloading next highlight 3 seconds before current ends
   const PLAYBACK_START_TIME_BEFORE_END = 0.15; // Start playing preloaded video x seconds before current ends
-  
+
   // Timeline display thresholds
   const HIDE_SEGMENT_NUMBERS_THRESHOLD = 20; // Hide segment numbers when more than 20 segments
   const DISABLE_REORDERING_THRESHOLD = 30; // Disable reordering when more than 30 segments
@@ -115,20 +118,22 @@
       return percentage < ACTIVE_SEGMENT_THRESHOLD;
     });
   });
-  
+
   // Calculate if we should show segment numbers
   let shouldShowSegmentNumbers = $derived(() => {
     return highlights.length <= HIDE_SEGMENT_NUMBERS_THRESHOLD;
   });
-  
+
   // Calculate if we should enable reordering
   let shouldEnableReordering = $derived(() => {
-    return enableReordering && highlights.length <= DISABLE_REORDERING_THRESHOLD;
+    return (
+      enableReordering && highlights.length <= DISABLE_REORDERING_THRESHOLD
+    );
   });
-  
+
   // Update total duration when highlights change
   $effect(() => {
-    totalDuration = calculatedTotalDuration;
+    totalDuration = calculatedTotalDuration();
   });
 
   // Helper functions for dual video elements
@@ -147,11 +152,11 @@
   // Load and play a specific highlight on the active video element
   async function loadHighlight(highlight, specificSeekTime = null) {
     if (!highlight) return false;
-    
+
     try {
       isLoading = true;
       const videoURL = encodeURI(highlight.filePath);
-      
+
       // If we have a specific seek time, load the full video, otherwise use fragment URL
       let sourceURL;
       if (specificSeekTime !== null) {
@@ -159,33 +164,33 @@
       } else {
         sourceURL = `${videoURL}#t=${highlight.start},${highlight.end}`; // Use fragment URL for normal loading
       }
-      
+
       activeVideoSource = sourceURL;
-      
+
       // Load on the active video element
       const activeVideo = getActiveVideoElement();
       if (activeVideo) {
         activeVideo.src = sourceURL;
         activeVideo.load();
-        
+
         // If we have a specific seek time, wait for the video to be ready and then seek
         if (specificSeekTime !== null) {
           return new Promise((resolve) => {
             const handleCanPlay = () => {
-              activeVideo.removeEventListener('canplay', handleCanPlay);
+              activeVideo.removeEventListener("canplay", handleCanPlay);
               activeVideo.currentTime = specificSeekTime;
               resolve(true);
             };
-            activeVideo.addEventListener('canplay', handleCanPlay);
+            activeVideo.addEventListener("canplay", handleCanPlay);
           });
         }
       }
-      
+
       return true;
     } catch (err) {
       console.error("Failed to load highlight:", err);
       toast.error("Failed to load video", {
-        description: `Could not load ${highlight.videoClipName}`
+        description: `Could not load ${highlight.videoClipName}`,
       });
       return false;
     } finally {
@@ -196,14 +201,14 @@
   // Preload the next highlight on the inactive video element
   async function preloadNextHighlight(nextHighlight) {
     if (!nextHighlight || isPreloading) return false;
-    
+
     try {
       isPreloading = true;
       console.log("Preloading next highlight:", nextHighlight.videoClipName);
-      
+
       const videoURL = encodeURI(nextHighlight.filePath);
       const fragmentURL = `${videoURL}#t=${nextHighlight.start},${nextHighlight.end}`;
-      
+
       // Load on the inactive video element
       const preloadVideo = getPreloadVideoElement();
       if (preloadVideo) {
@@ -211,10 +216,10 @@
         preloadVideo.src = fragmentURL;
         preloadVideo.load();
       }
-      
+
       // Store the preloaded data
       preloadedHighlight = nextHighlight;
-      
+
       return true;
     } catch (err) {
       console.error("Failed to preload highlight:", err);
@@ -227,14 +232,17 @@
   // Use preloaded highlight by switching to the preloaded video element
   async function usePreloadedHighlight() {
     if (!preloadedHighlight) return false;
-    
+
     try {
-      console.log("Using preloaded highlight:", preloadedHighlight.videoClipName);
-      
+      console.log(
+        "Using preloaded highlight:",
+        preloadedHighlight.videoClipName
+      );
+
       // Get the preload video element and start playing it
       const preloadVideo = getPreloadVideoElement();
       const currentActiveVideo = getActiveVideoElement();
-      
+
       // Start playback on the preloaded video before switching (if not already started)
       if (preloadVideo && preloadVideo.paused && !preloadedVideoStarted) {
         try {
@@ -245,23 +253,23 @@
           // Continue anyway, might still work
         }
       }
-      
+
       // Pause the current active video
       if (currentActiveVideo && !currentActiveVideo.paused) {
         currentActiveVideo.pause();
       }
-      
+
       // Switch to the preloaded video element
       switchActiveVideo();
-      
+
       // Update the active video source
       activeVideoSource = preloadVideoSource;
-      
+
       // Clean up preloaded state
       preloadedHighlight = null;
       preloadVideoSource = "";
       preloadedVideoStarted = false;
-      
+
       return true;
     } catch (err) {
       console.error("Failed to use preloaded highlight:", err);
@@ -282,11 +290,52 @@
     let accumulatedTime = 0;
     for (let i = 0; i < highlights.length; i++) {
       const segmentDuration = highlights[i].end - highlights[i].start;
-      if (currentTime >= accumulatedTime && currentTime < accumulatedTime + segmentDuration) {
+      if (
+        currentTime >= accumulatedTime &&
+        currentTime < accumulatedTime + segmentDuration
+      ) {
         currentHighlightIndex = i;
         break;
       }
       accumulatedTime += segmentDuration;
+    }
+  }
+  
+  // Smooth playhead update using requestAnimationFrame
+  function updatePlayheadSmoothly() {
+    const activeVideo = getActiveVideoElement();
+    if (!activeVideo || activeVideo.paused) {
+      animationFrameId = null;
+      return;
+    }
+    
+    // Update the current time based on video position
+    let accumulatedTime = 0;
+    for (let i = 0; i < currentHighlightIndex; i++) {
+      accumulatedTime += highlights[i].end - highlights[i].start;
+    }
+    
+    const currentHighlight = highlights[currentHighlightIndex];
+    if (currentHighlight) {
+      const videoCurrentTime = activeVideo.currentTime;
+      const timeWithinSegment = Math.max(
+        0,
+        videoCurrentTime - currentHighlight.start
+      );
+      currentTime = accumulatedTime + timeWithinSegment;
+    }
+    
+    // Continue the animation loop
+    animationFrameId = requestAnimationFrame(updatePlayheadSmoothly);
+  }
+  
+  // Start or stop smooth playhead updates based on playing state
+  function managePlayheadAnimation() {
+    if (isPlaying && !animationFrameId) {
+      updatePlayheadSmoothly();
+    } else if (!isPlaying && animationFrameId) {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
     }
   }
 
@@ -297,14 +346,16 @@
       toast.error("Video player not ready");
       return;
     }
-    
+
     try {
       if (activeVideo.paused || activeVideo.ended) {
         await activeVideo.play();
         isPlaying = true;
+        managePlayheadAnimation();
       } else {
         activeVideo.pause();
         isPlaying = false;
+        managePlayheadAnimation();
       }
     } catch (err) {
       console.error("Error toggling playback:", err);
@@ -322,37 +373,39 @@
   // Jump to a specific highlight
   async function jumpToHighlightWrapper(highlightIndex) {
     if (highlightIndex < 0 || highlightIndex >= highlights.length) return;
-    
+
     // Clean up any preloaded element since we're jumping manually
     cleanupPreloadedElement();
-    
+
     const targetHighlight = highlights[highlightIndex];
     const wasPlaying = isPlaying;
-    
+
     // Pause current playback
     const activeVideo = getActiveVideoElement();
     if (activeVideo && !activeVideo.paused) {
       activeVideo.pause();
       isPlaying = false;
+      managePlayheadAnimation();
     }
-    
+
     // Load the new highlight
     const success = await loadHighlight(targetHighlight);
     if (success) {
       currentHighlightIndex = highlightIndex;
-      
+
       // Calculate the start time in the concatenated timeline
       let accumulatedTime = 0;
       for (let i = 0; i < highlightIndex; i++) {
         accumulatedTime += highlights[i].end - highlights[i].start;
       }
       currentTime = accumulatedTime;
-      
+
       // Resume playing if it was playing before
       if (wasPlaying && activeVideo) {
         try {
           await activeVideo.play();
           isPlaying = true;
+          managePlayheadAnimation();
         } catch (err) {
           console.error("Failed to resume playback:", err);
         }
@@ -364,50 +417,70 @@
   function handleTimeUpdate() {
     const activeVideo = getActiveVideoElement();
     if (!activeVideo) return;
-    
+
     // Update the current time in the context of the concatenated timeline
     let accumulatedTime = 0;
     for (let i = 0; i < currentHighlightIndex; i++) {
       accumulatedTime += highlights[i].end - highlights[i].start;
     }
-    
+
     const currentHighlight = highlights[currentHighlightIndex];
     if (currentHighlight) {
       // Calculate time within the current highlight segment
       const videoCurrentTime = activeVideo.currentTime;
-      const timeWithinSegment = Math.max(0, videoCurrentTime - currentHighlight.start);
+      const timeWithinSegment = Math.max(
+        0,
+        videoCurrentTime - currentHighlight.start
+      );
       currentTime = accumulatedTime + timeWithinSegment;
-      
+
       // Check if we should preload the next highlight
       const timeUntilEnd = currentHighlight.end - videoCurrentTime;
       const nextIndex = currentHighlightIndex + 1;
-      if (timeUntilEnd <= PRELOAD_TIME_BEFORE_END && nextIndex < highlights.length && !preloadedHighlight && !isPreloading) {
+      if (
+        timeUntilEnd <= PRELOAD_TIME_BEFORE_END &&
+        nextIndex < highlights.length &&
+        !preloadedHighlight &&
+        !isPreloading
+      ) {
         const nextHighlight = highlights[nextIndex];
         if (nextHighlight) {
           preloadNextHighlight(nextHighlight);
         }
       }
-      
+
       // Start playback on preloaded video when very close to the end
-      if (timeUntilEnd <= PLAYBACK_START_TIME_BEFORE_END && preloadedHighlight && !preloadedVideoStarted && isPlaying) {
+      if (
+        timeUntilEnd <= PLAYBACK_START_TIME_BEFORE_END &&
+        preloadedHighlight &&
+        !preloadedVideoStarted &&
+        isPlaying
+      ) {
         const preloadVideo = getPreloadVideoElement();
         if (preloadVideo && preloadVideo.paused) {
-          preloadVideo.play().then(() => {
-            preloadedVideoStarted = true;
-            console.log("Pre-started playback on next video for seamless transition");
-          }).catch(err => {
-            console.warn("Failed to pre-start preloaded video:", err);
-          });
+          preloadVideo
+            .play()
+            .then(() => {
+              preloadedVideoStarted = true;
+              console.log(
+                "Pre-started playback on next video for seamless transition"
+              );
+            })
+            .catch((err) => {
+              console.warn("Failed to pre-start preloaded video:", err);
+            });
         }
       }
-      
+
       // Check if we've reached the end of the current highlight
       if (videoCurrentTime >= currentHighlight.end) {
-        console.log(`Reached end of highlight ${currentHighlightIndex + 1} at time ${videoCurrentTime}/${currentHighlight.end}`);
+        console.log(
+          `Reached end of highlight ${currentHighlightIndex + 1} at time ${videoCurrentTime}/${currentHighlight.end}`
+        );
         handleHighlightEnd();
       }
     }
-    
+
     updateCurrentHighlightIndex();
   }
 
@@ -415,29 +488,31 @@
   async function handleHighlightEnd() {
     const nextIndex = currentHighlightIndex + 1;
     if (nextIndex < highlights.length) {
-      console.log(`Auto-advancing from highlight ${currentHighlightIndex + 1} to ${nextIndex + 1}`);
+      console.log(
+        `Auto-advancing from highlight ${currentHighlightIndex + 1} to ${nextIndex + 1}`
+      );
       const wasPlaying = isPlaying;
-      
+
       // Set transition flag to prevent seeking indicator
       isAutoTransitioning = true;
-      
+
       try {
         // Try to use preloaded highlight first, fallback to normal loading
         const nextHighlight = highlights[nextIndex];
         let success = false;
-        
+
         if (preloadedHighlight && preloadedHighlight.id === nextHighlight.id) {
           console.log("Using preloaded highlight for seamless transition");
           success = await usePreloadedHighlight();
         }
-        
+
         if (!success) {
           console.log("Fallback to normal highlight loading");
           await jumpToHighlightWrapper(nextIndex);
         } else {
           // Update the current highlight index manually since we used preloaded
           currentHighlightIndex = nextIndex;
-          
+
           // Calculate the start time in the concatenated timeline
           let accumulatedTime = 0;
           for (let i = 0; i < nextIndex; i++) {
@@ -445,13 +520,14 @@
           }
           currentTime = accumulatedTime;
         }
-        
+
         // Resume playing if it was playing before
         const newActiveVideo = getActiveVideoElement();
         if (wasPlaying && newActiveVideo && newActiveVideo.paused) {
           try {
             await newActiveVideo.play();
             isPlaying = true;
+            managePlayheadAnimation();
           } catch (err) {
             console.error("Failed to auto-play next highlight:", err);
           }
@@ -465,6 +541,7 @@
     } else {
       console.log("Reached end of all highlights");
       isPlaying = false;
+      managePlayheadAnimation();
       const activeVideo = getActiveVideoElement();
       if (activeVideo && !activeVideo.paused) {
         activeVideo.pause();
@@ -474,16 +551,18 @@
 
   // Timeline seeking
   async function handleTimelineSeekWrapper(targetTime) {
-    
     // Find which highlight contains the target time
     let accumulatedTime = 0;
     let targetHighlightIndex = -1;
     let targetHighlight = null;
     let timeBeforeTarget = 0;
-    
+
     for (let i = 0; i < highlights.length; i++) {
       const segmentDuration = highlights[i].end - highlights[i].start;
-      if (targetTime >= accumulatedTime && targetTime < accumulatedTime + segmentDuration) {
+      if (
+        targetTime >= accumulatedTime &&
+        targetTime < accumulatedTime + segmentDuration
+      ) {
         targetHighlightIndex = i;
         targetHighlight = highlights[i];
         timeBeforeTarget = accumulatedTime;
@@ -491,31 +570,32 @@
       }
       accumulatedTime += segmentDuration;
     }
-    
+
     if (!targetHighlight) {
       return;
     }
-    
+
     const wasPlaying = isPlaying;
     isSeeking = true;
-    
+
     try {
       // Calculate the exact time within the video file
       const timeWithinTimeline = targetTime - timeBeforeTarget;
       const videoSeekTime = targetHighlight.start + timeWithinTimeline;
-      
+
       // If we need to switch to a different highlight
       if (targetHighlightIndex !== currentHighlightIndex) {
         // Clean up any preloaded element since we're jumping manually
         cleanupPreloadedElement();
-        
+
         // Pause current playback
         const activeVideo = getActiveVideoElement();
         if (activeVideo && !activeVideo.paused) {
           activeVideo.pause();
           isPlaying = false;
+          managePlayheadAnimation();
         }
-        
+
         // Load the new highlight with the specific seek time
         const success = await loadHighlight(targetHighlight, videoSeekTime);
         if (success) {
@@ -532,7 +612,7 @@
           updateCurrentHighlightIndex();
         }
       }
-      
+
       // Resume playing if it was playing before
       if (wasPlaying) {
         const activeVideo = getActiveVideoElement();
@@ -540,6 +620,7 @@
           try {
             await activeVideo.play();
             isPlaying = true;
+            managePlayheadAnimation();
           } catch (err) {
             console.error("Failed to resume playback after seek:", err);
           }
@@ -563,11 +644,6 @@
 
     // Seek to the calculated time
     handleTimelineSeekWrapper(targetTime);
-  }
-
-  // Progress percentage
-  function getProgressPercentage() {
-    return totalDuration > 0 ? (currentTime / totalDuration) * 100 : 0;
   }
 
   // Helper functions for popover state management
@@ -759,10 +835,10 @@
   // Handle reordering by updating the current highlight
   async function handleReorderComplete(newHighlights) {
     console.log("Handling reorder with new highlight order");
-    
+
     // Clean up any preloaded element since order changed
     cleanupPreloadedElement();
-    
+
     // Reset to first highlight with new order
     if (newHighlights.length > 0) {
       const firstHighlight = newHighlights[0];
@@ -777,14 +853,18 @@
   // Initialize video when highlights are available
   $effect(() => {
     if (browser && highlights.length > 0 && !isInitialized) {
-      console.log("Initializing video player with", highlights.length, "highlights");
+      console.log(
+        "Initializing video player with",
+        highlights.length,
+        "highlights"
+      );
       console.log("First highlight:", JSON.stringify(highlights[0], null, 2));
-      
+
       // Load the first highlight
       const firstHighlight = highlights[0];
       if (firstHighlight) {
         console.log("Loading first highlight:", firstHighlight.videoClipName);
-        loadHighlight(firstHighlight).then(success => {
+        loadHighlight(firstHighlight).then((success) => {
           console.log("First highlight load result:", success);
           if (success) {
             isInitialized = true;
@@ -803,9 +883,13 @@
   $effect(() => {
     if (browser && highlights.length > 0 && isInitialized) {
       const currentOrder = highlights.map((h) => h.id).join(",");
-      
+
       // If order changed, reset to first highlight
-      if (lastKnownOrder && lastKnownOrder !== currentOrder && !isInternalReorder) {
+      if (
+        lastKnownOrder &&
+        lastKnownOrder !== currentOrder &&
+        !isInternalReorder
+      ) {
         console.log("Highlight order changed, resetting to first highlight");
         const firstHighlight = highlights[0];
         if (firstHighlight) {
@@ -815,33 +899,41 @@
           });
         }
       }
-      
+
       lastKnownOrder = currentOrder;
     }
   });
 
-
-
   // Sync playing state with video elements and handle auto-progression
   $effect(() => {
     if (browser && (videoElement1 || videoElement2)) {
-      const handlePlay = () => { isPlaying = true; };
-      const handlePause = () => { isPlaying = false; };
-      const handleEnded = async () => { 
+      const handlePlay = () => {
+        isPlaying = true;
+        managePlayheadAnimation();
+      };
+      const handlePause = () => {
         isPlaying = false;
-        
+        managePlayheadAnimation();
+      };
+      const handleEnded = async () => {
+        isPlaying = false;
+        managePlayheadAnimation();
+
         // Auto-advance to next highlight if available
         const nextIndex = currentHighlightIndex + 1;
         if (nextIndex < highlights.length) {
-          console.log(`Auto-advancing from highlight ${currentHighlightIndex + 1} to ${nextIndex + 1}`);
+          console.log(
+            `Auto-advancing from highlight ${currentHighlightIndex + 1} to ${nextIndex + 1}`
+          );
           await jumpToHighlightWrapper(nextIndex);
-          
+
           // Auto-play the next highlight
           const activeVideo = getActiveVideoElement();
           if (activeVideo && activeVideo.paused) {
             try {
               await activeVideo.play();
               isPlaying = true;
+              managePlayheadAnimation();
             } catch (err) {
               console.error("Failed to auto-play next highlight:", err);
             }
@@ -850,38 +942,36 @@
           console.log("Reached end of all highlights");
         }
       };
-      
+
       const cleanupFunctions = [];
-      
+
       if (videoElement1) {
-        videoElement1.addEventListener('play', handlePlay);
-        videoElement1.addEventListener('pause', handlePause);
-        videoElement1.addEventListener('ended', handleEnded);
+        videoElement1.addEventListener("play", handlePlay);
+        videoElement1.addEventListener("pause", handlePause);
+        videoElement1.addEventListener("ended", handleEnded);
         cleanupFunctions.push(() => {
-          videoElement1.removeEventListener('play', handlePlay);
-          videoElement1.removeEventListener('pause', handlePause);
-          videoElement1.removeEventListener('ended', handleEnded);
+          videoElement1.removeEventListener("play", handlePlay);
+          videoElement1.removeEventListener("pause", handlePause);
+          videoElement1.removeEventListener("ended", handleEnded);
         });
       }
-      
+
       if (videoElement2) {
-        videoElement2.addEventListener('play', handlePlay);
-        videoElement2.addEventListener('pause', handlePause);
-        videoElement2.addEventListener('ended', handleEnded);
+        videoElement2.addEventListener("play", handlePlay);
+        videoElement2.addEventListener("pause", handlePause);
+        videoElement2.addEventListener("ended", handleEnded);
         cleanupFunctions.push(() => {
-          videoElement2.removeEventListener('play', handlePlay);
-          videoElement2.removeEventListener('pause', handlePause);
-          videoElement2.removeEventListener('ended', handleEnded);
+          videoElement2.removeEventListener("play", handlePlay);
+          videoElement2.removeEventListener("pause", handlePause);
+          videoElement2.removeEventListener("ended", handleEnded);
         });
       }
-      
+
       return () => {
-        cleanupFunctions.forEach(cleanup => cleanup());
+        cleanupFunctions.forEach((cleanup) => cleanup());
       };
     }
   });
-
-
 
   // Initialize component
   onMount(() => {
@@ -901,6 +991,11 @@
     }
     // Clean up any preloaded elements
     cleanupPreloadedElement();
+    // Cancel any pending animation frame
+    if (animationFrameId) {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
+    }
   });
 </script>
 
@@ -923,19 +1018,24 @@
         <video
           bind:this={videoElement1}
           class="absolute inset-0 w-full h-full bg-black"
-          style="object-fit: contain; max-width: 100%; max-height: 100%; z-index: {activeVideoIndex === 1 ? 10 : 5}; opacity: {activeVideoIndex === 1 ? 1 : 0};"
+          style="object-fit: contain; max-width: 100%; max-height: 100%; z-index: {activeVideoIndex ===
+          1
+            ? 10
+            : 5}; opacity: {activeVideoIndex === 1 ? 1 : 0};"
           src={activeVideoIndex === 1 ? activeVideoSource : preloadVideoSource}
           preload="metadata"
           ontimeupdate={activeVideoIndex === 1 ? handleTimeUpdate : () => {}}
-          onloadeddata={() => { if (activeVideoIndex === 1) isInitialized = true; }}
-          onwaiting={() => { 
+          onloadeddata={() => {
+            if (activeVideoIndex === 1) isInitialized = true;
+          }}
+          onwaiting={() => {
             if (!isAutoTransitioning && activeVideoIndex === 1) {
-              isSeeking = true; 
+              isSeeking = true;
             }
           }}
-          oncanplay={() => { 
+          oncanplay={() => {
             if (!isAutoTransitioning && activeVideoIndex === 1) {
-              isSeeking = false; 
+              isSeeking = false;
             }
           }}
         >
@@ -946,26 +1046,33 @@
         <video
           bind:this={videoElement2}
           class="absolute inset-0 w-full h-full bg-black"
-          style="object-fit: contain; max-width: 100%; max-height: 100%; z-index: {activeVideoIndex === 2 ? 10 : 5}; opacity: {activeVideoIndex === 2 ? 1 : 0};"
+          style="object-fit: contain; max-width: 100%; max-height: 100%; z-index: {activeVideoIndex ===
+          2
+            ? 10
+            : 5}; opacity: {activeVideoIndex === 2 ? 1 : 0};"
           src={activeVideoIndex === 2 ? activeVideoSource : preloadVideoSource}
           preload="metadata"
           ontimeupdate={activeVideoIndex === 2 ? handleTimeUpdate : () => {}}
-          onloadeddata={() => { if (activeVideoIndex === 2) isInitialized = true; }}
-          onwaiting={() => { 
+          onloadeddata={() => {
+            if (activeVideoIndex === 2) isInitialized = true;
+          }}
+          onwaiting={() => {
             if (!isAutoTransitioning && activeVideoIndex === 2) {
-              isSeeking = true; 
+              isSeeking = true;
             }
           }}
-          oncanplay={() => { 
+          oncanplay={() => {
             if (!isAutoTransitioning && activeVideoIndex === 2) {
-              isSeeking = false; 
+              isSeeking = false;
             }
           }}
         >
           <track kind="captions" />
         </video>
       {:else}
-        <div class="w-full h-full bg-black flex items-center justify-center text-white">
+        <div
+          class="w-full h-full bg-black flex items-center justify-center text-white"
+        >
           <div class="text-center">
             <p>No video selected</p>
           </div>
@@ -1017,9 +1124,6 @@
             <div class="text-sm font-mono">
               {formatTime(currentTime)} / {formatTime(totalDuration)}
             </div>
-            <div class="text-xs text-muted-foreground">
-              {Math.round(getProgressPercentage())}%
-            </div>
           </div>
         </div>
       </div>
@@ -1034,7 +1138,10 @@
           </div>
         {:else}
           <div class="text-xs text-muted-foreground mb-2">
-            💡 Click segments to seek{highlights.length > DISABLE_REORDERING_THRESHOLD ? ` (reordering disabled for ${highlights.length} segments)` : ''}
+            💡 Click segments to seek{highlights.length >
+            DISABLE_REORDERING_THRESHOLD
+              ? ` (reordering disabled for ${highlights.length} segments)`
+              : ""}
           </div>
         {/if}
 

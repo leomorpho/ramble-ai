@@ -9,6 +9,8 @@
     isDragging = false,
     isBeingDragged = false,
     showDropIndicatorBefore = false,
+    enableDrag = true,
+    enableEdit = true,
     onSelect = () => {},
     onDragStart = () => {},
     onDragEnd = () => {},
@@ -48,9 +50,10 @@
 <span
   class="highlight-span  
          {isSelected ? 'highlight-selected' : ''}
-         {isBeingDragged ? 'highlight-dragging' : ''}"
+         {isBeingDragged ? 'highlight-dragging' : ''}
+         {!enableDrag ? 'highlight-non-draggable' : ''}"
   style="background-color: {highlight.color};"
-  draggable="true"
+  draggable={enableDrag}
   ondragstart={(e) => onDragStart(e, highlight, index)}
   ondragend={onDragEnd}
   onclick={(e) => onSelect(e, highlight)}
@@ -78,24 +81,26 @@
   {/if}
   
   <!-- Eye icon inside highlight -->
-  <span class="inline-flex items-center ml-1">
-    <HighlightMenu
-      {highlight}
-      {onEdit}
-      {onDelete}
-      {popoverOpen}
-      {onPopoverOpenChange}
-      iconSize="w-3 h-3"
-      triggerSize="w-5 h-5"
-    />
-  </span>
+  {#if enableEdit}
+    <span class="inline-flex items-center ml-1">
+      <HighlightMenu
+        {highlight}
+        {onEdit}
+        {onDelete}
+        {popoverOpen}
+        {onPopoverOpenChange}
+        iconSize="w-3 h-3"
+        triggerSize="w-5 h-5"
+      />
+    </span>
+  {/if}
 </span>
 
 <style>
   /* Natural text flow highlight spans */
   .highlight-span {
     display: inline;
-    padding: 2px 4px;
+    padding: 2px 2px;
     margin: 0px 2px;
     border-radius: 3px;
     cursor: move;
@@ -104,6 +109,11 @@
     font-weight: 500;
     position: relative;
     color: hsl(var(--foreground));
+  }
+
+  /* Non-draggable state */
+  .highlight-non-draggable {
+    cursor: default;
   }
 
   .highlight-span:hover {

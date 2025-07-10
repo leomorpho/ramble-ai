@@ -1060,6 +1060,16 @@ func AiSilenceCreatedAtNotNil() predicate.Project {
 	return predicate.Project(sql.FieldNotNull(FieldAiSilenceCreatedAt))
 }
 
+// HighlightOrderIsNil applies the IsNil predicate on the "highlight_order" field.
+func HighlightOrderIsNil() predicate.Project {
+	return predicate.Project(sql.FieldIsNull(FieldHighlightOrder))
+}
+
+// HighlightOrderNotNil applies the NotNil predicate on the "highlight_order" field.
+func HighlightOrderNotNil() predicate.Project {
+	return predicate.Project(sql.FieldNotNull(FieldHighlightOrder))
+}
+
 // OrderHistoryIsNil applies the IsNil predicate on the "order_history" field.
 func OrderHistoryIsNil() predicate.Project {
 	return predicate.Project(sql.FieldIsNull(FieldOrderHistory))

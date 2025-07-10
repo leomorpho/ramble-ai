@@ -2,7 +2,6 @@ package highlights
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"sort"
@@ -335,28 +334,41 @@ func (s *HighlightService) SaveProjectHighlightAISettings(projectID int, setting
 
 // GetProjectHighlightOrder retrieves the custom highlight order for a project
 func (s *HighlightService) GetProjectHighlightOrder(projectID int) ([]string, error) {
-	settingKey := fmt.Sprintf("project_%d_highlight_order", projectID)
-
-	setting, err := s.client.Settings.
+	project, err := s.client.Project.
 		Query().
-		Where(settings.Key(settingKey)).
+		Where(project.ID(projectID)).
 		First(s.ctx)
 
 	if err != nil {
 		if ent.IsNotFound(err) {
-			// No custom order exists
-			return []string{}, nil
+			return nil, fmt.Errorf("project not found: %d", projectID)
 		}
-		return nil, fmt.Errorf("failed to get highlight order: %w", err)
+		return nil, fmt.Errorf("failed to get project: %w", err)
 	}
 
-	var order []string
-	err = json.Unmarshal([]byte(setting.Value), &order)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal highlight order: %w", err)
+	// Return the highlight order from the project schema
+	if project.HighlightOrder == nil {
+		return []string{}, nil
 	}
 
-	return order, nil
+	// Convert []interface{} to []string
+	result := make([]string, 0, len(project.HighlightOrder))
+	for _, item := range project.HighlightOrder {
+		switch v := item.(type) {
+		case string:
+			result = append(result, v)
+		case map[string]interface{}:
+			// Convert newline objects back to simple "N" 
+			if typeVal, ok := v["type"].(string); ok && typeVal == "N" {
+				result = append(result, "N")
+			}
+		default:
+			// Handle other types as strings
+			result = append(result, fmt.Sprintf("%v", v))
+		}
+	}
+
+	return result, nil
 }
 
 // GetProjectHighlightsForExport gets highlights formatted for export

@@ -60,9 +60,13 @@ export function GetProjectHighlightAISettings(arg1:number):Promise<highlights.Pr
 
 export function GetProjectHighlightOrder(arg1:number):Promise<Array<string>>;
 
+export function GetProjectHighlightOrderWithTitles(arg1:number):Promise<Array<any>>;
+
 export function GetProjectHighlights(arg1:number):Promise<Array<highlights.ProjectHighlight>>;
 
 export function GetProjects():Promise<Array<projects.ProjectResponse>>;
+
+export function GetSectionTitles(arg1:number):Promise<Record<number, string>>;
 
 export function GetSetting(arg1:string):Promise<string>;
 
@@ -96,6 +100,8 @@ export function SaveProjectAISettings(arg1:number,arg2:highlights.ProjectAISetti
 
 export function SaveProjectHighlightAISettings(arg1:number,arg2:highlights.ProjectHighlightAISettings):Promise<void>;
 
+export function SaveSectionTitle(arg1:number,arg2:number,arg3:string):Promise<void>;
+
 export function SaveSetting(arg1:string,arg2:string):Promise<void>;
 
 export function SaveThemePreference(arg1:string):Promise<void>;
@@ -121,6 +127,8 @@ export function UpdateProject(arg1:number,arg2:string,arg3:string):Promise<proje
 export function UpdateProjectActiveTab(arg1:number,arg2:string):Promise<void>;
 
 export function UpdateProjectHighlightOrder(arg1:number,arg2:Array<string>):Promise<void>;
+
+export function UpdateProjectHighlightOrderWithTitles(arg1:number,arg2:Array<any>):Promise<void>;
 
 export function UpdateVideoClip(arg1:number,arg2:string,arg3:string):Promise<projects.VideoClipResponse>;
 

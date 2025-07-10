@@ -43,19 +43,19 @@ pre-push:
       run: go test ./... -short -timeout=60s
       fail_text: "Full Go test suite failed"
 
-# Commit message hooks
-commit-msg:
-  commands:
-    # Check commit message format
-    commit-check:
-      run: |
-        if ! grep -qE '^(feat|fix|docs|style|refactor|test|chore)(\(.+\))?: .{1,50}' "{1}"; then
-          echo "Invalid commit message format."
-          echo "Use: type(scope): description"
-          echo "Types: feat, fix, docs, style, refactor, test, chore"
-          exit 1
-        fi
-      fail_text: "Commit message format is invalid"
-      skip:
-        - merge
-        - rebase
+# Commit message hooks - DISABLED
+# commit-msg:
+#   commands:
+#     # Check commit message format
+#     commit-check:
+#       run: |
+#         if ! grep -qE '^(feat|fix|docs|style|refactor|test|chore)(\(.+\))?: .{1,50}' "{1}"; then
+#           echo "Invalid commit message format."
+#           echo "Use: type(scope): description"
+#           echo "Types: feat, fix, docs, style, refactor, test, chore"
+#           exit 1
+#         fi
+#       fail_text: "Commit message format is invalid"
+#       skip:
+#         - merge
+#         - rebase

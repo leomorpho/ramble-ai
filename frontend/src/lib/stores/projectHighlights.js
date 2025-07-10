@@ -1,5 +1,5 @@
 import { writable, derived, get } from 'svelte/store';
-import { GetProjectHighlights, GetProjectHighlightOrder, UpdateProjectHighlightOrder, DeleteHighlight, UpdateVideoClipHighlights, UndoOrderChange, RedoOrderChange, GetOrderHistoryStatus, UndoHighlightsChange, RedoHighlightsChange, GetHighlightsHistoryStatus } from '$lib/wailsjs/go/main/App';
+import { GetProjectHighlights, GetProjectHighlightOrder, UpdateProjectHighlightOrder, UpdateProjectHighlightOrderWithTitles, DeleteHighlight, UpdateVideoClipHighlights, UndoOrderChange, RedoOrderChange, GetOrderHistoryStatus, UndoHighlightsChange, RedoHighlightsChange, GetHighlightsHistoryStatus, SaveSectionTitle, GetProjectHighlightOrderWithTitles } from '$lib/wailsjs/go/main/App';
 import { toast } from 'svelte-sonner';
 
 // Store for the raw highlights data from the database
@@ -18,7 +18,37 @@ export const highlightsLoading = writable(false);
 export const orderHistoryStatus = writable({ canUndo: false, canRedo: false });
 export const highlightsHistoryStatus = writable(new Map()); // Map of clipId -> { canUndo, canRedo }
 
-// Derived store that combines highlights with their custom order
+// Utility functions for newline handling with titles
+function isNewline(item) {
+  return item === 'N' || item === 'n' || (typeof item === 'object' && item.type === 'N');
+}
+
+function getNewlineTitle(item) {
+  if (typeof item === 'object' && item.type === 'N') {
+    return item.title || '';
+  }
+  return '';
+}
+
+function createNewlineFromDb(dbItem) {
+  if (dbItem === 'N') {
+    return {
+      id: `newline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      type: 'newline',
+      title: ''
+    };
+  }
+  if (typeof dbItem === 'object' && dbItem.type === 'N') {
+    return {
+      id: `newline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      type: 'newline',
+      title: dbItem.title || ''
+    };
+  }
+  return dbItem;
+}
+
+// Derived store that combines highlights with their custom order and new line indicators
 export const orderedHighlights = derived(
   [rawHighlights, highlightOrder],
   ([$rawHighlights, $highlightOrder]) => {
@@ -34,16 +64,21 @@ export const orderedHighlights = derived(
       });
     }
     
-    // Apply custom ordering
+    // Apply custom ordering including new line indicators
     const orderedList = [];
     const highlightMap = new Map($rawHighlights.map(h => [h.id, h]));
     
-    // Add highlights in custom order
-    for (const id of $highlightOrder) {
-      const highlight = highlightMap.get(id);
-      if (highlight) {
-        orderedList.push(highlight);
-        highlightMap.delete(id);
+    // Add highlights and new lines in custom order
+    for (const item of $highlightOrder) {
+      if (isNewline(item)) {
+        // Add new line indicator with title support
+        orderedList.push(createNewlineFromDb(item));
+      } else {
+        const highlight = highlightMap.get(item);
+        if (highlight) {
+          orderedList.push(highlight);
+          highlightMap.delete(item);
+        }
       }
     }
     
@@ -73,7 +108,7 @@ export async function loadProjectHighlights(projectId) {
     // Load both highlights and order in parallel
     const [highlightsData, order] = await Promise.all([
       GetProjectHighlights(projectId),
-      GetProjectHighlightOrder(projectId)
+      GetProjectHighlightOrderWithTitles(projectId)
     ]);
     
     console.log('Loaded highlights data:', highlightsData?.length || 0, 'videos');
@@ -124,21 +159,34 @@ export async function updateHighlightOrder(newOrder) {
   }
   
   try {
-    // Extract highlight IDs if we received highlight objects instead of IDs
-    const highlightIds = newOrder.map(item => 
-      typeof item === 'string' ? item : item.id
-    );
+    // Extract highlight IDs and preserve new line indicators with titles
+    const highlightIds = newOrder.map(item => {
+      if (typeof item === 'string') {
+        return item;
+      } else if (item.type === 'newline') {
+        // Convert display format to database format
+        return item.title ? { type: 'N', title: item.title } : 'N';
+      } else {
+        return item.id;
+      }
+    });
+
+    // Flatten consecutive 'N' characters to prevent multiple blank lines
+    const flattenedIds = flattenConsecutiveNewlines(highlightIds);
+    
+    // Store original order for potential revert
+    const originalOrder = get(highlightOrder);
     
     // Update local state first (optimistic update)
-    highlightOrder.set(highlightIds);
+    highlightOrder.set(flattenedIds);
     
-    // Save to database
-    await UpdateProjectHighlightOrder(projectId, highlightIds);
+    // Save to database - use UpdateProjectHighlightOrderWithTitles to preserve title information
+    await UpdateProjectHighlightOrderWithTitles(projectId, flattenedIds);
     
     // Update history status after successful order change
     await updateOrderHistoryStatus();
     
-    console.log('Updated highlight order in database:', highlightIds);
+    console.log('Updated highlight order in database:', flattenedIds);
     toast.success('Highlight order updated successfully');
     
     return true;
@@ -146,11 +194,140 @@ export async function updateHighlightOrder(newOrder) {
     console.error('Failed to update highlight order:', error);
     toast.error('Failed to save highlight order');
     
-    // Reload from database to revert optimistic update
-    const order = await GetProjectHighlightOrder(projectId).catch(() => []);
-    highlightOrder.set(order || []);
+    // Revert to original order on failure
+    try {
+      const order = await GetProjectHighlightOrder(projectId);
+      highlightOrder.set(order || []);
+    } catch (revertError) {
+      // If we can't load from database, revert to what we had before
+      highlightOrder.set(originalOrder);
+    }
     
     return false;
+  }
+}
+
+// Function to insert a new line indicator at a specific position
+export async function insertNewLine(position) {
+  const currentOrder = get(highlightOrder);
+  const orderedHighlightsList = get(orderedHighlights);
+  const allHighlights = get(rawHighlights);
+  
+  // If we have no order but have highlights, create initial order with all highlights
+  if (currentOrder.length === 0 && allHighlights.length > 0) {
+    // Sort highlights by videoClipId then by start time to create initial order
+    const sortedHighlights = [...allHighlights].sort((a, b) => {
+      if (a.videoClipId !== b.videoClipId) {
+        return a.videoClipId - b.videoClipId;
+      }
+      return a.start - b.start;
+    });
+    
+    // Create initial order with all highlight IDs
+    const initialOrder = sortedHighlights.map(h => h.id);
+    
+    // Insert newline at the specified position
+    const newOrder = [...initialOrder];
+    newOrder.splice(position, 0, 'N');
+    
+    return await updateHighlightOrder(newOrder);
+  }
+  
+  // Convert the visual position (in orderedHighlights) to the position in highlightOrder
+  let actualPosition = 0;
+  
+  // If position is 0, insert at the beginning
+  if (position === 0) {
+    actualPosition = 0;
+  } else {
+    // Find the position in currentOrder where we should insert
+    // We need to map the visual position to the database position
+    let orderIndex = 0;
+    
+    for (let i = 0; i < position && i < orderedHighlightsList.length; i++) {
+      const item = orderedHighlightsList[i];
+      if (item.type !== 'newline') {
+        // Find this highlight in the current order
+        while (orderIndex < currentOrder.length && isNewline(currentOrder[orderIndex])) {
+          orderIndex++;
+        }
+        orderIndex++; // Move past this highlight
+      } else {
+        // This is a newline, move past it in the order
+        orderIndex++;
+      }
+    }
+    
+    actualPosition = orderIndex;
+  }
+  
+  const newOrder = [...currentOrder];
+  newOrder.splice(actualPosition, 0, 'N');
+  
+  return await updateHighlightOrder(newOrder);
+}
+
+// Function to remove a new line indicator at a specific position
+export async function removeNewLine(position) {
+  const currentOrder = get(highlightOrder);
+  const orderedHighlightsList = get(orderedHighlights);
+  
+  // Check if the position is valid and contains a newline
+  if (position >= orderedHighlightsList.length || orderedHighlightsList[position].type !== 'newline') {
+    return false;
+  }
+  
+  // Find the actual position in highlightOrder corresponding to the visual position
+  let actualPosition = -1;
+  let orderIndex = 0;
+  
+  for (let i = 0; i <= position && i < orderedHighlightsList.length; i++) {
+    const item = orderedHighlightsList[i];
+    if (item.type === 'newline') {
+      if (i === position) {
+        actualPosition = orderIndex;
+        break;
+      } else {
+        orderIndex++; // Move past this newline
+      }
+    } else {
+      // This is a highlight, find it in the current order
+      while (orderIndex < currentOrder.length && currentOrder[orderIndex] === 'N') {
+        orderIndex++;
+      }
+      orderIndex++; // Move past this highlight
+    }
+  }
+  
+  if (actualPosition >= 0) {
+    const newOrder = [...currentOrder];
+    newOrder.splice(actualPosition, 1);
+    return await updateHighlightOrder(newOrder);
+  }
+  
+  return false;
+}
+
+// Function to update a newline title
+export async function updateNewLineTitle(position, newTitle) {
+  const projectId = get(currentProjectId);
+  
+  if (!projectId) {
+    console.warn('No project ID available for updating newline title');
+    return false;
+  }
+  
+  try {
+    // Use the new dedicated SaveSectionTitle backend function
+    await SaveSectionTitle(projectId, position, newTitle);
+    
+    // Refresh highlights from database to reflect the title change
+    await loadProjectHighlights(projectId);
+    
+    return true;
+  } catch (error) {
+    console.error('Failed to update newline title:', error);
+    throw error; // Re-throw so the UI can handle the error
   }
 }
 
@@ -211,13 +388,13 @@ export async function deleteHighlight(highlightId, videoClipId) {
     // Call backend to delete the highlight
     await DeleteHighlight(videoClipId, highlightId);
     
-    // Remove from highlight order if it exists
+    // Remove from highlight order if it exists (preserve newlines)
     const currentOrder = get(highlightOrder);
     const updatedOrder = currentOrder.filter(id => id !== highlightId);
     if (updatedOrder.length !== currentOrder.length) {
       highlightOrder.set(updatedOrder);
-      // Save updated order to database
-      await UpdateProjectHighlightOrder(projectId, updatedOrder);
+      // Save updated order to database - use UpdateProjectHighlightOrderWithTitles to preserve title information
+      await UpdateProjectHighlightOrderWithTitles(projectId, updatedOrder);
     }
     
     // Refresh highlights from database to get updated state
@@ -460,4 +637,39 @@ export async function redoHighlightsChange(clipId) {
     toast.error('Failed to redo highlights change');
     return false;
   }
+}
+
+// Utility function to flatten consecutive 'N' characters
+function flattenConsecutiveNewlines(ids) {
+  if (!ids || ids.length <= 1) {
+    return ids;
+  }
+
+  const result = [];
+  let lastWasNewline = false;
+
+  for (const id of ids) {
+    if (isNewline(id)) {
+      if (!lastWasNewline) {
+        result.push(id);
+        lastWasNewline = true;
+      } else {
+        // When flattening consecutive newlines, preserve the title if the current one has one
+        const lastNewline = result[result.length - 1];
+        const currentTitle = getNewlineTitle(id);
+        const lastTitle = getNewlineTitle(lastNewline);
+        
+        if (currentTitle && !lastTitle) {
+          // Replace the last newline with the current one that has a title
+          result[result.length - 1] = id;
+        }
+      }
+      // Skip consecutive newlines
+    } else {
+      result.push(id);
+      lastWasNewline = false;
+    }
+  }
+
+  return result;
 }

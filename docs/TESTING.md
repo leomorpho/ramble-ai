@@ -185,6 +185,11 @@ frontend/src/lib/components/
 - Each test uses unique in-memory database
 - Ensures proper schema migration
 
+**Export tests failing with database lock errors**
+- Due to concurrent access to shared activeJobs global state
+- Run with sequential execution: `go test -p 1 ./...`
+- Individual package tests pass: `go test ./goapp/exports`
+
 **Color system test failures**
 - Tests now use CSS variables (e.g., `var(--highlight-1)`)
 - Updated from hardcoded hex values
