@@ -23,6 +23,7 @@
     enableSelection = true,
     enableEdit = true,
     enableDelete = true,
+    enableDrag = true,
     showAddNewLineButtons = true,
     // Optional click handler for playing highlights
     onHighlightClick = null,
@@ -40,10 +41,10 @@
   // Handle highlight selection with multiselect support
   function handleHighlightSelect(event, highlight) {
     if (!enableSelection) return;
-    
+
     // Don't select new lines
     if (isNewline(highlight)) return;
-    
+
     if (enableMultiSelect) {
       const isCtrlOrCmd = event.ctrlKey || event.metaKey;
 
@@ -83,6 +84,11 @@
 
   // Handle drag start with multiselect support
   function handleDragStart(event, highlight, index) {
+    if (!enableDrag) {
+      event.preventDefault();
+      return;
+    }
+
     event.dataTransfer.effectAllowed = "move";
 
     if (isNewline(highlight)) {
@@ -265,7 +271,7 @@
 
       // Flatten consecutive newlines before calling the reorder callback
       const flattenedOrder = flattenConsecutiveNewlines(newOrder);
-      
+
       // Call the reorder callback
       await onReorder(flattenedOrder);
     } catch (error) {
@@ -306,44 +312,43 @@
     }
   }
 
-
   // Utility functions for newline handling with titles
   function isNewline(item) {
-    return item === 'N' || item === 'n' || (typeof item === 'object' && item.type === 'N') || (typeof item === 'object' && item.type === 'newline');
+    return (
+      item === "N" ||
+      item === "n" ||
+      (typeof item === "object" && item.type === "N") ||
+      (typeof item === "object" && item.type === "newline")
+    );
   }
 
   function getNewlineTitle(item) {
-    if (typeof item === 'object' && (item.type === 'N' || item.type === 'newline')) {
-      return item.title || '';
+    if (
+      typeof item === "object" &&
+      (item.type === "N" || item.type === "newline")
+    ) {
+      return item.title || "";
     }
-    return '';
+    return "";
   }
 
-  function createNewline(title = '') {
+  function createNewline(title = "") {
     return {
-      type: 'newline',
+      type: "newline",
       id: `newline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      title: title
+      title: title,
     };
   }
 
   // Convert database format to display format
   function convertDatabaseToDisplay(dbItem) {
-    if (dbItem === 'N') {
-      return createNewline('');
+    if (dbItem === "N") {
+      return createNewline("");
     }
-    if (typeof dbItem === 'object' && dbItem.type === 'N') {
-      return createNewline(dbItem.title || '');
+    if (typeof dbItem === "object" && dbItem.type === "N") {
+      return createNewline(dbItem.title || "");
     }
     return dbItem;
-  }
-
-  // Convert display format to database format
-  function convertDisplayToDatabase(displayItem) {
-    if (displayItem.type === 'newline') {
-      return displayItem.title ? { type: 'N', title: displayItem.title } : 'N';
-    }
-    return displayItem;
   }
 
   // Utility function to flatten consecutive newlines
@@ -366,7 +371,7 @@
           const lastNewline = result[result.length - 1];
           const currentTitle = getNewlineTitle(highlight);
           const lastTitle = getNewlineTitle(lastNewline);
-          
+
           if (currentTitle && !lastTitle) {
             // Replace the last newline with the current one that has a title
             result[result.length - 1] = highlight;
@@ -405,18 +410,20 @@
           isBeingDragged={isDragging && draggedHighlights.includes(item.id)}
           showDropIndicatorBefore={isDragging && dropPosition === index}
           showDropIndicatorAfter={false}
+          {enableDrag}
+          enableEdit={enableEdit}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
           onDragOver={handleSpanDragOver}
           onDrop={handleSpanDrop}
-          onTitleChange={onTitleChange}
+          {onTitleChange}
         />
       {:else if !isNewline(item)}
         <!-- Add new line button before highlight (only if previous item is also a highlight) -->
         {#if enableNewlines && showAddNewLineButtons && !isDragging && index > 0 && !isNewline(highlights[index - 1])}
           <AddNewLineButton position={index} />
         {/if}
-        
+
         <HighlightItem
           highlight={item}
           {index}
@@ -426,6 +433,8 @@
             draggedHighlights.includes(item.id) &&
             draggedHighlights[0] === item.id}
           showDropIndicatorBefore={isDragging && dropPosition === index}
+          {enableDrag}
+          {enableEdit}
           onSelect={handleHighlightSelect}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
@@ -434,7 +443,8 @@
           onEdit={handleEditHighlight}
           onDelete={handleDeleteHighlight}
           popoverOpen={isPopoverOpen(item.id)}
-          onPopoverOpenChange={(open) => handlePopoverStateChange(item.id, open)}
+          onPopoverOpenChange={(open) =>
+            handlePopoverStateChange(item.id, open)}
           words={getHighlightWords ? getHighlightWords(item) : []}
         />
       {/if}
@@ -461,7 +471,13 @@
   }
 
   @keyframes blink {
-    0%, 50% { opacity: 1; }
-    51%, 100% { opacity: 0.3; }
+    0%,
+    50% {
+      opacity: 1;
+    }
+    51%,
+    100% {
+      opacity: 0.3;
+    }
   }
 </style>
