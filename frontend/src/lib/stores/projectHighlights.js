@@ -187,7 +187,7 @@ export async function updateHighlightOrder(newOrder) {
     await updateOrderHistoryStatus();
     
     console.log('Updated highlight order in database:', flattenedIds);
-    toast.success('Highlight order updated successfully');
+    // toast.success('Highlight order updated successfully');
     
     return true;
   } catch (error) {

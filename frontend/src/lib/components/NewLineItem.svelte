@@ -14,7 +14,11 @@
     onDragOver, 
     onDrop,
     // New props for title editing
-    onTitleChange = null
+    onTitleChange = null,
+    // Enable/disable editing and deleting
+    enableEdit = true,
+    enableDelete = true,
+    enableDrag = true
   } = $props();
 
   let isHovering = $state(false);
@@ -84,6 +88,14 @@
       cancelEditing();
     }
   }
+
+  function handleDragStart(event) {
+    if (!enableDrag) {
+      event.preventDefault();
+      return;
+    }
+    onDragStart(event, newlineItem, index);
+  }
 </script>
 
 <!-- Drop indicator before this item -->
@@ -93,9 +105,10 @@
 
 <span
   class="newline-container block relative group w-full"
+  class:non-draggable={!enableDrag}
   role="separator"
-  draggable="true"
-  ondragstart={(e) => onDragStart(e, newlineItem, index)}
+  draggable={enableDrag}
+  ondragstart={handleDragStart}
   ondragend={onDragEnd}
   ondragover={(e) => onDragOver(e, index)}
   ondrop={(e) => onDrop(e, index)}
@@ -132,31 +145,35 @@
     <div class="h-[2px] bg-primary/30 flex-1"></div>
     
     <!-- Action buttons on hover -->
-    {#if isHovering && !isDragging && !editing}
+    {#if isHovering && !isDragging && !editing && (enableEdit || enableDelete)}
       <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
         <!-- Edit button -->
-        <button
-          class="w-4 h-4 bg-primary text-primary-foreground rounded-full flex items-center justify-center opacity-75 hover:opacity-100 transition-opacity"
-          onclick={startEditing}
-          title="Edit section title"
-        >
-          <Edit3 class="w-2.5 h-2.5" />
-        </button>
+        {#if enableEdit}
+          <button
+            class="w-4 h-4 bg-primary text-primary-foreground rounded-full flex items-center justify-center opacity-75 hover:opacity-100 transition-opacity"
+            onclick={startEditing}
+            title="Edit section title"
+          >
+            <Edit3 class="w-2.5 h-2.5" />
+          </button>
+        {/if}
         
         <!-- Delete button -->
-        <button
-          class="w-4 h-4 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-75 hover:opacity-100 transition-opacity"
-          onclick={handleDelete}
-          disabled={deleting}
-          title="Remove line break"
-        >
-          <X class="w-2.5 h-2.5" />
-        </button>
+        {#if enableDelete}
+          <button
+            class="w-4 h-4 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-75 hover:opacity-100 transition-opacity"
+            onclick={handleDelete}
+            disabled={deleting}
+            title="Remove line break"
+          >
+            <X class="w-2.5 h-2.5" />
+          </button>
+        {/if}
       </div>
     {/if}
     
     <!-- Save button when editing -->
-    {#if editing}
+    {#if editing && enableEdit}
       <button
         class="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-green-600 text-white rounded-full flex items-center justify-center opacity-75 hover:opacity-100 transition-opacity"
         onclick={saveTitle}
@@ -182,6 +199,10 @@
 
   .newline-container:active {
     cursor: grabbing;
+  }
+
+  .newline-container.non-draggable {
+    cursor: default;
   }
 
   .newline-container.being-dragged {

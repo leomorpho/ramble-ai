@@ -412,6 +412,7 @@
           showDropIndicatorAfter={false}
           {enableDrag}
           enableEdit={enableEdit}
+          enableDelete={enableDelete}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
           onDragOver={handleSpanDragOver}

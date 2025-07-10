@@ -536,27 +536,28 @@ Feel free to completely restructure the order - move any segment to any position
                   <!-- AI Dialog Timeline -->
                   <div class="bg-muted/30 rounded-lg p-4">
                     <h3 class="text-sm font-medium mb-3">
-                      AI Suggested Order (drag to reorder):
+                      AI Suggested Order (read-only preview):
                     </h3>
 
                     <!-- Timeline-style highlight display -->
                     <ReorderableHighlights
                       highlights={aiDialogHighlights}
                       bind:selectedHighlights={aiSelectedHighlights}
-                      onReorder={handleAIReorder}
+                      onReorder={() => {}}
                       onSelect={null}
                       onEdit={() => {}}
                       onDelete={() => {}}
                       onPopoverOpenChange={() => {}}
                       getHighlightWords={() => []}
                       isPopoverOpen={() => false}
-                      onTitleChange={handleAITitleChange}
+                      onTitleChange={() => {}}
                       enableMultiSelect={false}
                       enableNewlines={true}
                       enableSelection={false}
                       enableEdit={false}
                       enableDelete={false}
-                      showAddNewLineButtons={true}
+                      enableDrag={false}
+                      showAddNewLineButtons={false}
                       containerClass="p-4 bg-background rounded-lg min-h-[80px] relative leading-relaxed text-base border"
                     />
                   </div>
