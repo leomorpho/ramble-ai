@@ -482,7 +482,7 @@ Return segments that would work well as standalone content pieces.`;
                 <h3 class="font-medium mb-3">Video Preview</h3>
                 <div class="aspect-video">
                   <EtroVideoPlayer
-                    highlights={formattedTranscriptHighlights}
+                    videoHighlights={formattedTranscriptHighlights}
                     {projectId}
                     enableEyeButton={false}
                     enableReordering={false}

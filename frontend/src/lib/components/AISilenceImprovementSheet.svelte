@@ -395,7 +395,7 @@ Only include highlights where you recommend changes.`;
                 Preview AI Improved Timings
               </h3>
               <EtroVideoPlayer 
-                highlights={improvedHighlights} 
+                videoHighlights={improvedHighlights} 
                 {projectId} 
                 enableEyeButton={false}
               />

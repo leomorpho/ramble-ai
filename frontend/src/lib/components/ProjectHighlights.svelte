@@ -485,7 +485,7 @@
       }
     }}
   >
-    <EtroVideoPlayer highlights={videoHighlights} {projectId} {playPauseRef} />
+    <EtroVideoPlayer videoHighlights={videoHighlights.filter(h => h.id && h.id.startsWith('highlight_'))} {projectId} {playPauseRef} />
   </VideoPlayerKeyHandler>
 </div>
 

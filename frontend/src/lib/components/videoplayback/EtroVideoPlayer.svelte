@@ -28,7 +28,7 @@
   } from "./timelineUtils.js";
 
   let {
-    highlights = [],
+    videoHighlights = [],
     projectId = null,
     enableEyeButton = true,
     onReorder = null,
@@ -88,7 +88,7 @@
 
   // Calculate total duration from highlights
   let calculatedTotalDuration = $derived(() => {
-    const duration = highlights.reduce((sum, h) => sum + (h.end - h.start), 0);
+    const duration = videoHighlights.reduce((sum, h) => sum + (h.end - h.start), 0);
     return duration;
   });
 
@@ -106,13 +106,13 @@
   // Calculate if we should show the active segment based on highlight durations
   let shouldShowActiveSegment = $derived(() => {
     // Don't show for 0 or 1 highlights
-    if (highlights.length <= 1) return false;
+    if (videoHighlights.length <= 1) return false;
 
     const totalDurationCalc = calculatedTotalDuration;
     if (totalDurationCalc === 0) return false;
 
     // Check if any highlight is less than the threshold percentage of total duration
-    return highlights.some((h) => {
+    return videoHighlights.some((h) => {
       const segmentDuration = h.end - h.start;
       const percentage = segmentDuration / totalDurationCalc;
       return percentage < ACTIVE_SEGMENT_THRESHOLD;
@@ -121,13 +121,13 @@
 
   // Calculate if we should show segment numbers
   let shouldShowSegmentNumbers = $derived(() => {
-    return highlights.length <= HIDE_SEGMENT_NUMBERS_THRESHOLD;
+    return videoHighlights.length <= HIDE_SEGMENT_NUMBERS_THRESHOLD;
   });
 
   // Calculate if we should enable reordering
   let shouldEnableReordering = $derived(() => {
     return (
-      enableReordering && highlights.length <= DISABLE_REORDERING_THRESHOLD
+      enableReordering && videoHighlights.length <= DISABLE_REORDERING_THRESHOLD
     );
   });
 
@@ -288,8 +288,8 @@
   // Update current highlight index based on current time
   function updateCurrentHighlightIndex() {
     let accumulatedTime = 0;
-    for (let i = 0; i < highlights.length; i++) {
-      const segmentDuration = highlights[i].end - highlights[i].start;
+    for (let i = 0; i < videoHighlights.length; i++) {
+      const segmentDuration = videoHighlights[i].end - videoHighlights[i].start;
       if (
         currentTime >= accumulatedTime &&
         currentTime < accumulatedTime + segmentDuration
@@ -312,10 +312,10 @@
     // Update the current time based on video position
     let accumulatedTime = 0;
     for (let i = 0; i < currentHighlightIndex; i++) {
-      accumulatedTime += highlights[i].end - highlights[i].start;
+      accumulatedTime += videoHighlights[i].end - videoHighlights[i].start;
     }
     
-    const currentHighlight = highlights[currentHighlightIndex];
+    const currentHighlight = videoHighlights[currentHighlightIndex];
     if (currentHighlight) {
       const videoCurrentTime = activeVideo.currentTime;
       const timeWithinSegment = Math.max(
@@ -372,12 +372,12 @@
 
   // Jump to a specific highlight
   async function jumpToHighlightWrapper(highlightIndex) {
-    if (highlightIndex < 0 || highlightIndex >= highlights.length) return;
+    if (highlightIndex < 0 || highlightIndex >= videoHighlights.length) return;
 
     // Clean up any preloaded element since we're jumping manually
     cleanupPreloadedElement();
 
-    const targetHighlight = highlights[highlightIndex];
+    const targetHighlight = videoHighlights[highlightIndex];
     const wasPlaying = isPlaying;
 
     // Pause current playback
@@ -396,7 +396,7 @@
       // Calculate the start time in the concatenated timeline
       let accumulatedTime = 0;
       for (let i = 0; i < highlightIndex; i++) {
-        accumulatedTime += highlights[i].end - highlights[i].start;
+        accumulatedTime += videoHighlights[i].end - videoHighlights[i].start;
       }
       currentTime = accumulatedTime;
 
@@ -421,10 +421,10 @@
     // Update the current time in the context of the concatenated timeline
     let accumulatedTime = 0;
     for (let i = 0; i < currentHighlightIndex; i++) {
-      accumulatedTime += highlights[i].end - highlights[i].start;
+      accumulatedTime += videoHighlights[i].end - videoHighlights[i].start;
     }
 
-    const currentHighlight = highlights[currentHighlightIndex];
+    const currentHighlight = videoHighlights[currentHighlightIndex];
     if (currentHighlight) {
       // Calculate time within the current highlight segment
       const videoCurrentTime = activeVideo.currentTime;
@@ -439,11 +439,11 @@
       const nextIndex = currentHighlightIndex + 1;
       if (
         timeUntilEnd <= PRELOAD_TIME_BEFORE_END &&
-        nextIndex < highlights.length &&
+        nextIndex < videoHighlights.length &&
         !preloadedHighlight &&
         !isPreloading
       ) {
-        const nextHighlight = highlights[nextIndex];
+        const nextHighlight = videoHighlights[nextIndex];
         if (nextHighlight) {
           preloadNextHighlight(nextHighlight);
         }
@@ -487,7 +487,7 @@
   // Handle when a highlight reaches its end
   async function handleHighlightEnd() {
     const nextIndex = currentHighlightIndex + 1;
-    if (nextIndex < highlights.length) {
+    if (nextIndex < videoHighlights.length) {
       console.log(
         `Auto-advancing from highlight ${currentHighlightIndex + 1} to ${nextIndex + 1}`
       );
@@ -498,7 +498,7 @@
 
       try {
         // Try to use preloaded highlight first, fallback to normal loading
-        const nextHighlight = highlights[nextIndex];
+        const nextHighlight = videoHighlights[nextIndex];
         let success = false;
 
         if (preloadedHighlight && preloadedHighlight.id === nextHighlight.id) {
@@ -516,7 +516,7 @@
           // Calculate the start time in the concatenated timeline
           let accumulatedTime = 0;
           for (let i = 0; i < nextIndex; i++) {
-            accumulatedTime += highlights[i].end - highlights[i].start;
+            accumulatedTime += videoHighlights[i].end - videoHighlights[i].start;
           }
           currentTime = accumulatedTime;
         }
@@ -557,14 +557,14 @@
     let targetHighlight = null;
     let timeBeforeTarget = 0;
 
-    for (let i = 0; i < highlights.length; i++) {
-      const segmentDuration = highlights[i].end - highlights[i].start;
+    for (let i = 0; i < videoHighlights.length; i++) {
+      const segmentDuration = videoHighlights[i].end - videoHighlights[i].start;
       if (
         targetTime >= accumulatedTime &&
         targetTime < accumulatedTime + segmentDuration
       ) {
         targetHighlightIndex = i;
-        targetHighlight = highlights[i];
+        targetHighlight = videoHighlights[i];
         timeBeforeTarget = accumulatedTime;
         break;
       }
@@ -640,7 +640,7 @@
     }
 
     // Calculate the target time using utility function
-    const targetTime = calculateSeekTime(event, segmentIndex, highlights);
+    const targetTime = calculateSeekTime(event, segmentIndex, videoHighlights);
 
     // Seek to the calculated time
     handleTimelineSeekWrapper(targetTime);
@@ -789,7 +789,7 @@
       return;
     }
 
-    const newHighlights = [...highlights];
+    const newHighlights = [...videoHighlights];
     const draggedItem = newHighlights[dragStartIndex];
 
     // Remove dragged item
@@ -852,16 +852,16 @@
 
   // Initialize video when highlights are available
   $effect(() => {
-    if (browser && highlights.length > 0 && !isInitialized) {
+    if (browser && videoHighlights.length > 0 && !isInitialized) {
       console.log(
         "Initializing video player with",
-        highlights.length,
+        videoHighlights.length,
         "highlights"
       );
-      console.log("First highlight:", JSON.stringify(highlights[0], null, 2));
+      console.log("First highlight:", JSON.stringify(videoHighlights[0], null, 2));
 
       // Load the first highlight
-      const firstHighlight = highlights[0];
+      const firstHighlight = videoHighlights[0];
       if (firstHighlight) {
         console.log("Loading first highlight:", firstHighlight.videoClipName);
         loadHighlight(firstHighlight).then((success) => {
@@ -881,8 +881,8 @@
 
   // Watch for highlight order changes
   $effect(() => {
-    if (browser && highlights.length > 0 && isInitialized) {
-      const currentOrder = highlights.map((h) => h.id).join(",");
+    if (browser && videoHighlights.length > 0 && isInitialized) {
+      const currentOrder = videoHighlights.map((h) => h.id).join(",");
 
       // If order changed, reset to first highlight
       if (
@@ -891,7 +891,7 @@
         !isInternalReorder
       ) {
         console.log("Highlight order changed, resetting to first highlight");
-        const firstHighlight = highlights[0];
+        const firstHighlight = videoHighlights[0];
         if (firstHighlight) {
           loadHighlight(firstHighlight).then(() => {
             currentHighlightIndex = 0;
@@ -921,7 +921,7 @@
 
         // Auto-advance to next highlight if available
         const nextIndex = currentHighlightIndex + 1;
-        if (nextIndex < highlights.length) {
+        if (nextIndex < videoHighlights.length) {
           console.log(
             `Auto-advancing from highlight ${currentHighlightIndex + 1} to ${nextIndex + 1}`
           );
@@ -976,7 +976,7 @@
   // Initialize component
   onMount(() => {
     console.log("EtroVideoPlayer mounted");
-    console.log("Highlights on mount:", highlights.length);
+    console.log("Video highlights on mount:", videoHighlights.length);
     console.log("videoElement1 on mount:", videoElement1);
     console.log("videoElement2 on mount:", videoElement2);
   });
@@ -999,12 +999,12 @@
   });
 </script>
 
-{#if highlights.length > 0}
+{#if videoHighlights.length > 0}
   <div class="video-player p-6 bg-card border rounded-lg">
     <!-- Header -->
     <div class="flex items-center justify-between mb-4">
       <div class="text-sm text-muted-foreground">
-        {highlights.length} highlights • {formatTime(totalDuration)} total
+        {videoHighlights.length} highlights • {formatTime(totalDuration)} total
         <br />
       </div>
     </div>
@@ -1109,15 +1109,15 @@
     </div>
 
     <!-- Current Highlight Info -->
-    {#if highlights[currentHighlightIndex]}
+    {#if videoHighlights[currentHighlightIndex]}
       <div class="bg-secondary/30 p-3 rounded-md mb-4">
         <div class="flex items-center justify-between">
           <div>
             <h4 class="font-medium text-sm">
-              {highlights[currentHighlightIndex].videoClipName}
+              {videoHighlights[currentHighlightIndex].videoClipName}
             </h4>
             <p class="text-xs text-muted-foreground mt-1">
-              Segment {currentHighlightIndex + 1} of {highlights.length}
+              Segment {currentHighlightIndex + 1} of {videoHighlights.length}
             </p>
           </div>
           <div class="text-right">
@@ -1138,25 +1138,25 @@
           </div>
         {:else}
           <div class="text-xs text-muted-foreground mb-2">
-            💡 Click segments to seek{highlights.length >
+            💡 Click segments to seek{videoHighlights.length >
             DISABLE_REORDERING_THRESHOLD
-              ? ` (reordering disabled for ${highlights.length} segments)`
+              ? ` (reordering disabled for ${videoHighlights.length} segments)`
               : ""}
           </div>
         {/if}
 
         <!-- Clip segments with drag and drop -->
         <div class="flex w-full max-w-full overflow-hidden pt-2">
-          {#each highlights as highlight, index}
+          {#each videoHighlights as highlight, index}
             {@const segmentDuration = highlight.end - highlight.start}
-            {@const calculatedTotalDuration = highlights.reduce(
+            {@const calculatedTotalDuration = videoHighlights.reduce(
               (sum, h) => sum + (h.end - h.start),
               0
             )}
             {@const segmentWidth =
               calculatedTotalDuration > 0
                 ? (segmentDuration / calculatedTotalDuration) * 100
-                : 100 / highlights.length}
+                : 100 / videoHighlights.length}
             {@const isActive = index === currentHighlightIndex}
 
             <!-- Drop indicator before this segment -->
@@ -1171,7 +1171,7 @@
               {segmentWidth}
               {currentTime}
               {totalDuration}
-              {highlights}
+              highlights={videoHighlights}
               enableReordering={shouldEnableReordering()}
               enableEyeButton={enableEyeButton && !shouldShowActiveSegment}
               showSegmentNumber={shouldShowSegmentNumbers()}
@@ -1181,7 +1181,7 @@
               {openPopover}
               {closePopover}
               isFirst={index === 0}
-              isLast={index === highlights.length - 1}
+              isLast={index === videoHighlights.length - 1}
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
               onDragOver={handleDragOver}
@@ -1192,16 +1192,16 @@
             />
 
             <!-- Drop indicator after the last segment -->
-            {#if shouldEnableReordering() && index === highlights.length - 1 && isDragging && dragOverIndex === highlights.length}
+            {#if shouldEnableReordering() && index === videoHighlights.length - 1 && isDragging && dragOverIndex === videoHighlights.length}
               {@render dropIndicator()}
             {/if}
           {/each}
         </div>
 
         <!-- Active segment in full width -->
-        {#if shouldShowActiveSegment && highlights[currentHighlightIndex]}
-          {@const activeHighlight = highlights[currentHighlightIndex]}
-          {@const segmentStartTime = highlights
+        {#if shouldShowActiveSegment && videoHighlights[currentHighlightIndex]}
+          {@const activeHighlight = videoHighlights[currentHighlightIndex]}
+          {@const segmentStartTime = videoHighlights
             .slice(0, currentHighlightIndex)
             .reduce((sum, h) => sum + (h.end - h.start), 0)}
           {@const segmentDuration = activeHighlight.end - activeHighlight.start}
@@ -1216,7 +1216,7 @@
                 isLast={true}
                 segmentWidth={100}
                 {currentTime}
-                {highlights}
+                highlights={videoHighlights}
                 enableReordering={false}
                 enableEyeButton={true}
                 showSegmentNumber={true}
@@ -1248,7 +1248,7 @@
         <!-- Time display -->
         <div class="flex justify-between text-xs text-muted-foreground">
           <span>{formatTime(currentTime)}</span>
-          <span>Clip {currentHighlightIndex + 1} of {highlights.length}</span>
+          <span>Clip {currentHighlightIndex + 1} of {videoHighlights.length}</span>
           <span>{formatTime(totalDuration)}</span>
         </div>
       </div>

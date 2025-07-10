@@ -10,7 +10,7 @@
     ...restProps
   } = $props();
 
-  let textareaElement = $state();
+  let containerElement = $state();
 
   // Function to adjust the height dynamically
   function autoGrow(event) {
@@ -21,15 +21,18 @@
 
   // Function to resize using bound element
   function resizeTextarea() {
-    if (textareaElement) {
-      textareaElement.style.height = 'auto';
-      textareaElement.style.height = `${textareaElement.scrollHeight + 5}px`;
+    if (containerElement) {
+      const textarea = containerElement.querySelector('textarea');
+      if (textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = `${textarea.scrollHeight + 5}px`;
+      }
     }
   }
 
   // Watch for value changes and resize immediately
   $effect(() => {
-    if (textareaElement && value !== undefined) {
+    if (containerElement && value !== undefined) {
       // Use requestAnimationFrame to ensure DOM is updated
       requestAnimationFrame(() => {
         resizeTextarea();
@@ -44,13 +47,14 @@
   }
 </script>
 
-<Textarea
-  bind:this={textareaElement}
-  class={`resize-none ${className}`}
-  style="min-height: 120px;"
-  {placeholder}
-  bind:value
-  oninput={handleInput}
-  {disabled}
-  {...restProps}
-/>
+<div bind:this={containerElement}>
+  <Textarea
+    class={`resize-none ${className}`}
+    style="min-height: 120px;"
+    {placeholder}
+    bind:value
+    oninput={handleInput}
+    {disabled}
+    {...restProps}
+  />
+</div>

@@ -488,7 +488,7 @@ Feel free to completely restructure the order - move any segment to any position
                       {/if}
                     </h3>
                     <EtroVideoPlayer 
-                      highlights={aiReorderedHighlights.length > 0 ? aiReorderedHighlights : highlights} 
+                      videoHighlights={aiReorderedHighlights.length > 0 ? aiReorderedHighlights.filter(h => h.id && h.id.startsWith('highlight_')) : highlights.filter(h => h.id && h.id.startsWith('highlight_'))} 
                       {projectId} 
                       enableEyeButton={false}
                       onReorder={handleAIVideoReorder}
