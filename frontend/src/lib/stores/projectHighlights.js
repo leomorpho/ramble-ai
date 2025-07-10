@@ -20,10 +20,12 @@ export const highlightsHistoryStatus = writable(new Map()); // Map of clipId -> 
 
 // Utility functions for newline handling with titles
 function isNewline(item) {
+  if (!item) return false;
   return item === 'N' || item === 'n' || (typeof item === 'object' && item.type === 'N');
 }
 
 function getNewlineTitle(item) {
+  if (!item) return '';
   if (typeof item === 'object' && item.type === 'N') {
     return item.title || '';
   }
@@ -31,6 +33,7 @@ function getNewlineTitle(item) {
 }
 
 function createNewlineFromDb(dbItem) {
+  if (!dbItem) return null;
   if (dbItem === 'N') {
     return {
       id: `newline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -70,9 +73,11 @@ export const orderedHighlights = derived(
     
     // Add highlights and new lines in custom order
     for (const item of $highlightOrder) {
+      if (!item) continue; // Skip null/undefined items
       if (isNewline(item)) {
         // Add new line indicator with title support
-        orderedList.push(createNewlineFromDb(item));
+        const newlineItem = createNewlineFromDb(item);
+        if (newlineItem) orderedList.push(newlineItem);
       } else {
         const highlight = highlightMap.get(item);
         if (highlight) {

@@ -1,6 +1,7 @@
 <script>
   import * as Collapsible from "$lib/components/ui/collapsible/index.js";
-  import { Sparkles } from "@lucide/svelte";
+  import { Sparkles, Settings, Play, RotateCcw } from "@lucide/svelte";
+  import { Button } from "$lib/components/ui/button";
   import AIModelSelector from "./AIModelSelector.svelte";
   import AIPromptEditor from "./AIPromptEditor.svelte";
 
@@ -37,49 +38,87 @@
       { value: "custom", label: "Custom Model" },
     ],
     showResetButton = true,
-    children
+    loading = false,
+    hasRun = false,
+    onRun = () => {},
+    settingsContent
   } = $props();
+
+  // Get display name for current model
+  function getModelDisplayName(model, customValue) {
+    if (model === "custom") {
+      return customValue || "Custom Model";
+    }
+    const foundModel = availableModels.find(m => m.value === model);
+    return foundModel ? foundModel.label : model;
+  }
 </script>
 
 <Collapsible.Root bind:open>
-  <Collapsible.Trigger class="flex w-full justify-between items-center p-3 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground">
-    <span class="flex items-center gap-2">
-      <Sparkles class="w-4 h-4" />
-      {title}
-    </span>
-    <svg
-      class="w-4 h-4 transition-transform duration-200"
-      class:rotate-180={open}
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-    >
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-    </svg>
-  </Collapsible.Trigger>
-  <Collapsible.Content class="space-y-4 mt-4">
-    <!-- Model Selection -->
-    <AIModelSelector
-      bind:selectedModel
-      bind:customModelValue
-      label={modelLabel}
-      description={modelDescription}
-      {availableModels}
-    />
+  <div class="space-y-3">
+    <!-- Main control bar - no hover effects -->
+    <div class="flex items-center justify-between p-3 rounded-md border border-input bg-background">
+      <div class="flex items-center gap-3">
+        <Sparkles class="w-4 h-4" />
+        <div class="flex flex-col">
+          <span class="font-medium">{title}</span>
+          <span class="text-sm text-muted-foreground">
+            {getModelDisplayName(selectedModel, customModelValue)}
+          </span>
+        </div>
+      </div>
+      
+      <div class="flex items-center gap-2">
+        <!-- Main Run/Rerun button -->
+        <Button
+          onclick={onRun}
+          disabled={loading}
+          variant="default"
+          size="sm"
+          class="gap-2"
+        >
+          {#if loading}
+            <div class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+          {:else if hasRun}
+            <RotateCcw class="w-4 h-4" />
+          {:else}
+            <Play class="w-4 h-4" />
+          {/if}
+          {hasRun ? "Rerun" : "Run"}
+        </Button>
+        
+        <!-- Settings trigger - only this opens the collapsible -->
+        <Collapsible.Trigger class="p-2 rounded-md hover:bg-accent hover:text-accent-foreground">
+          <Settings class="w-4 h-4" />
+        </Collapsible.Trigger>
+      </div>
+    </div>
+    
+    <!-- Settings content that expands below the entire component -->
+    <Collapsible.Content class="space-y-4 p-4 rounded-md border border-input bg-card">
+      <!-- Model Selection -->
+      <AIModelSelector
+        bind:selectedModel
+        bind:customModelValue
+        label={modelLabel}
+        description={modelDescription}
+        {availableModels}
+      />
 
-    <!-- Custom Prompt Input -->
-    <AIPromptEditor
-      bind:customPrompt
-      {defaultPrompt}
-      label={promptLabel}
-      description={promptDescription}
-      placeholder={promptPlaceholder}
-      {showResetButton}
-    />
+      <!-- Custom Prompt Input -->
+      <AIPromptEditor
+        bind:customPrompt
+        {defaultPrompt}
+        label={promptLabel}
+        description={promptDescription}
+        placeholder={promptPlaceholder}
+        {showResetButton}
+      />
 
-    <!-- Additional content -->
-    {#if children}
-      {@render children()}
-    {/if}
-  </Collapsible.Content>
+      <!-- Additional content -->
+      {#if settingsContent}
+        {@render settingsContent()}
+      {/if}
+    </Collapsible.Content>
+  </div>
 </Collapsible.Root>

@@ -290,68 +290,58 @@ Only include highlights where you recommend changes.`;
         bind:customModelValue
         bind:customPrompt
         {defaultPrompt}
-        title="AI Instructions & Settings"
+        title="AI Silence Improvement"
         modelDescription="Choose the AI model for silence improvement analysis. Different models have varying strengths in understanding speech patterns."
         promptDescription="Customize how AI analyzes and improves highlight timings for natural speech flow."
         promptPlaceholder="AI instructions for silence improvement..."
         {availableModels}
-      >
-        {#snippet children()}
-          {#if hasCachedImprovements && cachedImprovementsDate}
-            <div class="bg-secondary/30 border border-dashed rounded-lg p-3 mb-4">
-              <div class="flex items-center justify-between">
-                <div>
-                  <div class="text-sm font-medium flex items-center gap-2">
-                    <Sparkles class="w-4 h-4" />
-                    Cached AI Improvements Available
-                  </div>
-                  <div class="text-xs text-muted-foreground mt-1">
-                    Generated on {cachedImprovementsDate} using {cachedImprovementsModel}
-                  </div>
-                </div>
-                <Button variant="outline" size="sm" onclick={clearCachedImprovements}>
-                  Clear Cache
-                </Button>
+        showResetButton={false}
+        loading={aiSilenceLoading}
+        hasRun={hasCachedImprovements}
+        onRun={generateAISilenceImprovements}
+      />
+
+      {#if hasCachedImprovements && cachedImprovementsDate}
+        <div class="bg-secondary/30 border border-dashed rounded-lg p-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-sm font-medium flex items-center gap-2">
+                <Sparkles class="w-4 h-4" />
+                Cached AI Improvements Available
+              </div>
+              <div class="text-xs text-muted-foreground mt-1">
+                Generated on {cachedImprovementsDate} using {cachedImprovementsModel}
               </div>
             </div>
-          {/if}
-
-          <!-- Generate Button -->
-          <div class="flex gap-2">
-            <Button 
-              onclick={generateAISilenceImprovements}
-              disabled={aiSilenceLoading || highlights.length === 0}
-              class="flex-1"
-            >
-              <Sparkles class="w-4 h-4 mr-2" />
-              {aiSilenceLoading ? "Analyzing Speech Patterns..." : "Generate AI Improvements"}
+            <Button variant="outline" size="sm" onclick={clearCachedImprovements}>
+              Clear Cache
             </Button>
           </div>
+        </div>
+      {/if}
 
-          {#if aiSilenceError}
-            <div class="text-sm text-destructive bg-destructive/10 p-3 rounded-md border border-destructive/20">
-              <p class="font-medium">Error generating improvements:</p>
-              <p>{aiSilenceError}</p>
-              <div class="flex justify-center gap-2 mt-3">
-                <Button
-                  variant="outline"
-                  onclick={() => {
-                    aiSilenceError = "";
-                    improvedHighlights = [];
-                    instructionsOpen = true;
-                  }}
-                >
-                  Back to Instructions
-                </Button>
-              </div>
-            </div>
-          {:else if highlights.length === 0}
-            <div class="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md border">
-              No highlights available to improve. Create some highlights first.
-            </div>
-          {/if}
-        {/snippet}
-      </AISettings>
+      {#if aiSilenceError}
+        <div class="text-sm text-destructive bg-destructive/10 p-3 rounded-md border border-destructive/20">
+          <p class="font-medium">Error generating improvements:</p>
+          <p>{aiSilenceError}</p>
+          <div class="flex justify-center gap-2 mt-3">
+            <Button
+              variant="outline"
+              onclick={() => {
+                aiSilenceError = "";
+                improvedHighlights = [];
+                instructionsOpen = true;
+              }}
+            >
+              Back to Instructions
+            </Button>
+          </div>
+        </div>
+      {:else if highlights.length === 0}
+        <div class="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md border">
+          No highlights available to improve. Create some highlights first.
+        </div>
+      {/if}
 
       <!-- Debug Info (temporary) -->
       <div class="bg-gray-100 p-2 text-xs rounded border">

@@ -1,7 +1,7 @@
 <script>
   import { Label } from "$lib/components/ui/label";
-  import { Textarea } from "$lib/components/ui/textarea";
   import { Button } from "$lib/components/ui/button";
+  import AutoResizeTextarea from "./AutoResizeTextarea.svelte";
 
   let {
     customPrompt = $bindable(""),
@@ -16,12 +16,12 @@
 
 <div class="space-y-2">
   <Label for="custom-prompt">{label}</Label>
-  <Textarea
+  <AutoResizeTextarea
     id="custom-prompt"
     bind:value={customPrompt}
     {placeholder}
-    class="min-h-[120px] resize-none"
-    {rows}
+    minHeight={60}
+    maxHeight={500}
   />
   <p class="text-xs text-muted-foreground">
     {description}

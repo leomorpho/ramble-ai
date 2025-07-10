@@ -421,61 +421,23 @@ Feel free to completely restructure the order - move any segment to any position
   {#snippet children()}
     <!-- Content -->
     <div class="p-6 space-y-6">
-      <!-- AI Instructions Collapsible -->
+      <!-- AI Instructions & Settings -->
       <AISettings
         bind:open={instructionsOpen}
         bind:selectedModel
         bind:customModelValue
         bind:customPrompt
         {defaultPrompt}
-        title="AI Instructions & Settings"
+        title="AI Reordering"
         modelDescription="Choose the AI model for highlight reordering. Different models have varying strengths in content analysis and reasoning."
         promptDescription="Modify the prompt above to customize how AI reorders your highlights. The default focuses on YouTube best practices for maximum engagement."
         promptPlaceholder="AI instructions for reordering highlights..."
         {availableModels}
-      >
-        {#snippet children()}
-          {#if hasCachedSuggestion && cachedSuggestionDate}
-            <div class="p-3 bg-secondary rounded-lg">
-              <p class="text-sm text-muted-foreground">
-                <strong>Cached AI Suggestion:</strong> Loaded from {cachedSuggestionDate.toLocaleString()}
-                {#if cachedSuggestionModel}
-                  <br /><strong>Model used:</strong>
-                  {availableModels.find((m) => m.value === cachedSuggestionModel)
-                    ?.label || cachedSuggestionModel}
-                {/if}
-              </p>
-            </div>
-          {/if}
-
-          <div class="flex justify-between">
-            <div></div>
-            <div class="flex gap-2">
-              {#if hasCachedSuggestion}
-                <Button
-                  variant="outline"
-                  onclick={startAIReordering}
-                  class="flex items-center gap-2"
-                  disabled={aiReorderLoading}
-                >
-                  <Sparkles class="w-4 h-4" />
-                  Re-run AI
-                </Button>
-              {/if}
-              <Button
-                onclick={startAIReordering}
-                class="flex items-center gap-2"
-                disabled={aiReorderLoading}
-              >
-                <Sparkles class="w-4 h-4" />
-                {hasCachedSuggestion
-                  ? "Update AI Suggestions"
-                  : "Generate AI Suggestions"}
-              </Button>
-            </div>
-          </div>
-        {/snippet}
-      </AISettings>
+        showResetButton={false}
+        loading={aiReorderLoading}
+        hasRun={hasCachedSuggestion}
+        onRun={startAIReordering}
+      />
 
       <!-- Results Section -->
       <div class="space-y-6">
