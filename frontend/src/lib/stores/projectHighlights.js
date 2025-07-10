@@ -211,6 +211,27 @@ export async function updateHighlightOrder(newOrder) {
 export async function insertNewLine(position) {
   const currentOrder = get(highlightOrder);
   const orderedHighlightsList = get(orderedHighlights);
+  const allHighlights = get(rawHighlights);
+  
+  // If we have no order but have highlights, create initial order with all highlights
+  if (currentOrder.length === 0 && allHighlights.length > 0) {
+    // Sort highlights by videoClipId then by start time to create initial order
+    const sortedHighlights = [...allHighlights].sort((a, b) => {
+      if (a.videoClipId !== b.videoClipId) {
+        return a.videoClipId - b.videoClipId;
+      }
+      return a.start - b.start;
+    });
+    
+    // Create initial order with all highlight IDs
+    const initialOrder = sortedHighlights.map(h => h.id);
+    
+    // Insert newline at the specified position
+    const newOrder = [...initialOrder];
+    newOrder.splice(position, 0, 'N');
+    
+    return await updateHighlightOrder(newOrder);
+  }
   
   // Convert the visual position (in orderedHighlights) to the position in highlightOrder
   let actualPosition = 0;
@@ -221,18 +242,19 @@ export async function insertNewLine(position) {
   } else {
     // Find the position in currentOrder where we should insert
     // We need to map the visual position to the database position
-    let highlightsSeen = 0;
     let orderIndex = 0;
     
     for (let i = 0; i < position && i < orderedHighlightsList.length; i++) {
       const item = orderedHighlightsList[i];
       if (item.type !== 'newline') {
-        highlightsSeen++;
         // Find this highlight in the current order
-        while (orderIndex < currentOrder.length && currentOrder[orderIndex] === 'N') {
+        while (orderIndex < currentOrder.length && isNewline(currentOrder[orderIndex])) {
           orderIndex++;
         }
         orderIndex++; // Move past this highlight
+      } else {
+        // This is a newline, move past it in the order
+        orderIndex++;
       }
     }
     
