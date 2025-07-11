@@ -371,6 +371,28 @@ func (s *HighlightService) GetProjectHighlightOrder(projectID int) ([]string, er
 	return result, nil
 }
 
+// GetProjectHighlightOrderWithTitles retrieves the highlight order with rich newline objects
+func (s *HighlightService) GetProjectHighlightOrderWithTitles(projectID int) ([]interface{}, error) {
+	project, err := s.client.Project.
+		Query().
+		Where(project.ID(projectID)).
+		First(s.ctx)
+
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, fmt.Errorf("project not found: %d", projectID)
+		}
+		return nil, fmt.Errorf("failed to get project: %w", err)
+	}
+
+	// Return the highlight order as-is, which can contain both strings and objects
+	if project.HighlightOrder == nil {
+		return []interface{}{}, nil
+	}
+
+	return project.HighlightOrder, nil
+}
+
 // GetProjectHighlightsForExport gets highlights formatted for export
 func (s *HighlightService) GetProjectHighlightsForExport(projectID int) ([]HighlightSegment, error) {
 	// Get all video clips for the project with their highlights

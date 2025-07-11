@@ -52,9 +52,9 @@ type ProjectAISettings struct {
 
 // ProjectAISuggestion represents an AI suggestion for a project
 type ProjectAISuggestion struct {
-	Order     []string  `json:"order"`
-	Model     string    `json:"model"`
-	CreatedAt time.Time `json:"createdAt"`
+	Order     []interface{} `json:"order"`
+	Model     string        `json:"model"`
+	CreatedAt time.Time     `json:"createdAt"`
 }
 
 // AIService provides AI-powered highlight functionality
@@ -520,7 +520,7 @@ func (s *AIService) SaveProjectAISettings(projectID int, settings ProjectAISetti
 }
 
 // saveAISuggestion saves the AI suggestion to the database (internal helper)
-func (s *AIService) saveAISuggestion(projectID int, reorderedIDs []string, model string) error {
+func (s *AIService) saveAISuggestion(projectID int, reorderedIDs []interface{}, model string) error {
 	_, err := s.client.Project.
 		UpdateOneID(projectID).
 		SetAiSuggestionOrder(reorderedIDs).
@@ -559,7 +559,7 @@ func (s *AIService) GetProjectAISuggestion(projectID int) (*ProjectAISuggestion,
 }
 
 // ReorderHighlightsWithAI uses OpenRouter API to intelligently reorder highlights
-func (s *AIService) ReorderHighlightsWithAI(projectID int, customPrompt string, getAPIKey func() (string, error), getProjectHighlights func(int) ([]ProjectHighlight, error)) ([]string, error) {
+func (s *AIService) ReorderHighlightsWithAI(projectID int, customPrompt string, getAPIKey func() (string, error), getProjectHighlights func(int) ([]ProjectHighlight, error)) ([]interface{}, error) {
 	// Get OpenRouter API key
 	apiKey, err := getAPIKey()
 	if err != nil || apiKey == "" {
@@ -578,8 +578,8 @@ func (s *AIService) ReorderHighlightsWithAI(projectID int, customPrompt string, 
 		prompt = aiSettings.AIPrompt
 	}
 
-	// Get current highlight order to preserve existing newlines
-	currentOrder, err := s.highlightService.GetProjectHighlightOrder(projectID)
+	// Get current highlight order to preserve existing newlines and titles
+	currentOrder, err := s.highlightService.GetProjectHighlightOrderWithTitles(projectID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current highlight order: %w", err)
 	}
@@ -591,7 +591,7 @@ func (s *AIService) ReorderHighlightsWithAI(projectID int, customPrompt string, 
 	}
 
 	if len(projectHighlights) == 0 {
-		return []string{}, nil
+		return []interface{}{}, nil
 	}
 
 	// Create a minimal map of ID to highlight text for AI processing
@@ -606,7 +606,7 @@ func (s *AIService) ReorderHighlightsWithAI(projectID int, customPrompt string, 
 	}
 
 	if len(highlightMap) == 0 {
-		return []string{}, nil
+		return []interface{}{}, nil
 	}
 
 	// Call OpenRouter API to get AI reordering with newline support
@@ -617,43 +617,41 @@ func (s *AIService) ReorderHighlightsWithAI(projectID int, customPrompt string, 
 
 	// Debug log before deduplication
 	log.Printf("=== BEFORE DEDUPLICATION ===")
-	log.Printf("Reordered IDs count: %d", len(reorderedIDs))
-	for i, id := range reorderedIDs {
-		log.Printf("  %d. %s", i+1, id)
-	}
-	log.Printf("=============================")
-
-	// Clean up duplicates while preserving order and newlines
-	reorderedIDs = s.deduplicateHighlightIDs(reorderedIDs, highlightIDs)
-
-	// Debug log after deduplication
-	log.Printf("=== AFTER DEDUPLICATION ===")
-	log.Printf("Final reordered IDs count: %d", len(reorderedIDs))
-	for i, id := range reorderedIDs {
-		log.Printf("  %d. %s", i+1, id)
-	}
-	log.Printf("=============================")
-
-	// Flatten consecutive 'N' characters before returning
-	reorderedIDs = s.flattenConsecutiveNewlines(reorderedIDs)
-
-	// Debug log final return value
-	log.Printf("=== FINAL RETURN VALUE (after flattening) ===")
-	log.Printf("Returning %d items to frontend:", len(reorderedIDs))
-	for i, id := range reorderedIDs {
-		if id == "N" {
-			log.Printf("  %d. N", i+1)
-		} else {
-			log.Printf("  %d. %s", i+1, id)
+	log.Printf("Reordered items count: %d", len(reorderedIDs))
+	for i, item := range reorderedIDs {
+		switch v := item.(type) {
+		case string:
+			log.Printf("  %d. %s", i+1, v)
+		case map[string]interface{}:
+			log.Printf("  %d. Section: %v", i+1, v)
 		}
 	}
-	log.Printf("==============================================")
+	log.Printf("=============================")
 
-	// Validate that all highlight IDs are present in the reordered list (excluding "N" characters)
-	// Handle duplicates by creating a set of unique IDs
+	// Process and deduplicate the reordered items
+	processedIDs := s.processReorderedItems(reorderedIDs, highlightIDs)
+
+	// Debug log after processing
+	log.Printf("=== AFTER PROCESSING ===")
+	log.Printf("Final reordered items count: %d", len(processedIDs))
+	for i, item := range processedIDs {
+		switch v := item.(type) {
+		case string:
+			log.Printf("  %d. %s", i+1, v)
+		case map[string]interface{}:
+			if title, ok := v["title"].(string); ok {
+				log.Printf("  %d. Section: %s", i+1, title)
+			} else {
+				log.Printf("  %d. Section (no title)", i+1)
+			}
+		}
+	}
+	log.Printf("=============================")
+
+	// Validate that all highlight IDs are present in the reordered list
 	actualHighlightIDSet := make(map[string]bool)
-	for _, id := range reorderedIDs {
-		if id != "N" {
+	for _, item := range processedIDs {
+		if id, ok := item.(string); ok && id != "N" {
 			actualHighlightIDSet[id] = true
 		}
 	}
@@ -694,17 +692,17 @@ func (s *AIService) ReorderHighlightsWithAI(projectID int, customPrompt string, 
 	}
 
 	// Save AI suggestion to database
-	err = s.saveAISuggestion(projectID, reorderedIDs, aiSettings.AIModel)
+	err = s.saveAISuggestion(projectID, processedIDs, aiSettings.AIModel)
 	if err != nil {
 		log.Printf("Failed to save AI suggestion to database: %v", err)
 		// Don't fail the request if saving fails, just log the error
 	}
 
-	return reorderedIDs, nil
+	return processedIDs, nil
 }
 
 // callOpenRouterForReordering calls the OpenRouter API to get intelligent highlight reordering
-func (s *AIService) callOpenRouterForReordering(apiKey string, model string, highlightMap map[string]string, customPrompt string) ([]string, error) {
+func (s *AIService) callOpenRouterForReordering(apiKey string, model string, highlightMap map[string]string, customPrompt string) ([]interface{}, error) {
 	// Create HTTP client with timeout
 	client := &http.Client{
 		Timeout: 60 * time.Second, // AI requests can take longer
@@ -798,9 +796,20 @@ func (s *AIService) callOpenRouterForReordering(apiKey string, model string, hig
 
 	// Debug log parsed reordering
 	log.Printf("=== PARSED AI REORDERING ===")
-	log.Printf("Parsed %d reordered IDs:", len(reorderedIDs))
-	for i, id := range reorderedIDs {
-		log.Printf("  %d. %s", i+1, id)
+	log.Printf("Parsed %d reordered items:", len(reorderedIDs))
+	for i, item := range reorderedIDs {
+		switch v := item.(type) {
+		case string:
+			log.Printf("  %d. %s", i+1, v)
+		case map[string]interface{}:
+			if title, ok := v["title"].(string); ok {
+				log.Printf("  %d. Section: %s", i+1, title)
+			} else {
+				log.Printf("  %d. Section (no title)", i+1)
+			}
+		default:
+			log.Printf("  %d. Unknown type: %T", i+1, item)
+		}
 	}
 	log.Printf("==============================")
 
@@ -860,20 +869,31 @@ Analyze these segments and reorder them to create the highest quality video poss
 
 IMPORTANT: 
 1. Respond with ONLY a JSON array containing the highlight IDs in the new order
-2. You can add section breaks by including "N" characters in the array to separate different sections
-3. Place "N" characters strategically to create logical groups or chapters in the video
-4. Each "N" represents a visual break/newline in the final video timeline
-5. Use each highlight ID exactly once - do not duplicate any IDs
-6. Include ALL provided highlight IDs in your response (no IDs should be missing)
-7. Do not include any explanation, reasoning, or additional text
+2. You can add section breaks by including objects with {"type":"N","title":"Section Title"} to separate different sections
+3. Place these section objects strategically to create logical groups or chapters in the video
+4. Each section should have a descriptive title that summarizes why you grouped those highlights together
+5. Section titles should be concise (2-5 words), relevant to the video content, and explain the theme/topic of that section
+6. Each section object represents a visual break/separator in the final video timeline
+7. Use each highlight ID exactly once - do not duplicate any IDs
+8. Include ALL provided highlight IDs in your response (no IDs should be missing)
+9. Do not include any explanation, reasoning, or additional text
+10. You can also use simple "N" strings for sections without titles if appropriate
 
-Example format: ["id1", "id2", "N", "id3", "id4", "N", "id5"]`
+Example format: ["id1", {"type":"N","title":"Opening Hook"}, "id2", "id3", {"type":"N","title":"Main Story"}, "id4", "id5", "N", "id6"]
+
+Section title examples:
+- "Opening Hook" - for attention-grabbing intro segments
+- "Problem Setup" - introducing the main challenge/issue
+- "Key Insights" - main valuable information
+- "Action Steps" - practical advice/demonstrations
+- "Results & Impact" - showing outcomes
+- "Final Thoughts" - conclusions/call-to-action`
 
 	return prompt
 }
 
 // parseAIReorderingResponse extracts the reordered highlight IDs from the AI response
-func (s *AIService) parseAIReorderingResponse(response string) ([]string, error) {
+func (s *AIService) parseAIReorderingResponse(response string) ([]interface{}, error) {
 	// Clean the response - remove any markdown formatting
 	cleanResponse := strings.TrimSpace(response)
 	cleanResponse = strings.Trim(cleanResponse, "`")
@@ -882,9 +902,9 @@ func (s *AIService) parseAIReorderingResponse(response string) ([]string, error)
 		cleanResponse = strings.TrimSpace(cleanResponse)
 	}
 
-	// Try to parse as JSON array
-	var reorderedIDs []string
-	err := json.Unmarshal([]byte(cleanResponse), &reorderedIDs)
+	// Try to parse as JSON array with mixed types (strings and objects)
+	var reorderedItems []interface{}
+	err := json.Unmarshal([]byte(cleanResponse), &reorderedItems)
 	if err != nil {
 		// If direct parsing fails, try to extract JSON from the response
 		// Look for JSON array pattern
@@ -893,7 +913,7 @@ func (s *AIService) parseAIReorderingResponse(response string) ([]string, error)
 
 		if jsonStart >= 0 && jsonEnd > jsonStart {
 			jsonPart := cleanResponse[jsonStart : jsonEnd+1]
-			err = json.Unmarshal([]byte(jsonPart), &reorderedIDs)
+			err = json.Unmarshal([]byte(jsonPart), &reorderedItems)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse JSON array from AI response: %w", err)
 			}
@@ -902,14 +922,75 @@ func (s *AIService) parseAIReorderingResponse(response string) ([]string, error)
 		}
 	}
 
-	// Validate that "N" characters are properly formatted
-	for i, id := range reorderedIDs {
-		if id != "N" && !strings.HasPrefix(id, "highlight_") {
-			log.Printf("Warning: unexpected ID format at position %d: %s", i, id)
+	// Validate and convert items to proper format
+	var result []interface{}
+	for i, item := range reorderedItems {
+		switch v := item.(type) {
+		case string:
+			// Handle simple string IDs and "N" markers
+			if v != "N" && !strings.HasPrefix(v, "highlight_") {
+				log.Printf("Warning: unexpected ID format at position %d: %s", i, v)
+			}
+			result = append(result, v)
+		case map[string]interface{}:
+			// Handle section objects with titles
+			if typeVal, ok := v["type"].(string); ok && typeVal == "N" {
+				result = append(result, v)
+			} else {
+				log.Printf("Warning: unexpected object format at position %d: %v", i, v)
+			}
+		default:
+			log.Printf("Warning: unexpected type at position %d: %T", i, item)
 		}
 	}
 
-	return reorderedIDs, nil
+	return result, nil
+}
+
+// processReorderedItems processes the AI-reordered items, removing duplicates while preserving order and sections
+func (s *AIService) processReorderedItems(reorderedItems []interface{}, originalIDs []string) []interface{} {
+	// Create a set of original IDs for validation
+	originalIDSet := make(map[string]bool)
+	for _, id := range originalIDs {
+		originalIDSet[id] = true
+	}
+
+	// Track which IDs we've seen to avoid duplicates
+	seenIDs := make(map[string]bool)
+	result := make([]interface{}, 0)
+
+	for _, item := range reorderedItems {
+		switch v := item.(type) {
+		case string:
+			if v == "N" {
+				// Always include simple newline markers
+				result = append(result, v)
+			} else if originalIDSet[v] && !seenIDs[v] {
+				// Only include original IDs that we haven't seen before
+				result = append(result, v)
+				seenIDs[v] = true
+			}
+		case map[string]interface{}:
+			// Always include section objects with titles
+			if typeVal, ok := v["type"].(string); ok && typeVal == "N" {
+				result = append(result, v)
+			}
+		}
+		// Skip duplicates and unknown items
+	}
+
+	// Add any missing original IDs at the end
+	for _, id := range originalIDs {
+		if !seenIDs[id] {
+			result = append(result, id)
+		}
+	}
+
+	// Flatten consecutive newline markers
+	result = s.flattenConsecutiveNewlineItems(result)
+
+	log.Printf("Processing: input %d items, output %d items", len(reorderedItems), len(result))
+	return result
 }
 
 // deduplicateHighlightIDs removes duplicate highlight IDs while preserving order and newlines
@@ -1440,6 +1521,41 @@ func ClearAISilenceImprovementsCache(ctx context.Context, client *ent.Client, pr
 	}
 
 	return nil
+}
+
+// flattenConsecutiveNewlineItems removes consecutive newline markers, keeping only one
+func (s *AIService) flattenConsecutiveNewlineItems(items []interface{}) []interface{} {
+	if len(items) == 0 {
+		return items
+	}
+
+	result := make([]interface{}, 0, len(items))
+	lastWasNewline := false
+
+	for _, item := range items {
+		isNewline := false
+		
+		switch v := item.(type) {
+		case string:
+			isNewline = (v == "N")
+		case map[string]interface{}:
+			if typeVal, ok := v["type"].(string); ok && typeVal == "N" {
+				isNewline = true
+			}
+		}
+
+		if isNewline {
+			if !lastWasNewline {
+				result = append(result, item)
+				lastWasNewline = true
+			}
+		} else {
+			result = append(result, item)
+			lastWasNewline = false
+		}
+	}
+
+	return result
 }
 
 // flattenConsecutiveNewlines removes consecutive 'N' characters from the array

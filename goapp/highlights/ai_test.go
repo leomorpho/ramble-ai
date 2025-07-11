@@ -440,7 +440,7 @@ func TestTimeToWordIndexForEnd(t *testing.T) {
 	}
 }
 
-// TestParseAIReorderingResponse tests the AI reordering response parsing with N characters
+// TestParseAIReorderingResponse tests the AI reordering response parsing with mixed types
 func TestParseAIReorderingResponse(t *testing.T) {
 	service := &AIService{
 		highlightService: &HighlightService{},
@@ -449,31 +449,43 @@ func TestParseAIReorderingResponse(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
-		expected []string
+		expected []interface{}
 		wantErr  bool
 	}{
 		{
 			name:     "Valid response with N characters",
 			input:    `["id1", "id2", "N", "id3", "id4", "N", "id5"]`,
-			expected: []string{"id1", "id2", "N", "id3", "id4", "N", "id5"},
+			expected: []interface{}{"id1", "id2", "N", "id3", "id4", "N", "id5"},
 			wantErr:  false,
 		},
 		{
 			name:     "Valid response without N characters",
 			input:    `["id1", "id2", "id3", "id4", "id5"]`,
-			expected: []string{"id1", "id2", "id3", "id4", "id5"},
+			expected: []interface{}{"id1", "id2", "id3", "id4", "id5"},
+			wantErr:  false,
+		},
+		{
+			name:     "Response with section objects",
+			input:    `["id1", {"type":"N","title":"Section 1"}, "id2", {"type":"N","title":"Section 2"}, "id3"]`,
+			expected: []interface{}{"id1", map[string]interface{}{"type": "N", "title": "Section 1"}, "id2", map[string]interface{}{"type": "N", "title": "Section 2"}, "id3"},
+			wantErr:  false,
+		},
+		{
+			name:     "Mixed strings, N markers, and section objects",
+			input:    `["highlight_1", "N", "highlight_2", {"type":"N","title":"Main Content"}, "highlight_3"]`,
+			expected: []interface{}{"highlight_1", "N", "highlight_2", map[string]interface{}{"type": "N", "title": "Main Content"}, "highlight_3"},
 			wantErr:  false,
 		},
 		{
 			name:     "Response with markdown formatting",
 			input:    "```json\n[\"id1\", \"id2\", \"N\", \"id3\"]\n```",
-			expected: []string{"id1", "id2", "N", "id3"},
+			expected: []interface{}{"id1", "id2", "N", "id3"},
 			wantErr:  false,
 		},
 		{
 			name:     "Response with extra text",
 			input:    `Here is the reordered array: ["id1", "N", "id2"] - this should work well.`,
-			expected: []string{"id1", "N", "id2"},
+			expected: []interface{}{"id1", "N", "id2"},
 			wantErr:  false,
 		},
 		{
@@ -498,67 +510,101 @@ func TestParseAIReorderingResponse(t *testing.T) {
 			}
 
 			assert.NoError(t, err)
-			assert.Equal(t, len(tt.expected), len(result))
+			assert.Equal(t, len(tt.expected), len(result), "Result length mismatch")
 
 			for i, expected := range tt.expected {
-				assert.Equal(t, expected, result[i])
+				switch expectedVal := expected.(type) {
+				case string:
+					actualVal, ok := result[i].(string)
+					assert.True(t, ok, "Expected string at index %d, got %T", i, result[i])
+					assert.Equal(t, expectedVal, actualVal, "String mismatch at index %d", i)
+				case map[string]interface{}:
+					actualVal, ok := result[i].(map[string]interface{})
+					assert.True(t, ok, "Expected map at index %d, got %T", i, result[i])
+					assert.Equal(t, expectedVal["type"], actualVal["type"], "Type field mismatch at index %d", i)
+					if title, hasTitle := expectedVal["title"]; hasTitle {
+						assert.Equal(t, title, actualVal["title"], "Title field mismatch at index %d", i)
+					}
+				default:
+					assert.Equal(t, expected, result[i], "Value mismatch at index %d", i)
+				}
 			}
 		})
 	}
 }
 
-// TestDeduplicateHighlightIDs tests the deduplication logic for highlight IDs
-func TestDeduplicateHighlightIDs(t *testing.T) {
+// TestProcessReorderedItems tests the processing logic for reordered items
+func TestProcessReorderedItems(t *testing.T) {
 	service := &AIService{
 		highlightService: &HighlightService{},
 	}
 
 	tests := []struct {
 		name        string
-		reorderedIDs []string
+		reorderedItems []interface{}
 		originalIDs []string
-		expected    []string
+		expected    []interface{}
 	}{
 		{
 			name:        "No duplicates with N characters",
-			reorderedIDs: []string{"id1", "id2", "N", "id3", "id4"},
+			reorderedItems: []interface{}{"id1", "id2", "N", "id3", "id4"},
 			originalIDs: []string{"id1", "id2", "id3", "id4"},
-			expected:    []string{"id1", "id2", "N", "id3", "id4"},
+			expected:    []interface{}{"id1", "id2", "N", "id3", "id4"},
 		},
 		{
 			name:        "Duplicates with N characters",
-			reorderedIDs: []string{"id1", "id2", "N", "id1", "id3", "N", "id2", "id4"},
+			reorderedItems: []interface{}{"id1", "id2", "N", "id1", "id3", "N", "id2", "id4"},
 			originalIDs: []string{"id1", "id2", "id3", "id4"},
-			expected:    []string{"id1", "id2", "N", "id3", "N", "id4"},
+			expected:    []interface{}{"id1", "id2", "N", "id3", "N", "id4"},
 		},
 		{
 			name:        "Missing ID gets added at end",
-			reorderedIDs: []string{"id1", "N", "id3"},
+			reorderedItems: []interface{}{"id1", "N", "id3"},
 			originalIDs: []string{"id1", "id2", "id3"},
-			expected:    []string{"id1", "N", "id3", "id2"},
+			expected:    []interface{}{"id1", "N", "id3", "id2"},
 		},
 		{
 			name:        "Unknown IDs get filtered out",
-			reorderedIDs: []string{"id1", "unknown", "N", "id2", "another_unknown"},
+			reorderedItems: []interface{}{"id1", "unknown", "N", "id2", "another_unknown"},
 			originalIDs: []string{"id1", "id2"},
-			expected:    []string{"id1", "N", "id2"},
+			expected:    []interface{}{"id1", "N", "id2"},
 		},
 		{
 			name:        "Complex case with duplicates and unknowns",
-			reorderedIDs: []string{"id1", "id2", "N", "id1", "unknown", "id3", "N", "id2", "id4"},
+			reorderedItems: []interface{}{"id1", "id2", "N", "id1", "unknown", "id3", "N", "id2", "id4"},
 			originalIDs: []string{"id1", "id2", "id3", "id4"},
-			expected:    []string{"id1", "id2", "N", "id3", "N", "id4"},
+			expected:    []interface{}{"id1", "id2", "N", "id3", "N", "id4"},
+		},
+		{
+			name:        "Section objects are preserved",
+			reorderedItems: []interface{}{"id1", map[string]interface{}{"type": "N", "title": "Section 1"}, "id2", "N", "id3"},
+			originalIDs: []string{"id1", "id2", "id3"},
+			expected:    []interface{}{"id1", map[string]interface{}{"type": "N", "title": "Section 1"}, "id2", "N", "id3"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := service.deduplicateHighlightIDs(tt.reorderedIDs, tt.originalIDs)
+			result := service.processReorderedItems(tt.reorderedItems, tt.originalIDs)
 			
 			assert.Equal(t, len(tt.expected), len(result))
 
 			for i, expected := range tt.expected {
-				assert.Equal(t, expected, result[i])
+				switch expectedVal := expected.(type) {
+				case string:
+					actualVal, ok := result[i].(string)
+					assert.True(t, ok, "Expected string at index %d, got %T", i, result[i])
+					assert.Equal(t, expectedVal, actualVal, "String mismatch at index %d", i)
+				case map[string]interface{}:
+					actualVal, ok := result[i].(map[string]interface{})
+					assert.True(t, ok, "Expected map at index %d, got %T", i, result[i])
+					assert.Equal(t, expectedVal["type"], actualVal["type"], "Type field mismatch at index %d", i)
+					if title, hasTitle := expectedVal["title"]; hasTitle {
+						assert.Equal(t, title, actualVal["title"], "Title field mismatch at index %d", i)
+					}
+				default:
+					assert.Equal(t, expected, result[i], "Value mismatch at index %d", i)
+				}
 			}
 		})
 	}
@@ -575,37 +621,37 @@ func TestAIReorderingWithNCharacters(t *testing.T) {
 		name         string
 		llmResponse  string
 		originalIDs  []string
-		expectedFinal []string
+		expectedFinal []interface{}
 	}{
 		{
 			name:         "Perfect LLM response with N characters",
 			llmResponse:  `["highlight_1", "highlight_2", "N", "highlight_3", "highlight_4"]`,
 			originalIDs:  []string{"highlight_1", "highlight_2", "highlight_3", "highlight_4"},
-			expectedFinal: []string{"highlight_1", "highlight_2", "N", "highlight_3", "highlight_4"},
+			expectedFinal: []interface{}{"highlight_1", "highlight_2", "N", "highlight_3", "highlight_4"},
 		},
 		{
 			name:         "LLM response with duplicates",
 			llmResponse:  `["highlight_1", "highlight_2", "N", "highlight_1", "highlight_3", "N", "highlight_2", "highlight_4"]`,
 			originalIDs:  []string{"highlight_1", "highlight_2", "highlight_3", "highlight_4"},
-			expectedFinal: []string{"highlight_1", "highlight_2", "N", "highlight_3", "N", "highlight_4"},
+			expectedFinal: []interface{}{"highlight_1", "highlight_2", "N", "highlight_3", "N", "highlight_4"},
 		},
 		{
 			name:         "LLM response with missing ID",
 			llmResponse:  `["highlight_1", "N", "highlight_3"]`,
 			originalIDs:  []string{"highlight_1", "highlight_2", "highlight_3"},
-			expectedFinal: []string{"highlight_1", "N", "highlight_3", "highlight_2"},
+			expectedFinal: []interface{}{"highlight_1", "N", "highlight_3", "highlight_2"},
 		},
 		{
 			name:         "LLM response with unknown and duplicate IDs",
 			llmResponse:  `["highlight_1", "unknown_id", "N", "highlight_1", "highlight_2", "N", "highlight_3"]`,
 			originalIDs:  []string{"highlight_1", "highlight_2", "highlight_3"},
-			expectedFinal: []string{"highlight_1", "N", "highlight_2", "N", "highlight_3"},
+			expectedFinal: []interface{}{"highlight_1", "N", "highlight_2", "N", "highlight_3"},
 		},
 		{
 			name:         "Real-world example from logs",
 			llmResponse:  `["highlight_1752086566479_yioxdt6gz", "highlight_1752086557450_lr1swkjaj", "N", "highlight_1752086566479_yioxdt6gz", "highlight_1752086564341_wmna40inb", "highlight_1752086565468_egogda0qe", "N", "highlight_1752086562788_zo9mju0n2", "highlight_1752086566479_yioxdt6gz", "highlight_1752086567716_54jz3puhk"]`,
 			originalIDs:  []string{"highlight_1752086566479_yioxdt6gz", "highlight_1752086557450_lr1swkjaj", "highlight_1752086564341_wmna40inb", "highlight_1752086565468_egogda0qe", "highlight_1752086562788_zo9mju0n2", "highlight_1752086567716_54jz3puhk"},
-			expectedFinal: []string{"highlight_1752086566479_yioxdt6gz", "highlight_1752086557450_lr1swkjaj", "N", "highlight_1752086564341_wmna40inb", "highlight_1752086565468_egogda0qe", "N", "highlight_1752086562788_zo9mju0n2", "highlight_1752086567716_54jz3puhk"},
+			expectedFinal: []interface{}{"highlight_1752086566479_yioxdt6gz", "highlight_1752086557450_lr1swkjaj", "N", "highlight_1752086564341_wmna40inb", "highlight_1752086565468_egogda0qe", "N", "highlight_1752086562788_zo9mju0n2", "highlight_1752086567716_54jz3puhk"},
 		},
 	}
 
@@ -615,21 +661,35 @@ func TestAIReorderingWithNCharacters(t *testing.T) {
 			parsed, err := service.parseAIReorderingResponse(tt.llmResponse)
 			assert.NoError(t, err)
 
-			// Deduplicate the IDs
-			result := service.deduplicateHighlightIDs(parsed, tt.originalIDs)
+			// Process the items
+			result := service.processReorderedItems(parsed, tt.originalIDs)
 
 			// Check the final result
 			assert.Equal(t, len(tt.expectedFinal), len(result))
 
 			for i, expected := range tt.expectedFinal {
-				assert.Equal(t, expected, result[i])
+				switch expectedVal := expected.(type) {
+				case string:
+					actualVal, ok := result[i].(string)
+					assert.True(t, ok, "Expected string at index %d, got %T", i, result[i])
+					assert.Equal(t, expectedVal, actualVal, "String mismatch at index %d", i)
+				case map[string]interface{}:
+					actualVal, ok := result[i].(map[string]interface{})
+					assert.True(t, ok, "Expected map at index %d, got %T", i, result[i])
+					assert.Equal(t, expectedVal["type"], actualVal["type"], "Type field mismatch at index %d", i)
+					if title, hasTitle := expectedVal["title"]; hasTitle {
+						assert.Equal(t, title, actualVal["title"], "Title field mismatch at index %d", i)
+					}
+				default:
+					assert.Equal(t, expected, result[i], "Value mismatch at index %d", i)
+				}
 			}
 
 			// Verify that all original IDs are present exactly once
 			idCount := make(map[string]int)
-			for _, id := range result {
-				if id != "N" {
-					idCount[id]++
+			for _, item := range result {
+				if str, ok := item.(string); ok && str != "N" {
+					idCount[str]++
 				}
 			}
 
