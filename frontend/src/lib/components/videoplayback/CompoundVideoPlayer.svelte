@@ -12,6 +12,7 @@
   import ClipEditor from "$lib/components/ClipEditor.svelte";
   import TimelineSegment from "./TimelineSegment.svelte";
   import DeleteConfirmationDialog from "./DeleteConfirmationDialog.svelte";
+  import CurrentHighlightInfo from "./CurrentHighlightInfo.svelte";
 
   // Import utility functions
   import {
@@ -1107,26 +1108,13 @@
       {/if}
     </div>
 
-    <!-- Current Highlight Info -->
-    {#if videoHighlights[currentHighlightIndex]}
-      <div class="bg-secondary/30 p-3 rounded-md mb-4">
-        <div class="flex items-center justify-between">
-          <div>
-            <h4 class="font-medium text-sm">
-              {videoHighlights[currentHighlightIndex].videoClipName}
-            </h4>
-            <p class="text-xs text-muted-foreground mt-1">
-              Segment {currentHighlightIndex + 1} of {videoHighlights.length}
-            </p>
-          </div>
-          <div class="text-right">
-            <div class="text-sm font-mono">
-              {formatTime(currentTime)} / {formatTime(totalDuration)}
-            </div>
-          </div>
-        </div>
-      </div>
-    {/if}
+    <CurrentHighlightInfo
+      currentHighlight={videoHighlights[currentHighlightIndex]}
+      {currentHighlightIndex}
+      totalHighlights={videoHighlights.length}
+      {currentTime}
+      {totalDuration}
+    />
 
     <!-- Draggable Clip Timeline -->
     <div class="timeline-container mb-4 max-w-full overflow-hidden">
