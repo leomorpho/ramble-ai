@@ -69,6 +69,9 @@ importers:
       mode-watcher:
         specifier: ^1.0.8
         version: 1.1.0(svelte@5.34.9)
+      paneforge:
+        specifier: ^1.0.0
+        version: 1.0.0(svelte@5.34.9)
       shadcn-svelte:
         specifier: ^1.0.5
         version: 1.0.5
@@ -1043,6 +1046,11 @@ packages:
 
   nwsapi@2.2.20:
     resolution: {integrity: sha512-/ieB+mDe4MrrKMT8z+mQL8klXydZWGR5Dowt4RAGKbJ3kIGEx3X4ljUo+6V73IXtUPWgfOlU5B9MlGxFO5T+cA==}
+
+  paneforge@1.0.0:
+    resolution: {integrity: sha512-VlE5+inlTtfguYzSXCWlgFOrt92ofMkwm3/9dwwaDxABAJYYPOS6OJL+qNQbMr6RZkh7y1GSmB5sN+UG7EmVBA==}
+    peerDependencies:
+      svelte: ^5.29.0
 
   parse5@7.3.0:
     resolution: {integrity: sha512-IInvU7fabl34qmi9gY8XOVxhYyMyuH2xUNpb2q8/Y+7552KlejkRvqvD19nMoUW/uQGGbqNpA6Tufu5FL5BZgw==}
@@ -2188,6 +2196,12 @@ snapshots:
   node-fetch-native@1.6.6: {}
 
   nwsapi@2.2.20: {}
+
+  paneforge@1.0.0(svelte@5.34.9):
+    dependencies:
+      runed: 0.23.4(svelte@5.34.9)
+      svelte: 5.34.9
+      svelte-toolbelt: 0.9.3(svelte@5.34.9)
 
   parse5@7.3.0:
     dependencies:

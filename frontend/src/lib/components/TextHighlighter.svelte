@@ -91,6 +91,7 @@
   let selectionStart = $state(null);
   let selectionEnd = $state(null);
   let selectionAnchor = $state(null); // The fixed point where selection started
+  let selectionMoved = $state(false); // Track if user actually dragged during selection
 
   // === DRAG STATE ===
   let isDragging = $state(false);
@@ -304,6 +305,7 @@
 
     // Start new selection
     isSelecting = true;
+    selectionMoved = false; // Reset movement tracking
     const selectedWord = words[wordIndex];
     selectionStart = selectedWord.start;
     selectionEnd = selectedWord.end;
@@ -315,8 +317,16 @@
     if (isSelecting && selectionAnchor !== null) {
       // Update selection dynamically based on current position
       const hoveredWord = words[wordIndex];
-      selectionStart = Math.min(selectionAnchor, hoveredWord.start);
-      selectionEnd = Math.max(selectionAnchor, hoveredWord.end);
+      const newStart = Math.min(selectionAnchor, hoveredWord.start);
+      const newEnd = Math.max(selectionAnchor, hoveredWord.end);
+      
+      // Check if selection actually changed (user moved to different word)
+      if (newStart !== selectionStart || newEnd !== selectionEnd) {
+        selectionMoved = true;
+      }
+      
+      selectionStart = newStart;
+      selectionEnd = newEnd;
     }
 
     // Start dragging if we're prepared and mouse moves
@@ -480,7 +490,8 @@
       isSelecting &&
       selectionStart !== null &&
       selectionEnd !== null &&
-      selectionAnchor !== null
+      selectionAnchor !== null &&
+      selectionMoved // Only create highlight if user actually dragged
     ) {
       // Create new highlight from selection
       const startIndex = selectionStart;
@@ -498,6 +509,7 @@
     selectionStart = null;
     selectionEnd = null;
     selectionAnchor = null;
+    selectionMoved = false;
     isDragging = false;
     dragPrepared = false;
     dragTarget = null;
