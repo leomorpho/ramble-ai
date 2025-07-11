@@ -12,7 +12,7 @@
   } from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button";
 
-  import EtroVideoPlayer from "$lib/components/videoplayback/EtroVideoPlayer.svelte";
+  import CompoundVideoPlayer from "$lib/components/videoplayback/CompoundVideoPlayer.svelte";
   import VideoPlayerKeyHandler from "$lib/components/videoplayback/VideoPlayerKeyHandler.svelte";
   import ClipEditor from "$lib/components/ClipEditor.svelte";
   import ReorderableHighlights from "$lib/components/ReorderableHighlights.svelte";
@@ -485,7 +485,7 @@
       }
     }}
   >
-    <EtroVideoPlayer videoHighlights={videoHighlights.filter(h => h.id && h.id.startsWith('highlight_'))} {projectId} {playPauseRef} />
+    <CompoundVideoPlayer videoHighlights={videoHighlights.filter(h => h.id && h.id.startsWith('highlight_'))} {projectId} {playPauseRef} />
   </VideoPlayerKeyHandler>
 </div>
 

@@ -12,7 +12,7 @@
   import { Button } from "$lib/components/ui/button";
   import AISettings from "$lib/components/ui/AISettings.svelte";
   import CustomSheet from "$lib/components/ui/CustomSheet.svelte";
-  import EtroVideoPlayer from "$lib/components/videoplayback/EtroVideoPlayer.svelte";
+  import CompoundVideoPlayer from "$lib/components/videoplayback/CompoundVideoPlayer.svelte";
   import HighlightItem from "$lib/components/HighlightItem.svelte";
   import { Play } from "@lucide/svelte";
 
@@ -394,7 +394,7 @@ Only include highlights where you recommend changes.`;
                 <Play class="w-4 h-4" />
                 Preview AI Improved Timings
               </h3>
-              <EtroVideoPlayer 
+              <CompoundVideoPlayer 
                 videoHighlights={improvedHighlights} 
                 {projectId} 
                 enableEyeButton={false}

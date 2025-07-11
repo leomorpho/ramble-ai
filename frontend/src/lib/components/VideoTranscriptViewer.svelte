@@ -17,7 +17,7 @@
   import { ScrollArea } from "$lib/components/ui/scroll-area";
   import AISettings from "$lib/components/ui/AISettings.svelte";
   import TextHighlighter from "$lib/components/TextHighlighter.svelte";
-  import EtroVideoPlayer from "$lib/components/videoplayback/EtroVideoPlayer.svelte";
+  import CompoundVideoPlayer from "$lib/components/videoplayback/CompoundVideoPlayer.svelte";
   import { toast } from "svelte-sonner";
   import { Sparkles, Undo, Redo } from "@lucide/svelte";
   import {
@@ -91,7 +91,7 @@ Analyze the transcript and identify segments that are:
 
 Return segments that would work well as standalone content pieces.`;
 
-  // Derived highlights formatted for EtroVideoPlayer (adds filePath from video)
+  // Derived highlights formatted for CompoundVideoPlayer (adds filePath from video)
   let formattedTranscriptHighlights = $derived(
     video && transcriptPlayerHighlights.length > 0
       ? [...transcriptPlayerHighlights] // Create a copy to avoid mutation
@@ -481,7 +481,7 @@ Return segments that would work well as standalone content pieces.`;
               <div class="bg-background border rounded-lg p-4">
                 <h3 class="font-medium mb-3">Video Preview</h3>
                 <div class="aspect-video">
-                  <EtroVideoPlayer
+                  <CompoundVideoPlayer
                     videoHighlights={formattedTranscriptHighlights}
                     {projectId}
                     enableEyeButton={false}

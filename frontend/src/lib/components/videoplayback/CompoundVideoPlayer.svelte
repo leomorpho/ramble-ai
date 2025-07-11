@@ -975,7 +975,7 @@
 
   // Initialize component
   onMount(() => {
-    console.log("EtroVideoPlayer mounted");
+    console.log("CompoundVideoPlayer mounted");
     console.log("Video highlights on mount:", videoHighlights.length);
     console.log("videoElement1 on mount:", videoElement1);
     console.log("videoElement2 on mount:", videoElement2);

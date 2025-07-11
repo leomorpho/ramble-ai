@@ -11,7 +11,7 @@
   import { Button } from "$lib/components/ui/button";
   import AISettings from "$lib/components/ui/AISettings.svelte";
   import CustomSheet from "$lib/components/ui/CustomSheet.svelte";
-  import EtroVideoPlayer from "$lib/components/videoplayback/EtroVideoPlayer.svelte";
+  import CompoundVideoPlayer from "$lib/components/videoplayback/CompoundVideoPlayer.svelte";
   import ReorderableHighlights from "$lib/components/ReorderableHighlights.svelte";
   import { updateHighlightOrder } from "$lib/stores/projectHighlights.js";
 
@@ -335,7 +335,7 @@ Feel free to completely restructure the order - move any segment to any position
     aiReorderedHighlights = newHighlights;
   }
 
-  // Handle reordering from the EtroVideoPlayer in AI preview mode
+  // Handle reordering from the CompoundVideoPlayer in AI preview mode
   async function handleAIVideoReorder(newHighlights) {
     // Update both AI dialog highlights and reordered highlights
     aiDialogHighlights = newHighlights;
@@ -501,7 +501,7 @@ Feel free to completely restructure the order - move any segment to any position
                         Current Highlight Order
                       {/if}
                     </h3>
-                    <EtroVideoPlayer 
+                    <CompoundVideoPlayer 
                       videoHighlights={aiReorderedHighlights.length > 0 ? aiReorderedHighlights.filter(h => h.id && h.id.startsWith('highlight_')) : highlights.filter(h => h.id && h.id.startsWith('highlight_'))} 
                       {projectId} 
                       enableEyeButton={false}
