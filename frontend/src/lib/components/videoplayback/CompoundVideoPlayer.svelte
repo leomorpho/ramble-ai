@@ -13,6 +13,7 @@
   import TimelineSegment from "./TimelineSegment.svelte";
   import DeleteConfirmationDialog from "./DeleteConfirmationDialog.svelte";
   import CurrentHighlightInfo from "./CurrentHighlightInfo.svelte";
+  import VideoTimeline from "./VideoTimeline.svelte";
 
   // Import utility functions
   import {
@@ -1116,130 +1117,29 @@
       {totalDuration}
     />
 
-    <!-- Draggable Clip Timeline -->
-    <div class="timeline-container mb-4 max-w-full overflow-hidden">
-      <div class="space-y-2 max-w-full">
-        {#if shouldEnableReordering()}
-          <div class="text-xs text-muted-foreground mb-2">
-            💡 Click segments to seek, drag handle (⚫) to reorder
-          </div>
-        {:else}
-          <div class="text-xs text-muted-foreground mb-2">
-            💡 Click segments to seek{videoHighlights.length > DISABLE_REORDERING_THRESHOLD
-              ? ` (reordering disabled for ${videoHighlights.length} segments)`
-              : ""}
-          </div>
-        {/if}
-
-        <!-- Clip segments with drag and drop -->
-        <!-- Timeline always maintains proportional width to match video player -->
-        <div class="flex pt-2 min-h-[2rem] w-full">
-          {#each videoHighlights as highlight, index}
-            {@const segmentDuration = highlight.end - highlight.start}
-            {@const calculatedTotalDuration = videoHighlights.reduce(
-              (sum, h) => sum + (h.end - h.start),
-              0
-            )}
-            {@const proportionalWidth = calculatedTotalDuration > 0
-                ? (segmentDuration / calculatedTotalDuration) * 100
-                : 100 / videoHighlights.length}
-            {@const segmentWidth = proportionalWidth}
-            {@const isActive = index === currentHighlightIndex}
-
-            <!-- Drop indicator before this segment -->
-            {#if shouldEnableReordering() && isDragging && dragOverIndex === index}
-              {@render dropIndicator()}
-            {/if}
-
-            <TimelineSegment
-              {highlight}
-              {index}
-              {isActive}
-              {segmentWidth}
-              {currentTime}
-              {totalDuration}
-              highlights={videoHighlights}
-              enableReordering={shouldEnableReordering()}
-              enableEyeButton={enableEyeButton && !shouldShowActiveSegment}
-              showSegmentNumber={shouldShowSegmentNumbers()}
-              {isDragging}
-              {dragStartIndex}
-              {isPopoverOpen}
-              {openPopover}
-              {closePopover}
-              isFirst={index === 0}
-              isLast={index === videoHighlights.length - 1}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
-              onSegmentClick={handleSegmentClick}
-              onEditHighlight={handleEditHighlight}
-              onDeleteConfirm={handleDeleteConfirm}
-            />
-
-            <!-- Drop indicator after the last segment -->
-            {#if shouldEnableReordering() && index === videoHighlights.length - 1 && isDragging && dragOverIndex === videoHighlights.length}
-              {@render dropIndicator()}
-            {/if}
-          {/each}
-        </div>
-
-        <!-- Active segment in full width -->
-        {#if shouldShowActiveSegment && videoHighlights[currentHighlightIndex]}
-          {@const activeHighlight = videoHighlights[currentHighlightIndex]}
-          {@const segmentStartTime = videoHighlights
-            .slice(0, currentHighlightIndex)
-            .reduce((sum, h) => sum + (h.end - h.start), 0)}
-          {@const segmentDuration = activeHighlight.end - activeHighlight.start}
-
-          <div class="mt-1">
-            <div class="w-full">
-              <TimelineSegment
-                highlight={activeHighlight}
-                index={currentHighlightIndex}
-                isActive={true}
-                isFirst={true}
-                isLast={true}
-                segmentWidth={100}
-                {currentTime}
-                highlights={videoHighlights}
-                enableReordering={false}
-                enableEyeButton={true}
-                showSegmentNumber={true}
-                isDragging={false}
-                dragStartIndex={null}
-                {isPopoverOpen}
-                {openPopover}
-                {closePopover}
-                onDragStart={() => {}}
-                onDragEnd={() => {}}
-                onDragOver={() => {}}
-                onDrop={() => {}}
-                onSegmentClick={(e) => {
-                  // Calculate click position to seek within current segment
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const x = e.clientX - rect.left;
-                  const clickPercentage = x / rect.width;
-                  const clickTargetTime =
-                    segmentStartTime + clickPercentage * segmentDuration;
-                  handleTimelineSeekWrapper(clickTargetTime);
-                }}
-                onEditHighlight={handleEditHighlight}
-                onDeleteConfirm={handleDeleteConfirm}
-              />
-            </div>
-          </div>
-        {/if}
-
-        <!-- Time display -->
-        <div class="flex justify-between text-xs text-muted-foreground">
-          <span>{formatTime(currentTime)}</span>
-          <span>Clip {currentHighlightIndex + 1} of {videoHighlights.length}</span>
-          <span>{formatTime(totalDuration)}</span>
-        </div>
-      </div>
-    </div>
+    <VideoTimeline
+      {videoHighlights}
+      {currentHighlightIndex}
+      {currentTime}
+      {totalDuration}
+      {enableEyeButton}
+      shouldEnableReordering={shouldEnableReordering()}
+      {isDragging}
+      {dragStartIndex}
+      {dragOverIndex}
+      {isPopoverOpen}
+      {openPopover}
+      {closePopover}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      onSegmentClick={handleSegmentClick}
+      onEditHighlight={handleEditHighlight}
+      onDeleteConfirm={handleDeleteConfirm}
+      onTimelineSeek={handleTimelineSeekWrapper}
+      {DISABLE_REORDERING_THRESHOLD}
+    />
 
     <!-- Simplified Controls -->
     <div class="playback-controls flex items-center justify-center gap-3">
@@ -1270,9 +1170,6 @@
   </div>
 {/if}
 
-{#snippet dropIndicator()}
-  <div class="w-0.5 h-8 bg-black dark:bg-white rounded flex-shrink-0"></div>
-{/snippet}
 
 <!-- Clip Editor -->
 <ClipEditor
