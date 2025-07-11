@@ -39,9 +39,9 @@ func (Project) Fields() []ent.Field {
 		field.Text("ai_prompt").
 			Optional().
 			Comment("Custom AI prompt for segment reordering"),
-		field.JSON("ai_suggestion_order", []string{}).
+		field.JSON("ai_suggestion_order", []interface{}{}).
 			Optional().
-			Comment("Cached AI-suggested highlight order (array of highlight IDs)"),
+			Comment("Cached AI-suggested highlight order (array of highlight IDs, 'N' for newlines, or newline objects with titles)"),
 		field.String("ai_suggestion_model").
 			Optional().
 			Comment("AI model used for the cached suggestion"),

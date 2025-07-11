@@ -1358,8 +1358,8 @@ type ProjectMutation struct {
 	updated_at                    *time.Time
 	ai_model                      *string
 	ai_prompt                     *string
-	ai_suggestion_order           *[]string
-	appendai_suggestion_order     []string
+	ai_suggestion_order           *[]interface{}
+	appendai_suggestion_order     []interface{}
 	ai_suggestion_model           *string
 	ai_suggestion_created_at      *time.Time
 	ai_highlight_model            *string
@@ -1777,13 +1777,13 @@ func (m *ProjectMutation) ResetAiPrompt() {
 }
 
 // SetAiSuggestionOrder sets the "ai_suggestion_order" field.
-func (m *ProjectMutation) SetAiSuggestionOrder(s []string) {
-	m.ai_suggestion_order = &s
+func (m *ProjectMutation) SetAiSuggestionOrder(i []interface{}) {
+	m.ai_suggestion_order = &i
 	m.appendai_suggestion_order = nil
 }
 
 // AiSuggestionOrder returns the value of the "ai_suggestion_order" field in the mutation.
-func (m *ProjectMutation) AiSuggestionOrder() (r []string, exists bool) {
+func (m *ProjectMutation) AiSuggestionOrder() (r []interface{}, exists bool) {
 	v := m.ai_suggestion_order
 	if v == nil {
 		return
@@ -1794,7 +1794,7 @@ func (m *ProjectMutation) AiSuggestionOrder() (r []string, exists bool) {
 // OldAiSuggestionOrder returns the old "ai_suggestion_order" field's value of the Project entity.
 // If the Project object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ProjectMutation) OldAiSuggestionOrder(ctx context.Context) (v []string, err error) {
+func (m *ProjectMutation) OldAiSuggestionOrder(ctx context.Context) (v []interface{}, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldAiSuggestionOrder is only allowed on UpdateOne operations")
 	}
@@ -1808,13 +1808,13 @@ func (m *ProjectMutation) OldAiSuggestionOrder(ctx context.Context) (v []string,
 	return oldValue.AiSuggestionOrder, nil
 }
 
-// AppendAiSuggestionOrder adds s to the "ai_suggestion_order" field.
-func (m *ProjectMutation) AppendAiSuggestionOrder(s []string) {
-	m.appendai_suggestion_order = append(m.appendai_suggestion_order, s...)
+// AppendAiSuggestionOrder adds i to the "ai_suggestion_order" field.
+func (m *ProjectMutation) AppendAiSuggestionOrder(i []interface{}) {
+	m.appendai_suggestion_order = append(m.appendai_suggestion_order, i...)
 }
 
 // AppendedAiSuggestionOrder returns the list of values that were appended to the "ai_suggestion_order" field in this mutation.
-func (m *ProjectMutation) AppendedAiSuggestionOrder() ([]string, bool) {
+func (m *ProjectMutation) AppendedAiSuggestionOrder() ([]interface{}, bool) {
 	if len(m.appendai_suggestion_order) == 0 {
 		return nil, false
 	}
@@ -2801,7 +2801,7 @@ func (m *ProjectMutation) SetField(name string, value ent.Value) error {
 		m.SetAiPrompt(v)
 		return nil
 	case project.FieldAiSuggestionOrder:
-		v, ok := value.([]string)
+		v, ok := value.([]interface{})
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}

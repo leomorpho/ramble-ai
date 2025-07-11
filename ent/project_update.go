@@ -140,14 +140,14 @@ func (pu *ProjectUpdate) ClearAiPrompt() *ProjectUpdate {
 }
 
 // SetAiSuggestionOrder sets the "ai_suggestion_order" field.
-func (pu *ProjectUpdate) SetAiSuggestionOrder(s []string) *ProjectUpdate {
-	pu.mutation.SetAiSuggestionOrder(s)
+func (pu *ProjectUpdate) SetAiSuggestionOrder(i []interface{}) *ProjectUpdate {
+	pu.mutation.SetAiSuggestionOrder(i)
 	return pu
 }
 
-// AppendAiSuggestionOrder appends s to the "ai_suggestion_order" field.
-func (pu *ProjectUpdate) AppendAiSuggestionOrder(s []string) *ProjectUpdate {
-	pu.mutation.AppendAiSuggestionOrder(s)
+// AppendAiSuggestionOrder appends i to the "ai_suggestion_order" field.
+func (pu *ProjectUpdate) AppendAiSuggestionOrder(i []interface{}) *ProjectUpdate {
+	pu.mutation.AppendAiSuggestionOrder(i)
 	return pu
 }
 
@@ -862,14 +862,14 @@ func (puo *ProjectUpdateOne) ClearAiPrompt() *ProjectUpdateOne {
 }
 
 // SetAiSuggestionOrder sets the "ai_suggestion_order" field.
-func (puo *ProjectUpdateOne) SetAiSuggestionOrder(s []string) *ProjectUpdateOne {
-	puo.mutation.SetAiSuggestionOrder(s)
+func (puo *ProjectUpdateOne) SetAiSuggestionOrder(i []interface{}) *ProjectUpdateOne {
+	puo.mutation.SetAiSuggestionOrder(i)
 	return puo
 }
 
-// AppendAiSuggestionOrder appends s to the "ai_suggestion_order" field.
-func (puo *ProjectUpdateOne) AppendAiSuggestionOrder(s []string) *ProjectUpdateOne {
-	puo.mutation.AppendAiSuggestionOrder(s)
+// AppendAiSuggestionOrder appends i to the "ai_suggestion_order" field.
+func (puo *ProjectUpdateOne) AppendAiSuggestionOrder(i []interface{}) *ProjectUpdateOne {
+	puo.mutation.AppendAiSuggestionOrder(i)
 	return puo
 }
 

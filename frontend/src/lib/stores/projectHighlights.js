@@ -168,11 +168,21 @@ export async function updateHighlightOrder(newOrder) {
     const highlightIds = newOrder.map(item => {
       if (typeof item === 'string') {
         return item;
-      } else if (item.type === 'newline') {
-        // Convert display format to database format
-        return item.title ? { type: 'N', title: item.title } : 'N';
-      } else {
+      } else if (item && (item.type === 'newline' || item.type === 'N')) {
+        // Handle both display format (type: 'newline') and database format (type: 'N')
+        if (item.type === 'N') {
+          // Already in database format, preserve exactly as is
+          return item;
+        } else {
+          // Convert display format to database format
+          return item.title ? { type: 'N', title: item.title } : 'N';
+        }
+      } else if (item && item.id && typeof item.id === 'string' && item.id.startsWith('highlight_')) {
+        // Only extract id if it's a highlight ID, not for other metadata objects
         return item.id;
+      } else {
+        // For any other object, return as-is (database format section objects, future metadata types, etc.)
+        return item;
       }
     });
 

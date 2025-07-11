@@ -32,8 +32,8 @@ type Project struct {
 	AiModel string `json:"ai_model,omitempty"`
 	// Custom AI prompt for segment reordering
 	AiPrompt string `json:"ai_prompt,omitempty"`
-	// Cached AI-suggested highlight order (array of highlight IDs)
-	AiSuggestionOrder []string `json:"ai_suggestion_order,omitempty"`
+	// Cached AI-suggested highlight order (array of highlight IDs, 'N' for newlines, or newline objects with titles)
+	AiSuggestionOrder []interface{} `json:"ai_suggestion_order,omitempty"`
 	// AI model used for the cached suggestion
 	AiSuggestionModel string `json:"ai_suggestion_model,omitempty"`
 	// When the AI suggestion was created

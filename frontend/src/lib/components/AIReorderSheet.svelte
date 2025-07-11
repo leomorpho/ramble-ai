@@ -279,23 +279,37 @@ Feel free to completely restructure the order - move any segment to any position
     if (aiReorderedHighlights.length === 0) return;
 
     try {
-      // Convert aiReorderedHighlights to the format expected by updateHighlightOrder
-      const highlightIds = aiReorderedHighlights.map(item => {
-        if (isNewline(item)) {
-          // Convert display format to database format
-          return item.title ? { type: 'N', title: item.title } : 'N';
-        } else {
-          return item.id;
+      // Get the exact AI suggestion order from the database and use it unchanged
+      // This ensures we preserve section objects EXACTLY as they are in ai_suggestion_order
+      const cachedSuggestion = await GetProjectAISuggestion(projectId);
+      
+      if (cachedSuggestion && cachedSuggestion.order && cachedSuggestion.order.length > 0) {
+        // Use the exact AI suggestion order without any conversion
+        const success = await updateHighlightOrder(cachedSuggestion.order);
+
+        if (success) {
+          open = false; // Close the sheet
+          toast.success("AI reordering applied successfully!");
+          onApply(aiReorderedHighlights);
         }
-      });
+      } else {
+        // Fallback: convert current aiReorderedHighlights if no cached suggestion
+        const highlightIds = aiReorderedHighlights.map(item => {
+          if (isNewline(item)) {
+            // Convert display format to database format - preserve title exactly as is
+            return item.title ? { type: 'N', title: item.title } : 'N';
+          } else {
+            return item.id;
+          }
+        });
 
-      // Update via centralized store
-      const success = await updateHighlightOrder(highlightIds);
+        const success = await updateHighlightOrder(highlightIds);
 
-      if (success) {
-        open = false; // Close the sheet
-        toast.success("AI reordering applied successfully!");
-        onApply(aiReorderedHighlights);
+        if (success) {
+          open = false; // Close the sheet
+          toast.success("AI reordering applied successfully!");
+          onApply(aiReorderedHighlights);
+        }
       }
     } catch (error) {
       console.error("Error applying AI reordering:", error);

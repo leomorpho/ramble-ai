@@ -90,7 +90,7 @@ export function RedoHighlightsChange(arg1:number):Promise<Array<projects.Highlig
 
 export function RedoOrderChange(arg1:number):Promise<Array<string>>;
 
-export function ReorderHighlightsWithAI(arg1:number,arg2:string):Promise<Array<string>>;
+export function ReorderHighlightsWithAI(arg1:number,arg2:string):Promise<Array<any>>;
 
 export function SaveOpenAIApiKey(arg1:string):Promise<void>;
 

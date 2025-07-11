@@ -105,8 +105,8 @@ func (pc *ProjectCreate) SetNillableAiPrompt(s *string) *ProjectCreate {
 }
 
 // SetAiSuggestionOrder sets the "ai_suggestion_order" field.
-func (pc *ProjectCreate) SetAiSuggestionOrder(s []string) *ProjectCreate {
-	pc.mutation.SetAiSuggestionOrder(s)
+func (pc *ProjectCreate) SetAiSuggestionOrder(i []interface{}) *ProjectCreate {
+	pc.mutation.SetAiSuggestionOrder(i)
 	return pc
 }
 

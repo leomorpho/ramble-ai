@@ -348,7 +348,7 @@ func (a *App) GetProjectHighlightOrderWithTitles(projectID int) ([]interface{}, 
 }
 
 // ReorderHighlightsWithAI uses OpenRouter API to intelligently reorder highlights
-func (a *App) ReorderHighlightsWithAI(projectID int, customPrompt string) ([]string, error) {
+func (a *App) ReorderHighlightsWithAI(projectID int, customPrompt string) ([]interface{}, error) {
 	service := highlights.NewAIService(a.client, a.ctx)
 	return service.ReorderHighlightsWithAI(projectID, customPrompt, a.GetOpenRouterApiKey, a.GetProjectHighlights)
 }

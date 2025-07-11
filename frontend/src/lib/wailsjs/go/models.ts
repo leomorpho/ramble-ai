@@ -156,7 +156,7 @@ export namespace highlights {
 	    }
 	}
 	export class ProjectAISuggestion {
-	    order: string[];
+	    order: any[];
 	    model: string;
 	    // Go type: time
 	    createdAt: any;
