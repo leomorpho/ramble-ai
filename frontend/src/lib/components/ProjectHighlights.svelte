@@ -1,6 +1,9 @@
 <script>
   import { onDestroy } from "svelte";
-  import { GetVideoURL, GetVideoClipsByProject } from "$lib/wailsjs/go/main/App";
+  import {
+    GetVideoURL,
+    GetVideoClipsByProject,
+  } from "$lib/wailsjs/go/main/App";
   import { toast } from "svelte-sonner";
   import { Play, Film, Sparkles, Clock, Undo, Redo } from "@lucide/svelte";
   import {
@@ -59,7 +62,7 @@
 
   // AI silence improvement state
   let aiSilenceLoading = $state(false);
-  
+
   // Video clips with transcription words for internal pause analysis
   let videoClipsWithWords = $state(new Map());
 
@@ -68,10 +71,10 @@
 
   // Popover state management
   let popoverStates = $state(new Map());
-  
+
   // Filter highlights for video player (exclude newline items)
   let videoHighlights = $derived(
-    highlights.filter(item => item.type !== 'newline')
+    highlights.filter((item) => item.type !== "newline")
   );
 
   // Load video clips with transcription words for pause analysis
@@ -80,12 +83,12 @@
       loadVideoClipsWithWords();
     }
   });
-  
+
   async function loadVideoClipsWithWords() {
     try {
       const clips = await GetVideoClipsByProject(projectId);
       const clipsMap = new Map();
-      clips.forEach(clip => {
+      clips.forEach((clip) => {
         if (clip.transcriptionWords && clip.transcriptionWords.length > 0) {
           clipsMap.set(clip.id, clip.transcriptionWords);
         }
@@ -95,18 +98,18 @@
       console.error("Failed to load video clips with words:", error);
     }
   }
-  
+
   // Function to get transcription words for a highlight
   function getHighlightWords(highlight) {
     // New lines don't have transcription words
-    if (highlight.type === 'newline') return [];
-    
+    if (highlight.type === "newline") return [];
+
     const words = videoClipsWithWords.get(highlight.videoClipId);
     if (!words || words.length === 0) return [];
-    
+
     // Find words within this highlight's time range
-    return words.filter(word => 
-      word.start >= highlight.start && word.end <= highlight.end
+    return words.filter(
+      (word) => word.start >= highlight.start && word.end <= highlight.end
     );
   }
 
@@ -134,8 +137,8 @@
   // Handle highlight click
   async function handleHighlightClick(highlight) {
     // Don't try to play new lines
-    if (highlight.type === 'newline') return;
-    
+    if (highlight.type === "newline") return;
+
     closePopover(highlight.id);
     currentHighlight = highlight;
     videoLoading = true;
@@ -485,7 +488,14 @@
       }
     }}
   >
-    <CompoundVideoPlayer videoHighlights={videoHighlights.filter(h => h.id && h.id.startsWith('highlight_'))} {projectId} {playPauseRef} />
+    <CompoundVideoPlayer
+      videoHighlights={videoHighlights.filter(
+        (h) => h.id && h.id.startsWith("highlight_")
+      )}
+      {projectId}
+      {playPauseRef}
+      enableReordering={false}
+    />
   </VideoPlayerKeyHandler>
 </div>
 
