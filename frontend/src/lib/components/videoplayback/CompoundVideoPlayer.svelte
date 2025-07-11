@@ -125,10 +125,16 @@
   });
 
   // Calculate if we should enable reordering
+  // NOTE: Reordering is currently disabled because the save function (updateHighlightOrder)
+  // eliminates all metadata when saving highlight order, and we lose the ordering of section headers.
+  // The function strips out metadata from section objects and flattens the order, causing:
+  // 1. Section headers to lose their positioning/metadata
+  // 2. Custom section titles to be lost
+  // 3. Other metadata objects to be stripped from the saved order
+  // This needs to be fixed in the updateHighlightOrder function before re-enabling reordering.
   let shouldEnableReordering = $derived(() => {
-    return (
-      enableReordering && videoHighlights.length <= DISABLE_REORDERING_THRESHOLD
-    );
+    return false; // Temporarily disabled due to metadata loss issue
+    // Original logic: enableReordering && videoHighlights.length <= DISABLE_REORDERING_THRESHOLD
   });
 
   // Update total duration when highlights change
