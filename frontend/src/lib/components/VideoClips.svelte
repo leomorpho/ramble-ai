@@ -44,8 +44,6 @@
   let addingClip = $state(false);
   let clipError = $state("");
 
-  // Transcription state
-  let transcribingClips = $state(new Set());
 
   // Delete confirmation dialog state
   let deleteDialogOpen = $state(false);
@@ -523,9 +521,15 @@
         return;
       }
 
-      // Add clip to transcribing set
-      transcribingClips.add(clip.id);
-      transcribingClips = new Set(transcribingClips); // Trigger reactivity
+      // Update clip state to transcribing
+      const clipIndex = videoClips.findIndex((c) => c.id === clip.id);
+      if (clipIndex !== -1) {
+        videoClips[clipIndex] = {
+          ...videoClips[clipIndex],
+          transcriptionState: 'transcribing'
+        };
+        videoClips = [...videoClips]; // Trigger reactivity
+      }
 
       // Show starting toast
       toast.info(`Starting transcription for ${clip.name}`, {
@@ -536,14 +540,15 @@
 
       if (result.success) {
         // Update the clip with transcription and words data
-        const clipIndex = videoClips.findIndex((c) => c.id === clip.id);
-        if (clipIndex !== -1) {
-          videoClips[clipIndex] = {
-            ...videoClips[clipIndex],
+        const successClipIndex = videoClips.findIndex((c) => c.id === clip.id);
+        if (successClipIndex !== -1) {
+          videoClips[successClipIndex] = {
+            ...videoClips[successClipIndex],
             transcription: result.transcription,
             transcriptionWords: result.words || [],
             transcriptionLanguage: result.language,
             transcriptionDuration: result.duration,
+            transcriptionState: 'completed',
           };
           videoClips = [...videoClips]; // Trigger reactivity
         }
@@ -558,6 +563,17 @@
           onHighlightsChange();
         }
       } else {
+        // Update clip state to error
+        const errorClipIndex = videoClips.findIndex((c) => c.id === clip.id);
+        if (errorClipIndex !== -1) {
+          videoClips[errorClipIndex] = {
+            ...videoClips[errorClipIndex],
+            transcriptionState: 'error',
+            transcriptionError: result.message
+          };
+          videoClips = [...videoClips]; // Trigger reactivity
+        }
+        
         // Show error toast
         toast.error(`Transcription failed for ${clip.name}`, {
           description: result.message,
@@ -565,13 +581,21 @@
       }
     } catch (err) {
       console.error("Transcription error:", err);
+      
+      // Update clip state to error
+      const errorClipIndex = videoClips.findIndex((c) => c.id === clip.id);
+      if (errorClipIndex !== -1) {
+        videoClips[errorClipIndex] = {
+          ...videoClips[errorClipIndex],
+          transcriptionState: 'error',
+          transcriptionError: err.message || "An unexpected error occurred"
+        };
+        videoClips = [...videoClips]; // Trigger reactivity
+      }
+      
       toast.error(`Transcription failed for ${clip.name}`, {
         description: "An unexpected error occurred",
       });
-    } finally {
-      // Remove clip from transcribing set
-      transcribingClips.delete(clip.id);
-      transcribingClips = new Set(transcribingClips); // Trigger reactivity
     }
   }
 
@@ -651,7 +675,6 @@
       {#each videoClips as clip (clip.id)}
         <VideoClipCard
           {clip}
-          isTranscribing={transcribingClips.has(clip.id)}
           onDelete={handleDeleteClip}
           onStartTranscription={startTranscription}
           {formatFileSize}

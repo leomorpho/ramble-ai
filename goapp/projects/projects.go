@@ -26,6 +26,15 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
+// Transcription state constants
+const (
+	TranscriptionStateIdle        = "idle"
+	TranscriptionStateChecking    = "checking"
+	TranscriptionStateTranscribing = "transcribing"
+	TranscriptionStateCompleted   = "completed"
+	TranscriptionStateError       = "error"
+)
+
 // Word represents a single word with timing information
 type Word struct {
 	Word  string  `json:"word"`
@@ -1144,7 +1153,7 @@ func (s *ProjectService) getProjectHighlightOrderWithTitles(projectID int) ([]in
 // TranscribeVideoClip transcribes audio from a video clip using OpenAI Whisper
 func (s *ProjectService) TranscribeVideoClip(clipID int) (*TranscriptionResponse, error) {
 	// Update transcription state to checking
-	err := s.updateTranscriptionState(clipID, "checking", "")
+	err := s.updateTranscriptionState(clipID, TranscriptionStateChecking, "")
 	if err != nil {
 		log.Printf("[TRANSCRIPTION] Warning: failed to update state to checking: %v", err)
 	}
@@ -1152,7 +1161,7 @@ func (s *ProjectService) TranscribeVideoClip(clipID int) (*TranscriptionResponse
 	// Get the video clip
 	clip, err := s.client.VideoClip.Get(s.ctx, clipID)
 	if err != nil {
-		s.updateTranscriptionState(clipID, "error", "Video clip not found")
+		s.updateTranscriptionState(clipID, TranscriptionStateError, "Video clip not found")
 		return &TranscriptionResponse{
 			Success: false,
 			Message: "Video clip not found",
@@ -1161,7 +1170,7 @@ func (s *ProjectService) TranscribeVideoClip(clipID int) (*TranscriptionResponse
 
 	// Check if file exists
 	if _, err := os.Stat(clip.FilePath); os.IsNotExist(err) {
-		s.updateTranscriptionState(clipID, "error", "Video file not found")
+		s.updateTranscriptionState(clipID, TranscriptionStateError, "Video file not found")
 		return &TranscriptionResponse{
 			Success: false,
 			Message: "Video file not found",
@@ -1171,7 +1180,7 @@ func (s *ProjectService) TranscribeVideoClip(clipID int) (*TranscriptionResponse
 	// Get OpenAI API key
 	apiKey, err := s.getOpenAIApiKey()
 	if err != nil || apiKey == "" {
-		s.updateTranscriptionState(clipID, "error", "OpenAI API key not configured")
+		s.updateTranscriptionState(clipID, TranscriptionStateError, "OpenAI API key not configured")
 		return &TranscriptionResponse{
 			Success: false,
 			Message: "OpenAI API key not configured",
@@ -1179,7 +1188,7 @@ func (s *ProjectService) TranscribeVideoClip(clipID int) (*TranscriptionResponse
 	}
 
 	// Update state to transcribing
-	err = s.updateTranscriptionState(clipID, "transcribing", "")
+	err = s.updateTranscriptionState(clipID, TranscriptionStateTranscribing, "")
 	if err != nil {
 		log.Printf("[TRANSCRIPTION] Warning: failed to update state to transcribing: %v", err)
 	}
@@ -1188,7 +1197,7 @@ func (s *ProjectService) TranscribeVideoClip(clipID int) (*TranscriptionResponse
 	audioPath, err := s.extractAudio(clip.FilePath)
 	if err != nil {
 		errMsg := fmt.Sprintf("Failed to extract audio: %v", err)
-		s.updateTranscriptionState(clipID, "error", errMsg)
+		s.updateTranscriptionState(clipID, TranscriptionStateError, errMsg)
 		return &TranscriptionResponse{
 			Success: false,
 			Message: errMsg,
@@ -1200,7 +1209,7 @@ func (s *ProjectService) TranscribeVideoClip(clipID int) (*TranscriptionResponse
 	whisperResponse, err := s.transcribeAudio(audioPath, apiKey)
 	if err != nil {
 		errMsg := fmt.Sprintf("Transcription failed: %v", err)
-		s.updateTranscriptionState(clipID, "error", errMsg)
+		s.updateTranscriptionState(clipID, TranscriptionStateError, errMsg)
 		return &TranscriptionResponse{
 			Success: false,
 			Message: errMsg,
@@ -1224,13 +1233,13 @@ func (s *ProjectService) TranscribeVideoClip(clipID int) (*TranscriptionResponse
 		SetTranscriptionWords(wordsForStorage).
 		SetTranscriptionLanguage(whisperResponse.Language).
 		SetTranscriptionDuration(whisperResponse.Duration).
-		SetTranscriptionState("completed").
+		SetTranscriptionState(TranscriptionStateCompleted).
 		SetTranscriptionError("").
 		SetTranscriptionCompletedAt(time.Now()).
 		Save(s.ctx)
 
 	if err != nil {
-		s.updateTranscriptionState(clipID, "error", "Failed to save transcription")
+		s.updateTranscriptionState(clipID, TranscriptionStateError, "Failed to save transcription")
 		return &TranscriptionResponse{
 			Success: false,
 			Message: "Failed to save transcription",
@@ -1403,7 +1412,7 @@ func (s *ProjectService) getSetting(key string) (string, error) {
 func (s *ProjectService) updateTranscriptionState(clipID int, state string, errorMsg string) error {
 	update := s.client.VideoClip.UpdateOneID(clipID).SetTranscriptionState(state)
 	
-	if state == "transcribing" && errorMsg == "" {
+	if state == TranscriptionStateTranscribing && errorMsg == "" {
 		update = update.SetTranscriptionStartedAt(time.Now())
 	}
 	
