@@ -511,10 +511,10 @@ Return segments that would work well as standalone content pieces.`;
             {#if video}
               {#if video.transcription}
                 <div class="flex flex-col h-full space-y-3">
-                  <div class="flex-shrink-0">
-                    <div class="flex items-center justify-between">
+                  <div class="flex-shrink-0 space-y-2">
+                    <div class="flex flex-wrap items-start justify-between gap-2">
                       <h3 class="font-medium">Transcript</h3>
-                      <div class="flex gap-2 items-center">
+                      <div class="flex flex-wrap gap-2 items-center">
                         {#if video.transcriptionLanguage}
                           <span
                             class="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-md"
@@ -595,7 +595,7 @@ Return segments that would work well as standalone content pieces.`;
                   {#if suggestedHighlights.length > 0}
                     <div class="flex-shrink-0">
                       <div
-                        class="flex items-center justify-between p-3 bg-secondary/30 rounded-lg"
+                        class="flex flex-wrap items-center justify-between gap-2 p-3 bg-secondary/30 rounded-lg"
                       >
                         <span class="text-sm text-muted-foreground">
                           {suggestedHighlights.length} AI suggestion{suggestedHighlights.length ===
@@ -603,7 +603,7 @@ Return segments that would work well as standalone content pieces.`;
                             ? ""
                             : "s"}
                         </span>
-                        <div class="flex gap-2">
+                        <div class="flex flex-wrap gap-2">
                           <Button
                             variant="outline"
                             size="sm"

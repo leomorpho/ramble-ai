@@ -57,18 +57,18 @@
 <Collapsible.Root bind:open>
   <div class="space-y-3">
     <!-- Main control bar - no hover effects -->
-    <div class="flex items-center justify-between p-3 rounded-md border border-input bg-background">
-      <div class="flex items-center gap-3">
-        <Sparkles class="w-4 h-4" />
-        <div class="flex flex-col">
+    <div class="flex flex-wrap items-center justify-between gap-2 p-3 rounded-md border border-input bg-background">
+      <div class="flex items-center gap-3 min-w-0">
+        <Sparkles class="w-4 h-4 flex-shrink-0" />
+        <div class="flex flex-col min-w-0">
           <span class="font-medium">{title}</span>
-          <span class="text-sm text-muted-foreground">
+          <span class="text-sm text-muted-foreground truncate">
             {getModelDisplayName(selectedModel, customModelValue)}
           </span>
         </div>
       </div>
       
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 flex-shrink-0">
         <!-- Main Run/Rerun button -->
         <Button
           onclick={onRun}
