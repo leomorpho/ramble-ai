@@ -1125,18 +1125,15 @@
           </div>
         {:else}
           <div class="text-xs text-muted-foreground mb-2">
-            💡 Click segments to seek{videoHighlights.length > 15 
-              ? " • Scroll horizontally to view all segments" 
-              : ""}{videoHighlights.length > DISABLE_REORDERING_THRESHOLD
+            💡 Click segments to seek{videoHighlights.length > DISABLE_REORDERING_THRESHOLD
               ? ` (reordering disabled for ${videoHighlights.length} segments)`
               : ""}
           </div>
         {/if}
 
         <!-- Clip segments with drag and drop -->
-        <!-- Use horizontal scrolling when there are many segments to prevent overflow -->
-        <div class="flex pt-2 min-h-[2rem] {videoHighlights.length > 15 ? 'overflow-x-auto scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent' : 'w-full'}" 
-             style="{videoHighlights.length > 15 ? 'width: max-content; min-width: 100%;' : ''}">
+        <!-- Timeline always maintains proportional width to match video player -->
+        <div class="flex pt-2 min-h-[2rem] w-full">
           {#each videoHighlights as highlight, index}
             {@const segmentDuration = highlight.end - highlight.start}
             {@const calculatedTotalDuration = videoHighlights.reduce(
@@ -1146,9 +1143,7 @@
             {@const proportionalWidth = calculatedTotalDuration > 0
                 ? (segmentDuration / calculatedTotalDuration) * 100
                 : 100 / videoHighlights.length}
-            {@const segmentWidth = videoHighlights.length > 15 
-                ? Math.max(proportionalWidth * 2, 4) // Give more space when scrolling, minimum 4% 
-                : proportionalWidth}
+            {@const segmentWidth = proportionalWidth}
             {@const isActive = index === currentHighlightIndex}
 
             <!-- Drop indicator before this segment -->

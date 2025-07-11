@@ -53,7 +53,7 @@
   dragStartIndex === index
     ? 'opacity-50'
     : ''} cursor-pointer overflow-visible"
-  style="width: {segmentWidth}%; background-color: {highlight.color}; min-width: 20px;"
+  style="width: {segmentWidth}%; background-color: {highlight.color}; min-width: 2px;"
   title="{highlight.videoClipName}: {formatTime(highlight.start)} - {formatTime(
     highlight.end
   )}{enableReordering
