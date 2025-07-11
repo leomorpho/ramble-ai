@@ -59,7 +59,6 @@
 
   // AI reordering state
   let aiSheetOpen = $state(false);
-  let showAIReorderConfirmation = $state(false);
 
   // AI silence improvement state
   let aiSilenceLoading = $state(false);
@@ -390,7 +389,7 @@
         <Button
           variant="outline"
           size="sm"
-          onclick={() => showAIReorderConfirmation = true}
+          onclick={handleAIReorder}
           class="flex items-center gap-2"
         >
           <Sparkles class="w-4 h-4" />
@@ -501,54 +500,6 @@
   </VideoPlayerKeyHandler>
 </div>
 
-<!-- AI Reorder Confirmation Dialog -->
-<Dialog bind:open={showAIReorderConfirmation}>
-  <DialogContent class="z-[100] sm:max-w-md">
-    <DialogHeader>
-      <DialogTitle>AI Reorder Highlights?</DialogTitle>
-      <DialogDescription>
-        <div class="space-y-3 pt-2">
-          <p>
-            The AI will analyze your highlights and suggest an optimal viewing order based on content flow and narrative structure.
-          </p>
-          <div class="bg-secondary/50 rounded-lg p-3 space-y-2">
-            <p class="text-sm font-medium">
-              Current: {highlights.length} highlight{highlights.length === 1 ? '' : 's'}
-            </p>
-            <div class="text-sm space-y-1">
-              <p class="font-medium">This will:</p>
-              <ul class="list-disc list-inside text-muted-foreground">
-                <li>Analyze all highlight transcripts</li>
-                <li>Suggest logical groupings and flow</li>
-                <li>Present a reordered list for your review</li>
-              </ul>
-            </div>
-          </div>
-          <p class="text-sm text-muted-foreground">
-            You can preview and adjust the suggested order before applying changes.
-          </p>
-        </div>
-      </DialogDescription>
-    </DialogHeader>
-    <div class="flex justify-end gap-2 pt-4">
-      <Button
-        variant="outline"
-        onclick={() => showAIReorderConfirmation = false}
-      >
-        Cancel
-      </Button>
-      <Button
-        onclick={() => {
-          showAIReorderConfirmation = false;
-          handleAIReorder();
-        }}
-      >
-        <Sparkles class="w-4 h-4 mr-2" />
-        Continue
-      </Button>
-    </div>
-  </DialogContent>
-</Dialog>
 
 <!-- AI Improve Silences Confirmation Dialog -->
 <Dialog bind:open={showAISilenceConfirmation}>
