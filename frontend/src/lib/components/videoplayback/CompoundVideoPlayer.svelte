@@ -364,6 +364,27 @@
     }
   }
 
+  // Play function for timeline clicks - always starts playing (doesn't toggle)
+  async function playVideo() {
+    const activeVideo = getActiveVideoElement();
+    if (!activeVideo || !isInitialized) {
+      console.warn("Video player not ready for playback");
+      return;
+    }
+
+    try {
+      if (activeVideo.paused || activeVideo.ended) {
+        await activeVideo.play();
+        isPlaying = true;
+        managePlayheadAnimation();
+      }
+      // If already playing, do nothing (don't pause)
+    } catch (err) {
+      console.error("Error starting playback:", err);
+      toast.error("Failed to start playback");
+    }
+  }
+
   // Expose playPauseWrapper function via ref
   $effect(() => {
     if (playPauseRef) {
@@ -1138,6 +1159,7 @@
       onEditHighlight={handleEditHighlight}
       onDeleteConfirm={handleDeleteConfirm}
       onTimelineSeek={handleTimelineSeekWrapper}
+      onPlayAfterSeek={playVideo}
       {DISABLE_REORDERING_THRESHOLD}
     />
 

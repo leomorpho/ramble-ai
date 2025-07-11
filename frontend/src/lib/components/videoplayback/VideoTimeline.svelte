@@ -24,6 +24,7 @@
     onEditHighlight,
     onDeleteConfirm,
     onTimelineSeek,
+    onPlayAfterSeek = null,
     DISABLE_REORDERING_THRESHOLD = 30
   } = $props();
 
@@ -60,6 +61,28 @@
 
   // Calculate if reordering should be enabled
   let enableReordering = $derived(shouldEnableReordering);
+
+  // Enhanced segment click handler that seeks and then plays
+  async function handleSegmentClickAndPlay(event, index) {
+    // First, handle the normal segment click (seeking)
+    await onSegmentClick(event, index);
+    
+    // Then immediately start playing if callback is provided
+    if (onPlayAfterSeek) {
+      onPlayAfterSeek();
+    }
+  }
+
+  // Enhanced timeline seek handler that seeks and then plays
+  async function handleTimelineSeekAndPlay(targetTime) {
+    // First, seek to the target time
+    await onTimelineSeek(targetTime);
+    
+    // Then immediately start playing if callback is provided
+    if (onPlayAfterSeek) {
+      onPlayAfterSeek();
+    }
+  }
 </script>
 
 <!-- Draggable Clip Timeline -->
@@ -116,7 +139,7 @@
           onDragEnd={onDragEnd}
           onDragOver={onDragOver}
           onDrop={onDrop}
-          onSegmentClick={onSegmentClick}
+          onSegmentClick={handleSegmentClickAndPlay}
           onEditHighlight={onEditHighlight}
           onDeleteConfirm={onDeleteConfirm}
         />
@@ -166,7 +189,7 @@
               const clickPercentage = x / rect.width;
               const clickTargetTime =
                 segmentStartTime + clickPercentage * segmentDuration;
-              onTimelineSeek(clickTargetTime);
+              handleTimelineSeekAndPlay(clickTargetTime);
             }}
             onEditHighlight={onEditHighlight}
             onDeleteConfirm={onDeleteConfirm}
