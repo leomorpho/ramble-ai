@@ -39,6 +39,17 @@
     // Pause is the gap between current word end and next word start
     return nextWord.start - currentWord.end;
   }
+
+  // Get the highlight color with fallback
+  function getHighlightColor() {
+    const color = highlight?.color;
+    // Return the color if it's a valid string, otherwise use a default
+    if (color && typeof color === 'string' && color.trim() !== '') {
+      return color;
+    }
+    // Default fallback color
+    return 'rgba(59, 130, 246, 0.3)'; // Blue with opacity
+  }
 </script>
 
 <!-- Drop indicator before this highlight -->
@@ -52,7 +63,7 @@
          {isSelected ? 'highlight-selected' : ''}
          {isBeingDragged ? 'highlight-dragging' : ''}
          {!enableDrag ? 'highlight-non-draggable' : ''}"
-  style="background-color: {highlight.color};"
+  style="background-color: {getHighlightColor()};"
   draggable={enableDrag}
   ondragstart={(e) => onDragStart(e, highlight, index)}
   ondragend={onDragEnd}
@@ -105,7 +116,8 @@
     border-radius: 3px;
     cursor: move;
     user-select: none;
-    transition: all 0.2s ease;
+    /* Only transition specific properties to avoid WebView rendering issues */
+    transition: opacity 0.15s ease, box-shadow 0.15s ease;
     font-weight: 500;
     position: relative;
     color: hsl(var(--foreground));
@@ -117,24 +129,24 @@
   }
 
   .highlight-span:hover {
-    filter: brightness(1.1);
-    transform: translateY(-0.5px);
+    /* Use box-shadow instead of filter/transform for better WebView compatibility */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+    opacity: 0.95;
   }
 
   .highlight-span:active {
-    transform: translateY(0);
+    opacity: 0.9;
   }
 
   /* Selection state for highlights */
   .highlight-selected {
     box-shadow: 0 0 0 2px currentColor;
-    transform: translateY(-1px);
+    opacity: 1;
   }
 
   /* Dragging state */
   .highlight-dragging {
     opacity: 0.5;
-    transform: scale(0.95);
   }
 
   /* Drop indicator styling */
@@ -158,10 +170,6 @@
     }
   }
 
-  /* Smooth transitions */
-  .highlight-span {
-    transition: all 0.15s ease;
-  }
 
   /* Improved visual feedback */
   .highlight-span:focus {
