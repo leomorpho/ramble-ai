@@ -1136,7 +1136,7 @@
     {/if}
 
     <!-- Draggable Clip Timeline -->
-    <div class="timeline-container mb-4 max-w-full">
+    <div class="timeline-container mb-4 max-w-full overflow-hidden">
       <div class="space-y-2 max-w-full">
         {#if shouldEnableReordering()}
           <div class="text-xs text-muted-foreground mb-2">
@@ -1144,25 +1144,30 @@
           </div>
         {:else}
           <div class="text-xs text-muted-foreground mb-2">
-            💡 Click segments to seek{videoHighlights.length >
-            DISABLE_REORDERING_THRESHOLD
+            💡 Click segments to seek{videoHighlights.length > 15 
+              ? " • Scroll horizontally to view all segments" 
+              : ""}{videoHighlights.length > DISABLE_REORDERING_THRESHOLD
               ? ` (reordering disabled for ${videoHighlights.length} segments)`
               : ""}
           </div>
         {/if}
 
         <!-- Clip segments with drag and drop -->
-        <div class="flex w-full max-w-full pt-2">
+        <!-- Use horizontal scrolling when there are many segments to prevent overflow -->
+        <div class="flex pt-2 min-h-[2rem] {videoHighlights.length > 15 ? 'overflow-x-auto scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent' : 'w-full'}" 
+             style="{videoHighlights.length > 15 ? 'width: max-content; min-width: 100%;' : ''}">
           {#each videoHighlights as highlight, index}
             {@const segmentDuration = highlight.end - highlight.start}
             {@const calculatedTotalDuration = videoHighlights.reduce(
               (sum, h) => sum + (h.end - h.start),
               0
             )}
-            {@const segmentWidth =
-              calculatedTotalDuration > 0
+            {@const proportionalWidth = calculatedTotalDuration > 0
                 ? (segmentDuration / calculatedTotalDuration) * 100
                 : 100 / videoHighlights.length}
+            {@const segmentWidth = videoHighlights.length > 15 
+                ? Math.max(proportionalWidth * 2, 4) // Give more space when scrolling, minimum 4% 
+                : proportionalWidth}
             {@const isActive = index === currentHighlightIndex}
 
             <!-- Drop indicator before this segment -->
