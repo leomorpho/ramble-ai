@@ -1130,8 +1130,8 @@
     {/if}
 
     <!-- Draggable Clip Timeline -->
-    <div class="timeline-container mb-4 max-w-full overflow-hidden">
-      <div class="space-y-2 max-w-full overflow-hidden">
+    <div class="timeline-container mb-4 max-w-full">
+      <div class="space-y-2 max-w-full">
         {#if shouldEnableReordering()}
           <div class="text-xs text-muted-foreground mb-2">
             💡 Click segments to seek, drag handle (⚫) to reorder
@@ -1146,7 +1146,7 @@
         {/if}
 
         <!-- Clip segments with drag and drop -->
-        <div class="flex w-full max-w-full overflow-hidden pt-2">
+        <div class="flex w-full max-w-full pt-2">
           {#each videoHighlights as highlight, index}
             {@const segmentDuration = highlight.end - highlight.start}
             {@const calculatedTotalDuration = videoHighlights.reduce(

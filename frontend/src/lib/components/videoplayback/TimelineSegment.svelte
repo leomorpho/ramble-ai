@@ -51,7 +51,7 @@
 <button
   class="group relative h-8 {roundingClasses} transition-all duration-200 hover:brightness-110 {isDragging &&
   dragStartIndex === index
-    ? 'opacity-50 scale-95'
+    ? 'opacity-50'
     : ''} cursor-pointer overflow-visible"
   style="width: {segmentWidth}%; background-color: {highlight.color}; min-width: 20px;"
   title="{highlight.videoClipName}: {formatTime(highlight.start)} - {formatTime(
@@ -99,8 +99,9 @@
 
     <!-- Eye icon (only show on hover and if enabled) -->
     {#if enableEyeButton}
-      <span
-        class="{showSegmentNumber ? 'ml-1' : ''} opacity-0 group-hover:opacity-100 hidden group-hover:block transition-opacity pointer-events-auto"
+      <div
+        class="{showSegmentNumber ? 'ml-1' : ''} {isPopoverOpen(highlight.id) ? 'opacity-100 block' : 'opacity-0 group-hover:opacity-100 hidden group-hover:block'} pointer-events-auto relative z-50"
+        style="transform: translateZ(0);"
       >
         <HighlightMenu
           {highlight}
@@ -117,7 +118,7 @@
           iconSize="w-4 h-4"
           triggerSize="w-6 h-6"
         />
-      </span>
+      </div>
     {/if}
   </div>
 
