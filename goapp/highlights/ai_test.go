@@ -699,3 +699,255 @@ func TestAIReorderingWithNCharacters(t *testing.T) {
 		})
 	}
 }
+
+// TestAvailableRangeCalculation tests the available range calculation for AI Improve Silence functionality
+// Verifies that the range starts when the word before the first word ends and ends when the word after the last word starts
+func TestAvailableRangeCalculation(t *testing.T) {
+	service := &AIService{
+		highlightService: &HighlightService{},
+	}
+
+	// Create test transcript words with clear boundaries
+	transcriptWords := []schema.Word{
+		{Word: "Hello", Start: 0.0, End: 0.5},     // Word 0
+		{Word: "world", Start: 0.6, End: 1.0},     // Word 1
+		{Word: "this", Start: 1.2, End: 1.5},      // Word 2
+		{Word: "is", Start: 1.6, End: 1.8},        // Word 3
+		{Word: "a", Start: 1.9, End: 2.0},         // Word 4
+		{Word: "test", Start: 2.1, End: 2.5},      // Word 5
+		{Word: "transcript", Start: 2.6, End: 3.2}, // Word 6
+		{Word: "with", Start: 3.3, End: 3.6},      // Word 7
+		{Word: "multiple", Start: 3.7, End: 4.2},  // Word 8
+		{Word: "words", Start: 4.3, End: 4.8},     // Word 9
+	}
+
+	tests := []struct {
+		name                string
+		highlightStart      float64
+		highlightEnd        float64
+		expectedPrevWordEnd float64
+		expectedNextWordStart float64
+		description         string
+	}{
+		{
+			name:                "Highlight at beginning of transcript",
+			highlightStart:      0.0,
+			highlightEnd:        1.0,
+			expectedPrevWordEnd: 0.0, // No word before, should default to 0.0
+			expectedNextWordStart: 1.2, // Start of word 2 ("this")
+			description:         "When highlight starts at beginning, prevWordEnd should be 0.0",
+		},
+		{
+			name:                "Highlight in middle of transcript",
+			highlightStart:      1.6,
+			highlightEnd:        2.5,
+			expectedPrevWordEnd: 1.5, // End of word 2 ("this")
+			expectedNextWordStart: 2.6, // Start of word 6 ("transcript")
+			description:         "Normal case: prevWordEnd from word before, nextWordStart from word after",
+		},
+		{
+			name:                "Highlight at end of transcript",
+			highlightStart:      4.0,
+			highlightEnd:        4.8,
+			expectedPrevWordEnd: 3.6, // End of word 7 ("with") - word before word 8 which contains 4.0
+			expectedNextWordStart: 5.3, // Last word end + 0.5 buffer
+			description:         "When highlight at end, nextWordStart should be last word end + 0.5",
+		},
+		{
+			name:                "Single word highlight",
+			highlightStart:      2.1,
+			highlightEnd:        2.5,
+			expectedPrevWordEnd: 2.0, // End of word 4 ("a")
+			expectedNextWordStart: 2.6, // Start of word 6 ("transcript")
+			description:         "Single word highlight should have proper boundaries",
+		},
+		{
+			name:                "Highlight spanning multiple words",
+			highlightStart:      1.9,
+			highlightEnd:        3.2,
+			expectedPrevWordEnd: 1.8, // End of word 3 ("is")
+			expectedNextWordStart: 3.3, // Start of word 7 ("with")
+			description:         "Multi-word highlight should respect word boundaries",
+		},
+		{
+			name:                "Highlight between word gaps",
+			highlightStart:      2.0,
+			highlightEnd:        2.1,
+			expectedPrevWordEnd: 1.8, // End of word 3 ("is") - word before word 4 which contains 2.0
+			expectedNextWordStart: 2.6, // Start of word 6 ("transcript") - first word that starts after 2.1
+			description:         "Highlight in gap should find correct boundaries",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a mock highlight
+			highlight := HighlightWithText{
+				ID:    "test_highlight",
+				Start: tt.highlightStart,
+				End:   tt.highlightEnd,
+				Text:  "test text",
+			}
+
+			// Calculate word indices using the same logic as improveVideoHighlights
+			startIdx := service.highlightService.TimeToWordIndex(highlight.Start, transcriptWords)
+			endIdx := service.highlightService.TimeToWordIndex(highlight.End, transcriptWords)
+
+			// Calculate previous word end time (same logic as in improveVideoHighlights)
+			prevWordEnd := float64(0)
+			if startIdx > 0 {
+				prevWordEnd = transcriptWords[startIdx-1].End
+			}
+
+			// Calculate next word start time (same logic as in improveVideoHighlights)
+			nextWordStart := highlight.End // Default to current end
+			if endIdx < len(transcriptWords)-1 {
+				// Find the next word after the highlight
+				for i := endIdx; i < len(transcriptWords); i++ {
+					if transcriptWords[i].Start > highlight.End {
+						nextWordStart = transcriptWords[i].Start
+						break
+					}
+				}
+			} else if len(transcriptWords) > 0 {
+				// If at the end, use video duration as boundary
+				nextWordStart = transcriptWords[len(transcriptWords)-1].End + 0.5
+			}
+
+			// Verify the calculations
+			assert.Equal(t, tt.expectedPrevWordEnd, prevWordEnd, 
+				"PrevWordEnd mismatch for %s: %s", tt.name, tt.description)
+			assert.Equal(t, tt.expectedNextWordStart, nextWordStart, 
+				"NextWordStart mismatch for %s: %s", tt.name, tt.description)
+
+			// Additional verification: ensure range is valid
+			assert.LessOrEqual(t, prevWordEnd, highlight.Start, 
+				"PrevWordEnd should be <= highlight start")
+			assert.GreaterOrEqual(t, nextWordStart, highlight.End, 
+				"NextWordStart should be >= highlight end")
+			
+			// Log the results for debugging
+			t.Logf("Test: %s", tt.name)
+			t.Logf("  Highlight: %.3f - %.3f", highlight.Start, highlight.End)
+			t.Logf("  Available range: %.3f - %.3f", prevWordEnd, nextWordStart)
+			t.Logf("  Buffer before: %.3fms, after: %.3fms", 
+				(highlight.Start-prevWordEnd)*1000, 
+				(nextWordStart-highlight.End)*1000)
+		})
+	}
+}
+
+// TestAvailableRangeEdgeCases tests edge cases for available range calculation
+func TestAvailableRangeEdgeCases(t *testing.T) {
+	service := &AIService{
+		highlightService: &HighlightService{},
+	}
+
+	tests := []struct {
+		name            string
+		transcriptWords []schema.Word
+		highlightStart  float64
+		highlightEnd    float64
+		expectedPrevWordEnd float64
+		expectedNextWordStart float64
+		description     string
+	}{
+		{
+			name:            "Empty transcript",
+			transcriptWords: []schema.Word{},
+			highlightStart:  1.0,
+			highlightEnd:    2.0,
+			expectedPrevWordEnd: 0.0, // Should default to 0.0
+			expectedNextWordStart: 2.0, // Should default to highlight end
+			description:     "Empty transcript should use safe defaults",
+		},
+		{
+			name: "Single word transcript",
+			transcriptWords: []schema.Word{
+				{Word: "Hello", Start: 1.0, End: 2.0},
+			},
+			highlightStart:  1.0,
+			highlightEnd:    2.0,
+			expectedPrevWordEnd: 0.0, // No word before
+			expectedNextWordStart: 2.5, // Last word end + 0.5
+			description:     "Single word transcript edge case",
+		},
+		{
+			name: "Highlight covers entire transcript",
+			transcriptWords: []schema.Word{
+				{Word: "Hello", Start: 1.0, End: 1.5},
+				{Word: "world", Start: 1.6, End: 2.0},
+			},
+			highlightStart:  1.0,
+			highlightEnd:    2.0,
+			expectedPrevWordEnd: 0.0, // No word before
+			expectedNextWordStart: 2.5, // Last word end + 0.5
+			description:     "Highlight covering entire transcript",
+		},
+		{
+			name: "Highlight extends beyond transcript",
+			transcriptWords: []schema.Word{
+				{Word: "Hello", Start: 1.0, End: 1.5},
+				{Word: "world", Start: 1.6, End: 2.0},
+			},
+			highlightStart:  1.8,
+			highlightEnd:    3.0, // Beyond last word
+			expectedPrevWordEnd: 1.5, // End of first word
+			expectedNextWordStart: 2.5, // Last word end + 0.5
+			description:     "Highlight extending beyond transcript should use last word + buffer",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a mock highlight
+			highlight := HighlightWithText{
+				ID:    "test_highlight",
+				Start: tt.highlightStart,
+				End:   tt.highlightEnd,
+				Text:  "test text",
+			}
+
+			// Calculate word indices (handle empty transcript case)
+			var startIdx, endIdx int
+			if len(tt.transcriptWords) > 0 {
+				startIdx = service.highlightService.TimeToWordIndex(highlight.Start, tt.transcriptWords)
+				endIdx = service.highlightService.TimeToWordIndex(highlight.End, tt.transcriptWords)
+			}
+
+			// Calculate previous word end time
+			prevWordEnd := float64(0)
+			if startIdx > 0 && len(tt.transcriptWords) > 0 {
+				prevWordEnd = tt.transcriptWords[startIdx-1].End
+			}
+
+			// Calculate next word start time
+			nextWordStart := highlight.End // Default to current end
+			if len(tt.transcriptWords) > 0 {
+				if endIdx < len(tt.transcriptWords)-1 {
+					// Find the next word after the highlight
+					for i := endIdx; i < len(tt.transcriptWords); i++ {
+						if tt.transcriptWords[i].Start > highlight.End {
+							nextWordStart = tt.transcriptWords[i].Start
+							break
+						}
+					}
+				} else {
+					// If at the end, use video duration as boundary
+					nextWordStart = tt.transcriptWords[len(tt.transcriptWords)-1].End + 0.5
+				}
+			}
+
+			// Verify the calculations
+			assert.Equal(t, tt.expectedPrevWordEnd, prevWordEnd, 
+				"PrevWordEnd mismatch for %s: %s", tt.name, tt.description)
+			assert.Equal(t, tt.expectedNextWordStart, nextWordStart, 
+				"NextWordStart mismatch for %s: %s", tt.name, tt.description)
+
+			t.Logf("Test: %s", tt.name)
+			t.Logf("  Transcript words: %d", len(tt.transcriptWords))
+			t.Logf("  Highlight: %.3f - %.3f", highlight.Start, highlight.End)
+			t.Logf("  Available range: %.3f - %.3f", prevWordEnd, nextWordStart)
+		})
+	}
+}
