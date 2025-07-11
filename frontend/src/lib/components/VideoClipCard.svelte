@@ -29,6 +29,11 @@
   let previewDialogOpen = $state(false);
   let transcriptionDialogOpen = $state(false);
 
+  // Calculate highlight count for this video clip
+  let highlightCount = $derived(
+    highlights?.filter(h => h.videoClipId === clip.id && h.filePath === clip.filePath).length || 0
+  );
+
   function openPreview() {
     previewDialogOpen = true;
   }
@@ -97,30 +102,40 @@
       </Button>
     </div>
 
-    <div class="grid grid-cols-2 gap-1 text-xs text-muted-foreground mb-2">
-      <div class="flex justify-between">
-        <span>Size:</span>
-        <span>{formatFileSize(clip.fileSize || 0)}</span>
-      </div>
+{#snippet infoCard(label, value, valueClass = "")}
+  <div class="bg-background border rounded p-1.5 text-center">
+    <div class="text-xs text-muted-foreground">{label}</div>
+    <div class="text-xs font-medium {valueClass}">{value}</div>
+  </div>
+{/snippet}
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-1.5 mb-2">
+      <!-- Size Card -->
+      {@render infoCard("Size", formatFileSize(clip.fileSize || 0))}
+      
+      <!-- Status Card -->
+      {@render infoCard("Status", clip.exists ? "Found" : "Missing", clip.exists ? "text-green-600" : "text-destructive")}
+      
+      <!-- Highlights Card -->
+      {@render infoCard("Highlights", highlightCount, highlightCount > 0 ? "text-green-600" : "text-muted-foreground")}
+      
+      <!-- Duration Card (if available) -->
       {#if clip.duration}
-        <div class="flex justify-between">
-          <span>Duration:</span>
-          <span>{Math.round(clip.duration)}s</span>
-        </div>
-      {/if}
-      <div class="flex justify-between">
-        <span>Status:</span>
-        <span class={clip.exists ? "text-green-600" : "text-destructive"}>
-          {clip.exists ? "Found" : "Missing"}
-        </span>
-      </div>
-      {#if clip.format}
-        <div class="flex justify-between">
-          <span>Format:</span>
-          <span class="font-mono uppercase">{clip.format}</span>
-        </div>
+        {@render infoCard("Duration", `${Math.round(clip.duration)}s`)}
+      {:else if clip.format}
+        <!-- Format Card (if no duration but format available) -->
+        {@render infoCard("Format", clip.format, "font-mono uppercase")}
       {/if}
     </div>
+    
+    <!-- Format Card (separate row if both duration and format are available) -->
+    {#if clip.duration && clip.format}
+      <div class="flex justify-start mb-2">
+        <div class="w-1/2 md:w-1/4">
+          {@render infoCard("Format", clip.format, "font-mono uppercase")}
+        </div>
+      </div>
+    {/if}
 
     <!-- Action buttons -->
     <div class="space-y-1.5">
