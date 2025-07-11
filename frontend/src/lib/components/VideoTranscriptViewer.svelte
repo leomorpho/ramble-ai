@@ -52,6 +52,7 @@
   let customPrompt = $state("");
   let customModelValue = $state("");
   let instructionsOpen = $state(false);
+  let showAISuggestConfirmation = $state(false);
 
   // Available AI models (same as in AISettings component)
   const availableModels = [
@@ -557,7 +558,7 @@ Return segments that would work well as standalone content pieces.`;
                         <Button
                           variant="outline"
                           size="sm"
-                          onclick={suggestHighlightsInline}
+                          onclick={() => showAISuggestConfirmation = true}
                           class="text-xs"
                           disabled={!video.transcription ||
                             aiSuggestLoadingMap.get(video.id)}
@@ -707,5 +708,54 @@ Return segments that would work well as standalone content pieces.`;
       {/snippet}
     </ScrollArea>
 
+  </DialogContent>
+</Dialog>
+
+<!-- AI Suggest Confirmation Dialog -->
+<Dialog bind:open={showAISuggestConfirmation}>
+  <DialogContent class="z-[100] sm:max-w-md">
+    <DialogHeader>
+      <DialogTitle>Generate AI Highlight Suggestions?</DialogTitle>
+      <DialogDescription>
+        <div class="space-y-3 pt-2">
+          <p>
+            The AI will analyze your transcript to identify the most compelling moments for highlights.
+          </p>
+          <div class="bg-secondary/50 rounded-lg p-3 space-y-2">
+            <p class="text-sm">
+              <strong>Model:</strong> {selectedModel === "custom" ? customModelValue : availableModels.find(m => m.value === selectedModel)?.label || selectedModel}
+            </p>
+            <div class="text-sm space-y-1">
+              <p class="font-medium">This will:</p>
+              <ul class="list-disc list-inside text-muted-foreground">
+                <li>Send your transcript to the AI model</li>
+                <li>Generate suggested highlight segments</li>
+                <li>Display them as preview highlights (not saved automatically)</li>
+              </ul>
+            </div>
+          </div>
+          <p class="text-sm text-muted-foreground">
+            You can review, accept, or reject the suggestions before they're saved.
+          </p>
+        </div>
+      </DialogDescription>
+    </DialogHeader>
+    <div class="flex justify-end gap-2 pt-4">
+      <Button
+        variant="outline"
+        onclick={() => showAISuggestConfirmation = false}
+      >
+        Cancel
+      </Button>
+      <Button
+        onclick={() => {
+          showAISuggestConfirmation = false;
+          suggestHighlightsInline();
+        }}
+      >
+        <Sparkles class="w-4 h-4 mr-2" />
+        Generate Suggestions
+      </Button>
+    </div>
   </DialogContent>
 </Dialog>

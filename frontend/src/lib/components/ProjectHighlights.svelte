@@ -59,9 +59,11 @@
 
   // AI reordering state
   let aiSheetOpen = $state(false);
+  let showAIReorderConfirmation = $state(false);
 
   // AI silence improvement state
   let aiSilenceLoading = $state(false);
+  let showAISilenceConfirmation = $state(false);
 
   // Video clips with transcription words for internal pause analysis
   let videoClipsWithWords = $state(new Map());
@@ -388,7 +390,7 @@
         <Button
           variant="outline"
           size="sm"
-          onclick={handleAIReorder}
+          onclick={() => showAIReorderConfirmation = true}
           class="flex items-center gap-2"
         >
           <Sparkles class="w-4 h-4" />
@@ -399,7 +401,7 @@
         <Button
           variant="outline"
           size="sm"
-          onclick={handleAISilenceImprovement}
+          onclick={() => showAISilenceConfirmation = true}
           disabled={aiSilenceLoading}
           class="flex items-center gap-2"
         >
@@ -498,6 +500,105 @@
     />
   </VideoPlayerKeyHandler>
 </div>
+
+<!-- AI Reorder Confirmation Dialog -->
+<Dialog bind:open={showAIReorderConfirmation}>
+  <DialogContent class="z-[100] sm:max-w-md">
+    <DialogHeader>
+      <DialogTitle>AI Reorder Highlights?</DialogTitle>
+      <DialogDescription>
+        <div class="space-y-3 pt-2">
+          <p>
+            The AI will analyze your highlights and suggest an optimal viewing order based on content flow and narrative structure.
+          </p>
+          <div class="bg-secondary/50 rounded-lg p-3 space-y-2">
+            <p class="text-sm font-medium">
+              Current: {highlights.length} highlight{highlights.length === 1 ? '' : 's'}
+            </p>
+            <div class="text-sm space-y-1">
+              <p class="font-medium">This will:</p>
+              <ul class="list-disc list-inside text-muted-foreground">
+                <li>Analyze all highlight transcripts</li>
+                <li>Suggest logical groupings and flow</li>
+                <li>Present a reordered list for your review</li>
+              </ul>
+            </div>
+          </div>
+          <p class="text-sm text-muted-foreground">
+            You can preview and adjust the suggested order before applying changes.
+          </p>
+        </div>
+      </DialogDescription>
+    </DialogHeader>
+    <div class="flex justify-end gap-2 pt-4">
+      <Button
+        variant="outline"
+        onclick={() => showAIReorderConfirmation = false}
+      >
+        Cancel
+      </Button>
+      <Button
+        onclick={() => {
+          showAIReorderConfirmation = false;
+          handleAIReorder();
+        }}
+      >
+        <Sparkles class="w-4 h-4 mr-2" />
+        Continue
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
+
+<!-- AI Improve Silences Confirmation Dialog -->
+<Dialog bind:open={showAISilenceConfirmation}>
+  <DialogContent class="z-[100] sm:max-w-md">
+    <DialogHeader>
+      <DialogTitle>AI Improve Silences?</DialogTitle>
+      <DialogDescription>
+        <div class="space-y-3 pt-2">
+          <p>
+            The AI will analyze the gaps between your highlights and adjust timing to reduce unnecessary silence while preserving natural speech pauses.
+          </p>
+          <div class="bg-secondary/50 rounded-lg p-3 space-y-2">
+            <p class="text-sm font-medium">
+              Analyzing: {highlights.length} highlight{highlights.length === 1 ? '' : 's'}
+            </p>
+            <div class="text-sm space-y-1">
+              <p class="font-medium">This will:</p>
+              <ul class="list-disc list-inside text-muted-foreground">
+                <li>Detect silence periods at highlight boundaries</li>
+                <li>Intelligently trim excessive pauses</li>
+                <li>Preserve natural speech rhythm</li>
+                <li>Update highlight timings automatically</li>
+              </ul>
+            </div>
+          </div>
+          <p class="text-sm text-muted-foreground">
+            This action will modify your highlight timings. You can undo changes if needed.
+          </p>
+        </div>
+      </DialogDescription>
+    </DialogHeader>
+    <div class="flex justify-end gap-2 pt-4">
+      <Button
+        variant="outline"
+        onclick={() => showAISilenceConfirmation = false}
+      >
+        Cancel
+      </Button>
+      <Button
+        onclick={() => {
+          showAISilenceConfirmation = false;
+          handleAISilenceImprovement();
+        }}
+      >
+        <Clock class="w-4 h-4 mr-2" />
+        Improve Silences
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
 
 <!-- AI Reordering Sheet -->
 <AIReorderSheet
