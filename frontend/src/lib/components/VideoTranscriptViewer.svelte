@@ -9,6 +9,7 @@
     DialogTitle,
   } from "$lib/components/ui/dialog";
   import { ScrollArea } from "$lib/components/ui/scroll-area";
+  import * as Resizable from "$lib/components/ui/resizable/index.js";
   import AISettings from "$lib/components/ui/AISettings.svelte";
   import TextHighlighter from "$lib/components/TextHighlighter.svelte";
   import CompoundVideoPlayer from "$lib/components/videoplayback/CompoundVideoPlayer.svelte";
@@ -452,6 +453,20 @@ Return segments that would work well as standalone content pieces.`;
       updateHighlightsHistoryStatus(video.id);
     }
   });
+
+  // Prevent body scroll when modal is open
+  $effect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    
+    // Cleanup on component destroy
+    return () => {
+      document.body.style.overflow = '';
+    };
+  });
 </script>
 
 <Dialog bind:open>
@@ -467,12 +482,13 @@ Return segments that would work well as standalone content pieces.`;
 
     <ScrollArea class="flex-1 lg:h-[calc(95vh-10rem)] h-[60vh]">
       {#snippet children()}
-        <div class="grid grid-cols-2 gap-6 p-4">
-          <!-- Video Player Column -->
-          <div class="space-y-4 flex flex-col h-full">
+        <div class="p-4">
+          <Resizable.PaneGroup direction="horizontal" class="h-[calc(100vh-12rem)] rounded-lg border">
+        <!-- Video Player Pane -->
+        <Resizable.Pane defaultSize={50}>
+          <div class="h-full p-4">
             {#if video}
-              <!-- Video Player -->
-              <div class="bg-background border rounded-lg p-4 flex-1 flex flex-col">
+              <div class="bg-background h-full flex flex-col">
                 <h3 class="font-medium mb-3">Video Preview</h3>
                 <div class="flex-1 min-h-0">
                   <CompoundVideoPlayer
@@ -485,171 +501,182 @@ Return segments that would work well as standalone content pieces.`;
               </div>
             {/if}
           </div>
-
-          <!-- Transcript Column -->
-          <div class="space-y-4 flex flex-col h-full">
+        </Resizable.Pane>
+        
+        <Resizable.Handle />
+        
+        <!-- Transcript Pane -->
+        <Resizable.Pane defaultSize={50}>
+          <div class="h-full p-4 flex flex-col">
             {#if video}
-              <!-- Transcript content -->
               {#if video.transcription}
-                <ScrollArea class="h-[calc(100vh-8rem)] bg-background border rounded-lg">
-                  {#snippet children()}
-                    <div class="p-4 space-y-4">
-                      <div class="flex items-center justify-between">
-                        <h3 class="font-medium">Transcript</h3>
-                        <div class="flex gap-2 items-center">
-                          {#if video.transcriptionLanguage}
-                            <span
-                              class="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-md"
-                            >
-                              {video.transcriptionLanguage.toUpperCase()}
-                            </span>
-                          {/if}
-                          {#if video.transcriptionDuration}
-                            <span
-                              class="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-md"
-                            >
-                              {formatTimestamp(video.transcriptionDuration)}
-                            </span>
-                          {/if}
-                          <!-- Undo/Redo buttons for highlights -->
-                          <div class="flex items-center gap-1">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onclick={handleUndoHighlights}
-                              disabled={!$highlightsHistoryStatus.get(video.id)
-                                ?.canUndo}
-                              class="text-xs px-2"
-                              title="Undo highlights change (Ctrl+Z)"
-                            >
-                              <Undo class="w-3 h-3" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onclick={handleRedoHighlights}
-                              disabled={!$highlightsHistoryStatus.get(video.id)
-                                ?.canRedo}
-                              class="text-xs px-2"
-                              title="Redo highlights change (Ctrl+Y)"
-                            >
-                              <Redo class="w-3 h-3" />
-                            </Button>
-                          </div>
+                <div class="flex flex-col h-full space-y-3">
+                  <div class="flex-shrink-0">
+                    <div class="flex items-center justify-between">
+                      <h3 class="font-medium">Transcript</h3>
+                      <div class="flex gap-2 items-center">
+                        {#if video.transcriptionLanguage}
+                          <span
+                            class="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-md"
+                          >
+                            {video.transcriptionLanguage.toUpperCase()}
+                          </span>
+                        {/if}
+                        {#if video.transcriptionDuration}
+                          <span
+                            class="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-md"
+                          >
+                            {formatTimestamp(video.transcriptionDuration)}
+                          </span>
+                        {/if}
+                        <!-- Undo/Redo buttons for highlights -->
+                        <div class="flex items-center gap-1">
                           <Button
                             variant="outline"
                             size="sm"
-                            onclick={suggestHighlightsInline}
-                            class="text-xs"
-                            disabled={!video.transcription ||
-                              aiSuggestLoadingMap.get(video.id)}
+                            onclick={handleUndoHighlights}
+                            disabled={!$highlightsHistoryStatus.get(video.id)
+                              ?.canUndo}
+                            class="text-xs px-2"
+                            title="Undo highlights change (Ctrl+Z)"
                           >
-                            <Sparkles class="w-3 h-3 mr-1" />
-                            {aiSuggestLoadingMap.get(video.id)
-                              ? "AI Analyzing..."
-                              : "AI Suggest"}
+                            <Undo class="w-3 h-3" />
                           </Button>
-                          <CopyToClipboardButton
-                            text={video?.transcription}
-                            confirmationText={"Copied transcript to clipboard"}
-                            failureText={"Failed to copy transcript to clipboard"}
-                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onclick={handleRedoHighlights}
+                            disabled={!$highlightsHistoryStatus.get(video.id)
+                              ?.canRedo}
+                            class="text-xs px-2"
+                            title="Redo highlights change (Ctrl+Y)"
+                          >
+                            <Redo class="w-3 h-3" />
+                          </Button>
                         </div>
-                      </div>
-
-                      <!-- AI Settings -->
-                      <AISettings
-                        bind:open={instructionsOpen}
-                        bind:selectedModel
-                        bind:customModelValue
-                        bind:customPrompt
-                        {defaultPrompt}
-                        title="AI Settings"
-                        modelDescription="Choose the AI model for highlight suggestions. Different models have varying strengths in content analysis."
-                        promptDescription="Customize how AI identifies highlight-worthy segments in your transcript."
-                        promptPlaceholder="AI instructions for highlighting..."
-                      />
-
-                      <!-- Bulk suggestion actions -->
-                      {#if suggestedHighlights.length > 0}
-                        <div
-                          class="flex items-center justify-between p-3 bg-secondary/30 rounded-lg"
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onclick={suggestHighlightsInline}
+                          class="text-xs"
+                          disabled={!video.transcription ||
+                            aiSuggestLoadingMap.get(video.id)}
                         >
-                          <span class="text-sm text-muted-foreground">
-                            {suggestedHighlights.length} AI suggestion{suggestedHighlights.length ===
-                            1
-                              ? ""
-                              : "s"}
-                          </span>
-                          <div class="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onclick={acceptAllSuggestions}
-                              class="text-xs"
-                            >
-                              <svg
-                                class="w-3 h-3 mr-1"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  stroke-linecap="round"
-                                  stroke-linejoin="round"
-                                  stroke-width="2"
-                                  d="M5 13l4 4L19 7"
-                                />
-                              </svg>
-                              Accept All
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onclick={rejectAllSuggestions}
-                              class="text-xs"
-                            >
-                              <svg
-                                class="w-3 h-3 mr-1"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  stroke-linecap="round"
-                                  stroke-linejoin="round"
-                                  stroke-width="2"
-                                  d="M6 18L18 6M6 6l12 12"
-                                />
-                              </svg>
-                              Reject All
-                            </Button>
-                          </div>
-                        </div>
-                      {/if}
+                          <Sparkles class="w-3 h-3 mr-1" />
+                          {aiSuggestLoadingMap.get(video.id)
+                            ? "AI Analyzing..."
+                            : "AI Suggest"}
+                        </Button>
+                        <CopyToClipboardButton
+                          text={video?.transcription}
+                          confirmationText={"Copied transcript to clipboard"}
+                          failureText={"Failed to copy transcript to clipboard"}
+                        />
+                      </div>
+                    </div>
+                  </div>
 
-                      <!-- Transcript Text -->
-                      <div class="space-y-2">
-                        <div class="text-sm leading-relaxed">
-                          <TextHighlighter
-                            text={video.transcription}
-                            words={video.transcriptionWords || []}
-                            highlights={transcriptPlayerHighlights}
-                            {suggestedHighlights}
-                            videoId={video.id}
-                            onHighlightsChange={handleHighlightsChangeInternal}
-                          />
-                        </div>
-                        <div class="text-xs text-muted-foreground">
-                          Character count: {video.transcription.length}
+                  <!-- AI Settings -->
+                  <div class="flex-shrink-0">
+                    <AISettings
+                      bind:open={instructionsOpen}
+                      bind:selectedModel
+                      bind:customModelValue
+                      bind:customPrompt
+                      {defaultPrompt}
+                      title="AI Settings"
+                      modelDescription="Choose the AI model for highlight suggestions. Different models have varying strengths in content analysis."
+                      promptDescription="Customize how AI identifies highlight-worthy segments in your transcript."
+                      promptPlaceholder="AI instructions for highlighting..."
+                    />
+                  </div>
+
+                  <!-- Bulk suggestion actions -->
+                  {#if suggestedHighlights.length > 0}
+                    <div class="flex-shrink-0">
+                      <div
+                        class="flex items-center justify-between p-3 bg-secondary/30 rounded-lg"
+                      >
+                        <span class="text-sm text-muted-foreground">
+                          {suggestedHighlights.length} AI suggestion{suggestedHighlights.length ===
+                          1
+                            ? ""
+                            : "s"}
+                        </span>
+                        <div class="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onclick={acceptAllSuggestions}
+                            class="text-xs"
+                          >
+                            <svg
+                              class="w-3 h-3 mr-1"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                            Accept All
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onclick={rejectAllSuggestions}
+                            class="text-xs"
+                          >
+                            <svg
+                              class="w-3 h-3 mr-1"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12"
+                              />
+                            </svg>
+                            Reject All
+                          </Button>
                         </div>
                       </div>
                     </div>
-                  {/snippet}
-                </ScrollArea>
+                  {/if}
+
+                  <!-- Scrollable Transcript Text -->
+                  <div class="flex-1 min-h-0">
+                    <ScrollArea class="h-[calc(100vh-20rem)] bg-background border rounded-lg">
+                      {#snippet children()}
+                        <div class="p-4 space-y-2">
+                          <div class="text-sm leading-relaxed">
+                            <TextHighlighter
+                              text={video.transcription}
+                              words={video.transcriptionWords || []}
+                              highlights={transcriptPlayerHighlights}
+                              {suggestedHighlights}
+                              videoId={video.id}
+                              onHighlightsChange={handleHighlightsChangeInternal}
+                            />
+                          </div>
+                          <div class="text-xs text-muted-foreground">
+                            Character count: {video.transcription.length}
+                          </div>
+                        </div>
+                      {/snippet}
+                    </ScrollArea>
+                  </div>
+                </div>
               {:else}
                 <div
-                  class="flex-1 flex items-center justify-center text-muted-foreground"
+                  class="h-full flex items-center justify-center text-muted-foreground"
                 >
                   <div class="text-center">
                     <svg
@@ -674,6 +701,8 @@ Return segments that would work well as standalone content pieces.`;
               {/if}
             {/if}
           </div>
+        </Resizable.Pane>
+          </Resizable.PaneGroup>
         </div>
       {/snippet}
     </ScrollArea>
