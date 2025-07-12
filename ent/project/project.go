@@ -56,6 +56,8 @@ const (
 	EdgeVideoClips = "video_clips"
 	// EdgeExportJobs holds the string denoting the export_jobs edge name in mutations.
 	EdgeExportJobs = "export_jobs"
+	// EdgeChatSessions holds the string denoting the chat_sessions edge name in mutations.
+	EdgeChatSessions = "chat_sessions"
 	// Table holds the table name of the project in the database.
 	Table = "projects"
 	// VideoClipsTable is the table that holds the video_clips relation/edge.
@@ -72,6 +74,13 @@ const (
 	ExportJobsInverseTable = "export_jobs"
 	// ExportJobsColumn is the table column denoting the export_jobs relation/edge.
 	ExportJobsColumn = "project_export_jobs"
+	// ChatSessionsTable is the table that holds the chat_sessions relation/edge.
+	ChatSessionsTable = "chat_sessions"
+	// ChatSessionsInverseTable is the table name for the ChatSession entity.
+	// It exists in this package in order to avoid circular dependency with the "chatsession" package.
+	ChatSessionsInverseTable = "chat_sessions"
+	// ChatSessionsColumn is the table column denoting the chat_sessions relation/edge.
+	ChatSessionsColumn = "project_id"
 )
 
 // Columns holds all SQL columns for project fields.
@@ -239,6 +248,20 @@ func ByExportJobs(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newExportJobsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByChatSessionsCount orders the results by chat_sessions count.
+func ByChatSessionsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newChatSessionsStep(), opts...)
+	}
+}
+
+// ByChatSessions orders the results by chat_sessions terms.
+func ByChatSessions(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newChatSessionsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newVideoClipsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -251,5 +274,12 @@ func newExportJobsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ExportJobsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, ExportJobsTable, ExportJobsColumn),
+	)
+}
+func newChatSessionsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ChatSessionsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, ChatSessionsTable, ChatSessionsColumn),
 	)
 }

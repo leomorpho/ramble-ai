@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"MYAPP/ent/chatsession"
 	"MYAPP/ent/exportjob"
 	"MYAPP/ent/predicate"
 	"MYAPP/ent/project"
@@ -408,6 +409,21 @@ func (pu *ProjectUpdate) AddExportJobs(e ...*ExportJob) *ProjectUpdate {
 	return pu.AddExportJobIDs(ids...)
 }
 
+// AddChatSessionIDs adds the "chat_sessions" edge to the ChatSession entity by IDs.
+func (pu *ProjectUpdate) AddChatSessionIDs(ids ...int) *ProjectUpdate {
+	pu.mutation.AddChatSessionIDs(ids...)
+	return pu
+}
+
+// AddChatSessions adds the "chat_sessions" edges to the ChatSession entity.
+func (pu *ProjectUpdate) AddChatSessions(c ...*ChatSession) *ProjectUpdate {
+	ids := make([]int, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return pu.AddChatSessionIDs(ids...)
+}
+
 // Mutation returns the ProjectMutation object of the builder.
 func (pu *ProjectUpdate) Mutation() *ProjectMutation {
 	return pu.mutation
@@ -453,6 +469,27 @@ func (pu *ProjectUpdate) RemoveExportJobs(e ...*ExportJob) *ProjectUpdate {
 		ids[i] = e[i].ID
 	}
 	return pu.RemoveExportJobIDs(ids...)
+}
+
+// ClearChatSessions clears all "chat_sessions" edges to the ChatSession entity.
+func (pu *ProjectUpdate) ClearChatSessions() *ProjectUpdate {
+	pu.mutation.ClearChatSessions()
+	return pu
+}
+
+// RemoveChatSessionIDs removes the "chat_sessions" edge to ChatSession entities by IDs.
+func (pu *ProjectUpdate) RemoveChatSessionIDs(ids ...int) *ProjectUpdate {
+	pu.mutation.RemoveChatSessionIDs(ids...)
+	return pu
+}
+
+// RemoveChatSessions removes "chat_sessions" edges to ChatSession entities.
+func (pu *ProjectUpdate) RemoveChatSessions(c ...*ChatSession) *ProjectUpdate {
+	ids := make([]int, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return pu.RemoveChatSessionIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -726,6 +763,51 @@ func (pu *ProjectUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(exportjob.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if pu.mutation.ChatSessionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ChatSessionsTable,
+			Columns: []string{project.ChatSessionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatsession.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := pu.mutation.RemovedChatSessionsIDs(); len(nodes) > 0 && !pu.mutation.ChatSessionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ChatSessionsTable,
+			Columns: []string{project.ChatSessionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatsession.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := pu.mutation.ChatSessionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ChatSessionsTable,
+			Columns: []string{project.ChatSessionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatsession.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -1130,6 +1212,21 @@ func (puo *ProjectUpdateOne) AddExportJobs(e ...*ExportJob) *ProjectUpdateOne {
 	return puo.AddExportJobIDs(ids...)
 }
 
+// AddChatSessionIDs adds the "chat_sessions" edge to the ChatSession entity by IDs.
+func (puo *ProjectUpdateOne) AddChatSessionIDs(ids ...int) *ProjectUpdateOne {
+	puo.mutation.AddChatSessionIDs(ids...)
+	return puo
+}
+
+// AddChatSessions adds the "chat_sessions" edges to the ChatSession entity.
+func (puo *ProjectUpdateOne) AddChatSessions(c ...*ChatSession) *ProjectUpdateOne {
+	ids := make([]int, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return puo.AddChatSessionIDs(ids...)
+}
+
 // Mutation returns the ProjectMutation object of the builder.
 func (puo *ProjectUpdateOne) Mutation() *ProjectMutation {
 	return puo.mutation
@@ -1175,6 +1272,27 @@ func (puo *ProjectUpdateOne) RemoveExportJobs(e ...*ExportJob) *ProjectUpdateOne
 		ids[i] = e[i].ID
 	}
 	return puo.RemoveExportJobIDs(ids...)
+}
+
+// ClearChatSessions clears all "chat_sessions" edges to the ChatSession entity.
+func (puo *ProjectUpdateOne) ClearChatSessions() *ProjectUpdateOne {
+	puo.mutation.ClearChatSessions()
+	return puo
+}
+
+// RemoveChatSessionIDs removes the "chat_sessions" edge to ChatSession entities by IDs.
+func (puo *ProjectUpdateOne) RemoveChatSessionIDs(ids ...int) *ProjectUpdateOne {
+	puo.mutation.RemoveChatSessionIDs(ids...)
+	return puo
+}
+
+// RemoveChatSessions removes "chat_sessions" edges to ChatSession entities.
+func (puo *ProjectUpdateOne) RemoveChatSessions(c ...*ChatSession) *ProjectUpdateOne {
+	ids := make([]int, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return puo.RemoveChatSessionIDs(ids...)
 }
 
 // Where appends a list predicates to the ProjectUpdate builder.
@@ -1478,6 +1596,51 @@ func (puo *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err e
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(exportjob.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if puo.mutation.ChatSessionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ChatSessionsTable,
+			Columns: []string{project.ChatSessionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatsession.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := puo.mutation.RemovedChatSessionsIDs(); len(nodes) > 0 && !puo.mutation.ChatSessionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ChatSessionsTable,
+			Columns: []string{project.ChatSessionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatsession.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := puo.mutation.ChatSessionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ChatSessionsTable,
+			Columns: []string{project.ChatSessionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatsession.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

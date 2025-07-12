@@ -88,5 +88,7 @@ func (Project) Edges() []ent.Edge {
 			Comment("Video clips in this project"),
 		edge.To("export_jobs", ExportJob.Type).
 			Comment("Export jobs for this project"),
+		edge.To("chat_sessions", ChatSession.Type).
+			Comment("Chat sessions for this project"),
 	}
 }

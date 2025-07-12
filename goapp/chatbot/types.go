@@ -44,6 +44,7 @@ type ChatResponse struct {
 	SessionID         string                   `json:"sessionId"`
 	MessageID         string                   `json:"messageId"`
 	Message           string                   `json:"message"`
+	Model             string                   `json:"model,omitempty"`
 	Success           bool                     `json:"success"`
 	Error             string                   `json:"error,omitempty"`
 	FunctionResults   []FunctionExecutionResult `json:"functionResults,omitempty"`

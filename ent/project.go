@@ -68,9 +68,11 @@ type ProjectEdges struct {
 	VideoClips []*VideoClip `json:"video_clips,omitempty"`
 	// Export jobs for this project
 	ExportJobs []*ExportJob `json:"export_jobs,omitempty"`
+	// Chat sessions for this project
+	ChatSessions []*ChatSession `json:"chat_sessions,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
+	loadedTypes [3]bool
 }
 
 // VideoClipsOrErr returns the VideoClips value or an error if the edge
@@ -89,6 +91,15 @@ func (e ProjectEdges) ExportJobsOrErr() ([]*ExportJob, error) {
 		return e.ExportJobs, nil
 	}
 	return nil, &NotLoadedError{edge: "export_jobs"}
+}
+
+// ChatSessionsOrErr returns the ChatSessions value or an error if the edge
+// was not loaded in eager-loading.
+func (e ProjectEdges) ChatSessionsOrErr() ([]*ChatSession, error) {
+	if e.loadedTypes[2] {
+		return e.ChatSessions, nil
+	}
+	return nil, &NotLoadedError{edge: "chat_sessions"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -268,6 +279,11 @@ func (pr *Project) QueryVideoClips() *VideoClipQuery {
 // QueryExportJobs queries the "export_jobs" edge of the Project entity.
 func (pr *Project) QueryExportJobs() *ExportJobQuery {
 	return NewProjectClient(pr.config).QueryExportJobs(pr)
+}
+
+// QueryChatSessions queries the "chat_sessions" edge of the Project entity.
+func (pr *Project) QueryChatSessions() *ChatSessionQuery {
+	return NewProjectClient(pr.config).QueryChatSessions(pr)
 }
 
 // Update returns a builder for updating this Project.

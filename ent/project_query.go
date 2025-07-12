@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"MYAPP/ent/chatsession"
 	"MYAPP/ent/exportjob"
 	"MYAPP/ent/predicate"
 	"MYAPP/ent/project"
@@ -21,12 +22,13 @@ import (
 // ProjectQuery is the builder for querying Project entities.
 type ProjectQuery struct {
 	config
-	ctx            *QueryContext
-	order          []project.OrderOption
-	inters         []Interceptor
-	predicates     []predicate.Project
-	withVideoClips *VideoClipQuery
-	withExportJobs *ExportJobQuery
+	ctx              *QueryContext
+	order            []project.OrderOption
+	inters           []Interceptor
+	predicates       []predicate.Project
+	withVideoClips   *VideoClipQuery
+	withExportJobs   *ExportJobQuery
+	withChatSessions *ChatSessionQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -100,6 +102,28 @@ func (pq *ProjectQuery) QueryExportJobs() *ExportJobQuery {
 			sqlgraph.From(project.Table, project.FieldID, selector),
 			sqlgraph.To(exportjob.Table, exportjob.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, project.ExportJobsTable, project.ExportJobsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(pq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryChatSessions chains the current query on the "chat_sessions" edge.
+func (pq *ProjectQuery) QueryChatSessions() *ChatSessionQuery {
+	query := (&ChatSessionClient{config: pq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := pq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := pq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, selector),
+			sqlgraph.To(chatsession.Table, chatsession.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, project.ChatSessionsTable, project.ChatSessionsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(pq.driver.Dialect(), step)
 		return fromU, nil
@@ -294,13 +318,14 @@ func (pq *ProjectQuery) Clone() *ProjectQuery {
 		return nil
 	}
 	return &ProjectQuery{
-		config:         pq.config,
-		ctx:            pq.ctx.Clone(),
-		order:          append([]project.OrderOption{}, pq.order...),
-		inters:         append([]Interceptor{}, pq.inters...),
-		predicates:     append([]predicate.Project{}, pq.predicates...),
-		withVideoClips: pq.withVideoClips.Clone(),
-		withExportJobs: pq.withExportJobs.Clone(),
+		config:           pq.config,
+		ctx:              pq.ctx.Clone(),
+		order:            append([]project.OrderOption{}, pq.order...),
+		inters:           append([]Interceptor{}, pq.inters...),
+		predicates:       append([]predicate.Project{}, pq.predicates...),
+		withVideoClips:   pq.withVideoClips.Clone(),
+		withExportJobs:   pq.withExportJobs.Clone(),
+		withChatSessions: pq.withChatSessions.Clone(),
 		// clone intermediate query.
 		sql:  pq.sql.Clone(),
 		path: pq.path,
@@ -326,6 +351,17 @@ func (pq *ProjectQuery) WithExportJobs(opts ...func(*ExportJobQuery)) *ProjectQu
 		opt(query)
 	}
 	pq.withExportJobs = query
+	return pq
+}
+
+// WithChatSessions tells the query-builder to eager-load the nodes that are connected to
+// the "chat_sessions" edge. The optional arguments are used to configure the query builder of the edge.
+func (pq *ProjectQuery) WithChatSessions(opts ...func(*ChatSessionQuery)) *ProjectQuery {
+	query := (&ChatSessionClient{config: pq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	pq.withChatSessions = query
 	return pq
 }
 
@@ -407,9 +443,10 @@ func (pq *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 	var (
 		nodes       = []*Project{}
 		_spec       = pq.querySpec()
-		loadedTypes = [2]bool{
+		loadedTypes = [3]bool{
 			pq.withVideoClips != nil,
 			pq.withExportJobs != nil,
+			pq.withChatSessions != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -441,6 +478,13 @@ func (pq *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 		if err := pq.loadExportJobs(ctx, query, nodes,
 			func(n *Project) { n.Edges.ExportJobs = []*ExportJob{} },
 			func(n *Project, e *ExportJob) { n.Edges.ExportJobs = append(n.Edges.ExportJobs, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := pq.withChatSessions; query != nil {
+		if err := pq.loadChatSessions(ctx, query, nodes,
+			func(n *Project) { n.Edges.ChatSessions = []*ChatSession{} },
+			func(n *Project, e *ChatSession) { n.Edges.ChatSessions = append(n.Edges.ChatSessions, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -504,6 +548,36 @@ func (pq *ProjectQuery) loadExportJobs(ctx context.Context, query *ExportJobQuer
 		node, ok := nodeids[*fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "project_export_jobs" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (pq *ProjectQuery) loadChatSessions(ctx context.Context, query *ChatSessionQuery, nodes []*Project, init func(*Project), assign func(*Project, *ChatSession)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Project)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(chatsession.FieldProjectID)
+	}
+	query.Where(predicate.ChatSession(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(project.ChatSessionsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.ProjectID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "project_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
 	}

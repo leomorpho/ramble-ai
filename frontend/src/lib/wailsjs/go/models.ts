@@ -157,6 +157,7 @@ export namespace chatbot {
 	    sessionId: string;
 	    messageId: string;
 	    message: string;
+	    model?: string;
 	    success: boolean;
 	    error?: string;
 	    functionResults?: FunctionExecutionResult[];
@@ -171,6 +172,7 @@ export namespace chatbot {
 	        this.sessionId = source["sessionId"];
 	        this.messageId = source["messageId"];
 	        this.message = source["message"];
+	        this.model = source["model"];
 	        this.success = source["success"];
 	        this.error = source["error"];
 	        this.functionResults = this.convertValues(source["functionResults"], FunctionExecutionResult);

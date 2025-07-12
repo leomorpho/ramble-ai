@@ -6,7 +6,7 @@
   import MessageInput from "./MessageInput.svelte";
   import ChatSettings from "./ChatSettings.svelte";
   import { ENDPOINT_CONFIGS, AVAILABLE_MODELS } from "$lib/constants/chatbot.js";
-  import { SendChatMessage, GetChatHistory, ClearChatHistory } from "$lib/wailsjs/go/main/App.js";
+  import { SendChatMessage, GetChatHistory, ClearChatHistory, GetProjectHighlights, GetProjectHighlightOrderWithTitles } from "$lib/wailsjs/go/main/App.js";
   import { toast } from "svelte-sonner";
   import { 
     connectChatbotSession, 
@@ -121,13 +121,51 @@
       // Get current session ID from real-time store
       const currentSessionId = $realtimeSessionId;
       
+      // Prepare context data with endpoint-specific information
+      let enrichedContextData = { ...contextData };
+      
+      // Inject highlight context for highlight_ordering endpoint
+      if (endpointId === "highlight_ordering") {
+        try {
+          // Load current highlights and order in parallel
+          const [highlightsData, currentOrder] = await Promise.all([
+            GetProjectHighlights(projectId),
+            GetProjectHighlightOrderWithTitles(projectId)
+          ]);
+          
+          // Build highlight map (ID -> text) like in buildReorderingPrompt
+          const highlightMap = {};
+          if (highlightsData && highlightsData.length > 0) {
+            for (const videoHighlights of highlightsData) {
+              if (videoHighlights.highlights) {
+                for (const highlight of videoHighlights.highlights) {
+                  highlightMap[highlight.id] = highlight.text;
+                }
+              }
+            }
+          }
+          
+          // Add highlights context to the data
+          enrichedContextData.highlights = {
+            highlightMap,
+            currentOrder,
+            totalHighlights: Object.keys(highlightMap).length
+          };
+          
+          console.log(`Injected ${Object.keys(highlightMap).length} highlights into context for reordering`);
+        } catch (error) {
+          console.warn("Failed to load highlights context:", error);
+          // Continue without context if loading fails
+        }
+      }
+      
       // Send message to backend (real-time events will handle message updates)
       const response = await SendChatMessage({
         projectId,
         endpointId,
         message: messageText,
         sessionId: currentSessionId,
-        contextData,
+        contextData: enrichedContextData,
         model: selectedModel === "custom" ? customModelValue : selectedModel
       });
       

@@ -3,6 +3,8 @@
 package ent
 
 import (
+	"MYAPP/ent/chatmessage"
+	"MYAPP/ent/chatsession"
 	"MYAPP/ent/exportjob"
 	"MYAPP/ent/project"
 	"MYAPP/ent/schema"
@@ -15,6 +17,40 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	chatmessageFields := schema.ChatMessage{}.Fields()
+	_ = chatmessageFields
+	// chatmessageDescMessageID is the schema descriptor for message_id field.
+	chatmessageDescMessageID := chatmessageFields[0].Descriptor()
+	// chatmessage.MessageIDValidator is a validator for the "message_id" field. It is called by the builders before save.
+	chatmessage.MessageIDValidator = chatmessageDescMessageID.Validators[0].(func(string) error)
+	// chatmessageDescContent is the schema descriptor for content field.
+	chatmessageDescContent := chatmessageFields[3].Descriptor()
+	// chatmessage.ContentValidator is a validator for the "content" field. It is called by the builders before save.
+	chatmessage.ContentValidator = chatmessageDescContent.Validators[0].(func(string) error)
+	// chatmessageDescTimestamp is the schema descriptor for timestamp field.
+	chatmessageDescTimestamp := chatmessageFields[5].Descriptor()
+	// chatmessage.DefaultTimestamp holds the default value on creation for the timestamp field.
+	chatmessage.DefaultTimestamp = chatmessageDescTimestamp.Default.(func() time.Time)
+	chatsessionFields := schema.ChatSession{}.Fields()
+	_ = chatsessionFields
+	// chatsessionDescSessionID is the schema descriptor for session_id field.
+	chatsessionDescSessionID := chatsessionFields[0].Descriptor()
+	// chatsession.SessionIDValidator is a validator for the "session_id" field. It is called by the builders before save.
+	chatsession.SessionIDValidator = chatsessionDescSessionID.Validators[0].(func(string) error)
+	// chatsessionDescEndpointID is the schema descriptor for endpoint_id field.
+	chatsessionDescEndpointID := chatsessionFields[2].Descriptor()
+	// chatsession.EndpointIDValidator is a validator for the "endpoint_id" field. It is called by the builders before save.
+	chatsession.EndpointIDValidator = chatsessionDescEndpointID.Validators[0].(func(string) error)
+	// chatsessionDescCreatedAt is the schema descriptor for created_at field.
+	chatsessionDescCreatedAt := chatsessionFields[3].Descriptor()
+	// chatsession.DefaultCreatedAt holds the default value on creation for the created_at field.
+	chatsession.DefaultCreatedAt = chatsessionDescCreatedAt.Default.(func() time.Time)
+	// chatsessionDescUpdatedAt is the schema descriptor for updated_at field.
+	chatsessionDescUpdatedAt := chatsessionFields[4].Descriptor()
+	// chatsession.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	chatsession.DefaultUpdatedAt = chatsessionDescUpdatedAt.Default.(func() time.Time)
+	// chatsession.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	chatsession.UpdateDefaultUpdatedAt = chatsessionDescUpdatedAt.UpdateDefault.(func() time.Time)
 	exportjobFields := schema.ExportJob{}.Fields()
 	_ = exportjobFields
 	// exportjobDescJobID is the schema descriptor for job_id field.

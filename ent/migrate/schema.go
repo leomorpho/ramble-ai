@@ -8,6 +8,98 @@ import (
 )
 
 var (
+	// ChatMessagesColumns holds the columns for the "chat_messages" table.
+	ChatMessagesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "message_id", Type: field.TypeString},
+		{Name: "role", Type: field.TypeEnum, Enums: []string{"user", "assistant", "system", "error"}},
+		{Name: "content", Type: field.TypeString, Size: 2147483647},
+		{Name: "hidden_context", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "timestamp", Type: field.TypeTime},
+		{Name: "model", Type: field.TypeString, Nullable: true},
+		{Name: "session_id", Type: field.TypeInt},
+	}
+	// ChatMessagesTable holds the schema information for the "chat_messages" table.
+	ChatMessagesTable = &schema.Table{
+		Name:       "chat_messages",
+		Columns:    ChatMessagesColumns,
+		PrimaryKey: []*schema.Column{ChatMessagesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "chat_messages_chat_sessions_messages",
+				Columns:    []*schema.Column{ChatMessagesColumns[7]},
+				RefColumns: []*schema.Column{ChatSessionsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "chatmessage_message_id",
+				Unique:  true,
+				Columns: []*schema.Column{ChatMessagesColumns[1]},
+			},
+			{
+				Name:    "chatmessage_session_id",
+				Unique:  false,
+				Columns: []*schema.Column{ChatMessagesColumns[7]},
+			},
+			{
+				Name:    "chatmessage_session_id_timestamp",
+				Unique:  false,
+				Columns: []*schema.Column{ChatMessagesColumns[7], ChatMessagesColumns[5]},
+			},
+			{
+				Name:    "chatmessage_role",
+				Unique:  false,
+				Columns: []*schema.Column{ChatMessagesColumns[2]},
+			},
+		},
+	}
+	// ChatSessionsColumns holds the columns for the "chat_sessions" table.
+	ChatSessionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "session_id", Type: field.TypeString},
+		{Name: "endpoint_id", Type: field.TypeString},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "project_id", Type: field.TypeInt},
+	}
+	// ChatSessionsTable holds the schema information for the "chat_sessions" table.
+	ChatSessionsTable = &schema.Table{
+		Name:       "chat_sessions",
+		Columns:    ChatSessionsColumns,
+		PrimaryKey: []*schema.Column{ChatSessionsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "chat_sessions_projects_chat_sessions",
+				Columns:    []*schema.Column{ChatSessionsColumns[5]},
+				RefColumns: []*schema.Column{ProjectsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "chatsession_session_id",
+				Unique:  true,
+				Columns: []*schema.Column{ChatSessionsColumns[1]},
+			},
+			{
+				Name:    "chatsession_project_id_endpoint_id",
+				Unique:  true,
+				Columns: []*schema.Column{ChatSessionsColumns[5], ChatSessionsColumns[2]},
+			},
+			{
+				Name:    "chatsession_project_id",
+				Unique:  false,
+				Columns: []*schema.Column{ChatSessionsColumns[5]},
+			},
+			{
+				Name:    "chatsession_endpoint_id",
+				Unique:  false,
+				Columns: []*schema.Column{ChatSessionsColumns[2]},
+			},
+		},
+	}
 	// ExportJobsColumns holds the columns for the "export_jobs" table.
 	ExportJobsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -128,6 +220,8 @@ var (
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
+		ChatMessagesTable,
+		ChatSessionsTable,
 		ExportJobsTable,
 		ProjectsTable,
 		SettingsTable,
@@ -136,6 +230,8 @@ var (
 )
 
 func init() {
+	ChatMessagesTable.ForeignKeys[0].RefTable = ChatSessionsTable
+	ChatSessionsTable.ForeignKeys[0].RefTable = ProjectsTable
 	ExportJobsTable.ForeignKeys[0].RefTable = ProjectsTable
 	VideoClipsTable.ForeignKeys[0].RefTable = ProjectsTable
 }

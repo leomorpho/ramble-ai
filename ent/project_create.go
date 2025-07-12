@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"MYAPP/ent/chatsession"
 	"MYAPP/ent/exportjob"
 	"MYAPP/ent/project"
 	"MYAPP/ent/videoclip"
@@ -270,6 +271,21 @@ func (pc *ProjectCreate) AddExportJobs(e ...*ExportJob) *ProjectCreate {
 	return pc.AddExportJobIDs(ids...)
 }
 
+// AddChatSessionIDs adds the "chat_sessions" edge to the ChatSession entity by IDs.
+func (pc *ProjectCreate) AddChatSessionIDs(ids ...int) *ProjectCreate {
+	pc.mutation.AddChatSessionIDs(ids...)
+	return pc
+}
+
+// AddChatSessions adds the "chat_sessions" edges to the ChatSession entity.
+func (pc *ProjectCreate) AddChatSessions(c ...*ChatSession) *ProjectCreate {
+	ids := make([]int, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return pc.AddChatSessionIDs(ids...)
+}
+
 // Mutation returns the ProjectMutation object of the builder.
 func (pc *ProjectCreate) Mutation() *ProjectMutation {
 	return pc.mutation
@@ -482,6 +498,22 @@ func (pc *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(exportjob.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := pc.mutation.ChatSessionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ChatSessionsTable,
+			Columns: []string{project.ChatSessionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(chatsession.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
