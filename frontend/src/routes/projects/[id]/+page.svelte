@@ -28,6 +28,8 @@
   import ExportVideo from "$lib/components/ExportVideo.svelte";
   import ProjectInfo from "$lib/components/ProjectInfo.svelte";
   import VideoClips from "$lib/components/VideoClips.svelte";
+  import { AIChatbot } from "$lib/components/ui/chatbot";
+  import { CHATBOT_ENDPOINTS } from "$lib/constants/chatbot.js";
   import {
     Info,
     Film,
@@ -53,6 +55,30 @@
   // Tabs state
   let activeTab = $state("clips");
   let debounceTimer = null;
+
+  // Chatbot configuration - easy to enable/disable for different tabs
+  const chatbotConfig = {
+    enabled: true,
+    timeline: true,     // Show in Timeline tab
+    clips: false,       // Could enable for Clips tab later
+    info: false,        // Could enable for Info tab later  
+    export: false       // Could enable for Export tab later
+  };
+
+  // To add chatbot to other tabs, follow this pattern:
+  // 1. Set the tab to true in chatbotConfig above
+  // 2. Add this block inside the TabsContent for that tab:
+  /*
+    {#if chatbotConfig.enabled && chatbotConfig.TABNAME}
+      <AIChatbot 
+        endpointId={CHATBOT_ENDPOINTS.APPROPRIATE_ENDPOINT}
+        {projectId}
+        contextData={chatbotContextData}
+        position="floating"
+        size="default"
+      />
+    {/if}
+  */
 
   // Get project ID from route params
   let projectId = $derived(parseInt($page.params.id));
@@ -109,6 +135,25 @@
   // Watch for changes in the highlights store
   $effect(() => {
     highlights = $orderedHighlights;
+  });
+
+  // Prepare context data for chatbot
+  let chatbotContextData = $derived({
+    highlights: highlights,
+    order: highlights.map(h => h.id || h), // Extract IDs for order
+    projectInfo: {
+      id: projectId,
+      name: project?.name || '',
+      description: project?.description || '',
+      totalHighlights: highlights.length,
+      videoClipsCount: videoClips.length
+    },
+    videoClips: videoClips.map(clip => ({
+      id: clip.id,
+      name: clip.name,
+      duration: clip.duration,
+      highlightCount: highlights.filter(h => h.videoClipId === clip.id).length
+    }))
   });
 
   function handleProjectUpdate(updatedProject) {
@@ -274,6 +319,17 @@
                   {highlights}
                   loading={$highlightsLoading}
                 />
+                
+                <!-- Chatbot for Timeline tab -->
+                {#if chatbotConfig.enabled && chatbotConfig.timeline}
+                  <AIChatbot 
+                    endpointId={CHATBOT_ENDPOINTS.HIGHLIGHT_ORDERING}
+                    {projectId}
+                    contextData={chatbotContextData}
+                    position="floating"
+                    size="default"
+                  />
+                {/if}
               {:else}
                 <div class="text-center py-8 text-muted-foreground">
                   <p>Timeline will appear here once highlights are loaded</p>

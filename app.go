@@ -9,6 +9,7 @@ import (
 	"MYAPP/ent"
 	"MYAPP/goapp/ai"
 	"MYAPP/goapp/assetshandler"
+	"MYAPP/goapp/chatbot"
 	"MYAPP/goapp/exports"
 	"MYAPP/goapp/highlights"
 	"MYAPP/goapp/projects"
@@ -536,4 +537,24 @@ func (a *App) GetHighlightsHistoryStatus(clipID int) (*HistoryStatus, error) {
 		CanUndo: canUndo,
 		CanRedo: canRedo,
 	}, nil
+}
+
+// Chatbot Methods
+
+// SendChatMessage sends a message to the AI chatbot and returns the response
+func (a *App) SendChatMessage(request chatbot.ChatRequest) (*chatbot.ChatResponse, error) {
+	service := chatbot.NewChatbotService(a.client, a.ctx)
+	return service.SendMessage(request)
+}
+
+// GetChatHistory retrieves the chat history for a project and endpoint
+func (a *App) GetChatHistory(projectID int, endpointID string) (*chatbot.ChatHistoryResponse, error) {
+	service := chatbot.NewChatbotService(a.client, a.ctx)
+	return service.GetChatHistory(projectID, endpointID)
+}
+
+// ClearChatHistory clears the chat history for a project and endpoint
+func (a *App) ClearChatHistory(projectID int, endpointID string) error {
+	service := chatbot.NewChatbotService(a.client, a.ctx)
+	return service.ClearChatHistory(projectID, endpointID)
 }

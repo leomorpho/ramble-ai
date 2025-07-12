@@ -10,6 +10,10 @@ export function ClearAISilenceImprovements(arg1) {
   return window['go']['main']['App']['ClearAISilenceImprovements'](arg1);
 }
 
+export function ClearChatHistory(arg1, arg2) {
+  return window['go']['main']['App']['ClearChatHistory'](arg1, arg2);
+}
+
 export function ClearSuggestedHighlights(arg1) {
   return window['go']['main']['App']['ClearSuggestedHighlights'](arg1);
 }
@@ -60,6 +64,10 @@ export function ExportIndividualHighlights(arg1, arg2) {
 
 export function ExportStitchedHighlights(arg1, arg2) {
   return window['go']['main']['App']['ExportStitchedHighlights'](arg1, arg2);
+}
+
+export function GetChatHistory(arg1, arg2) {
+  return window['go']['main']['App']['GetChatHistory'](arg1, arg2);
 }
 
 export function GetExportProgress(arg1) {
@@ -208,6 +216,10 @@ export function SelectExportFolder() {
 
 export function SelectVideoFiles() {
   return window['go']['main']['App']['SelectVideoFiles']();
+}
+
+export function SendChatMessage(arg1) {
+  return window['go']['main']['App']['SendChatMessage'](arg1);
 }
 
 export function SuggestHighlightsWithAI(arg1, arg2, arg3) {

@@ -45,12 +45,28 @@
     autoGrow(event);
     oninput?.(event);
   }
+
+  // Find the actual textarea DOM element and expose focus method
+  function focus() {
+    if (containerElement) {
+      const textarea = containerElement.querySelector('textarea');
+      if (textarea) {
+        textarea.focus();
+      }
+    }
+  }
+
+  // Expose the focus method to parent components
+  $effect(() => {
+    if (containerElement) {
+      containerElement.focus = focus;
+    }
+  });
 </script>
 
-<div bind:this={containerElement}>
+<div bind:this={containerElement} class="w-full">
   <Textarea
-    class={`resize-none ${className}`}
-    style="min-height: 120px;"
+    class={`resize-none w-full ${className}`}
     {placeholder}
     bind:value
     oninput={handleInput}
