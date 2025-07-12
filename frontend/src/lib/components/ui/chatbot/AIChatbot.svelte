@@ -1,5 +1,5 @@
 <script>
-  import CustomSheet from "$lib/components/ui/CustomSheet.svelte";
+  import CustomSheet from "$lib/components/CustomSheet.svelte";
   import { Button } from "$lib/components/ui/button";
   import { Brain } from "@lucide/svelte";
   import ChatInterface from "./ChatInterface.svelte";

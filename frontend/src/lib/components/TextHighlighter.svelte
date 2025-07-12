@@ -40,7 +40,7 @@
   
   import { onMount } from "svelte";
   import { Button } from "$lib/components/ui/button";
-  import TimeGap from "$lib/components/ui/TimeGap.svelte";
+  import TimeGap from "$lib/components/TimeGap.svelte";
   import { DeleteSuggestedHighlight } from "$lib/wailsjs/go/main/App";
   import {
     findWordByTimestamp,

@@ -1,5 +1,5 @@
 <script>
-  import AIModelSelector from "../AIModelSelector.svelte";
+  import AIModelSelector from "$lib/components/AIModelSelector.svelte";
   
   let {
     selectedModel = $bindable("anthropic/claude-sonnet-4"),

@@ -1,7 +1,7 @@
 <script>
   import { Button } from "$lib/components/ui/button";
   import { Send } from "@lucide/svelte";
-  import AutoResizeTextarea from "../AutoResizeTextarea.svelte";
+  import AutoResizeTextarea from "$lib/components/AutoResizeTextarea.svelte";
   import { tick } from "svelte";
   
   let {

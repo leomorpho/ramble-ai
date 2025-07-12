@@ -1,6 +1,6 @@
 <script>
   import HighlightMenu from "./HighlightMenu.svelte";
-  import TimeGap from "./ui/TimeGap.svelte";
+  import TimeGap from "./TimeGap.svelte";
 
   let {
     highlight,

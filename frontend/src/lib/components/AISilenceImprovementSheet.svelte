@@ -10,8 +10,8 @@
   import { toast } from "svelte-sonner";
   import { Sparkles, Clock } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
-  import AISettings from "$lib/components/ui/AISettings.svelte";
-  import CustomSheet from "$lib/components/ui/CustomSheet.svelte";
+  import AISettings from "$lib/components/AISettings.svelte";
+  import CustomSheet from "$lib/components/CustomSheet.svelte";
   import CompoundVideoPlayer from "$lib/components/videoplayback/CompoundVideoPlayer.svelte";
   import HighlightItem from "$lib/components/HighlightItem.svelte";
   import { Play } from "@lucide/svelte";

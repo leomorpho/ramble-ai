@@ -9,8 +9,8 @@
   import { toast } from "svelte-sonner";
   import { Play, Sparkles } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
-  import AISettings from "$lib/components/ui/AISettings.svelte";
-  import CustomSheet from "$lib/components/ui/CustomSheet.svelte";
+  import AISettings from "$lib/components/AISettings.svelte";
+  import CustomSheet from "$lib/components/CustomSheet.svelte";
   import CompoundVideoPlayer from "$lib/components/videoplayback/CompoundVideoPlayer.svelte";
   import ReorderableHighlights from "$lib/components/ReorderableHighlights.svelte";
   import { updateHighlightOrder } from "$lib/stores/projectHighlights.js";
