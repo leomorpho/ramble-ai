@@ -1,7 +1,6 @@
 <script>
   import { onMount, tick } from "svelte";
   import { Button } from "$lib/components/ui/button";
-  import { ScrollArea } from "$lib/components/ui/scroll-area";
   import { Settings, RefreshCw, Trash2 } from "@lucide/svelte";
   import MessageList from "./MessageList.svelte";
   import MessageInput from "./MessageInput.svelte";
@@ -143,7 +142,7 @@
   }
 </script>
 
-<div class="flex flex-col h-[600px]">
+<div class="relative flex flex-col h-full">
   <!-- Header -->
   <div class="px-6 py-4 border-b border-border">
     <div class="flex items-center justify-between">
@@ -200,25 +199,23 @@
   {/if}
   
   <!-- Messages Area -->
-  <div class="flex-1 flex flex-col min-h-0">
-    <ScrollArea class="flex-1 px-6">
-      <MessageList 
-        {messages} 
-        {loading} 
-        {config} 
-        {endpointId}
-        {projectId}
-        onSendMessage={handleSendMessage}
-      />
-    </ScrollArea>
-    
-    <!-- Message Input -->
-    <div class="border-t border-border px-6 py-4">
-      <MessageInput
-        onSendMessage={handleSendMessage}
-        {loading}
-        placeholder="Ask me about your {config.title?.toLowerCase() || 'project'}..."
-      />
-    </div>
+  <div class="flex-1 overflow-y-auto px-6 scrollbar-thin">
+    <MessageList 
+      {messages} 
+      {loading} 
+      {config} 
+      {endpointId}
+      {projectId}
+      onSendMessage={handleSendMessage}
+    />
+  </div>
+  
+  <!-- Message Input -->
+  <div class="border-t border-border bg-background px-6 py-4">
+    <MessageInput
+      onSendMessage={handleSendMessage}
+      {loading}
+      placeholder="Ask me about your {config.title?.toLowerCase() || 'project'}..."
+    />
   </div>
 </div>

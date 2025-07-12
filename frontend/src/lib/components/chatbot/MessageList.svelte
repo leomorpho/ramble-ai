@@ -3,6 +3,7 @@
   import ChatMessage from "./ChatMessage.svelte";
   import { MESSAGE_TYPES, CHATBOT_ENDPOINTS } from "$lib/constants/chatbot.js";
   import { Button } from "$lib/components/ui/button";
+  import { Badge } from "$lib/components/ui/badge";
   import { Sparkles } from "@lucide/svelte";
   
   let {
@@ -95,20 +96,16 @@
             <p class="text-xs text-muted-foreground mb-4">Try these AI-powered suggestions to optimize your highlights</p>
           </div>
           
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl mx-auto">
+          <div class="flex flex-wrap gap-2 justify-center max-w-2xl mx-auto">
             {#each suggestions as suggestion}
-              <Button
+              <Badge
                 variant="outline"
-                class="h-auto p-4 flex flex-col items-start text-left space-y-2 hover:bg-accent transition-colors"
+                class="cursor-pointer hover:bg-accent transition-colors px-3 py-1.5"
                 onclick={() => handleSuggestionClick(suggestion)}
-                disabled={loading}
               >
-                <div class="flex items-center gap-2 w-full">
-                  <span class="text-lg">{suggestion.icon}</span>
-                  <span class="font-medium text-sm">{suggestion.title}</span>
-                </div>
-                <p class="text-xs text-muted-foreground text-left">{suggestion.description}</p>
-              </Button>
+                <span class="mr-1">{suggestion.icon}</span>
+                <span class="text-xs">{suggestion.title}</span>
+              </Badge>
             {/each}
           </div>
         </div>
@@ -163,20 +160,16 @@
           </Button>
         </div>
         
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="flex flex-wrap gap-2">
           {#each suggestions as suggestion}
-            <Button
+            <Badge
               variant="outline"
-              class="h-auto p-3 flex flex-col items-start text-left space-y-1 hover:bg-accent transition-colors"
+              class="cursor-pointer hover:bg-accent transition-colors px-3 py-1.5"
               onclick={() => handleSuggestionClick(suggestion)}
-              disabled={loading}
             >
-              <div class="flex items-center gap-2 w-full">
-                <span class="text-sm">{suggestion.icon}</span>
-                <span class="font-medium text-xs">{suggestion.title}</span>
-              </div>
-              <p class="text-xs text-muted-foreground text-left">{suggestion.description}</p>
-            </Button>
+              <span class="mr-1">{suggestion.icon}</span>
+              <span class="text-xs">{suggestion.title}</span>
+            </Badge>
           {/each}
         </div>
       </div>

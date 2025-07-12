@@ -1,7 +1,6 @@
 <script>
   import { onMount } from "svelte";
   import { Button } from "$lib/components/ui/button";
-  import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
 
   // Props
   let {
@@ -105,10 +104,8 @@
       </div>
 
       <!-- Content -->
-      <div class="flex-1 overflow-hidden">
-        <ScrollArea class="h-full">
-          {@render children()}
-        </ScrollArea>
+      <div class="flex-1 overflow-hidden flex flex-col">
+        {@render children()}
       </div>
 
       <!-- Footer -->
