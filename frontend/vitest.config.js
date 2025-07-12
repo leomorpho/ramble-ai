@@ -14,7 +14,8 @@ export default defineConfig({
     alias: {
       '$lib': resolve(__dirname, './src/lib'),
       '$lib/wailsjs/go/main/App': resolve(__dirname, './src/test/mocks/wailsjs.js'),
-      'svelte-sonner': resolve(__dirname, './src/test/mocks/svelte-sonner.js')
+      'svelte-sonner': resolve(__dirname, './src/test/mocks/svelte-sonner.js'),
+      '$app/environment': resolve(__dirname, './src/test/mocks/app-environment.js')
     }
   }
 });

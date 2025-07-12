@@ -344,7 +344,7 @@ func TestHighlightService_Error_Handling_Integration(t *testing.T) {
 	// Test clearing suggested highlights for non-existent video
 	err = service.ClearSuggestedHighlights(99999)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to clear suggested highlights")
+	assert.Contains(t, err.Error(), "failed to get video clip")
 
 	// Test deleting highlight for non-existent video
 	err = service.DeleteHighlight(99999, "h1")
