@@ -1,9 +1,10 @@
 <script>
   import CustomSheet from "$lib/components/CustomSheet.svelte";
   import { Button } from "$lib/components/ui/button";
-  import { Brain } from "@lucide/svelte";
+  import { Brain, RefreshCw, Trash2, Settings } from "@lucide/svelte";
   import ChatInterface from "./ChatInterface.svelte";
   import { CHATBOT_ENDPOINTS, CHATBOT_POSITIONS, ENDPOINT_CONFIGS } from "$lib/constants/chatbot.js";
+  import { getChatbotMessages } from "$lib/stores/chatbotRealtime.js";
   
   let {
     endpointId = CHATBOT_ENDPOINTS.HIGHLIGHT_ORDERING,
@@ -25,6 +26,13 @@
   let messages = $state([]);
   let sessionId = $state(null);
   
+  // Header actions state
+  let chatInterface;
+  let settingsOpen = $state(false);
+  
+  // Access real-time state for button states
+  let realtimeMessages = $derived(getChatbotMessages(projectId, endpointId));
+  
   // Size configurations
   const sizeConfigs = {
     sm: { button: "h-12 w-12", sheet: "w-[80vw] max-w-md" },
@@ -33,6 +41,25 @@
   };
   
   let sizeConfig = $derived(sizeConfigs[size] || sizeConfigs.default);
+  
+  // Action handlers (delegated to ChatInterface)
+  function handleRefresh() {
+    if (chatInterface?.handleRefresh) {
+      chatInterface.handleRefresh();
+    }
+  }
+  
+  function handleClearHistory() {
+    if (chatInterface?.handleClearHistory) {
+      chatInterface.handleClearHistory();
+    }
+  }
+  
+  function toggleSettings() {
+    if (chatInterface?.toggleSettings) {
+      chatInterface.toggleSettings();
+    }
+  }
 </script>
 
 {#if position === CHATBOT_POSITIONS.FLOATING}
@@ -64,14 +91,47 @@
   description={config.description}
   icon={config.icon ? () => config.icon : undefined}
 >
+  {#snippet headerActions()}
+    <Button
+      variant="ghost"
+      size="sm"
+      onclick={handleRefresh}
+      disabled={chatInterface?.loading || false}
+      aria-label="Refresh chat"
+      class="h-8 w-8 p-0"
+    >
+      <RefreshCw class="w-4 h-4" />
+    </Button>
+    
+    <Button
+      variant="ghost"
+      size="sm"
+      onclick={handleClearHistory}
+      disabled={(chatInterface?.loading || false) || ($realtimeMessages?.length || 0) === 0}
+      aria-label="Clear history"
+      class="h-8 w-8 p-0"
+    >
+      <Trash2 class="w-4 h-4" />
+    </Button>
+    
+    <Button
+      variant="ghost"
+      size="sm"
+      onclick={toggleSettings}
+      aria-label="Settings"
+      class="h-8 w-8 p-0"
+    >
+      <Settings class="w-4 h-4" />
+    </Button>
+  {/snippet}
+  
   {#snippet children()}
     <ChatInterface 
+      bind:this={chatInterface}
       {endpointId} 
       {projectId} 
       {contextData} 
-      title={config.title}
-      description={config.description}
-      icon={config.icon}
+      hideHeader={true}
     />
   {/snippet}
 </CustomSheet>

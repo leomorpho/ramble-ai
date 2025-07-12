@@ -23,7 +23,8 @@
     contextData = {},
     title = "AI Assistant",
     description = "Chat with AI about your project",
-    icon = "🤖"
+    icon = "🤖",
+    hideHeader = false
   } = $props();
   
   // Get endpoint configuration
@@ -34,6 +35,7 @@
   let settingsOpen = $state(false);
   let selectedModel = $state(AVAILABLE_MODELS[0].value);
   let customModelValue = $state("");
+  let messagesContainer;
   
   // Real-time stores
   let realtimeMessages = $derived(getChatbotMessages(projectId, endpointId));
@@ -222,52 +224,90 @@
     loadChatHistory();
     toast.success("Chat refreshed");
   }
+  
+  function toggleSettings() {
+    settingsOpen = !settingsOpen;
+  }
+  
+  // Scroll to bottom function
+  function scrollToBottom() {
+    if (messagesContainer) {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+  }
+  
+  // Auto-scroll when messages change or component mounts
+  $effect(() => {
+    // Scroll when messages change
+    if ($realtimeMessages.length > 0) {
+      // Use setTimeout to ensure DOM has updated
+      setTimeout(scrollToBottom, 0);
+    }
+  });
+  
+  // Scroll to bottom when chat is first opened (when component mounts)
+  onMount(() => {
+    setTimeout(scrollToBottom, 100); // Small delay to ensure everything is rendered
+  });
+  
+  // Also scroll to bottom when hideHeader prop changes (indicating chat was opened)
+  $effect(() => {
+    if (!hideHeader) {
+      // This means we're showing our own header (standalone mode)
+      setTimeout(scrollToBottom, 100);
+    }
+  });
+  
+  // Expose methods and state for parent component binding
+  export { handleRefresh, handleClearHistory, toggleSettings, loading };
 </script>
 
 <div class="relative flex flex-col h-full">
-  <!-- Header -->
-  <div class="px-6 py-4 border-b border-border">
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <span class="text-2xl">{icon}</span>
-        <div>
-          <h3 class="text-lg font-semibold text-left">{title}</h3>
-          <p class="text-sm text-muted-foreground text-left">{description}</p>
+  <!-- Header (only shown when not hidden) -->
+  {#if !hideHeader}
+    <div class="px-6 py-4 border-b border-border">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="text-2xl">{icon}</span>
+          <div>
+            <h3 class="text-lg font-semibold text-left">{title}</h3>
+            <p class="text-sm text-muted-foreground text-left">{description}</p>
+          </div>
+        </div>
+        
+        <div class="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onclick={handleRefresh}
+            disabled={loading}
+            aria-label="Refresh chat"
+          >
+            <RefreshCw class="w-4 h-4" />
+          </Button>
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            onclick={handleClearHistory}
+            disabled={loading || $realtimeMessages.length === 0}
+            aria-label="Clear history"
+          >
+            <Trash2 class="w-4 h-4" />
+          </Button>
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            onclick={() => settingsOpen = !settingsOpen}
+            aria-label="Settings"
+          >
+            <Settings class="w-4 h-4" />
+          </Button>
         </div>
       </div>
-      
-      <div class="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          onclick={handleRefresh}
-          disabled={loading}
-          aria-label="Refresh chat"
-        >
-          <RefreshCw class="w-4 h-4" />
-        </Button>
-        
-        <Button
-          variant="ghost"
-          size="icon"
-          onclick={handleClearHistory}
-          disabled={loading || $realtimeMessages.length === 0}
-          aria-label="Clear history"
-        >
-          <Trash2 class="w-4 h-4" />
-        </Button>
-        
-        <Button
-          variant="ghost"
-          size="icon"
-          onclick={() => settingsOpen = !settingsOpen}
-          aria-label="Settings"
-        >
-          <Settings class="w-4 h-4" />
-        </Button>
-      </div>
     </div>
-  </div>
+  {/if}
   
   <!-- Settings Panel -->
   {#if settingsOpen}
@@ -281,7 +321,7 @@
   {/if}
   
   <!-- Messages Area -->
-  <div class="flex-1 overflow-y-auto px-6 scrollbar-thin">
+  <div bind:this={messagesContainer} class="flex-1 overflow-y-auto px-6 scrollbar-thin">
     <MessageList 
       messages={$realtimeMessages} 
       {loading} 
