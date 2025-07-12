@@ -202,7 +202,14 @@
   <!-- Messages Area -->
   <div class="flex-1 flex flex-col min-h-0">
     <ScrollArea class="flex-1 px-6">
-      <MessageList {messages} {loading} {config} />
+      <MessageList 
+        {messages} 
+        {loading} 
+        {config} 
+        {endpointId}
+        {projectId}
+        onSendMessage={handleSendMessage}
+      />
     </ScrollArea>
     
     <!-- Message Input -->

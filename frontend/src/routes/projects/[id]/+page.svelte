@@ -28,7 +28,7 @@
   import ExportVideo from "$lib/components/ExportVideo.svelte";
   import ProjectInfo from "$lib/components/ProjectInfo.svelte";
   import VideoClips from "$lib/components/VideoClips.svelte";
-  import { AIChatbot } from "$lib/components/ui/chatbot";
+  import { AIChatbot } from "$lib/components/chatbot";
   import { CHATBOT_ENDPOINTS } from "$lib/constants/chatbot.js";
   import {
     Info,

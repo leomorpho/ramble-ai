@@ -87,9 +87,13 @@ The project uses **Vitest** with jsdom environment for testing. Test files shoul
 
 ## UI Components & Styling
 
+### Component Organization
+
 - **shadcn-svelte**: Always use https://shadcn-svelte.com/docs/components components first for UI elements
-- Components are located in `frontend/src/lib/components/ui/`
-- Import from `$lib/components/ui/component-name`
+- **shadcn-svelte components** are located in `frontend/src/lib/components/ui/`
+- Import shadcn components from `$lib/components/ui/component-name`
+- **NEVER add custom components to `frontend/src/lib/components/ui/`** - this directory is reserved exclusively for shadcn-svelte components
+- **Custom components** should be placed in `frontend/src/lib/components/` (without the `ui/` subdirectory)
 
 ### Styling Guidelines
 
