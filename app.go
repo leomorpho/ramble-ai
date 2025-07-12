@@ -543,18 +543,18 @@ func (a *App) GetHighlightsHistoryStatus(clipID int) (*HistoryStatus, error) {
 
 // SendChatMessage sends a message to the AI chatbot and returns the response
 func (a *App) SendChatMessage(request chatbot.ChatRequest) (*chatbot.ChatResponse, error) {
-	service := chatbot.NewChatbotService(a.client, a.ctx)
-	return service.SendMessage(request)
+	service := chatbot.NewChatbotService(a.client, a.ctx, a.UpdateProjectHighlightOrderWithTitles)
+	return service.SendMessage(request, a.GetOpenRouterApiKey)
 }
 
 // GetChatHistory retrieves the chat history for a project and endpoint
 func (a *App) GetChatHistory(projectID int, endpointID string) (*chatbot.ChatHistoryResponse, error) {
-	service := chatbot.NewChatbotService(a.client, a.ctx)
+	service := chatbot.NewChatbotService(a.client, a.ctx, a.UpdateProjectHighlightOrderWithTitles)
 	return service.GetChatHistory(projectID, endpointID)
 }
 
 // ClearChatHistory clears the chat history for a project and endpoint
 func (a *App) ClearChatHistory(projectID int, endpointID string) error {
-	service := chatbot.NewChatbotService(a.client, a.ctx)
+	service := chatbot.NewChatbotService(a.client, a.ctx, a.UpdateProjectHighlightOrderWithTitles)
 	return service.ClearChatHistory(projectID, endpointID)
 }

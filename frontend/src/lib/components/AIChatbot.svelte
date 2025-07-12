@@ -1,15 +1,16 @@
 <script>
   import { onMount, tick } from "svelte";
   import * as Collapsible from "$lib/components/ui/collapsible/index.js";
-  import { Sparkles, Settings, Send, RotateCcw, MessageSquare, Edit3 } from "@lucide/svelte";
+  import { Sparkles, Settings, Send, RotateCcw, MessageSquare, Edit3, CheckCircle, AlertCircle } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
   import { ScrollArea } from "$lib/components/ui/scroll-area";
   import AutoResizeTextarea from "./AutoResizeTextarea.svelte";
   import AIModelSelector from "./AIModelSelector.svelte";
+  import { SendChatMessage } from "$lib/wailsjs/go/main/App";
 
   let {
     open = $bindable(false),
-    selectedModel = $bindable("google/gemini-2.5-flash-preview-05-20"),
+    selectedModel = $bindable("anthropic/claude-sonnet-4"),
     customModelValue = $bindable(""),
     title = "AI Assistant",
     defaultPrompt = "",
@@ -39,7 +40,11 @@
     modelLabel = "AI Model",
     modelDescription = "Choose the AI model for processing",
     showModelSettings = true,
-    settingsContent
+    settingsContent,
+    // New props for reorder mode
+    mode = "chat", // "chat" or "reorder"
+    projectId = null,
+    endpointId = "general_chat"
   } = $props();
 
   // Local state
@@ -84,6 +89,7 @@
 
     const message = currentMessage.trim();
     currentMessage = "";
+    loading = true;
 
     // Add user message to history
     chatHistory = [...chatHistory, {
@@ -93,7 +99,52 @@
     }];
 
     try {
-      await onSendMessage(message);
+      if (mode === "reorder" && projectId) {
+        // Use new chatbot service with function calling
+        const modelToUse = selectedModel === "custom" ? customModelValue : selectedModel;
+        
+        const chatRequest = {
+          projectId: projectId,
+          endpointId: endpointId,
+          message: message,
+          sessionId: `session_${projectId}_${endpointId}`,
+          contextData: {},
+          model: modelToUse,
+          enableFunctionCalls: true,
+          mode: "reorder"
+        };
+        
+        const response = await SendChatMessage(chatRequest);
+        
+        if (response.success) {
+          // Add AI response to chat
+          chatHistory = [...chatHistory, {
+            type: "assistant",
+            content: response.message,
+            timestamp: new Date().toISOString(),
+            functionResults: response.functionResults || []
+          }];
+          
+          // If there were function results, show them
+          if (response.functionResults && response.functionResults.length > 0) {
+            for (const result of response.functionResults) {
+              chatHistory = [...chatHistory, {
+                type: "function_result",
+                content: result.message || `Executed ${result.functionName}`,
+                timestamp: new Date().toISOString(),
+                functionName: result.functionName,
+                success: result.success,
+                result: result.result
+              }];
+            }
+          }
+        } else {
+          throw new Error(response.error || "Chat request failed");
+        }
+      } else {
+        // Use legacy callback for regular chat mode
+        await onSendMessage(message);
+      }
     } catch (error) {
       console.error("Failed to send message:", error);
       // Add error message to chat
@@ -102,6 +153,8 @@
         content: "Failed to process message. Please try again.",
         timestamp: new Date().toISOString()
       }];
+    } finally {
+      loading = false;
     }
   }
 
@@ -149,7 +202,7 @@
         <div class="flex flex-col min-w-0">
           <span class="font-medium">{title}</span>
           <span class="text-sm text-muted-foreground truncate">
-            {getModelDisplayName(selectedModel, customModelValue)}
+            {#if mode === \"reorder\"}\n              Reorder Mode - {getModelDisplayName(selectedModel, customModelValue)}\n            {:else}\n              {getModelDisplayName(selectedModel, customModelValue)}\n            {/if}
           </span>
         </div>
       </div>
@@ -258,6 +311,31 @@
                       <div class="flex justify-start">
                         <div class="max-w-[80%] bg-secondary rounded-lg px-4 py-2">
                           <div class="whitespace-pre-wrap text-sm">{message.content}</div>
+                        </div>
+                      </div>
+                    {:else if message.type === "function_result"}
+                      <!-- Function execution result -->
+                      <div class="flex justify-center">
+                        <div class="bg-card border rounded-lg px-4 py-2 max-w-[90%]">
+                          <div class="flex items-center gap-2 mb-2">
+                            {#if message.success}
+                              <CheckCircle class="w-4 h-4 text-green-600" />
+                            {:else}
+                              <AlertCircle class="w-4 h-4 text-red-600" />
+                            {/if}
+                            <span class="text-sm font-medium">{message.functionName}</span>
+                          </div>
+                          <div class="text-sm text-muted-foreground">{message.content}</div>
+                          {#if message.result && typeof message.result === 'object'}
+                            <div class="mt-2 text-xs bg-muted/50 rounded p-2">
+                              {#if message.result.reason}
+                                <div><strong>Reason:</strong> {message.result.reason}</div>
+                              {/if}
+                              {#if message.result.count}
+                                <div><strong>Items affected:</strong> {message.result.count}</div>
+                              {/if}
+                            </div>
+                          {/if}
                         </div>
                       </div>
                     {:else if message.type === "error"}
