@@ -670,6 +670,19 @@ func (s *ProjectService) formatTime(t interface{}) string {
 	}
 }
 
+// equalStringSlices checks if two string slices are equal
+func equalStringSlices(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, v := range a {
+		if v != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 // History Management Functions
 
 // saveOrderState saves the current highlight order to history before making changes
@@ -775,17 +788,64 @@ func (s *ProjectService) UndoOrderChange(projectID int) ([]string, error) {
 	}
 
 	history := project.OrderHistory
+	currentIndex := project.OrderHistoryIndex
+	
+	// Special handling when we're at the current state (index == -1)
+	if currentIndex == -1 {
+		// Before undoing from current state, we need to save the current state to history
+		// so we can redo back to it later
+		
+		// Get current order and convert to string array
+		var currentOrderStrings []string
+		if project.HighlightOrder != nil {
+			for _, item := range project.HighlightOrder {
+				switch v := item.(type) {
+				case string:
+					currentOrderStrings = append(currentOrderStrings, v)
+				case map[string]interface{}:
+					// Convert newline objects back to simple "N" for history
+					if typeVal, ok := v["type"].(string); ok && typeVal == "N" {
+						currentOrderStrings = append(currentOrderStrings, "N")
+					}
+				default:
+					// Handle other types as strings
+					currentOrderStrings = append(currentOrderStrings, fmt.Sprintf("%v", v))
+				}
+			}
+		}
+		
+		// Add current state to history if it's different from the last history entry
+		if len(history) == 0 || !equalStringSlices(currentOrderStrings, history[len(history)-1]) {
+			history = append(history, currentOrderStrings)
+			if len(history) > 20 {
+				history = history[1:] // Remove oldest entry
+			}
+			
+			// Update history in database
+			project, err = s.client.Project.
+				UpdateOneID(projectID).
+				SetOrderHistory(history).
+				Save(s.ctx)
+			if err != nil {
+				return nil, fmt.Errorf("failed to update history: %w", err)
+			}
+		}
+	}
+	
+	// Refresh history after potential update
+	history = project.OrderHistory
 	if history == nil || len(history) == 0 {
 		return nil, fmt.Errorf("no history available")
 	}
 
-	currentIndex := project.OrderHistoryIndex
-	
 	// Calculate new index (move backward)
 	var newIndex int
 	if currentIndex == -1 {
-		// We're at current state, move to last history entry
-		newIndex = len(history) - 1
+		// We're at current state, move to second-to-last history entry (since we just added current state)
+		if len(history) < 2 {
+			return nil, fmt.Errorf("no previous state to undo to")
+		}
+		newIndex = len(history) - 2
 	} else if currentIndex > 0 {
 		// Move backward in history
 		newIndex = currentIndex - 1
@@ -834,11 +894,53 @@ func (s *ProjectService) RedoOrderChange(projectID int) ([]string, error) {
 	currentIndex := project.OrderHistoryIndex
 	
 	// Calculate new index (move forward)
-	if currentIndex == -1 || currentIndex >= len(history)-1 {
-		// Already at newest entry or current state
+	if currentIndex == -1 {
+		// Already at current state
 		return nil, fmt.Errorf("cannot redo further")
 	}
+	
+	if currentIndex >= len(history)-1 {
+		// At the last history entry, check if we can move to current state
+		// We can only move to current state (-1) if the current project order
+		// is different from the last history entry
+		var currentOrderStrings []string
+		if project.HighlightOrder != nil {
+			for _, item := range project.HighlightOrder {
+				switch v := item.(type) {
+				case string:
+					currentOrderStrings = append(currentOrderStrings, v)
+				case map[string]interface{}:
+					if typeVal, ok := v["type"].(string); ok && typeVal == "N" {
+						currentOrderStrings = append(currentOrderStrings, "N")
+					}
+				default:
+					currentOrderStrings = append(currentOrderStrings, fmt.Sprintf("%v", v))
+				}
+			}
+		}
+		
+		// If last history entry matches current state, we can't redo
+		if equalStringSlices(history[len(history)-1], currentOrderStrings) {
+			return nil, fmt.Errorf("cannot redo further")
+		}
+		
+		// Move to current state
+		newIndex := -1
+		
+		// Update project index
+		_, err = s.client.Project.
+			UpdateOneID(projectID).
+			SetOrderHistoryIndex(newIndex).
+			Save(s.ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to update history index: %w", err)
+		}
+		
+		// Return the current order (which is already applied)
+		return currentOrderStrings, nil
+	}
 
+	// Normal case: move forward in history
 	newIndex := currentIndex + 1
 
 	// Get order from history
@@ -880,11 +982,41 @@ func (s *ProjectService) GetOrderHistoryStatus(projectID int) (bool, bool, error
 
 	currentIndex := project.OrderHistoryIndex
 	
-	// Can undo if we have history and we're not at the oldest entry
-	canUndo := len(history) > 0 && (currentIndex == -1 || currentIndex > 0)
+	// Can undo if:
+	// 1. We're at current state (index == -1) and have history
+	// 2. We're in history and not at the oldest entry (index > 0)
+	canUndo := (currentIndex == -1 && len(history) > 0) || currentIndex > 0
 	
-	// Can redo if we have history and we're not at the newest entry
-	canRedo := len(history) > 0 && currentIndex != -1 && currentIndex < len(history)-1
+	// Can redo if:
+	// 1. We're in history and not at the last entry (index < len(history)-1)
+	// 2. We're at the last history entry and current state differs from it
+	canRedo := false
+	if currentIndex != -1 {
+		if currentIndex < len(history)-1 {
+			// Not at the last history entry
+			canRedo = true
+		} else if currentIndex == len(history)-1 {
+			// At last history entry, check if current state differs
+			var currentOrderStrings []string
+			if project.HighlightOrder != nil {
+				for _, item := range project.HighlightOrder {
+					switch v := item.(type) {
+					case string:
+						currentOrderStrings = append(currentOrderStrings, v)
+					case map[string]interface{}:
+						if typeVal, ok := v["type"].(string); ok && typeVal == "N" {
+							currentOrderStrings = append(currentOrderStrings, "N")
+						}
+					default:
+						currentOrderStrings = append(currentOrderStrings, fmt.Sprintf("%v", v))
+					}
+				}
+			}
+			
+			// Can redo if current state differs from last history entry
+			canRedo = !equalStringSlices(history[len(history)-1], currentOrderStrings)
+		}
+	}
 
 	return canUndo, canRedo, nil
 }

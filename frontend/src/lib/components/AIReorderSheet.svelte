@@ -68,17 +68,22 @@
   ];
 
   // Default YouTube expert prompt
-  const defaultPrompt = `You are an expert YouTuber and content creator with millions of subscribers, known for creating highly engaging videos that maximize viewer retention and satisfaction. Your task is to reorder these video highlight segments to create the highest quality video possible.
+  const defaultPrompt = `You are an expert video editor focused on creating well-structured, engaging content. Your goal is to organize these highlight segments into a balanced, coherent video with natural pacing and flow.
 
-Reorder these segments using your expertise in:
-- Hook creation and audience retention
-- Storytelling and narrative structure
-- Pacing and rhythm for maximum engagement
-- Building emotional connections with viewers
-- Creating viral-worthy content flow
-- Strategic placement of key moments
+Key principles for structuring the video:
+- Create an adaptive structure that fits the specific content
+- Balance sections by total text length, not highlight count
+- Build natural rhythm with highs and lows throughout
+- Ensure smooth transitions between different topics
+- Maintain viewer engagement through variety and pacing
 
-Feel free to completely restructure the order - move any segment to any position if it will improve video quality and viewer experience.`;
+Section balancing guidelines:
+- Analyze the cumulative text length in each section
+- No single section should contain more than 30% of total content
+- Short highlights can be grouped together, long ones may stand alone
+- Think in terms of speaking time and content weight
+
+Create sections that feel complete yet connected, with clear but simple titles that describe their purpose. The structure should emerge from the content itself, not force content into a rigid template.`;
 
   // Initialize AI reordering when sheet opens
   $effect(() => {

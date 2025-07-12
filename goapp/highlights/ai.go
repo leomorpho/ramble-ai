@@ -823,17 +823,22 @@ func (s *AIService) buildReorderingPrompt(highlightMap map[string]string, custom
 	if customPrompt != "" {
 		basePrompt = customPrompt
 	} else {
-		basePrompt = `You are an expert YouTuber and content creator with millions of subscribers, known for creating highly engaging videos that maximize viewer retention and satisfaction. Your task is to reorder these video highlight segments to create the highest quality video possible.
+		basePrompt = `You are an expert video editor focused on creating well-structured, engaging content. Your goal is to organize these highlight segments into a balanced, coherent video with natural pacing and flow.
 
-Reorder these segments using your expertise in:
-- Hook creation and audience retention
-- Storytelling and narrative structure
-- Pacing and rhythm for maximum engagement
-- Building emotional connections with viewers
-- Creating viral-worthy content flow
-- Strategic placement of key moments
+Key principles for structuring the video:
+- Create an adaptive structure that fits the specific content
+- Balance sections by total text length, not highlight count
+- Build natural rhythm with highs and lows throughout
+- Ensure smooth transitions between different topics
+- Maintain viewer engagement through variety and pacing
 
-Feel free to completely restructure the order - move any segment to any position if it will improve video quality and viewer experience.`
+Section balancing guidelines:
+- Analyze the cumulative text length in each section
+- No single section should contain more than 30% of total content
+- Short highlights can be grouped together, long ones may stand alone
+- Think in terms of speaking time and content weight
+
+Create sections that feel complete yet connected, with clear but simple titles that describe their purpose. The structure should emerge from the content itself, not force content into a rigid template.`
 	}
 
 	prompt := basePrompt + `
@@ -865,29 +870,40 @@ Here are the video highlight segments:
 	// Always append the newline instructions regardless of custom prompt
 	prompt += `
 
-Analyze these segments and reorder them to create the highest quality video possible for maximum viewer engagement and retention.
+Analyze these segments carefully, paying attention to the text length of each highlight as a proxy for content duration and weight.
 
-IMPORTANT: 
+SECTION BALANCING STRATEGY:
+- Calculate cumulative text length for each section you create
+- Ensure no section contains more than 30% of the total text
+- Balance sections by content weight (text length), not highlight count
+- Create natural breakpoints based on topic shifts and pacing needs
+- Mix longer and shorter highlights to maintain rhythm
+
+STRUCTURAL GUIDELINES:
+1. Start with a compelling hook that draws viewers in
+2. Create sections that flow naturally from one to another
+3. Build engagement curves - alternate intensity and pacing
+4. End with a satisfying conclusion or clear next steps
+5. Adapt the structure to fit the specific content
+
+IMPORTANT INSTRUCTIONS:
 1. Respond with ONLY a JSON array containing the highlight IDs in the new order
-2. You can add section breaks by including objects with {"type":"N","title":"Section Title"} to separate different sections
-3. Place these section objects strategically to create logical groups or chapters in the video
-4. Each section should have a descriptive title that summarizes why you grouped those highlights together
-5. Section titles should be concise (2-5 words), relevant to the video content, and explain the theme/topic of that section
-6. Each section object represents a visual break/separator in the final video timeline
-7. Use each highlight ID exactly once - do not duplicate any IDs
-8. Include ALL provided highlight IDs in your response (no IDs should be missing)
-9. Do not include any explanation, reasoning, or additional text
-10. You can also use simple "N" strings for sections without titles if appropriate
+2. Add section breaks using objects: {"type":"N","title":"Section Title"}
+3. Section titles should be simple, descriptive, and content-appropriate
+4. Balance sections by total text length, not number of highlights
+5. Use each highlight ID exactly once - no duplicates
+6. Include ALL provided highlight IDs in your response
+7. Do not include explanations or additional text
 
-Example format: ["id1", {"type":"N","title":"Opening Hook"}, "id2", "id3", {"type":"N","title":"Main Story"}, "id4", "id5", "N", "id6"]
+Example format: [{"type":"N","title":"Hook"}, "id1", {"type":"N","title":"Background"}, "id2", "id3", "id4", {"type":"N","title":"Main Argument"}, "id5", "id6", {"type":"N","title":"Examples"}, "id7", "id8", {"type":"N","title":"Conclusion"}, "id9"]
 
-Section title examples:
-- "Opening Hook" - for attention-grabbing intro segments
-- "Problem Setup" - introducing the main challenge/issue
-- "Key Insights" - main valuable information
-- "Action Steps" - practical advice/demonstrations
-- "Results & Impact" - showing outcomes
-- "Final Thoughts" - conclusions/call-to-action`
+ADAPTIVE SECTION EXAMPLES:
+- For tutorials: "Overview", "Prerequisites", "Step 1", "Common Mistakes", "Results"
+- For stories: "Setup", "Conflict", "Development", "Resolution"  
+- For arguments: "Thesis", "Evidence", "Counterargument", "Synthesis"
+- For reviews: "First Impressions", "Deep Dive", "Pros & Cons", "Verdict"
+
+Let the content guide the structure. Ensure balanced distribution of text across sections.`
 
 	return prompt
 }
@@ -1534,7 +1550,7 @@ func (s *AIService) flattenConsecutiveNewlineItems(items []interface{}) []interf
 
 	for _, item := range items {
 		isNewline := false
-		
+
 		switch v := item.(type) {
 		case string:
 			isNewline = (v == "N")
