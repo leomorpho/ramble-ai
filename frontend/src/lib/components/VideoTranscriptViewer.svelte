@@ -11,7 +11,7 @@
   import { ScrollArea } from "$lib/components/ui/scroll-area";
   import * as Resizable from "$lib/components/ui/resizable/index.js";
   import AISettings from "$lib/components/AISettings.svelte";
-  import TextHighlighter from "$lib/components/TextHighlighter.svelte";
+  import TextHighlighter from "$lib/components/texthighlighter/TextHighlighter.svelte";
   import CompoundVideoPlayer from "$lib/components/videoplayback/CompoundVideoPlayer.svelte";
   import { toast } from "svelte-sonner";
   import { Sparkles, Undo, Redo } from "@lucide/svelte";
