@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,6 +24,8 @@ import (
 	"MYAPP/ent/schema"
 	"MYAPP/ent/settings"
 	"MYAPP/ent/videoclip"
+	highlightsservice "MYAPP/goapp/highlights"
+	"MYAPP/goapp/realtime"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -516,12 +519,38 @@ func (s *ProjectService) UpdateVideoClipHighlights(clipID int, highlights []High
 		})
 	}
 	
+	// Get the video clip to find its project ID
+	clip, err := s.client.VideoClip.
+		Query().
+		Where(videoclip.ID(clipID)).
+		WithProject().
+		Only(s.ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get video clip for real-time update: %w", err)
+	}
+	
 	_, err = s.client.VideoClip.
 		UpdateOneID(clipID).
 		SetHighlights(schemaHighlights).
 		Save(s.ctx)
+	if err != nil {
+		return err
+	}
 		
-	return err
+	// Broadcast real-time update
+	if clip.Edges.Project != nil {
+		projectID := strconv.Itoa(clip.Edges.Project.ID)
+		manager := realtime.GetManager()
+		
+		// Get the full project highlights structure for broadcasting
+		highlightService := highlightsservice.NewHighlightService(s.client, s.ctx)
+		projectHighlights, err := highlightService.GetProjectHighlights(clip.Edges.Project.ID)
+		if err == nil {
+			manager.BroadcastHighlightsUpdate(projectID, projectHighlights)
+		}
+	}
+		
+	return nil
 }
 
 // UpdateVideoClipSuggestedHighlights updates the suggested highlights for a video clip
@@ -537,12 +566,39 @@ func (s *ProjectService) UpdateVideoClipSuggestedHighlights(clipID int, suggeste
 		})
 	}
 	
-	_, err := s.client.VideoClip.
+	// Get clip with project information for broadcasting
+	clip, err := s.client.VideoClip.
+		Query().
+		Where(videoclip.ID(clipID)).
+		WithProject().
+		Only(s.ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get video clip: %w", err)
+	}
+	
+	_, err = s.client.VideoClip.
 		UpdateOneID(clipID).
 		SetSuggestedHighlights(schemaHighlights).
 		Save(s.ctx)
+	
+	if err != nil {
+		return err
+	}
+	
+	// Broadcast real-time update for suggested highlights
+	if clip.Edges.Project != nil {
+		projectIDStr := strconv.Itoa(clip.Edges.Project.ID)
+		manager := realtime.GetManager()
 		
-	return err
+		// Get the full project highlights structure for broadcasting
+		highlightService := highlightsservice.NewHighlightService(s.client, s.ctx)
+		projectHighlights, err := highlightService.GetProjectHighlights(clip.Edges.Project.ID)
+		if err == nil {
+			manager.BroadcastHighlightsUpdate(projectIDStr, projectHighlights)
+		}
+	}
+		
+	return nil
 }
 
 // UpdateProjectActiveTab updates the active tab for a project
@@ -583,6 +639,11 @@ func (s *ProjectService) UpdateProjectHighlightOrder(projectID int, highlightOrd
 	if err != nil {
 		return fmt.Errorf("failed to update project highlight order: %w", err)
 	}
+	
+	// Broadcast real-time update
+	projectIDStr := strconv.Itoa(projectID)
+	manager := realtime.GetManager()
+	manager.BroadcastHighlightsReorder(projectIDStr, interfaceOrder)
 	
 	return nil
 }
@@ -882,6 +943,11 @@ func (s *ProjectService) UndoOrderChange(projectID int) ([]string, error) {
 		return nil, fmt.Errorf("failed to update history index and apply order: %w", err)
 	}
 
+	// Broadcast real-time update
+	projectIDStr := strconv.Itoa(projectID)
+	manager := realtime.GetManager()
+	manager.BroadcastHighlightsReorder(projectIDStr, orderFromHistory)
+
 	// Convert to string array for return value (for backward compatibility)
 	var orderStrings []string
 	for _, item := range orderFromHistory {
@@ -986,6 +1052,11 @@ func (s *ProjectService) RedoOrderChange(projectID int) ([]string, error) {
 		return nil, fmt.Errorf("failed to update history index and apply order: %w", err)
 	}
 
+	// Broadcast real-time update
+	projectIDStr := strconv.Itoa(projectID)
+	manager := realtime.GetManager()
+	manager.BroadcastHighlightsReorder(projectIDStr, orderFromHistory)
+
 	// Convert to string array for return value (for backward compatibility)
 	var orderStrings []string
 	for _, item := range orderFromHistory {
@@ -1053,10 +1124,11 @@ func (s *ProjectService) GetOrderHistoryStatus(projectID int) (bool, bool, error
 
 // UndoHighlightsChange moves backward in highlights history
 func (s *ProjectService) UndoHighlightsChange(clipID int) ([]Highlight, error) {
-	// Get current video clip with history
+	// Get current video clip with history and project
 	clip, err := s.client.VideoClip.
 		Query().
 		Where(videoclip.ID(clipID)).
+		WithProject().
 		Only(s.ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get video clip: %w", err)
@@ -1095,16 +1167,30 @@ func (s *ProjectService) UndoHighlightsChange(clipID int) ([]Highlight, error) {
 		return nil, fmt.Errorf("failed to apply historical highlights: %w", err)
 	}
 
+	// Broadcast real-time update
+	if clip.Edges.Project != nil {
+		projectIDStr := strconv.Itoa(clip.Edges.Project.ID)
+		manager := realtime.GetManager()
+		
+		// Get the full project highlights structure for broadcasting
+		highlightService := highlightsservice.NewHighlightService(s.client, s.ctx)
+		projectHighlights, err := highlightService.GetProjectHighlights(clip.Edges.Project.ID)
+		if err == nil {
+			manager.BroadcastHighlightsUpdate(projectIDStr, projectHighlights)
+		}
+	}
+
 	// Convert to return format
 	return s.schemaHighlightsToHighlights(highlightsFromHistory), nil
 }
 
 // RedoHighlightsChange moves forward in highlights history
 func (s *ProjectService) RedoHighlightsChange(clipID int) ([]Highlight, error) {
-	// Get current video clip with history
+	// Get current video clip with history and project
 	clip, err := s.client.VideoClip.
 		Query().
 		Where(videoclip.ID(clipID)).
+		WithProject().
 		Only(s.ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get video clip: %w", err)
@@ -1136,6 +1222,19 @@ func (s *ProjectService) RedoHighlightsChange(clipID int) ([]Highlight, error) {
 		Save(s.ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply historical highlights: %w", err)
+	}
+
+	// Broadcast real-time update
+	if clip.Edges.Project != nil {
+		projectIDStr := strconv.Itoa(clip.Edges.Project.ID)
+		manager := realtime.GetManager()
+		
+		// Get the full project highlights structure for broadcasting
+		highlightService := highlightsservice.NewHighlightService(s.client, s.ctx)
+		projectHighlights, err := highlightService.GetProjectHighlights(clip.Edges.Project.ID)
+		if err == nil {
+			manager.BroadcastHighlightsUpdate(projectIDStr, projectHighlights)
+		}
 	}
 
 	// Convert to return format
@@ -1262,6 +1361,11 @@ func (s *ProjectService) UpdateProjectHighlightOrderWithTitles(projectID int, hi
 	if err != nil {
 		return fmt.Errorf("failed to update project highlight order with titles: %w", err)
 	}
+	
+	// Broadcast real-time update
+	projectIDStr := strconv.Itoa(projectID)
+	manager := realtime.GetManager()
+	manager.BroadcastHighlightsReorder(projectIDStr, highlightOrder)
 	
 	return nil
 }

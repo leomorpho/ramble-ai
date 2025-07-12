@@ -1,6 +1,7 @@
 import { writable, derived, get } from 'svelte/store';
 import { GetProjectHighlights, GetProjectHighlightOrder, UpdateProjectHighlightOrder, UpdateProjectHighlightOrderWithTitles, DeleteHighlight, UpdateVideoClipHighlights, UndoOrderChange, RedoOrderChange, GetOrderHistoryStatus, UndoHighlightsChange, RedoHighlightsChange, GetHighlightsHistoryStatus, SaveSectionTitle, GetProjectHighlightOrderWithTitles } from '$lib/wailsjs/go/main/App';
 import { toast } from 'svelte-sonner';
+import { connectToProject, disconnect, onRealtimeEvent, EVENT_TYPES } from './realtime.js';
 
 // Store for the raw highlights data from the database
 export const rawHighlights = writable([]);
@@ -143,6 +144,9 @@ export async function loadProjectHighlights(projectId) {
     
     // Initialize history status
     await updateOrderHistoryStatus();
+    
+    // Connect to real-time updates for this project
+    connectToProject(projectId);
     
   } catch (error) {
     console.error('Failed to load project highlights:', error);
@@ -356,6 +360,9 @@ export async function refreshHighlights() {
 
 // Function to clear the store (useful when navigating away from project)
 export function clearHighlights() {
+  // Disconnect from real-time updates
+  disconnect();
+  
   rawHighlights.set([]);
   highlightOrder.set([]);
   currentProjectId.set(null);
@@ -688,3 +695,4 @@ function flattenConsecutiveNewlines(ids) {
 
   return result;
 }
+

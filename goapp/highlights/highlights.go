@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strconv"
 	"strings"
 
 	"MYAPP/ent"
@@ -12,6 +13,7 @@ import (
 	"MYAPP/ent/schema"
 	"MYAPP/ent/settings"
 	"MYAPP/ent/videoclip"
+	"MYAPP/goapp/realtime"
 )
 
 // Highlight represents a highlighted text region with timestamps
@@ -158,7 +160,17 @@ func (s *HighlightService) GetSuggestedHighlights(videoID int) ([]HighlightSugge
 
 // ClearSuggestedHighlights removes all suggested highlights for a video
 func (s *HighlightService) ClearSuggestedHighlights(videoID int) error {
-	_, err := s.client.VideoClip.
+	// Get clip with project information for broadcasting
+	clip, err := s.client.VideoClip.
+		Query().
+		Where(videoclip.ID(videoID)).
+		WithProject().
+		Only(s.ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get video clip: %w", err)
+	}
+
+	_, err = s.client.VideoClip.
 		UpdateOneID(videoID).
 		ClearSuggestedHighlights().
 		Save(s.ctx)
@@ -167,15 +179,24 @@ func (s *HighlightService) ClearSuggestedHighlights(videoID int) error {
 		return fmt.Errorf("failed to clear suggested highlights: %w", err)
 	}
 
+	// Broadcast real-time deletion event for suggested highlights
+	if clip.Edges.Project != nil {
+		projectIDStr := strconv.Itoa(clip.Edges.Project.ID)
+		manager := realtime.GetManager()
+		// Use a special ID to indicate all suggested highlights were cleared
+		manager.BroadcastHighlightsDelete(projectIDStr, []string{"suggested_highlights_cleared"})
+	}
+
 	return nil
 }
 
 // DeleteSuggestedHighlight removes a specific suggested highlight from a video
 func (s *HighlightService) DeleteSuggestedHighlight(videoID int, suggestionID string) error {
-	// Get the current video clip with its suggested highlights
+	// Get the current video clip with its suggested highlights and project
 	clip, err := s.client.VideoClip.
 		Query().
 		Where(videoclip.ID(videoID)).
+		WithProject().
 		Only(s.ctx)
 
 	if err != nil {
@@ -200,15 +221,24 @@ func (s *HighlightService) DeleteSuggestedHighlight(videoID int, suggestionID st
 		return fmt.Errorf("failed to update video clip suggested highlights: %w", err)
 	}
 
+	// Broadcast real-time deletion event for suggested highlights
+	if clip.Edges.Project != nil {
+		projectIDStr := strconv.Itoa(clip.Edges.Project.ID)
+		manager := realtime.GetManager()
+		// Prefix suggested highlight IDs to differentiate from regular highlights
+		manager.BroadcastHighlightsDelete(projectIDStr, []string{"suggested_" + suggestionID})
+	}
+
 	return nil
 }
 
 // DeleteHighlight removes a specific highlight from a video clip by highlight ID
 func (s *HighlightService) DeleteHighlight(clipID int, highlightID string) error {
-	// Get the current video clip with its highlights
+	// Get the current video clip with its highlights and project
 	clip, err := s.client.VideoClip.
 		Query().
 		Where(videoclip.ID(clipID)).
+		WithProject().
 		Only(s.ctx)
 
 	if err != nil {
@@ -231,6 +261,13 @@ func (s *HighlightService) DeleteHighlight(clipID int, highlightID string) error
 
 	if err != nil {
 		return fmt.Errorf("failed to update video clip highlights: %w", err)
+	}
+
+	// Broadcast real-time deletion event
+	if clip.Edges.Project != nil {
+		projectIDStr := strconv.Itoa(clip.Edges.Project.ID)
+		manager := realtime.GetManager()
+		manager.BroadcastHighlightsDelete(projectIDStr, []string{highlightID})
 	}
 
 	return nil

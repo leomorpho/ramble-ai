@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"net/http"
+	"strings"
 
 	"MYAPP/ent"
 	"MYAPP/goapp/ai"
@@ -13,6 +15,7 @@ import (
 	"MYAPP/goapp/exports"
 	"MYAPP/goapp/highlights"
 	"MYAPP/goapp/projects"
+	"MYAPP/goapp/realtime"
 	"MYAPP/goapp/settings"
 
 	"entgo.io/ent/dialect"
@@ -51,6 +54,10 @@ func NewApp() *App {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 
+	// Set context for real-time manager
+	manager := realtime.GetManager()
+	manager.SetContext(ctx)
+
 	// Run database migrations
 	if err := a.client.Schema.Create(ctx); err != nil {
 		log.Printf("failed creating schema resources: %v", err)
@@ -66,6 +73,10 @@ func (a *App) startup(ctx context.Context) {
 
 // shutdown is called when the app shuts down
 func (a *App) shutdown(ctx context.Context) {
+	// Shutdown real-time manager
+	manager := realtime.GetManager()
+	manager.Shutdown()
+	
 	// Close the database connection
 	if err := a.client.Close(); err != nil {
 		log.Printf("failed to close database connection: %v", err)
@@ -75,7 +86,25 @@ func (a *App) shutdown(ctx context.Context) {
 // createAssetMiddleware creates middleware for serving video files via AssetServer
 func (a *App) createAssetMiddleware() assetserver.Middleware {
 	assetHandler := assetshandler.NewAssetHandler()
-	return assetHandler.CreateAssetMiddleware()
+	originalMiddleware := assetHandler.CreateAssetMiddleware()
+	
+	// Wrap the original middleware to handle SSE endpoints
+	return func(next http.Handler) http.Handler {
+		// Apply the original middleware first
+		wrappedHandler := originalMiddleware(next)
+		
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Check if this is an SSE request
+			if strings.HasPrefix(r.URL.Path, "/api/sse/highlights") {
+				manager := realtime.GetManager()
+				manager.HandleSSEConnection(w, r)
+				return
+			}
+			
+			// For all other requests, use the original wrapped handler
+			wrappedHandler.ServeHTTP(w, r)
+		})
+	}
 }
 
 // Greet returns a greeting for the given name

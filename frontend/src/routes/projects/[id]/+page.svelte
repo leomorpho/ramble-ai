@@ -22,7 +22,17 @@
     highlightsLoading,
     loadProjectHighlights,
     clearHighlights,
+    rawHighlights,
+    highlightOrder,
+    currentProjectId,
   } from "$lib/stores/projectHighlights.js";
+  import { 
+    connectToProject, 
+    disconnect, 
+    onRealtimeEvent, 
+    EVENT_TYPES 
+  } from "$lib/stores/realtime.js";
+  import { get } from "svelte/store";
   import ThemeSwitcher from "$lib/components/ui/theme-switcher/theme-switcher.svelte";
   import ProjectDetails from "$lib/components/ProjectDetails.svelte";
   import ExportVideo from "$lib/components/ExportVideo.svelte";
@@ -83,12 +93,22 @@
   // Get project ID from route params
   let projectId = $derived(parseInt($page.params.id));
 
+  // Store unsubscribe functions for real-time events
+  let realtimeUnsubscribers = [];
+
   onMount(async () => {
     await loadProject();
     await loadHighlights();
+    
+    // Set up real-time event handlers
+    setupRealtimeHandlers();
   });
 
   onDestroy(() => {
+    // Clean up real-time event handlers
+    realtimeUnsubscribers.forEach(unsubscribe => unsubscribe());
+    realtimeUnsubscribers = [];
+    
     // Clean up highlights store
     clearHighlights();
 
@@ -130,6 +150,76 @@
     } catch (err) {
       console.error("Failed to load highlights:", err);
     }
+  }
+
+  function setupRealtimeHandlers() {
+    // Set up real-time event handlers for highlights updates
+    const unsubscribeUpdated = onRealtimeEvent(EVENT_TYPES.HIGHLIGHTS_UPDATED, (data) => {
+      console.log('Received highlights update:', data);
+      
+      // Only process if this update is for the current project
+      if (data.projectId === projectId?.toString()) {
+        try {
+          // Access highlights from the nested data structure
+          const highlights = data.data?.highlights;
+          if (highlights && Array.isArray(highlights)) {
+            // Flatten highlights from all videos into individual highlight objects
+            const flattenedHighlights = [];
+            for (const videoHighlights of highlights) {
+              for (const highlight of videoHighlights.highlights) {
+                flattenedHighlights.push({
+                  ...highlight,
+                  videoClipId: videoHighlights.videoClipId,
+                  videoClipName: videoHighlights.videoClipName,
+                  filePath: videoHighlights.filePath,
+                  videoDuration: videoHighlights.duration
+                });
+              }
+            }
+            
+            console.log('Updating highlights store with real-time data:', flattenedHighlights.length, 'highlights');
+            rawHighlights.set(flattenedHighlights);
+          }
+        } catch (error) {
+          console.error('Error processing real-time highlights update:', error);
+        }
+      }
+    });
+
+    const unsubscribeReordered = onRealtimeEvent(EVENT_TYPES.HIGHLIGHTS_REORDERED, (data) => {
+      console.log('Received highlights reorder:', data);
+      
+      // Only process if this update is for the current project
+      if (data.projectId === projectId?.toString()) {
+        try {
+          // Access order from the nested data structure
+          const newOrder = data.data?.newOrder;
+          if (newOrder && Array.isArray(newOrder)) {
+            console.log('Updating highlight order with real-time data:', newOrder.length, 'items');
+            highlightOrder.set(newOrder);
+          }
+        } catch (error) {
+          console.error('Error processing real-time highlights reorder:', error);
+        }
+      }
+    });
+
+    const unsubscribeDeleted = onRealtimeEvent(EVENT_TYPES.HIGHLIGHTS_DELETED, (data) => {
+      console.log('Received highlights deletion:', data);
+      
+      // Only process if this update is for the current project
+      if (data.projectId === projectId?.toString()) {
+        try {
+          // Refresh highlights from the backend to ensure consistency
+          loadProjectHighlights(projectId);
+        } catch (error) {
+          console.error('Error processing real-time highlights deletion:', error);
+        }
+      }
+    });
+
+    // Store unsubscribe functions for cleanup
+    realtimeUnsubscribers = [unsubscribeUpdated, unsubscribeReordered, unsubscribeDeleted];
   }
 
   // Watch for changes in the highlights store
