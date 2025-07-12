@@ -334,14 +334,14 @@ func (pu *ProjectUpdate) ClearHighlightOrder() *ProjectUpdate {
 }
 
 // SetOrderHistory sets the "order_history" field.
-func (pu *ProjectUpdate) SetOrderHistory(s [][]string) *ProjectUpdate {
-	pu.mutation.SetOrderHistory(s)
+func (pu *ProjectUpdate) SetOrderHistory(i [][]interface{}) *ProjectUpdate {
+	pu.mutation.SetOrderHistory(i)
 	return pu
 }
 
-// AppendOrderHistory appends s to the "order_history" field.
-func (pu *ProjectUpdate) AppendOrderHistory(s [][]string) *ProjectUpdate {
-	pu.mutation.AppendOrderHistory(s)
+// AppendOrderHistory appends i to the "order_history" field.
+func (pu *ProjectUpdate) AppendOrderHistory(i [][]interface{}) *ProjectUpdate {
+	pu.mutation.AppendOrderHistory(i)
 	return pu
 }
 
@@ -1056,14 +1056,14 @@ func (puo *ProjectUpdateOne) ClearHighlightOrder() *ProjectUpdateOne {
 }
 
 // SetOrderHistory sets the "order_history" field.
-func (puo *ProjectUpdateOne) SetOrderHistory(s [][]string) *ProjectUpdateOne {
-	puo.mutation.SetOrderHistory(s)
+func (puo *ProjectUpdateOne) SetOrderHistory(i [][]interface{}) *ProjectUpdateOne {
+	puo.mutation.SetOrderHistory(i)
 	return puo
 }
 
-// AppendOrderHistory appends s to the "order_history" field.
-func (puo *ProjectUpdateOne) AppendOrderHistory(s [][]string) *ProjectUpdateOne {
-	puo.mutation.AppendOrderHistory(s)
+// AppendOrderHistory appends i to the "order_history" field.
+func (puo *ProjectUpdateOne) AppendOrderHistory(i [][]interface{}) *ProjectUpdateOne {
+	puo.mutation.AppendOrderHistory(i)
 	return puo
 }
 

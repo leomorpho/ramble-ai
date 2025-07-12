@@ -52,8 +52,8 @@ type Project struct {
 	AiSilenceCreatedAt time.Time `json:"ai_silence_created_at,omitempty"`
 	// Current highlight order (array of highlight IDs, 'N' for newlines, or newline objects with titles)
 	HighlightOrder []interface{} `json:"highlight_order,omitempty"`
-	// FIFO history of highlight orders (last 20 states)
-	OrderHistory [][]string `json:"order_history,omitempty"`
+	// FIFO history of highlight orders (last 20 states) - preserves full newline objects with titles
+	OrderHistory [][]interface{} `json:"order_history,omitempty"`
 	// Current position in order history (-1 = no history)
 	OrderHistoryIndex int `json:"order_history_index,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.

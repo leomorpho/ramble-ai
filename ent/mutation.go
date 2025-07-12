@@ -1371,8 +1371,8 @@ type ProjectMutation struct {
 	ai_silence_created_at         *time.Time
 	highlight_order               *[]interface{}
 	appendhighlight_order         []interface{}
-	order_history                 *[][]string
-	appendorder_history           [][]string
+	order_history                 *[][]interface{}
+	appendorder_history           [][]interface{}
 	order_history_index           *int
 	addorder_history_index        *int
 	clearedFields                 map[string]struct{}
@@ -2315,13 +2315,13 @@ func (m *ProjectMutation) ResetHighlightOrder() {
 }
 
 // SetOrderHistory sets the "order_history" field.
-func (m *ProjectMutation) SetOrderHistory(s [][]string) {
-	m.order_history = &s
+func (m *ProjectMutation) SetOrderHistory(i [][]interface{}) {
+	m.order_history = &i
 	m.appendorder_history = nil
 }
 
 // OrderHistory returns the value of the "order_history" field in the mutation.
-func (m *ProjectMutation) OrderHistory() (r [][]string, exists bool) {
+func (m *ProjectMutation) OrderHistory() (r [][]interface{}, exists bool) {
 	v := m.order_history
 	if v == nil {
 		return
@@ -2332,7 +2332,7 @@ func (m *ProjectMutation) OrderHistory() (r [][]string, exists bool) {
 // OldOrderHistory returns the old "order_history" field's value of the Project entity.
 // If the Project object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ProjectMutation) OldOrderHistory(ctx context.Context) (v [][]string, err error) {
+func (m *ProjectMutation) OldOrderHistory(ctx context.Context) (v [][]interface{}, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldOrderHistory is only allowed on UpdateOne operations")
 	}
@@ -2346,13 +2346,13 @@ func (m *ProjectMutation) OldOrderHistory(ctx context.Context) (v [][]string, er
 	return oldValue.OrderHistory, nil
 }
 
-// AppendOrderHistory adds s to the "order_history" field.
-func (m *ProjectMutation) AppendOrderHistory(s [][]string) {
-	m.appendorder_history = append(m.appendorder_history, s...)
+// AppendOrderHistory adds i to the "order_history" field.
+func (m *ProjectMutation) AppendOrderHistory(i [][]interface{}) {
+	m.appendorder_history = append(m.appendorder_history, i...)
 }
 
 // AppendedOrderHistory returns the list of values that were appended to the "order_history" field in this mutation.
-func (m *ProjectMutation) AppendedOrderHistory() ([][]string, bool) {
+func (m *ProjectMutation) AppendedOrderHistory() ([][]interface{}, bool) {
 	if len(m.appendorder_history) == 0 {
 		return nil, false
 	}
@@ -2871,7 +2871,7 @@ func (m *ProjectMutation) SetField(name string, value ent.Value) error {
 		m.SetHighlightOrder(v)
 		return nil
 	case project.FieldOrderHistory:
-		v, ok := value.([][]string)
+		v, ok := value.([][]interface{})
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}

@@ -71,9 +71,9 @@ func (Project) Fields() []ent.Field {
 		field.JSON("highlight_order", []interface{}{}).
 			Optional().
 			Comment("Current highlight order (array of highlight IDs, 'N' for newlines, or newline objects with titles)"),
-		field.JSON("order_history", [][]string{}).
+		field.JSON("order_history", [][]interface{}{}).
 			Optional().
-			Comment("FIFO history of highlight orders (last 20 states)"),
+			Comment("FIFO history of highlight orders (last 20 states) - preserves full newline objects with titles"),
 		field.Int("order_history_index").
 			Optional().
 			Default(-1).

@@ -683,6 +683,45 @@ func equalStringSlices(a, b []string) bool {
 	return true
 }
 
+// equalInterfaceSlices checks if two interface{} slices are equal
+func equalInterfaceSlices(a, b []interface{}) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, v := range a {
+		if !equalInterfaces(v, b[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// equalInterfaces checks if two interface{} values are equal
+func equalInterfaces(a, b interface{}) bool {
+	switch va := a.(type) {
+	case string:
+		if vb, ok := b.(string); ok {
+			return va == vb
+		}
+		return false
+	case map[string]interface{}:
+		if vb, ok := b.(map[string]interface{}); ok {
+			if len(va) != len(vb) {
+				return false
+			}
+			for k, v := range va {
+				if !equalInterfaces(v, vb[k]) {
+					return false
+				}
+			}
+			return true
+		}
+		return false
+	default:
+		return fmt.Sprintf("%v", a) == fmt.Sprintf("%v", b)
+	}
+}
+
 // History Management Functions
 
 // saveOrderState saves the current highlight order to history before making changes
@@ -696,36 +735,24 @@ func (s *ProjectService) saveOrderState(projectID int) error {
 		return fmt.Errorf("failed to get project: %w", err)
 	}
 
-	// Get current order from project schema and convert to string array for history
-	var currentOrderStrings []string
+	// Get current order from project schema and preserve full objects for history
+	var currentOrder []interface{}
 	if project.HighlightOrder != nil {
-		// Convert []interface{} to []string for history storage
-		for _, item := range project.HighlightOrder {
-			switch v := item.(type) {
-			case string:
-				currentOrderStrings = append(currentOrderStrings, v)
-			case map[string]interface{}:
-				// Convert newline objects back to simple "N" for history
-				if typeVal, ok := v["type"].(string); ok && typeVal == "N" {
-					currentOrderStrings = append(currentOrderStrings, "N")
-				}
-			default:
-				// Handle other types as strings
-				currentOrderStrings = append(currentOrderStrings, fmt.Sprintf("%v", v))
-			}
-		}
+		// Store full objects in history to preserve titles
+		currentOrder = make([]interface{}, len(project.HighlightOrder))
+		copy(currentOrder, project.HighlightOrder)
 	} else {
-		currentOrderStrings = []string{}
+		currentOrder = []interface{}{}
 	}
 
 	// Get current history
 	history := project.OrderHistory
 	if history == nil {
-		history = [][]string{}
+		history = [][]interface{}{}
 	}
 
 	// Add current order to history (FIFO, max 20)
-	history = append(history, currentOrderStrings)
+	history = append(history, currentOrder)
 	if len(history) > 20 {
 		history = history[1:] // Remove oldest entry
 	}
@@ -795,28 +822,16 @@ func (s *ProjectService) UndoOrderChange(projectID int) ([]string, error) {
 		// Before undoing from current state, we need to save the current state to history
 		// so we can redo back to it later
 		
-		// Get current order and convert to string array
-		var currentOrderStrings []string
+		// Get current order and preserve full objects
+		var currentOrder []interface{}
 		if project.HighlightOrder != nil {
-			for _, item := range project.HighlightOrder {
-				switch v := item.(type) {
-				case string:
-					currentOrderStrings = append(currentOrderStrings, v)
-				case map[string]interface{}:
-					// Convert newline objects back to simple "N" for history
-					if typeVal, ok := v["type"].(string); ok && typeVal == "N" {
-						currentOrderStrings = append(currentOrderStrings, "N")
-					}
-				default:
-					// Handle other types as strings
-					currentOrderStrings = append(currentOrderStrings, fmt.Sprintf("%v", v))
-				}
-			}
+			currentOrder = make([]interface{}, len(project.HighlightOrder))
+			copy(currentOrder, project.HighlightOrder)
 		}
 		
 		// Add current state to history if it's different from the last history entry
-		if len(history) == 0 || !equalStringSlices(currentOrderStrings, history[len(history)-1]) {
-			history = append(history, currentOrderStrings)
+		if len(history) == 0 || !equalInterfaceSlices(currentOrder, history[len(history)-1]) {
+			history = append(history, currentOrder)
 			if len(history) > 20 {
 				history = history[1:] // Remove oldest entry
 			}
@@ -861,18 +876,28 @@ func (s *ProjectService) UndoOrderChange(projectID int) ([]string, error) {
 	_, err = s.client.Project.
 		UpdateOneID(projectID).
 		SetOrderHistoryIndex(newIndex).
+		SetHighlightOrder(orderFromHistory).
 		Save(s.ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update history index: %w", err)
+		return nil, fmt.Errorf("failed to update history index and apply order: %w", err)
 	}
 
-	// Apply the order to settings
-	err = s.UpdateProjectHighlightOrderWithoutHistory(projectID, orderFromHistory)
-	if err != nil {
-		return nil, fmt.Errorf("failed to apply historical order: %w", err)
+	// Convert to string array for return value (for backward compatibility)
+	var orderStrings []string
+	for _, item := range orderFromHistory {
+		switch v := item.(type) {
+		case string:
+			orderStrings = append(orderStrings, v)
+		case map[string]interface{}:
+			if typeVal, ok := v["type"].(string); ok && typeVal == "N" {
+				orderStrings = append(orderStrings, "N")
+			}
+		default:
+			orderStrings = append(orderStrings, fmt.Sprintf("%v", v))
+		}
 	}
 
-	return orderFromHistory, nil
+	return orderStrings, nil
 }
 
 // RedoOrderChange moves forward in order history
@@ -903,24 +928,14 @@ func (s *ProjectService) RedoOrderChange(projectID int) ([]string, error) {
 		// At the last history entry, check if we can move to current state
 		// We can only move to current state (-1) if the current project order
 		// is different from the last history entry
-		var currentOrderStrings []string
+		var currentOrder []interface{}
 		if project.HighlightOrder != nil {
-			for _, item := range project.HighlightOrder {
-				switch v := item.(type) {
-				case string:
-					currentOrderStrings = append(currentOrderStrings, v)
-				case map[string]interface{}:
-					if typeVal, ok := v["type"].(string); ok && typeVal == "N" {
-						currentOrderStrings = append(currentOrderStrings, "N")
-					}
-				default:
-					currentOrderStrings = append(currentOrderStrings, fmt.Sprintf("%v", v))
-				}
-			}
+			currentOrder = make([]interface{}, len(project.HighlightOrder))
+			copy(currentOrder, project.HighlightOrder)
 		}
 		
 		// If last history entry matches current state, we can't redo
-		if equalStringSlices(history[len(history)-1], currentOrderStrings) {
+		if equalInterfaceSlices(history[len(history)-1], currentOrder) {
 			return nil, fmt.Errorf("cannot redo further")
 		}
 		
@@ -934,6 +949,21 @@ func (s *ProjectService) RedoOrderChange(projectID int) ([]string, error) {
 			Save(s.ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to update history index: %w", err)
+		}
+		
+		// Convert current order to string array for return value
+		var currentOrderStrings []string
+		for _, item := range currentOrder {
+			switch v := item.(type) {
+			case string:
+				currentOrderStrings = append(currentOrderStrings, v)
+			case map[string]interface{}:
+				if typeVal, ok := v["type"].(string); ok && typeVal == "N" {
+					currentOrderStrings = append(currentOrderStrings, "N")
+				}
+			default:
+				currentOrderStrings = append(currentOrderStrings, fmt.Sprintf("%v", v))
+			}
 		}
 		
 		// Return the current order (which is already applied)
@@ -950,18 +980,28 @@ func (s *ProjectService) RedoOrderChange(projectID int) ([]string, error) {
 	_, err = s.client.Project.
 		UpdateOneID(projectID).
 		SetOrderHistoryIndex(newIndex).
+		SetHighlightOrder(orderFromHistory).
 		Save(s.ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update history index: %w", err)
+		return nil, fmt.Errorf("failed to update history index and apply order: %w", err)
 	}
 
-	// Apply the order to settings
-	err = s.UpdateProjectHighlightOrderWithoutHistory(projectID, orderFromHistory)
-	if err != nil {
-		return nil, fmt.Errorf("failed to apply historical order: %w", err)
+	// Convert to string array for return value (for backward compatibility)
+	var orderStrings []string
+	for _, item := range orderFromHistory {
+		switch v := item.(type) {
+		case string:
+			orderStrings = append(orderStrings, v)
+		case map[string]interface{}:
+			if typeVal, ok := v["type"].(string); ok && typeVal == "N" {
+				orderStrings = append(orderStrings, "N")
+			}
+		default:
+			orderStrings = append(orderStrings, fmt.Sprintf("%v", v))
+		}
 	}
 
-	return orderFromHistory, nil
+	return orderStrings, nil
 }
 
 // GetOrderHistoryStatus returns whether undo/redo is available
@@ -997,24 +1037,14 @@ func (s *ProjectService) GetOrderHistoryStatus(projectID int) (bool, bool, error
 			canRedo = true
 		} else if currentIndex == len(history)-1 {
 			// At last history entry, check if current state differs
-			var currentOrderStrings []string
+			var currentOrder []interface{}
 			if project.HighlightOrder != nil {
-				for _, item := range project.HighlightOrder {
-					switch v := item.(type) {
-					case string:
-						currentOrderStrings = append(currentOrderStrings, v)
-					case map[string]interface{}:
-						if typeVal, ok := v["type"].(string); ok && typeVal == "N" {
-							currentOrderStrings = append(currentOrderStrings, "N")
-						}
-					default:
-						currentOrderStrings = append(currentOrderStrings, fmt.Sprintf("%v", v))
-					}
-				}
+				currentOrder = make([]interface{}, len(project.HighlightOrder))
+				copy(currentOrder, project.HighlightOrder)
 			}
 			
 			// Can redo if current state differs from last history entry
-			canRedo = !equalStringSlices(history[len(history)-1], currentOrderStrings)
+			canRedo = !equalInterfaceSlices(history[len(history)-1], currentOrder)
 		}
 	}
 
@@ -1139,26 +1169,6 @@ func (s *ProjectService) GetHighlightsHistoryStatus(clipID int) (bool, bool, err
 	return canUndo, canRedo, nil
 }
 
-// UpdateProjectHighlightOrderWithoutHistory updates order without saving to history (used for undo/redo)
-func (s *ProjectService) UpdateProjectHighlightOrderWithoutHistory(projectID int, highlightOrder []string) error {
-	// Convert []string to []interface{} for database storage
-	interfaceOrder := make([]interface{}, len(highlightOrder))
-	for i, v := range highlightOrder {
-		interfaceOrder[i] = v
-	}
-
-	// Update the highlight order in the project schema directly (no history save)
-	_, err := s.client.Project.
-		UpdateOneID(projectID).
-		SetHighlightOrder(interfaceOrder).
-		Save(s.ctx)
-	
-	if err != nil {
-		return fmt.Errorf("failed to update project highlight order: %w", err)
-	}
-	
-	return nil
-}
 
 // SaveSectionTitle saves or updates the title for a newline section at a specific position
 func (s *ProjectService) SaveSectionTitle(projectID int, position int, title string) error {

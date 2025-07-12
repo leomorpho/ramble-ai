@@ -221,8 +221,8 @@ func (pc *ProjectCreate) SetHighlightOrder(i []interface{}) *ProjectCreate {
 }
 
 // SetOrderHistory sets the "order_history" field.
-func (pc *ProjectCreate) SetOrderHistory(s [][]string) *ProjectCreate {
-	pc.mutation.SetOrderHistory(s)
+func (pc *ProjectCreate) SetOrderHistory(i [][]interface{}) *ProjectCreate {
+	pc.mutation.SetOrderHistory(i)
 	return pc
 }
 

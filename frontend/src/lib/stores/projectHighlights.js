@@ -556,10 +556,10 @@ export async function undoOrderChange() {
   }
   
   try {
-    const newOrder = await UndoOrderChange(projectId);
+    await UndoOrderChange(projectId);
     
-    // Update local store
-    highlightOrder.set(newOrder);
+    // Refresh the full order with titles from database
+    await loadProjectHighlights(projectId);
     
     // Update history status
     await updateOrderHistoryStatus();
@@ -583,10 +583,10 @@ export async function redoOrderChange() {
   }
   
   try {
-    const newOrder = await RedoOrderChange(projectId);
+    await RedoOrderChange(projectId);
     
-    // Update local store
-    highlightOrder.set(newOrder);
+    // Refresh the full order with titles from database
+    await loadProjectHighlights(projectId);
     
     // Update history status
     await updateOrderHistoryStatus();
