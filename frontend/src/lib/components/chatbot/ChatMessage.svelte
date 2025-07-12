@@ -1,12 +1,15 @@
 <script>
   import { Button } from "$lib/components/ui/button";
-  import { Copy, User, Bot, AlertCircle } from "@lucide/svelte";
+  import { Badge } from "$lib/components/ui/badge";
+  import { Copy, User, Bot, AlertCircle, CheckCircle, ChevronDown, ChevronUp } from "@lucide/svelte";
   import { MESSAGE_TYPES } from "$lib/constants/chatbot.js";
   import { toast } from "svelte-sonner";
   
   let {
     message
   } = $props();
+  
+  let showTechnicalDetails = $state(false);
   
   // Format timestamp for display
   function formatTime(timestamp) {
@@ -70,14 +73,83 @@
     <!-- AI message -->
     <div class="flex justify-start gap-2">
       <div class="flex-shrink-0 w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
-        <Bot class="w-4 h-4 text-secondary-foreground" />
+        {#if message.hasActions}
+          <CheckCircle class="w-4 h-4 text-green-600" />
+        {:else}
+          <Bot class="w-4 h-4 text-secondary-foreground" />
+        {/if}
       </div>
       <div class="max-w-[80%] group">
-        <div class="bg-secondary rounded-lg px-4 py-3">
-          <div class="whitespace-pre-wrap text-sm break-words prose prose-sm dark:prose-invert max-w-none">
-            {@html renderContent(message.content)}
+        <!-- Action Summary (if present) -->
+        {#if message.actionSummary}
+          <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg px-4 py-3 mb-2">
+            <div class="flex items-start gap-2 mb-2">
+              <CheckCircle class="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
+              <div class="text-sm font-medium text-green-800 dark:text-green-200">Actions Completed</div>
+            </div>
+            
+            {#if message.actionsPerformed && message.actionsPerformed.length > 0}
+              <div class="flex flex-wrap gap-1 mb-2">
+                {#each message.actionsPerformed as action}
+                  <Badge variant="secondary" class="text-xs bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200">
+                    {action.replace(/_/g, ' ')}
+                  </Badge>
+                {/each}
+              </div>
+            {/if}
+            
+            <div class="text-sm text-green-700 dark:text-green-300 prose prose-sm dark:prose-invert max-w-none">
+              {@html renderContent(message.actionSummary)}
+            </div>
+            
+            <!-- Technical Details (collapsible) -->
+            {#if message.functionResults && message.functionResults.length > 0}
+              <div class="mt-3 pt-2 border-t border-green-200 dark:border-green-700">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  class="text-xs h-6 p-1 text-green-700 dark:text-green-300"
+                  onclick={() => showTechnicalDetails = !showTechnicalDetails}
+                >
+                  {showTechnicalDetails ? 'Hide' : 'Show'} Technical Details
+                  {#if showTechnicalDetails}
+                    <ChevronUp class="w-3 h-3 ml-1" />
+                  {:else}
+                    <ChevronDown class="w-3 h-3 ml-1" />
+                  {/if}
+                </Button>
+                
+                {#if showTechnicalDetails}
+                  <div class="mt-2 space-y-2">
+                    {#each message.functionResults as result}
+                      <div class="bg-green-100 dark:bg-green-800/30 rounded p-2">
+                        <div class="text-xs font-mono">
+                          <div class="text-green-600 dark:text-green-400 font-medium">{result.functionName}</div>
+                          <div class="text-green-700 dark:text-green-300">
+                            Status: {result.success ? '✅ Success' : '❌ Failed'}
+                          </div>
+                          {#if result.error}
+                            <div class="text-red-600 dark:text-red-400">Error: {result.error}</div>
+                          {/if}
+                        </div>
+                      </div>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+            {/if}
           </div>
-        </div>
+        {/if}
+        
+        <!-- Regular Message Content -->
+        {#if message.content && (!message.actionSummary || message.content !== message.actionSummary)}
+          <div class="bg-secondary rounded-lg px-4 py-3">
+            <div class="whitespace-pre-wrap text-sm break-words prose prose-sm dark:prose-invert max-w-none">
+              {@html renderContent(message.content)}
+            </div>
+          </div>
+        {/if}
+        
         <div class="flex items-center gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <span class="text-xs text-muted-foreground">{formatTime(message.timestamp)}</span>
           <Button

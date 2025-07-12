@@ -2,6 +2,7 @@ package chatbot
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strconv"
@@ -24,9 +25,10 @@ func NewChatbotService(client *ent.Client, ctx context.Context, updateOrderFunc 
 		highlightService: highlights.NewHighlightService(client, ctx),
 		aiService:        highlights.NewAIService(client, ctx),
 		updateOrderFunc:  updateOrderFunc,
+		mcpRegistry:      NewMCPRegistry(),
 	}
 	
-	// Register available functions
+	// Register available functions (legacy - will be replaced by MCP registry)
 	s.registerFunctions()
 	
 	return s
@@ -148,9 +150,12 @@ func (s *ChatbotService) SendMessage(req ChatRequest, getAPIKey func() (string, 
 	var response *ChatResponse
 	var responseErr error
 	
-	// If function calling is enabled and we're in reorder mode, call LLM with functions
-	if req.EnableFunctionCalls && req.Mode == "reorder" {
-		response, responseErr = s.sendMessageWithFunctions(req, messageID, getAPIKey, session)
+	// Check if endpoint supports MCP actions using registry
+	supportsActions := s.mcpRegistry.SupportsActions(req.EndpointID)
+	
+	// Use MCP-based action flow if endpoint supports it
+	if supportsActions {
+		response, responseErr = s.sendMessageWithMCPActions(req, messageID, getAPIKey, session)
 	} else {
 		// Otherwise, send regular chat message
 		response, responseErr = s.sendRegularMessage(req, messageID, getAPIKey, session)
@@ -602,6 +607,243 @@ func (s *ChatbotService) ClearChatHistory(projectID int, endpointID string) erro
 	manager.BroadcastChatHistoryCleared(projectIDStr, endpointID, sessionID)
 	
 	return nil
+}
+
+// sendMessageWithMCPActions handles LLM requests using the MCP registry system
+func (s *ChatbotService) sendMessageWithMCPActions(req ChatRequest, messageID string, getAPIKey func() (string, error), session *ent.ChatSession) (*ChatResponse, error) {
+	// Get API key
+	apiKey, err := getAPIKey()
+	if err != nil || apiKey == "" {
+		return &ChatResponse{
+			SessionID: session.SessionID,
+			MessageID: messageID,
+			Success:   false,
+			Error:     "OpenRouter API key not configured",
+		}, nil
+	}
+	
+	// Get endpoint configuration from MCP registry
+	endpointConfig, exists := s.mcpRegistry.GetEndpointConfig(req.EndpointID)
+	if !exists {
+		return &ChatResponse{
+			SessionID: session.SessionID,
+			MessageID: messageID,
+			Success:   false,
+			Error:     fmt.Sprintf("Endpoint %s not found in MCP registry", req.EndpointID),
+		}, nil
+	}
+	
+	// Build context using MCP registry
+	context, err := s.mcpRegistry.BuildContextForEndpoint(req.EndpointID, req.ProjectID, s)
+	if err != nil {
+		log.Printf("Failed to build context for endpoint %s: %v", req.EndpointID, err)
+		context = "Context unavailable."
+	}
+	
+	// Build system prompt using endpoint configuration
+	systemPrompt := fmt.Sprintf(`%s
+
+Current project context:
+%s
+
+IMPORTANT: If you need to perform actions (like reordering highlights), use the available functions. Always explain your reasoning clearly.`, endpointConfig.SystemPrompt, context)
+	
+	// Get MCP functions for this endpoint
+	tools, err := s.mcpRegistry.GetFunctionsForEndpoint(req.EndpointID)
+	if err != nil {
+		log.Printf("Failed to get functions for endpoint %s: %v", req.EndpointID, err)
+		tools = []map[string]interface{}{}
+	}
+	
+	// Step 1: Call LLM with function tools
+	openRouterReq := map[string]interface{}{
+		"model": req.Model,
+		"messages": []map[string]interface{}{
+			{
+				"role":    "system",
+				"content": systemPrompt,
+			},
+			{
+				"role":    "user",
+				"content": req.Message,
+			},
+		},
+		"temperature": 0.7,
+		"max_tokens":  4000,
+	}
+	
+	// Add tools if available
+	if len(tools) > 0 {
+		openRouterReq["tools"] = tools
+		openRouterReq["tool_choice"] = "auto"
+	}
+	
+	// Call OpenRouter API
+	aiResponse, err := s.callOpenRouterAPI(apiKey, openRouterReq)
+	if err != nil {
+		return &ChatResponse{
+			SessionID: session.SessionID,
+			MessageID: messageID,
+			Success:   false,
+			Error:     fmt.Sprintf("AI API call failed: %v", err),
+		}, nil
+	}
+	
+	response := &ChatResponse{
+		SessionID: session.SessionID,
+		MessageID: messageID,
+		Model:     req.Model,
+		Success:   true,
+	}
+	
+	// Process function calls if present
+	var functionResults []FunctionExecutionResult
+	var actionsPerformed []string
+	
+	if toolCalls, ok := aiResponse["tool_calls"].([]interface{}); ok && len(toolCalls) > 0 {
+		response.HasActions = true
+		
+		for _, toolCallInterface := range toolCalls {
+			if toolCall, ok := toolCallInterface.(map[string]interface{}); ok {
+				result := s.executeMCPFunctionCall(toolCall, req.ProjectID, req.EndpointID)
+				functionResults = append(functionResults, result)
+				
+				if result.Success {
+					actionsPerformed = append(actionsPerformed, result.FunctionName)
+				}
+			}
+		}
+		
+		response.FunctionResults = functionResults
+		response.ActionsPerformed = actionsPerformed
+		
+		// Step 2: Generate human-readable action summary
+		if len(actionsPerformed) > 0 {
+			summary, err := s.generateActionSummary(actionsPerformed, functionResults, req.EndpointID, req.Message)
+			if err != nil {
+				log.Printf("Failed to generate action summary: %v", err)
+				response.ActionSummary = fmt.Sprintf("Performed %d actions successfully.", len(actionsPerformed))
+			} else {
+				response.ActionSummary = summary
+			}
+		}
+	}
+	
+	// Get the AI's response message
+	if content, ok := aiResponse["content"].(string); ok {
+		response.Message = content
+	} else {
+		// If no direct content, create a message based on actions performed
+		if len(actionsPerformed) > 0 {
+			response.Message = response.ActionSummary
+		} else {
+			response.Message = "I've processed your request. How else can I help you?"
+		}
+	}
+	
+	return response, nil
+}
+
+// executeMCPFunctionCall executes a function call using the MCP registry
+func (s *ChatbotService) executeMCPFunctionCall(toolCall map[string]interface{}, projectID int, endpointID string) FunctionExecutionResult {
+	functionInfo, ok := toolCall["function"].(map[string]interface{})
+	if !ok {
+		return FunctionExecutionResult{
+			Success: false,
+			Error:   "Invalid function call format",
+		}
+	}
+	
+	functionName, ok := functionInfo["name"].(string)
+	if !ok {
+		return FunctionExecutionResult{
+			Success: false,
+			Error:   "Function name not found",
+		}
+	}
+	
+	// Parse arguments
+	var args map[string]interface{}
+	if argsStr, ok := functionInfo["arguments"].(string); ok {
+		if argsStr != "" && argsStr != "{}" {
+			if err := json.Unmarshal([]byte(argsStr), &args); err != nil {
+				return FunctionExecutionResult{
+					FunctionName: functionName,
+					Success:      false,
+					Error:        fmt.Sprintf("Failed to parse function arguments: %v", err),
+				}
+			}
+		}
+	}
+	
+	// Initialize args if nil
+	if args == nil {
+		args = make(map[string]interface{})
+	}
+	
+	// Execute using MCP registry
+	result, err := s.mcpRegistry.ExecuteFunction(endpointID, functionName, args, projectID, s)
+	if err != nil {
+		log.Printf("MCP function execution failed: %v", err)
+	}
+	
+	return result
+}
+
+// generateActionSummary creates a human-readable summary of actions performed
+func (s *ChatbotService) generateActionSummary(actionsPerformed []string, functionResults []FunctionExecutionResult, endpointID, originalMessage string) (string, error) {
+	// Build a summary based on the actions performed
+	var summaryBuilder strings.Builder
+	
+	summaryBuilder.WriteString("✅ **Actions Completed:**\n\n")
+	
+	for i, action := range actionsPerformed {
+		switch action {
+		case "reorder_highlights":
+			summaryBuilder.WriteString(fmt.Sprintf("%d. **Reordered highlights** for better narrative flow\n", i+1))
+			
+			// Add details from function result if available
+			if i < len(functionResults) && functionResults[i].Success {
+				if result, ok := functionResults[i].Result.(map[string]interface{}); ok {
+					if reason, ok := result["reason"].(string); ok && reason != "" {
+						summaryBuilder.WriteString(fmt.Sprintf("   - *Reasoning:* %s\n", reason))
+					}
+					if order, ok := result["new_order"].([]interface{}); ok {
+						summaryBuilder.WriteString(fmt.Sprintf("   - *New arrangement:* %d items reordered\n", len(order)))
+					}
+				}
+			}
+			
+		case "analyze_highlights":
+			summaryBuilder.WriteString(fmt.Sprintf("%d. **Analyzed highlight content** for themes and structure\n", i+1))
+			
+		case "get_current_order":
+			summaryBuilder.WriteString(fmt.Sprintf("%d. **Retrieved current highlight order** for reference\n", i+1))
+			
+		case "apply_ai_suggestion":
+			summaryBuilder.WriteString(fmt.Sprintf("%d. **Applied AI suggestion** to improve highlight order\n", i+1))
+			
+		case "reset_to_original":
+			summaryBuilder.WriteString(fmt.Sprintf("%d. **Reset highlights** to original order\n", i+1))
+			
+		default:
+			summaryBuilder.WriteString(fmt.Sprintf("%d. **Performed action:** %s\n", i+1, action))
+		}
+	}
+	
+	// Add contextual message based on endpoint
+	switch endpointID {
+	case "highlight_ordering":
+		summaryBuilder.WriteString("\n💡 **Next Steps:** Review the new highlight order in your timeline. You can always undo changes or ask for further adjustments.")
+	case "highlight_suggestions":
+		summaryBuilder.WriteString("\n💡 **Next Steps:** Consider these suggestions when creating your highlight segments.")
+	case "content_analysis":
+		summaryBuilder.WriteString("\n💡 **Next Steps:** Use these insights to optimize your content strategy.")
+	case "export_optimization":
+		summaryBuilder.WriteString("\n💡 **Next Steps:** Apply these optimizations to your export settings.")
+	}
+	
+	return summaryBuilder.String(), nil
 }
 
 // generatePlaceholderResponse creates a placeholder AI response for testing

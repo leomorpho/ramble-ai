@@ -49,6 +49,10 @@ type ChatResponse struct {
 	Error             string                   `json:"error,omitempty"`
 	FunctionResults   []FunctionExecutionResult `json:"functionResults,omitempty"`
 	ActionsAvailable  []string                 `json:"actionsAvailable,omitempty"`
+	// New fields for MCP action summaries
+	ActionsPerformed  []string                 `json:"actionsPerformed,omitempty"`
+	ActionSummary     string                   `json:"actionSummary,omitempty"`
+	HasActions        bool                     `json:"hasActions,omitempty"`
 }
 
 // FunctionExecutionResult represents the result of executing a function
@@ -88,4 +92,5 @@ type ChatbotService struct {
 	highlightService *highlights.HighlightService
 	aiService        *highlights.AIService
 	updateOrderFunc  UpdateOrderFunc
+	mcpRegistry      *MCPRegistry
 }

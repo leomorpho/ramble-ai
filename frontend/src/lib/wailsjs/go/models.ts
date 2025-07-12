@@ -162,6 +162,9 @@ export namespace chatbot {
 	    error?: string;
 	    functionResults?: FunctionExecutionResult[];
 	    actionsAvailable?: string[];
+	    actionsPerformed?: string[];
+	    actionSummary?: string;
+	    hasActions?: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new ChatResponse(source);
@@ -177,6 +180,9 @@ export namespace chatbot {
 	        this.error = source["error"];
 	        this.functionResults = this.convertValues(source["functionResults"], FunctionExecutionResult);
 	        this.actionsAvailable = source["actionsAvailable"];
+	        this.actionsPerformed = source["actionsPerformed"];
+	        this.actionSummary = source["actionSummary"];
+	        this.hasActions = source["hasActions"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

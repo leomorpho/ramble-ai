@@ -21,14 +21,8 @@
   // Get configuration for current endpoint
   let config = $derived(ENDPOINT_CONFIGS[endpointId] || ENDPOINT_CONFIGS[CHATBOT_ENDPOINTS.HIGHLIGHT_ORDERING]);
   
-  // Chat state - now handled by real-time store in ChatInterface
-  // Keeping these for backwards compatibility but they're no longer used
-  let messages = $state([]);
-  let sessionId = $state(null);
-  
   // Header actions state
-  let chatInterface;
-  let settingsOpen = $state(false);
+  let chatInterface = $state();
   
   // Access real-time state for button states
   let realtimeMessages = $derived(getChatbotMessages(projectId, endpointId));
