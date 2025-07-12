@@ -1,5 +1,5 @@
 <script>
-  import { onMount, tick } from "svelte";
+  import { onMount, onDestroy, tick } from "svelte";
   import { Button } from "$lib/components/ui/button";
   import { Settings, RefreshCw, Trash2 } from "@lucide/svelte";
   import MessageList from "./MessageList.svelte";
@@ -8,13 +8,19 @@
   import { ENDPOINT_CONFIGS, AVAILABLE_MODELS } from "$lib/constants/chatbot.js";
   import { SendChatMessage, GetChatHistory, ClearChatHistory } from "$lib/wailsjs/go/main/App.js";
   import { toast } from "svelte-sonner";
+  import { 
+    connectChatbotSession, 
+    getChatbotMessages, 
+    getChatbotSessionId,
+    clearChatbotMessages,
+    updateChatbotSessionId,
+    addChatbotMessage
+  } from "$lib/stores/chatbotRealtime.js";
   
   let {
     endpointId,
     projectId,
     contextData = {},
-    messages = $bindable([]),
-    sessionId = $bindable(null),
     title = "AI Assistant",
     description = "Chat with AI about your project",
     icon = "🤖"
@@ -29,6 +35,11 @@
   let selectedModel = $state(AVAILABLE_MODELS[0].value);
   let customModelValue = $state("");
   
+  // Real-time stores
+  let realtimeMessages = $derived(getChatbotMessages(projectId, endpointId));
+  let realtimeSessionId = $derived(getChatbotSessionId(projectId, endpointId));
+  let unsubscribeRealtime = null;
+  
   // Set default model when config changes
   $effect(() => {
     if (config.defaultModel && selectedModel === AVAILABLE_MODELS[0].value) {
@@ -36,31 +47,69 @@
     }
   });
   
-  // Load chat history when component mounts
+  // Load chat history and set up real-time connection when component mounts
   onMount(async () => {
     if (projectId && endpointId) {
       await loadChatHistory();
     }
   });
   
-  // Reload when projectId or endpointId changes
+  // Clean up real-time connection when component unmounts
+  onDestroy(() => {
+    if (unsubscribeRealtime) {
+      unsubscribeRealtime();
+      unsubscribeRealtime = null;
+    }
+  });
+  
+  // Reload and reconnect when projectId or endpointId changes
   $effect(() => {
     if (projectId && endpointId) {
       loadChatHistory();
+      setupRealtimeConnection();
     }
+    
+    // Cleanup function for effect
+    return () => {
+      if (unsubscribeRealtime) {
+        unsubscribeRealtime();
+        unsubscribeRealtime = null;
+      }
+    };
   });
   
   async function loadChatHistory() {
     try {
       const history = await GetChatHistory(projectId, endpointId);
       if (history && history.messages) {
-        messages = history.messages;
-        sessionId = history.sessionId;
+        // Initialize the real-time store with the loaded messages
+        setupRealtimeConnection(history.messages, history.sessionId);
+      } else {
+        // Initialize with empty messages
+        setupRealtimeConnection([], null);
       }
     } catch (error) {
       console.warn("Could not load chat history:", error);
-      // This is not a critical error, so we don't show a toast
+      // Initialize with empty messages even if loading fails
+      setupRealtimeConnection([], null);
     }
+  }
+  
+  function setupRealtimeConnection(initialMessages = [], initialSessionId = null) {
+    // Disconnect existing connection if any
+    if (unsubscribeRealtime) {
+      unsubscribeRealtime();
+    }
+    
+    // Connect to real-time updates
+    unsubscribeRealtime = connectChatbotSession(
+      projectId, 
+      endpointId, 
+      initialMessages, 
+      initialSessionId
+    );
+    
+    console.log(`Set up real-time connection for chatbot session ${projectId}_${endpointId}`);
   }
   
   async function handleSendMessage(messageText) {
@@ -69,41 +118,36 @@
     loading = true;
     
     try {
-      // Add user message immediately for better UX
-      const userMessage = {
-        id: Date.now().toString(),
-        role: "user",
-        content: messageText,
-        timestamp: new Date().toISOString()
-      };
+      // Get current session ID from real-time store
+      const currentSessionId = $realtimeSessionId;
       
-      messages = [...messages, userMessage];
-      
-      // Send message to backend
+      // Send message to backend (real-time events will handle message updates)
       const response = await SendChatMessage({
         projectId,
         endpointId,
         message: messageText,
-        sessionId,
+        sessionId: currentSessionId,
         contextData,
         model: selectedModel === "custom" ? customModelValue : selectedModel
       });
       
       // Update session ID if we got a new one
-      if (response.sessionId) {
-        sessionId = response.sessionId;
+      if (response.sessionId && response.sessionId !== currentSessionId) {
+        updateChatbotSessionId(projectId, endpointId, response.sessionId);
       }
       
-      // Add AI response
-      if (response.message) {
-        const aiMessage = {
-          id: response.messageId || (Date.now() + 1).toString(),
-          role: "assistant",
-          content: response.message,
+      // If there was an error, add error message locally
+      if (!response.success && response.error) {
+        const errorMessage = {
+          id: `error_${Date.now()}`,
+          role: "error",
+          content: response.error,
           timestamp: new Date().toISOString()
         };
         
-        messages = [...messages, aiMessage];
+        // Add error message to real-time store
+        addChatbotMessage(projectId, endpointId, errorMessage);
+        toast.error("Failed to send message");
       }
       
     } catch (error) {
@@ -111,13 +155,14 @@
       
       // Add error message to chat
       const errorMessage = {
-        id: (Date.now() + 2).toString(),
+        id: `error_${Date.now()}`,
         role: "error",
         content: "Failed to process message. Please try again.",
         timestamp: new Date().toISOString()
       };
       
-      messages = [...messages, errorMessage];
+      // Add error message to real-time store
+      addChatbotMessage(projectId, endpointId, errorMessage);
       toast.error("Failed to send message");
     } finally {
       loading = false;
@@ -127,8 +172,7 @@
   async function handleClearHistory() {
     try {
       await ClearChatHistory(projectId, endpointId);
-      messages = [];
-      sessionId = null;
+      // Real-time event will handle clearing the messages
       toast.success("Chat history cleared");
     } catch (error) {
       console.error("Failed to clear history:", error);
@@ -169,7 +213,7 @@
           variant="ghost"
           size="icon"
           onclick={handleClearHistory}
-          disabled={loading || messages.length === 0}
+          disabled={loading || $realtimeMessages.length === 0}
           aria-label="Clear history"
         >
           <Trash2 class="w-4 h-4" />
@@ -201,7 +245,7 @@
   <!-- Messages Area -->
   <div class="flex-1 overflow-y-auto px-6 scrollbar-thin">
     <MessageList 
-      {messages} 
+      messages={$realtimeMessages} 
       {loading} 
       {config} 
       {endpointId}

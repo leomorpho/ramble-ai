@@ -20,7 +20,8 @@
   // Get configuration for current endpoint
   let config = $derived(ENDPOINT_CONFIGS[endpointId] || ENDPOINT_CONFIGS[CHATBOT_ENDPOINTS.HIGHLIGHT_ORDERING]);
   
-  // Chat state
+  // Chat state - now handled by real-time store in ChatInterface
+  // Keeping these for backwards compatibility but they're no longer used
   let messages = $state([]);
   let sessionId = $state(null);
   
@@ -68,8 +69,6 @@
       {endpointId} 
       {projectId} 
       {contextData} 
-      bind:messages 
-      bind:sessionId 
       title={config.title}
       description={config.description}
       icon={config.icon}

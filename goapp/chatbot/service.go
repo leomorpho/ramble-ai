@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
 	"MYAPP/ent"
 	"MYAPP/goapp/highlights"
+	"MYAPP/goapp/realtime"
 )
 
 // NewChatbotService creates a new chatbot service
@@ -43,13 +45,42 @@ func (s *ChatbotService) SendMessage(req ChatRequest, getAPIKey func() (string, 
 		}, nil
 	}
 	
-	// If function calling is enabled and we're in reorder mode, call LLM with functions
-	if req.EnableFunctionCalls && req.Mode == "reorder" {
-		return s.sendMessageWithFunctions(req, messageID, getAPIKey)
+	// Broadcast user message first
+	userMessage := ChatMessage{
+		ID:        fmt.Sprintf("user_%d", time.Now().UnixNano()),
+		Role:      "user",
+		Content:   req.Message,
+		Timestamp: time.Now(),
 	}
 	
-	// Otherwise, send regular chat message
-	return s.sendRegularMessage(req, messageID)
+	projectIDStr := strconv.Itoa(req.ProjectID)
+	manager := realtime.GetManager()
+	manager.BroadcastChatMessageAdded(projectIDStr, req.EndpointID, req.SessionID, userMessage)
+	
+	var response *ChatResponse
+	var err error
+	
+	// If function calling is enabled and we're in reorder mode, call LLM with functions
+	if req.EnableFunctionCalls && req.Mode == "reorder" {
+		response, err = s.sendMessageWithFunctions(req, messageID, getAPIKey)
+	} else {
+		// Otherwise, send regular chat message
+		response, err = s.sendRegularMessage(req, messageID)
+	}
+	
+	// Broadcast AI response if successful
+	if err == nil && response.Success && response.Message != "" {
+		aiMessage := ChatMessage{
+			ID:        response.MessageID,
+			Role:      "assistant",
+			Content:   response.Message,
+			Timestamp: time.Now(),
+		}
+		
+		manager.BroadcastChatMessageAdded(projectIDStr, req.EndpointID, response.SessionID, aiMessage)
+	}
+	
+	return response, err
 }
 
 // sendMessageWithFunctions handles LLM requests with function calling enabled  
@@ -240,6 +271,14 @@ func (s *ChatbotService) GetChatHistory(projectID int, endpointID string) (*Chat
 // ClearChatHistory clears chat history for a project/endpoint
 func (s *ChatbotService) ClearChatHistory(projectID int, endpointID string) error {
 	// TODO: Implement database clearing
+	
+	// Broadcast chat history cleared event
+	projectIDStr := strconv.Itoa(projectID)
+	sessionID := fmt.Sprintf("session_%d_%s", projectID, endpointID)
+	
+	manager := realtime.GetManager()
+	manager.BroadcastChatHistoryCleared(projectIDStr, endpointID, sessionID)
+	
 	return nil
 }
 

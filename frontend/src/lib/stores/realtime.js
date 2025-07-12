@@ -23,6 +23,9 @@ export const EVENT_TYPES = {
   HIGHLIGHTS_DELETED: 'highlights_deleted',
   HIGHLIGHTS_REORDERED: 'highlights_reordered',
   PROJECT_UPDATED: 'project_updated',
+  CHAT_MESSAGE_ADDED: 'chat_message_added',
+  CHAT_HISTORY_CLEARED: 'chat_history_cleared',
+  CHAT_SESSION_UPDATED: 'chat_session_updated',
   CONNECTED: 'connected',
   DISCONNECTED: 'disconnected'
 };
@@ -94,6 +97,21 @@ class RealtimeManager {
         
         runtime.EventsOn(EVENT_TYPES.HIGHLIGHTS_REORDERED, (data) => {
           console.log('Received Wails event - highlights reordered:', data);
+          this.handleWailsEvent(data);
+        });
+        
+        runtime.EventsOn(EVENT_TYPES.CHAT_MESSAGE_ADDED, (data) => {
+          console.log('Received Wails event - chat message added:', data);
+          this.handleWailsEvent(data);
+        });
+        
+        runtime.EventsOn(EVENT_TYPES.CHAT_HISTORY_CLEARED, (data) => {
+          console.log('Received Wails event - chat history cleared:', data);
+          this.handleWailsEvent(data);
+        });
+        
+        runtime.EventsOn(EVENT_TYPES.CHAT_SESSION_UPDATED, (data) => {
+          console.log('Received Wails event - chat session updated:', data);
           this.handleWailsEvent(data);
         });
         

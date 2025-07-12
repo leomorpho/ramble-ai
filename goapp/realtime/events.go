@@ -17,6 +17,11 @@ const (
 	// Project events
 	EventProjectUpdated EventType = "project_updated"
 	
+	// Chatbot events
+	EventChatMessageAdded   EventType = "chat_message_added"
+	EventChatHistoryCleared EventType = "chat_history_cleared"
+	EventChatSessionUpdated EventType = "chat_session_updated"
+	
 	// Connection events
 	EventConnected    EventType = "connected"
 	EventDisconnected EventType = "disconnected"
@@ -72,4 +77,27 @@ type HighlightsReorderData struct {
 type ProjectUpdateData struct {
 	Project   interface{} `json:"project"`
 	UpdatedBy string      `json:"updatedBy,omitempty"`
+}
+
+// ChatMessageAddedData represents data for chat message added events
+type ChatMessageAddedData struct {
+	EndpointID string      `json:"endpointId"`
+	SessionID  string      `json:"sessionId"`
+	Message    interface{} `json:"message"`
+	AddedBy    string      `json:"addedBy,omitempty"`
+}
+
+// ChatHistoryClearedData represents data for chat history cleared events
+type ChatHistoryClearedData struct {
+	EndpointID string `json:"endpointId"`
+	SessionID  string `json:"sessionId,omitempty"`
+	ClearedBy  string `json:"clearedBy,omitempty"`
+}
+
+// ChatSessionUpdatedData represents data for chat session updated events
+type ChatSessionUpdatedData struct {
+	EndpointID string        `json:"endpointId"`
+	SessionID  string        `json:"sessionId"`
+	Messages   []interface{} `json:"messages,omitempty"`
+	UpdatedBy  string        `json:"updatedBy,omitempty"`
 }

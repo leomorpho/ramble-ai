@@ -174,6 +174,68 @@ func (m *Manager) BroadcastProjectUpdate(projectID string, project interface{}) 
 	log.Printf("Broadcasted project update for project %s", projectID)
 }
 
+// BroadcastChatMessageAdded broadcasts a chat message added event
+func (m *Manager) BroadcastChatMessageAdded(projectID string, endpointID string, sessionID string, message interface{}) {
+	data := &ChatMessageAddedData{
+		EndpointID: endpointID,
+		SessionID:  sessionID,
+		Message:    message,
+	}
+	
+	event := NewEvent(EventChatMessageAdded, projectID, data)
+	
+	// Broadcast via SSE for browser connections
+	m.sseManager.BroadcastToProject(projectID, event)
+	
+	// Broadcast via Wails events for desktop app
+	if m.ctx != nil {
+		runtime.EventsEmit(m.ctx, string(EventChatMessageAdded), event)
+	}
+	
+	log.Printf("Broadcasted chat message added for project %s, endpoint %s", projectID, endpointID)
+}
+
+// BroadcastChatHistoryCleared broadcasts a chat history cleared event
+func (m *Manager) BroadcastChatHistoryCleared(projectID string, endpointID string, sessionID string) {
+	data := &ChatHistoryClearedData{
+		EndpointID: endpointID,
+		SessionID:  sessionID,
+	}
+	
+	event := NewEvent(EventChatHistoryCleared, projectID, data)
+	
+	// Broadcast via SSE for browser connections
+	m.sseManager.BroadcastToProject(projectID, event)
+	
+	// Broadcast via Wails events for desktop app
+	if m.ctx != nil {
+		runtime.EventsEmit(m.ctx, string(EventChatHistoryCleared), event)
+	}
+	
+	log.Printf("Broadcasted chat history cleared for project %s, endpoint %s", projectID, endpointID)
+}
+
+// BroadcastChatSessionUpdated broadcasts a chat session updated event
+func (m *Manager) BroadcastChatSessionUpdated(projectID string, endpointID string, sessionID string, messages []interface{}) {
+	data := &ChatSessionUpdatedData{
+		EndpointID: endpointID,
+		SessionID:  sessionID,
+		Messages:   messages,
+	}
+	
+	event := NewEvent(EventChatSessionUpdated, projectID, data)
+	
+	// Broadcast via SSE for browser connections
+	m.sseManager.BroadcastToProject(projectID, event)
+	
+	// Broadcast via Wails events for desktop app
+	if m.ctx != nil {
+		runtime.EventsEmit(m.ctx, string(EventChatSessionUpdated), event)
+	}
+	
+	log.Printf("Broadcasted chat session updated for project %s, endpoint %s", projectID, endpointID)
+}
+
 // GetStats returns statistics about connected clients
 func (m *Manager) GetStats() map[string]interface{} {
 	return map[string]interface{}{
