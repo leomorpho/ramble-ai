@@ -18,10 +18,10 @@ import (
 
 // Highlight represents a highlighted text region with timestamps
 type Highlight struct {
-	ID    string  `json:"id"`
-	Start float64 `json:"start"`
-	End   float64 `json:"end"`
-	Color string  `json:"color"`
+	ID      string  `json:"id"`
+	Start   float64 `json:"start"`
+	End     float64 `json:"end"`
+	ColorID int     `json:"colorId"`
 }
 
 // HighlightWithText represents a highlight with its text content
@@ -29,7 +29,7 @@ type HighlightWithText struct {
 	ID         string  `json:"id"`
 	Start      float64 `json:"start"`
 	End        float64 `json:"end"`
-	Color      string  `json:"color"`
+	ColorID    int     `json:"colorId"`
 	Text       string  `json:"text"`
 	StartIndex int     `json:"startIndex"` // Word index where highlight starts
 	EndIndex   int     `json:"endIndex"`   // Word index where highlight ends
@@ -50,7 +50,7 @@ type HighlightSegment struct {
 	VideoPath     string  `json:"videoPath"`
 	Start         float64 `json:"start"`
 	End           float64 `json:"end"`
-	Color         string  `json:"color"`
+	ColorID       int     `json:"colorId"`
 	Text          string  `json:"text"`
 	VideoClipID   int     `json:"videoClipId"`
 	VideoClipName string  `json:"videoClipName"`
@@ -64,11 +64,11 @@ type ProjectHighlightAISettings struct {
 
 // HighlightSuggestion represents an AI-generated highlight suggestion
 type HighlightSuggestion struct {
-	ID    string `json:"id"`
-	Start int    `json:"start"`
-	End   int    `json:"end"`
-	Text  string `json:"text"`
-	Color string `json:"color"`
+	ID      string `json:"id"`
+	Start   int    `json:"start"`
+	End     int    `json:"end"`
+	Text    string `json:"text"`
+	ColorID int    `json:"colorId"`
 }
 
 // HighlightService provides highlight management functionality
@@ -98,7 +98,7 @@ func (s *HighlightService) GetSuggestedHighlights(videoID int) ([]HighlightSugge
 	log.Printf("VideoID: %d", videoID)
 	log.Printf("Number of stored highlights: %d", len(clip.SuggestedHighlights))
 	for i, h := range clip.SuggestedHighlights {
-		log.Printf("  Stored highlight %d: ID=%s, Start=%.3f, End=%.3f, Color=%s", i+1, h.ID, h.Start, h.End, h.Color)
+		log.Printf("  Stored highlight %d: ID=%s, Start=%.3f, End=%.3f, ColorID=%d", i+1, h.ID, h.Start, h.End, h.ColorID)
 	}
 	log.Printf("===============================================")
 
@@ -142,7 +142,7 @@ func (s *HighlightService) GetSuggestedHighlights(videoID int) ([]HighlightSugge
 			Start: startIndex,
 			End:   endIndex,
 			Text:  text,
-			Color: h.Color,
+			ColorID: h.ColorID,
 		}
 		suggestions = append(suggestions, suggestion)
 	}
@@ -299,7 +299,7 @@ func (s *HighlightService) GetProjectHighlights(projectID int) ([]ProjectHighlig
 				ID:    h.ID,
 				Start: h.Start,
 				End:   h.End,
-				Color: h.Color,
+				ColorID: h.ColorID,
 			}
 
 			// Extract text and word indices for the highlight if transcription exists
@@ -452,7 +452,7 @@ func (s *HighlightService) GetProjectHighlightsForExport(projectID int) ([]Highl
 				VideoPath:     clip.FilePath,
 				Start:         highlight.Start,
 				End:           highlight.End,
-				Color:         highlight.Color,
+				ColorID:       highlight.ColorID,
 				Text:          text,
 				VideoClipID:   clip.ID,
 				VideoClipName: clip.Name,

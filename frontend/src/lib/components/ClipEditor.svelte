@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { GetVideoURL, UpdateVideoClipHighlights } from '$lib/wailsjs/go/main/App';
   import { toast } from 'svelte-sonner';
+  import { getColorFromId } from '$lib/components/texthighlighter/TextHighlighter.utils.js';
   import { Edit3, Save, X, RotateCcw, RotateCw } from '@lucide/svelte';
   import VideoTimelineEditor from '$lib/components/VideoTimelineEditor.svelte';
   import { 
@@ -344,7 +345,7 @@
         id: highlight.id,
         start: editedStart,
         end: editedEnd,
-        color: highlight.color
+        colorId: highlight.colorId
       };
 
       const videoClipId = highlight.videoClipId;
@@ -576,7 +577,7 @@
         </div>
 
         <!-- Highlight Preview -->
-        <div class="p-4 rounded-lg border" style="background-color: {highlight.color}20; border-left: 4px solid {highlight.color};">
+        <div class="p-4 rounded-lg border" style="background-color: {getColorFromId(highlight.colorId)}20; border-left: 4px solid {getColorFromId(highlight.colorId)};">
           <div class="flex items-center justify-between">
             <div>
               <h3 class="font-medium">{highlight.videoClipName}</h3>

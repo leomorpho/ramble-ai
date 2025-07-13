@@ -1,6 +1,7 @@
 <script>
   import { Button } from "$lib/components/ui/button";
   import { GetOpenAIApiKey, SaveOpenAIApiKey, DeleteOpenAIApiKey, TestOpenAIApiKey, GetOpenRouterApiKey, SaveOpenRouterApiKey, DeleteOpenRouterApiKey, TestOpenRouterApiKey } from "$lib/wailsjs/go/main/App";
+  import { runHighlightColorMigration } from "$lib/utils/migration.js";
   import { onMount } from "svelte";
 
   let openaiApiKey = $state("");
@@ -17,6 +18,7 @@
   let openrouterTesting = $state(false);
   let testResult = $state(null);
   let openrouterTestResult = $state(null);
+  let migrationRunning = $state(false);
 
   onMount(() => {
     loadApiKey();
@@ -156,6 +158,15 @@
 
   function toggleOpenRouterApiKeyVisibility() {
     showOpenRouterApiKey = !showOpenRouterApiKey;
+  }
+
+  async function runMigration() {
+    migrationRunning = true;
+    try {
+      await runHighlightColorMigration();
+    } finally {
+      migrationRunning = false;
+    }
   }
 
   async function testOpenRouterApiKey() {
@@ -453,6 +464,27 @@
           </a>
         </p>
       </div>
+    </div>
+
+    <div class="bg-card border rounded-lg p-6 space-y-4">
+      <h3 class="text-lg font-medium">Database Migration</h3>
+      <div class="text-sm text-muted-foreground space-y-2">
+        <p>
+          If you're upgrading from a previous version, you may need to migrate your highlight colors to the new integer-based system.
+        </p>
+        <p class="text-xs text-amber-600">
+          <strong>Note:</strong> This migration is safe and will convert existing string-based colors to integer IDs. This only needs to be run once.
+        </p>
+      </div>
+      
+      <Button 
+        onclick={runMigration}
+        disabled={migrationRunning}
+        variant="outline"
+        class="w-full"
+      >
+        {migrationRunning ? "Running Migration..." : "Migrate Highlight Colors"}
+      </Button>
     </div>
   </div>
 </main>

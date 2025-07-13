@@ -89,6 +89,8 @@ export function Greet(arg1:string):Promise<string>;
 
 export function ImproveHighlightSilencesWithAI(arg1:number):Promise<Array<highlights.ProjectHighlight>>;
 
+export function MigrateHighlightColors():Promise<void>;
+
 export function RecoverActiveExportJobs():Promise<void>;
 
 export function RedoHighlightsChange(arg1:number):Promise<Array<projects.Highlight>>;

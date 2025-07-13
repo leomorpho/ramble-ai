@@ -1,5 +1,6 @@
 <script>
   import HighlightMenu from "$lib/components/HighlightMenu.svelte";
+  import { getColorFromId } from "$lib/components/texthighlighter/TextHighlighter.utils.js";
 
   let {
     highlight,
@@ -53,7 +54,7 @@
   dragStartIndex === index
     ? 'opacity-50'
     : ''} cursor-pointer overflow-visible"
-  style="width: {segmentWidth}%; background-color: {highlight.color}; min-width: 2px;"
+  style="width: {segmentWidth}%; background-color: {getColorFromId(highlight.colorId)}; min-width: 2px;"
   title="{highlight.videoClipName}: {formatTime(highlight.start)} - {formatTime(
     highlight.end
   )}{enableReordering

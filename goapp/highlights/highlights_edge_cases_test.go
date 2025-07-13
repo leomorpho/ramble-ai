@@ -30,7 +30,7 @@ func TestHighlightService_extractHighlightText_EdgeCases(t *testing.T) {
 				ID:    "h1",
 				Start: 1.0,
 				End:   1.0,
-				Color: "red",
+				ColorID: 3,
 			},
 			words: []schema.Word{
 				{Word: "Hello", Start: 0.0, End: 0.5},
@@ -47,7 +47,7 @@ func TestHighlightService_extractHighlightText_EdgeCases(t *testing.T) {
 				ID:    "h2",
 				Start: -1.0,
 				End:   0.0,
-				Color: "blue",
+				ColorID: 2,
 			},
 			words: []schema.Word{
 				{Word: "Hello", Start: 0.0, End: 0.5},
@@ -63,7 +63,7 @@ func TestHighlightService_extractHighlightText_EdgeCases(t *testing.T) {
 				ID:    "h3",
 				Start: 10.0,
 				End:   11.0,
-				Color: "green",
+				ColorID: 3,
 			},
 			words: []schema.Word{
 				{Word: "Hello", Start: 0.0, End: 0.5},
@@ -79,7 +79,7 @@ func TestHighlightService_extractHighlightText_EdgeCases(t *testing.T) {
 				ID:    "h4",
 				Start: 0.25,
 				End:   0.75,
-				Color: "yellow",
+				ColorID: 1,
 			},
 			words: []schema.Word{
 				{Word: "Hello", Start: 0.0, End: 0.5},
@@ -96,7 +96,7 @@ func TestHighlightService_extractHighlightText_EdgeCases(t *testing.T) {
 				ID:    "h5",
 				Start: 1.0,
 				End:   1.0,
-				Color: "red",
+				ColorID: 3,
 			},
 			words: []schema.Word{
 				{Word: "Hello", Start: 1.0, End: 1.0},
@@ -113,7 +113,7 @@ func TestHighlightService_extractHighlightText_EdgeCases(t *testing.T) {
 				ID:    "h6",
 				Start: 0.0,
 				End:   1.0,
-				Color: "purple",
+				ColorID: 5,
 			},
 			words:        []schema.Word{},
 			fullText:     "Hello world test",
@@ -126,7 +126,7 @@ func TestHighlightService_extractHighlightText_EdgeCases(t *testing.T) {
 				ID:    "h7",
 				Start: 0.0,
 				End:   1.0,
-				Color: "orange",
+				ColorID: 2,
 			},
 			words: []schema.Word{
 				{Word: "I", Start: 0.0, End: 0.2},
@@ -144,7 +144,7 @@ func TestHighlightService_extractHighlightText_EdgeCases(t *testing.T) {
 				ID:    "h8",
 				Start: 0.0,
 				End:   2.0,
-				Color: "pink",
+				ColorID: 4,
 			},
 			words: []schema.Word{
 				{Word: "Hello,", Start: 0.0, End: 0.5},
@@ -162,7 +162,7 @@ func TestHighlightService_extractHighlightText_EdgeCases(t *testing.T) {
 				ID:    "h9",
 				Start: 0.001,
 				End:   0.999,
-				Color: "cyan",
+				ColorID: 2,
 			},
 			words: []schema.Word{
 				{Word: "Hello", Start: 0.0, End: 0.5},
@@ -178,7 +178,7 @@ func TestHighlightService_extractHighlightText_EdgeCases(t *testing.T) {
 				ID:    "h10",
 				Start: 0.0,
 				End:   1.0,
-				Color: "magenta",
+				ColorID: 4,
 			},
 			words: []schema.Word{
 				{Word: "Hello", Start: 0.0, End: 0.7},
@@ -436,12 +436,12 @@ func TestHighlightService_StructCreation_EdgeCases(t *testing.T) {
 			ID:    "",
 			Start: 0.0,
 			End:   0.0,
-			Color: "",
+			ColorID: 0,
 		}
 		assert.Equal(t, "", highlight.ID)
 		assert.Equal(t, 0.0, highlight.Start)
 		assert.Equal(t, 0.0, highlight.End)
-		assert.Equal(t, "", highlight.Color)
+		assert.Equal(t, 0, highlight.ColorID)
 	})
 
 	t.Run("HighlightWithText with empty text", func(t *testing.T) {
@@ -449,7 +449,7 @@ func TestHighlightService_StructCreation_EdgeCases(t *testing.T) {
 			ID:    "h1",
 			Start: 1.0,
 			End:   2.0,
-			Color: "red",
+			ColorID: 3,
 			Text:  "",
 		}
 		assert.Equal(t, "", highlight.Text)
@@ -473,7 +473,7 @@ func TestHighlightService_StructCreation_EdgeCases(t *testing.T) {
 			VideoPath:     "/test.mp4",
 			Start:         -1.0,
 			End:           -0.5,
-			Color:         "red",
+			ColorID:       3,
 			Text:          "Test",
 			VideoClipID:   -1,
 			VideoClipName: "Test",
@@ -489,7 +489,7 @@ func TestHighlightService_StructCreation_EdgeCases(t *testing.T) {
 			Start: -1,
 			End:   -1,
 			Text:  "Test",
-			Color: "red",
+			ColorID: 3,
 		}
 		assert.Equal(t, -1, suggestion.Start)
 		assert.Equal(t, -1, suggestion.End)

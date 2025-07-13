@@ -17,10 +17,10 @@ type Word struct {
 
 // Highlight represents a highlighted text region with timestamps
 type Highlight struct {
-	ID    string  `json:"id"`
-	Start float64 `json:"start"`
-	End   float64 `json:"end"`
-	Color string  `json:"color"`
+	ID      string  `json:"id"`
+	Start   float64 `json:"start"`
+	End     float64 `json:"end"`
+	ColorID int     `json:"colorId"`
 }
 
 // VideoClip holds the schema definition for the VideoClip entity.

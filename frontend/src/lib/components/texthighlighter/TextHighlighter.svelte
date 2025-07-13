@@ -50,7 +50,8 @@
     findHighlightForWord,
     checkOverlap,
     isWordInSelection as isWordInSelectionUtil,
-    calculateTimestamps
+    calculateTimestamps,
+    getColorFromId
   } from "./TextHighlighter.utils.js";
 
   let {
@@ -63,7 +64,6 @@
   } = $props();
 
   // === CORE STATE ===
-  let usedColors = $state(new Set());
   
   // Pause detection settings
   const SHOW_ALL_PAUSES = false; // show even normal pauses with subtle indicators
@@ -78,12 +78,6 @@
     );
   }
   
-  // Update used colors when highlights prop changes
-  $effect(() => {
-    if (highlights && highlights.length > 0) {
-      usedColors = new Set(highlights.map(h => h.color));
-    }
-  });
   
 
   // === SELECTION STATE ===
@@ -221,7 +215,7 @@
     // Get timestamps from word indices
     const startWord = words[startIndex];
     const endWord = words[endIndex];
-    const result = addHighlight(highlights, startWord.start, endWord.end, usedColors);
+    const result = addHighlight(highlights, startWord.start, endWord.end);
     const newTimestampHighlights = result.highlights;
     
     emitChanges(newTimestampHighlights);
@@ -449,7 +443,7 @@
 
     // Create new highlight from word timestamps
     const word = words[wordIndex];
-    const result = addHighlight(highlights, word.start, word.end, usedColors);
+    const result = addHighlight(highlights, word.start, word.end);
     emitChanges(result.highlights);
 
     event.preventDefault();
@@ -499,7 +493,7 @@
 
       if (Math.abs(selectionStart - selectionEnd) > 0.01) {
         // Create new highlight from timestamps
-        const result = addHighlight(highlights, selectionStart, selectionEnd, usedColors);
+        const result = addHighlight(highlights, selectionStart, selectionEnd);
         emitChanges(result.highlights);
       }
     }
@@ -561,7 +555,7 @@
         <!-- Word will remain in the highlight -->
         <span
           class="inline cursor-pointer px-1.5 py-0.5 rounded"
-          style:background-color={highlight.color}
+          style:background-color={getColorFromId(highlight.colorId)}
           onmousedown={(e) => handleWordMouseDown(wordIndex, e)}
           onmouseenter={() => handleWordMouseEnter(wordIndex)}
           onclick={(e) => handleWordClick(wordIndex, e)}
@@ -609,7 +603,7 @@
       <!-- Regular highlighted word (not being dragged) -->
       <span
         class="inline cursor-pointer px-1.5 py-0.5 rounded"
-        style:background-color={highlight.color}
+        style:background-color={getColorFromId(highlight.colorId)}
         onmousedown={(e) => handleWordMouseDown(wordIndex, e)}
         onmouseenter={() => handleWordMouseEnter(wordIndex)}
         onclick={(e) => handleWordClick(wordIndex, e)}
@@ -630,8 +624,8 @@
       <!-- Suggested highlight -->
       <span
         class="inline relative group cursor-pointer px-1.5 py-0.5 rounded border-2 border-dashed transition-all duration-200 hover:opacity-100"
-        style:background-color={`${suggestedHighlight.color}40`}
-        style:border-color={suggestedHighlight.color}
+        style:background-color={`${getColorFromId(suggestedHighlight.colorId)}40`}
+        style:border-color={getColorFromId(suggestedHighlight.colorId)}
         class:opacity-70={true}
         onmousedown={(e) => handleWordMouseDown(wordIndex, e)}
         onmouseenter={() => handleWordMouseEnter(wordIndex)}

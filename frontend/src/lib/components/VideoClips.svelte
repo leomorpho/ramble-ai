@@ -533,7 +533,7 @@
 
       // Show starting toast
       toast.info(`Starting transcription for ${clip.name}`, {
-        description: "Extracting audio and sending to OpenAI...",
+        description: "Transcribing...",
       });
 
       const result = await TranscribeVideoClip(clip.id);

@@ -47,10 +47,10 @@ type Word struct {
 
 // Highlight represents a highlighted text region with timestamps
 type Highlight struct {
-	ID    string  `json:"id"`
-	Start float64 `json:"start"`
-	End   float64 `json:"end"`
-	Color string  `json:"color"`
+	ID      string  `json:"id"`
+	Start   float64 `json:"start"`
+	End     float64 `json:"end"`
+	ColorID int     `json:"colorId"`
 }
 
 // NewlineSection represents a newline section with an optional title
@@ -515,7 +515,7 @@ func (s *ProjectService) UpdateVideoClipHighlights(clipID int, highlights []High
 			ID:    h.ID,
 			Start: h.Start,
 			End:   h.End,
-			Color: h.Color,
+			ColorID: h.ColorID,
 		})
 	}
 	
@@ -562,7 +562,7 @@ func (s *ProjectService) UpdateVideoClipSuggestedHighlights(clipID int, suggeste
 			ID:    h.ID,
 			Start: h.Start,
 			End:   h.End,
-			Color: h.Color,
+			ColorID: h.ColorID,
 		})
 	}
 	
@@ -707,7 +707,7 @@ func (s *ProjectService) schemaHighlightsToHighlights(schemaHighlights []schema.
 			ID:    sh.ID,
 			Start: sh.Start,
 			End:   sh.End,
-			Color: sh.Color,
+			ColorID: sh.ColorID,
 		})
 	}
 	return highlights

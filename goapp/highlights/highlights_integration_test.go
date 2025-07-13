@@ -48,13 +48,13 @@ func createTestVideoClipWithHighlights(t *testing.T, client *ent.Client, ctx con
 			ID:    "h1",
 			Start: 0.0,
 			End:   1.0,
-			Color: "red",
+			ColorID: 3,
 		},
 		{
 			ID:    "h2",
 			Start: 2.0,
 			End:   3.0,
-			Color: "blue",
+			ColorID: 2,
 		},
 	}
 
@@ -63,7 +63,7 @@ func createTestVideoClipWithHighlights(t *testing.T, client *ent.Client, ctx con
 			ID:    "s1",
 			Start: 1.0,
 			End:   2.0,
-			Color: "yellow",
+			ColorID: 1,
 		},
 	}
 
@@ -100,7 +100,7 @@ func TestHighlightService_GetSuggestedHighlights_Integration(t *testing.T) {
 	
 	suggestion := suggestions[0]
 	assert.Equal(t, "s1", suggestion.ID)
-	assert.Equal(t, "yellow", suggestion.Color)
+	assert.Equal(t, 1, suggestion.ColorID)
 	assert.Equal(t, "this is", suggestion.Text)
 	assert.Equal(t, 2, suggestion.Start) // Word index
 	assert.Equal(t, 4, suggestion.End)   // Word index
@@ -187,7 +187,7 @@ func TestHighlightService_GetProjectHighlights_Integration(t *testing.T) {
 				ID:    "h3",
 				Start: 0.0,
 				End:   1.0,
-				Color: "green",
+				ColorID: 3,
 			},
 		}).
 		SetProject(project).
@@ -252,7 +252,7 @@ func TestHighlightService_GetProjectHighlightsForExport_Integration(t *testing.T
 	assert.Equal(t, "/test/video.mp4", segment1.VideoPath)
 	assert.Equal(t, 0.0, segment1.Start)
 	assert.Equal(t, 1.0, segment1.End)
-	assert.Equal(t, "red", segment1.Color)
+	assert.Equal(t, 3, segment1.ColorID)
 	assert.Equal(t, "Hello world", segment1.Text)
 	assert.Equal(t, clip.ID, segment1.VideoClipID)
 	assert.Equal(t, "Test Video", segment1.VideoClipName)
@@ -263,7 +263,7 @@ func TestHighlightService_GetProjectHighlightsForExport_Integration(t *testing.T
 	assert.Equal(t, "/test/video.mp4", segment2.VideoPath)
 	assert.Equal(t, 2.0, segment2.Start)
 	assert.Equal(t, 3.0, segment2.End)
-	assert.Equal(t, "blue", segment2.Color)
+	assert.Equal(t, 2, segment2.ColorID)
 	assert.Equal(t, "a test", segment2.Text)
 	assert.Equal(t, clip.ID, segment2.VideoClipID)
 	assert.Equal(t, "Test Video", segment2.VideoClipName)
@@ -451,7 +451,7 @@ func TestHighlightService_ComplexScenario_Integration(t *testing.T) {
 				ID:    "p2h1",
 				Start: 0.0,
 				End:   1.0,
-				Color: "purple",
+				ColorID: 5,
 			},
 		}).
 		SetProject(project2).

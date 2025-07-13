@@ -55,6 +55,11 @@
   --highlight-13: hsl(75, 100%, 85%);   /* Lime */
   --highlight-14: hsl(40, 100%, 85%);   /* Amber */
   --highlight-15: hsl(30, 60%, 85%);    /* Brown */
+  --highlight-16: hsl(350, 100%, 90%);  /* Rose */
+  --highlight-17: hsl(240, 100%, 90%);  /* Indigo */
+  --highlight-18: hsl(140, 100%, 85%);  /* Emerald */
+  --highlight-19: hsl(215, 25%, 85%);   /* Slate */
+  --highlight-20: hsl(220, 10%, 80%);   /* Gray */
 }
 
 [data-theme="dark"] {
@@ -106,6 +111,11 @@
   --highlight-13: hsl(75, 70%, 25%);    /* Lime */
   --highlight-14: hsl(40, 70%, 25%);    /* Amber */
   --highlight-15: hsl(30, 40%, 30%);    /* Brown */
+  --highlight-16: hsl(350, 60%, 30%);   /* Rose */
+  --highlight-17: hsl(240, 60%, 30%);   /* Indigo */
+  --highlight-18: hsl(140, 70%, 25%);   /* Emerald */
+  --highlight-19: hsl(215, 25%, 30%);   /* Slate */
+  --highlight-20: hsl(220, 10%, 35%);   /* Gray */
 }
 
 @theme inline {

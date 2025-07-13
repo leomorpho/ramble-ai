@@ -1,6 +1,7 @@
 <script>
   import HighlightMenu from "./HighlightMenu.svelte";
   import TimeGap from "./TimeGap.svelte";
+  import { getColorFromId } from "$lib/components/texthighlighter/TextHighlighter.utils.js";
 
   let {
     highlight,
@@ -42,10 +43,10 @@
 
   // Get the highlight color with fallback
   function getHighlightColor() {
-    const color = highlight?.color;
-    // Return the color if it's a valid string, otherwise use a default
-    if (color && typeof color === 'string' && color.trim() !== '') {
-      return color;
+    const colorId = highlight?.colorId;
+    // Return the color if it's a valid colorId, otherwise use a default
+    if (colorId && typeof colorId === 'number') {
+      return getColorFromId(colorId);
     }
     // Default fallback color
     return 'rgba(59, 130, 246, 0.3)'; // Blue with opacity

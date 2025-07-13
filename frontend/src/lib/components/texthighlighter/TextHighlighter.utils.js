@@ -3,41 +3,27 @@
  * These functions are extracted for easier testing
  */
 
-export function generateUniqueColor(usedColors = new Set()) {
-  const baseColors = [
-    'var(--highlight-1)',
-    'var(--highlight-2)', 
-    'var(--highlight-3)',
-    'var(--highlight-4)',
-    'var(--highlight-5)'
-  ];
-  
-  // Try base colors first
-  for (const color of baseColors) {
-    if (!usedColors.has(color)) {
-      return color;
-    }
-  }
-  
-  // Try extended colors
-  for (let i = 6; i <= 15; i++) {
-    const color = `var(--highlight-${i})`;
-    if (!usedColors.has(color)) {
-      return color;
-    }
-  }
-  
-  // Fallback to a random highlight color variant
-  const randomIndex = Math.floor(Math.random() * 15) + 1;
-  return `var(--highlight-${randomIndex})`;
+import { getColorFromId as getThemeColor } from '$lib/theme/colors.js';
+
+export function getColorFromId(colorId) {
+  // Map integer ID to theme color
+  return getThemeColor(colorId);
 }
 
-export function createHighlight(start, end, usedColors = new Set(), color = null) {
+let colorIdCounter = 0;
+
+export function getNextColorId() {
+  // Cycle through colors 1-20
+  colorIdCounter = (colorIdCounter % 20) + 1;
+  return colorIdCounter;
+}
+
+export function createHighlight(start, end, colorId = null) {
   return {
     id: `highlight_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     start,
     end,
-    color: color || generateUniqueColor(usedColors)
+    colorId: colorId || getNextColorId()
   };
 }
 
@@ -149,8 +135,8 @@ export function updateHighlight(highlights, highlightId, newStart, newEnd) {
   );
 }
 
-export function addHighlight(highlights, start, end, usedColors, color = null) {
-  const newHighlight = createHighlight(start, end, usedColors, color);
+export function addHighlight(highlights, start, end, colorId = null) {
+  const newHighlight = createHighlight(start, end, colorId);
   return {
     highlights: [...highlights, newHighlight],
     newHighlight

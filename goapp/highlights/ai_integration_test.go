@@ -81,7 +81,7 @@ func TestAIHighlightSuggestionsEndToEnd(t *testing.T) {
 				ID:    suggestion.ID,
 				Start: startTime,
 				End:   endTime,
-				Color: suggestion.Color,
+				ColorID: suggestion.ColorID,
 			}
 			savedHighlights = append(savedHighlights, highlight)
 		}
@@ -107,7 +107,7 @@ func TestAIHighlightSuggestionsEndToEnd(t *testing.T) {
 				Start: startIndex,
 				End:   endIndex,
 				Text:  text,
-				Color: h.Color,
+				ColorID: h.ColorID,
 			}
 			loadedSuggestions = append(loadedSuggestions, suggestion)
 		}

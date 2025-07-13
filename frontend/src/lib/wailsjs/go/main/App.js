@@ -166,6 +166,10 @@ export function ImproveHighlightSilencesWithAI(arg1) {
   return window['go']['main']['App']['ImproveHighlightSilencesWithAI'](arg1);
 }
 
+export function MigrateHighlightColors() {
+  return window['go']['main']['App']['MigrateHighlightColors']();
+}
+
 export function RecoverActiveExportJobs() {
   return window['go']['main']['App']['RecoverActiveExportJobs']();
 }

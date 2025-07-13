@@ -342,7 +342,7 @@ func (s *AIService) parseAIHighlightSuggestionsResponse(aiResponse string, trans
 
 	// Convert to HighlightSuggestion structs
 	var suggestions []HighlightSuggestion
-	baseColors := []string{"#ffeb3b", "#81c784", "#64b5f6", "#ff8a65", "#f06292"}
+	baseColorIDs := []int{1, 2, 3, 4, 5} // Yellow, Orange, Red, Pink, Purple
 
 	for i, raw := range rawSuggestions {
 		// Validate indices
@@ -358,11 +358,11 @@ func (s *AIService) parseAIHighlightSuggestionsResponse(aiResponse string, trans
 		text := strings.Join(textParts, " ")
 
 		suggestion := HighlightSuggestion{
-			ID:    fmt.Sprintf("suggestion_%d_%d", raw.Start, raw.End),
-			Start: raw.Start,
-			End:   raw.End,
-			Text:  text,
-			Color: baseColors[i%len(baseColors)],
+			ID:      fmt.Sprintf("suggestion_%d_%d", raw.Start, raw.End),
+			Start:   raw.Start,
+			End:     raw.End,
+			Text:    text,
+			ColorID: baseColorIDs[i%len(baseColorIDs)],
 		}
 		suggestions = append(suggestions, suggestion)
 	}
@@ -453,10 +453,10 @@ func (s *AIService) saveSuggestedHighlights(videoID int, suggestions []Highlight
 		}
 
 		highlight := schema.Highlight{
-			ID:    suggestion.ID,
-			Start: startTime,
-			End:   endTime,
-			Color: suggestion.Color,
+			ID:      suggestion.ID,
+			Start:   startTime,
+			End:     endTime,
+			ColorID: suggestion.ColorID,
 		}
 		highlights = append(highlights, highlight)
 	}
@@ -464,7 +464,7 @@ func (s *AIService) saveSuggestedHighlights(videoID int, suggestions []Highlight
 	// Debug log converted highlights before database save
 	log.Printf("=== CONVERTED HIGHLIGHTS FOR DATABASE ===")
 	for i, highlight := range highlights {
-		log.Printf("  Converted highlight %d: ID=%s, Start=%.3f, End=%.3f, Color=%s", i+1, highlight.ID, highlight.Start, highlight.End, highlight.Color)
+		log.Printf("  Converted highlight %d: ID=%s, Start=%.3f, End=%.3f, ColorID=%d", i+1, highlight.ID, highlight.Start, highlight.End, highlight.ColorID)
 	}
 	log.Printf("=========================================")
 
@@ -1229,7 +1229,7 @@ func (s *AIService) improveVideoHighlights(apiKey string, model string, videoHig
 				ID:    h.ID,
 				Start: timing.Start,
 				End:   timing.End,
-				Color: h.Color,
+				ColorID: h.ColorID,
 				Text:  h.Text,
 			}
 		} else {
@@ -1446,7 +1446,7 @@ func (s *AIService) saveAISilenceImprovements(projectID int, improvements []Proj
 				"id":    h.ID,
 				"start": h.Start,
 				"end":   h.End,
-				"color": h.Color,
+				"colorId": h.ColorID,
 				"text":  h.Text,
 			}
 			videoData["highlights"] = append(videoData["highlights"].([]map[string]interface{}), highlightData)

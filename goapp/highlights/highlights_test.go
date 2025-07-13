@@ -71,19 +71,19 @@ func createTestHighlights() []schema.Highlight {
 			ID:    "h1",
 			Start: 0.0,
 			End:   1.0,
-			Color: "red",
+			ColorID: 3,
 		},
 		{
 			ID:    "h2",
 			Start: 2.0,
 			End:   3.0,
-			Color: "blue",
+			ColorID: 2,
 		},
 		{
 			ID:    "h3",
 			Start: 4.0,
 			End:   5.0,
-			Color: "green",
+			ColorID: 3,
 		},
 	}
 }
@@ -292,7 +292,7 @@ func TestHighlightService_extractHighlightText(t *testing.T) {
 				ID:    "h1",
 				Start: 0.0,
 				End:   1.0,
-				Color: "red",
+				ColorID: 3,
 			},
 			expectedText: "Hello world",
 			description:  "Should extract text for exact word boundaries",
@@ -303,7 +303,7 @@ func TestHighlightService_extractHighlightText(t *testing.T) {
 				ID:    "h2",
 				Start: 1.25,
 				End:   2.75,
-				Color: "blue",
+				ColorID: 2,
 			},
 			expectedText: "is a",
 			description:  "Should extract words that fall within time range",
@@ -314,7 +314,7 @@ func TestHighlightService_extractHighlightText(t *testing.T) {
 				ID:    "h3",
 				Start: 10.0,
 				End:   11.0,
-				Color: "green",
+				ColorID: 3,
 			},
 			expectedText: "",
 			description:  "Should return empty string when no words match",
@@ -325,7 +325,7 @@ func TestHighlightService_extractHighlightText(t *testing.T) {
 				ID:    "h4",
 				Start: 2.0,
 				End:   2.5,
-				Color: "yellow",
+				ColorID: 1,
 			},
 			expectedText: "a",
 			description:  "Should extract single word",
@@ -350,7 +350,7 @@ func TestHighlightService_extractHighlightText_FallbackToFullText(t *testing.T) 
 		ID:    "h1",
 		Start: 0.0,
 		End:   1.0,
-		Color: "red",
+		ColorID: 3,
 	}
 
 	// Should return empty string when no words and no duration info
@@ -454,14 +454,14 @@ func TestHighlightService_ProjectHighlight_Creation(t *testing.T) {
 			ID:    "h1",
 			Start: 0.0,
 			End:   1.0,
-			Color: "red",
+			ColorID: 3,
 			Text:  "Hello world",
 		},
 		{
 			ID:    "h2",
 			Start: 2.0,
 			End:   3.0,
-			Color: "blue",
+			ColorID: 2,
 			Text:  "test transcript",
 		},
 	}
@@ -490,7 +490,7 @@ func TestHighlightService_HighlightSegment_Creation(t *testing.T) {
 		VideoPath:     "/test/video.mp4",
 		Start:         0.0,
 		End:           1.0,
-		Color:         "red",
+		ColorID:       3,
 		Text:          "Hello world",
 		VideoClipID:   1,
 		VideoClipName: "Test Video",
@@ -500,7 +500,7 @@ func TestHighlightService_HighlightSegment_Creation(t *testing.T) {
 	assert.Equal(t, "/test/video.mp4", segment.VideoPath)
 	assert.Equal(t, 0.0, segment.Start)
 	assert.Equal(t, 1.0, segment.End)
-	assert.Equal(t, "red", segment.Color)
+	assert.Equal(t, 3, segment.ColorID)
 	assert.Equal(t, "Hello world", segment.Text)
 	assert.Equal(t, 1, segment.VideoClipID)
 	assert.Equal(t, "Test Video", segment.VideoClipName)
@@ -513,14 +513,14 @@ func TestHighlightService_HighlightSuggestion_Creation(t *testing.T) {
 		Start: 0,
 		End:   5,
 		Text:  "Hello world this is a test",
-		Color: "red",
+		ColorID: 3,
 	}
 
 	assert.Equal(t, "s1", suggestion.ID)
 	assert.Equal(t, 0, suggestion.Start)
 	assert.Equal(t, 5, suggestion.End)
 	assert.Equal(t, "Hello world this is a test", suggestion.Text)
-	assert.Equal(t, "red", suggestion.Color)
+	assert.Equal(t, 3, suggestion.ColorID)
 }
 
 // Edge case tests

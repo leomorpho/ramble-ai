@@ -200,7 +200,7 @@ func TestExportWithInvalidHighlightTimes(t *testing.T) {
 		ID:    "invalid_highlight",
 		Start: 30.0,
 		End:   10.0, // End before start
-		Color: "#FF0000",
+		ColorID: 3,
 	}
 	
 	_, err := client.VideoClip.
@@ -241,7 +241,7 @@ func TestExportWithNegativeHighlightTimes(t *testing.T) {
 		ID:    "negative_highlight",
 		Start: -10.0, // Negative start
 		End:   20.0,
-		Color: "#FF0000",
+		ColorID: 3,
 	}
 	
 	_, err := client.VideoClip.

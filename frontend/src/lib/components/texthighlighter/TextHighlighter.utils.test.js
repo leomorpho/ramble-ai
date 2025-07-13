@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
-  generateUniqueColor,
+  getNextColorId,
+  getColorFromId,
   createHighlight,
   isWordInHighlight,
   isWordInSelection,
@@ -15,30 +16,42 @@ import {
 } from './TextHighlighter.utils.js';
 
 describe('TextHighlighter Utils', () => {
-  describe('generateUniqueColor', () => {
-    it('should return first base color when no colors used', () => {
-      const usedColors = new Set();
-      const color = generateUniqueColor(usedColors);
-      expect(color).toBe('var(--highlight-1)');
+  describe('getNextColorId', () => {
+    it('should return colors in predetermined sequence', () => {
+      // Reset counter by calling getNextColorId multiple times to get back to 1
+      for (let i = 0; i < 15; i++) {
+        getNextColorId();
+      }
+      
+      // Now test the sequence
+      expect(getNextColorId()).toBe(1);
+      expect(getNextColorId()).toBe(2);
+      expect(getNextColorId()).toBe(3);
     });
 
-    it('should return second base color when first is used', () => {
-      const usedColors = new Set(['var(--highlight-1)']);
-      const color = generateUniqueColor(usedColors);
-      expect(color).toBe('var(--highlight-2)');
+    it('should cycle back to 1 after reaching 15', () => {
+      // Get to color 14 and 15
+      for (let i = 0; i < 13; i++) {
+        getNextColorId();
+      }
+      
+      expect(getNextColorId()).toBe(14);
+      expect(getNextColorId()).toBe(15);
+      expect(getNextColorId()).toBe(1); // Should cycle back
+    });
+  });
+
+  describe('getColorFromId', () => {
+    it('should return correct CSS variable for color ID', () => {
+      expect(getColorFromId(1)).toBe('var(--highlight-1)');
+      expect(getColorFromId(5)).toBe('var(--highlight-5)');
+      expect(getColorFromId(15)).toBe('var(--highlight-15)');
     });
 
-    it('should return extended color when base colors are used', () => {
-      const usedColors = new Set(['var(--highlight-1)', 'var(--highlight-2)', 'var(--highlight-3)', 'var(--highlight-4)', 'var(--highlight-5)']);
-      const color = generateUniqueColor(usedColors);
-      expect(color).toBe('var(--highlight-6)');
-    });
-
-    it('should fallback to random highlight when all extended colors used', () => {
-      const allColors = Array.from({ length: 15 }, (_, i) => `var(--highlight-${i + 1})`);
-      const usedColors = new Set(allColors);
-      const color = generateUniqueColor(usedColors);
-      expect(color).toMatch(/^var\(--highlight-\d+\)$/);
+    it('should fallback to first color for invalid IDs', () => {
+      expect(getColorFromId(0)).toBe('var(--highlight-1)');
+      expect(getColorFromId(16)).toBe('var(--highlight-1)');
+      expect(getColorFromId(-1)).toBe('var(--highlight-1)');
     });
   });
 
@@ -52,16 +65,25 @@ describe('TextHighlighter Utils', () => {
       const highlight = createHighlight(0, 5);
       expect(highlight).toMatchObject({
         start: 0,
-        end: 5,
-        color: 'var(--highlight-1)'
+        end: 5
       });
       expect(highlight.id).toMatch(/^highlight_\d+_[a-z0-9]+$/);
+      expect(highlight.colorId).toBeGreaterThanOrEqual(1);
+      expect(highlight.colorId).toBeLessThanOrEqual(15);
     });
 
-    it('should use unique color from usedColors', () => {
-      const usedColors = new Set(['var(--highlight-1)']);
-      const highlight = createHighlight(0, 5, usedColors);
-      expect(highlight.color).toBe('var(--highlight-2)');
+    it('should use provided color ID when specified', () => {
+      const highlight = createHighlight(0, 5, 7);
+      expect(highlight.colorId).toBe(7);
+    });
+
+    it('should use next color ID when not specified', () => {
+      const highlight1 = createHighlight(0, 5);
+      const highlight2 = createHighlight(5, 10);
+      
+      // Color IDs should be sequential (though exact values depend on test order)
+      expect(highlight2.colorId).toBeGreaterThanOrEqual(1);
+      expect(highlight2.colorId).toBeLessThanOrEqual(15);
     });
   });
 

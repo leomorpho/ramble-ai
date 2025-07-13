@@ -41,14 +41,14 @@ func TestParseAIHighlightSuggestionsResponse(t *testing.T) {
 					Start: 0,
 					End:   2,
 					Text:  "Hello world", // Exclusive end: words 0 and 1
-					Color: "#ffeb3b",
+					ColorID: 1,
 				},
 				{
 					ID:    "suggestion_3_6",
 					Start: 3,
 					End:   6,
 					Text:  "is a test", // Exclusive end: words 3, 4, and 5
-					Color: "#81c784",
+					ColorID: 2, // baseColorIDs[1%5] = baseColorIDs[1] = 2
 				},
 			},
 			shouldError: false,
@@ -62,7 +62,7 @@ func TestParseAIHighlightSuggestionsResponse(t *testing.T) {
 					Start: 1,
 					End:   3,
 					Text:  "world this", // Exclusive end: words 1 and 2
-					Color: "#ffeb3b",
+					ColorID: 1,
 				},
 			},
 			shouldError: false,
@@ -100,7 +100,7 @@ func TestParseAIHighlightSuggestionsResponse(t *testing.T) {
 					Start: 2,
 					End:   3,
 					Text:  "this", // Just word 2
-					Color: "#ffeb3b",
+					ColorID: 1,
 				},
 			},
 			shouldError: false,
@@ -122,7 +122,7 @@ func TestParseAIHighlightSuggestionsResponse(t *testing.T) {
 					assert.Equal(t, expected.Start, suggestions[i].Start)
 					assert.Equal(t, expected.End, suggestions[i].End)
 					assert.Equal(t, expected.Text, suggestions[i].Text)
-					assert.Equal(t, expected.Color, suggestions[i].Color)
+					assert.Equal(t, expected.ColorID, suggestions[i].ColorID)
 				}
 			}
 		})
@@ -149,14 +149,14 @@ func TestSaveSuggestedHighlights(t *testing.T) {
 			Start: 0,
 			End:   2,   // Exclusive: includes words 0 and 1
 			Text:  "Hello world",
-			Color: "#ffeb3b",
+			ColorID: 1,
 		},
 		{
 			ID:    "suggestion_3_5",
 			Start: 3,
 			End:   5,   // Exclusive: includes words 3 and 4
 			Text:  "is a",
-			Color: "#81c784",
+			ColorID: 3,
 		},
 	}
 

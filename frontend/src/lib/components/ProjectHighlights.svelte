@@ -4,6 +4,7 @@
     GetVideoURL,
     GetVideoClipsByProject,
   } from "$lib/wailsjs/go/main/App";
+  import { getColorFromId } from "$lib/components/texthighlighter/TextHighlighter.utils.js";
   import { toast } from "svelte-sonner";
   import { Play, Film, Clock, Undo, Redo, Ear } from "@lucide/svelte";
   import {
@@ -220,7 +221,7 @@
       id: updatedHighlight.id,
       start: updatedHighlight.start,
       end: updatedHighlight.end,
-      color: updatedHighlight.color,
+      colorId: updatedHighlight.colorId,
     };
 
     await editHighlight(
@@ -541,11 +542,11 @@
         <!-- Highlight info -->
         <div
           class="flex items-center gap-3 p-3 rounded-lg"
-          style="background-color: {currentHighlight.color}20; border-left: 4px solid {currentHighlight.color};"
+          style="background-color: {getColorFromId(currentHighlight.colorId)}20; border-left: 4px solid {getColorFromId(currentHighlight.colorId)};"
         >
           <Film
             class="w-6 h-6 flex-shrink-0"
-            style="color: {currentHighlight.color}"
+            style="color: {getColorFromId(currentHighlight.colorId)}"
           />
           <div class="flex-1 min-w-0">
             <h3 class="font-medium truncate">
@@ -627,7 +628,7 @@
               <div class="flex items-center gap-2">
                 <span
                   class="w-2 h-2 rounded-full"
-                  style="background-color: {currentHighlight.color}"
+                  style="background-color: {getColorFromId(currentHighlight.colorId)}"
                 ></span>
                 <span
                   >Highlight: {formatTimeRange(
@@ -671,11 +672,11 @@
       <div class="space-y-3">
         <div
           class="flex items-center gap-3 p-3 rounded-lg border"
-          style="background-color: {highlightToDelete.color}20; border-left: 4px solid {highlightToDelete.color};"
+          style="background-color: {getColorFromId(highlightToDelete.colorId)}20; border-left: 4px solid {getColorFromId(highlightToDelete.colorId)};"
         >
           <Film
             class="w-6 h-6 flex-shrink-0"
-            style="color: {highlightToDelete.color}"
+            style="color: {getColorFromId(highlightToDelete.colorId)}"
           />
           <div class="flex-1 min-w-0">
             <h3 class="font-medium truncate">

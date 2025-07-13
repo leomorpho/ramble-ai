@@ -390,7 +390,7 @@ func TestHighlightSegmentConversion(t *testing.T) {
 	assert.Equal(t, clip.FilePath, segment.VideoPath)
 	assert.Equal(t, 10.0, segment.Start)
 	assert.Equal(t, 20.0, segment.End)
-	assert.Equal(t, "#FF0000", segment.Color)
+	assert.Equal(t, 3, segment.ColorID)
 	assert.Equal(t, clip.ID, segment.VideoClipID)
 	assert.Equal(t, clip.Name, segment.VideoClipName)
 }

@@ -275,7 +275,7 @@ export namespace highlights {
 	    start: number;
 	    end: number;
 	    text: string;
-	    color: string;
+	    colorId: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new HighlightSuggestion(source);
@@ -287,14 +287,14 @@ export namespace highlights {
 	        this.start = source["start"];
 	        this.end = source["end"];
 	        this.text = source["text"];
-	        this.color = source["color"];
+	        this.colorId = source["colorId"];
 	    }
 	}
 	export class HighlightWithText {
 	    id: string;
 	    start: number;
 	    end: number;
-	    color: string;
+	    colorId: number;
 	    text: string;
 	    startIndex: number;
 	    endIndex: number;
@@ -308,7 +308,7 @@ export namespace highlights {
 	        this.id = source["id"];
 	        this.start = source["start"];
 	        this.end = source["end"];
-	        this.color = source["color"];
+	        this.colorId = source["colorId"];
 	        this.text = source["text"];
 	        this.startIndex = source["startIndex"];
 	        this.endIndex = source["endIndex"];
@@ -477,7 +477,7 @@ export namespace projects {
 	    id: string;
 	    start: number;
 	    end: number;
-	    color: string;
+	    colorId: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new Highlight(source);
@@ -488,7 +488,7 @@ export namespace projects {
 	        this.id = source["id"];
 	        this.start = source["start"];
 	        this.end = source["end"];
-	        this.color = source["color"];
+	        this.colorId = source["colorId"];
 	    }
 	}
 	export class LocalVideoFile {

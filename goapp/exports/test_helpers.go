@@ -84,10 +84,10 @@ func createTestHighlight(t testing.TB, client *ent.Client, ctx context.Context, 
 	
 	// Add new highlight
 	newHighlight := schema.Highlight{
-		ID:    highlightID,
-		Start: start,
-		End:   end,
-		Color: "#FF0000",
+		ID:      highlightID,
+		Start:   start,
+		End:     end,
+		ColorID: 3, // Red
 	}
 	
 	updatedHighlights := append(existingHighlights, newHighlight)
