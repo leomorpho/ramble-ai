@@ -30,7 +30,7 @@ describe('TextHighlighter Behavior Logic', () => {
 
   describe('Single-Word Highlight Detection', () => {
     it('should correctly identify single-word highlights', () => {
-      const highlight = { id: 'h1', start: 2.4, end: 2.6, colorId: 1 }; // "is"
+      const highlight = { id: 'h1', start: 2.4, end: 2.6, color: '#ffeb3b' }; // "is"
       const word = sampleWords[4]; // "is"
       
       const isFirstWord = Math.abs(word.start - highlight.start) < 0.01;
@@ -43,7 +43,7 @@ describe('TextHighlighter Behavior Logic', () => {
     });
 
     it('should correctly identify multi-word highlights', () => {
-      const highlight = { id: 'h1', start: 0.6, end: 1.8, colorId: 1 }; // "beautiful world"
+      const highlight = { id: 'h1', start: 0.6, end: 1.8, color: '#ffeb3b' }; // "beautiful world"
       
       // First word of highlight
       const firstWord = sampleWords[1]; // "beautiful"
@@ -96,7 +96,7 @@ describe('TextHighlighter Behavior Logic', () => {
 
   describe('Timestamp-Based Drag Calculations', () => {
     it('should calculate correct timestamps for single-word left expansion', () => {
-      const originalHighlight = { id: 'h1', start: 2.4, end: 2.6, colorId: 1 }; // "is"
+      const originalHighlight = { id: 'h1', start: 2.4, end: 2.6, color: '#ffeb3b' }; // "is"
       const originalWordIndex = 4;
       const currentWordIndex = 3; // "this"
       const currentWord = sampleWords[currentWordIndex];
@@ -115,7 +115,7 @@ describe('TextHighlighter Behavior Logic', () => {
     });
 
     it('should calculate correct timestamps for single-word right expansion', () => {
-      const originalHighlight = { id: 'h1', start: 2.4, end: 2.6, colorId: 1 }; // "is"
+      const originalHighlight = { id: 'h1', start: 2.4, end: 2.6, color: '#ffeb3b' }; // "is"
       const originalWordIndex = 4;
       const currentWordIndex = 5; // "a"
       const currentWord = sampleWords[currentWordIndex];
@@ -134,7 +134,7 @@ describe('TextHighlighter Behavior Logic', () => {
     });
 
     it('should calculate correct timestamps for multi-word first-word drag', () => {
-      const originalHighlight = { id: 'h1', start: 0.6, end: 1.8, colorId: 1 }; // "beautiful world"
+      const originalHighlight = { id: 'h1', start: 0.6, end: 1.8, color: '#ffeb3b' }; // "beautiful world"
       const currentWordIndex = 0; // "Hello"
       const currentWord = sampleWords[currentWordIndex];
       
@@ -148,7 +148,7 @@ describe('TextHighlighter Behavior Logic', () => {
     });
 
     it('should calculate correct timestamps for multi-word last-word drag', () => {
-      const originalHighlight = { id: 'h1', start: 0.6, end: 1.8, colorId: 1 }; // "beautiful world"
+      const originalHighlight = { id: 'h1', start: 0.6, end: 1.8, color: '#ffeb3b' }; // "beautiful world"
       const currentWordIndex = 3; // "this"
       const currentWord = sampleWords[currentWordIndex];
       
@@ -180,7 +180,7 @@ describe('TextHighlighter Behavior Logic', () => {
         { word: 'word3', start: 2.2, end: 2.7 }
       ];
       
-      const highlights = [{ id: 'h1', start: 1.6, end: 2.1, colorId: 1 }]; // word2
+      const highlights = [{ id: 'h1', start: 1.6, end: 2.1, color: '#ffeb3b' }]; // word2
       
       // Find highlight for word by timestamp overlap
       function findHighlightForWordByTime(wordIndex) {

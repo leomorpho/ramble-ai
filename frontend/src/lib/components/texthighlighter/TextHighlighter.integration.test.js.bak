@@ -161,34 +161,29 @@ describe('TextHighlighter Integration Tests', () => {
       });
     });
 
-    it('should handle color ID management workflow', () => {
-      // 1. Test sequential color ID assignment
-      const colorId1 = getNextColorId();
-      const colorId2 = getNextColorId();
-      const colorId3 = getNextColorId();
+    it('should handle color management workflow', () => {
+      let usedColors = new Set();
       
-      // Verify sequence is consecutive and in range 1-20
-      expect(colorId2).toBe(colorId1 === 20 ? 1 : colorId1 + 1);
-      expect(colorId3).toBe(colorId2 === 20 ? 1 : colorId2 + 1);
-      expect(colorId1).toBeGreaterThanOrEqual(1);
-      expect(colorId1).toBeLessThanOrEqual(20);
-      
-      // 2. Test color ID to CSS variable conversion
-      expect(getColorFromId(1)).toBe('var(--highlight-1)');
-      expect(getColorFromId(2)).toBe('var(--highlight-2)');
-      expect(getColorFromId(20)).toBe('var(--highlight-20)');
-      
-      // 3. Test cycling behavior - call enough times to see wrap around
-      const results = [];
-      for (let i = 0; i < 21; i++) {
-        results.push(getNextColorId());
-      }
-      
-      // All results should be in valid range
-      results.forEach(id => {
-        expect(id).toBeGreaterThanOrEqual(1);
-        expect(id).toBeLessThanOrEqual(20);
+      // 1. Use all base colors
+      const baseColors = ['var(--highlight-1)', 'var(--highlight-2)', 'var(--highlight-3)', 'var(--highlight-4)', 'var(--highlight-5)'];
+      baseColors.forEach(color => {
+        const generatedColor = generateUniqueColor(usedColors);
+        expect(generatedColor).toBe(color);
+        usedColors.add(generatedColor);
       });
+      
+      // 2. Generate extended colors when base colors exhausted
+      const extendedColor1 = generateUniqueColor(usedColors);
+      usedColors.add(extendedColor1);
+      const extendedColor2 = generateUniqueColor(usedColors);
+      
+      expect(extendedColor1).toBe('var(--highlight-6)');
+      expect(extendedColor2).toBe('var(--highlight-7)');
+      
+      // 3. Color recycling simulation
+      usedColors.delete('var(--highlight-1)');
+      const recycledColor = generateUniqueColor(usedColors);
+      expect(recycledColor).toBe('var(--highlight-1)');
     });
   });
 
@@ -201,7 +196,7 @@ describe('TextHighlighter Integration Tests', () => {
     });
 
     it('should handle invalid indices', () => {
-      const highlights = [{ id: 'h1', start: 1, end: 3, colorId: 3 }];
+      const highlights = [{ id: 'h1', start: 1, end: 3, color: 'red' }];
       
       // Test with out-of-bounds indices
       const timestamps = calculateTimestamps(-5, 100, sampleWords);
@@ -228,9 +223,9 @@ describe('TextHighlighter Integration Tests', () => {
 
     it('should handle overlapping highlights correctly', () => {
       const highlights = [
-        { id: 'h1', start: 0, end: 3, colorId: 3 },
-        { id: 'h2', start: 2, end: 5, colorId: 7 },
-        { id: 'h3', start: 6, end: 8, colorId: 11 }
+        { id: 'h1', start: 0, end: 3, color: 'red' },
+        { id: 'h2', start: 2, end: 5, color: 'blue' },
+        { id: 'h3', start: 6, end: 8, color: 'green' }
       ];
       
       // Test various overlap scenarios

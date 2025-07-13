@@ -18,39 +18,26 @@ import {
 describe('TextHighlighter Utils', () => {
   describe('getNextColorId', () => {
     it('should return colors in predetermined sequence', () => {
-      // Test that subsequent calls increment the counter
-      const first = getNextColorId();
-      const second = getNextColorId();
-      const third = getNextColorId();
-      
-      // Verify sequence is consecutive and in range 1-20
-      expect(second).toBe(first === 20 ? 1 : first + 1);
-      expect(third).toBe(second === 20 ? 1 : second + 1);
-      expect(first).toBeGreaterThanOrEqual(1);
-      expect(first).toBeLessThanOrEqual(20);
-    });
-
-    it('should cycle back to 1 after reaching 20', () => {
-      // Call getNextColorId enough times to guarantee we cycle through all 20 colors
-      // We'll call it 21 times to ensure we see the wrap-around
-      const results = [];
-      for (let i = 0; i < 21; i++) {
-        results.push(getNextColorId());
+      // Reset counter by calling getNextColorId multiple times to get back to 1
+      for (let i = 0; i < 15; i++) {
+        getNextColorId();
       }
       
-      // Check that all values are in range 1-20
-      results.forEach(colorId => {
-        expect(colorId).toBeGreaterThanOrEqual(1);
-        expect(colorId).toBeLessThanOrEqual(20);
-      });
+      // Now test the sequence
+      expect(getNextColorId()).toBe(1);
+      expect(getNextColorId()).toBe(2);
+      expect(getNextColorId()).toBe(3);
+    });
+
+    it('should cycle back to 1 after reaching 15', () => {
+      // Get to color 14 and 15
+      for (let i = 0; i < 13; i++) {
+        getNextColorId();
+      }
       
-      // Verify that we have at least one wrap-around (last value should be different from expected linear sequence)
-      const hasWrapped = results.some((value, index) => {
-        if (index === 0) return false;
-        const expected = results[index - 1] === 20 ? 1 : results[index - 1] + 1;
-        return value === expected;
-      });
-      expect(hasWrapped).toBe(true);
+      expect(getNextColorId()).toBe(14);
+      expect(getNextColorId()).toBe(15);
+      expect(getNextColorId()).toBe(1); // Should cycle back
     });
   });
 
@@ -63,7 +50,7 @@ describe('TextHighlighter Utils', () => {
 
     it('should fallback to first color for invalid IDs', () => {
       expect(getColorFromId(0)).toBe('var(--highlight-1)');
-      expect(getColorFromId(21)).toBe('var(--highlight-1)'); // Out of range (>20)
+      expect(getColorFromId(16)).toBe('var(--highlight-1)');
       expect(getColorFromId(-1)).toBe('var(--highlight-1)');
     });
   });
@@ -82,7 +69,7 @@ describe('TextHighlighter Utils', () => {
       });
       expect(highlight.id).toMatch(/^highlight_\d+_[a-z0-9]+$/);
       expect(highlight.colorId).toBeGreaterThanOrEqual(1);
-      expect(highlight.colorId).toBeLessThanOrEqual(20);
+      expect(highlight.colorId).toBeLessThanOrEqual(15);
     });
 
     it('should use provided color ID when specified', () => {
@@ -96,7 +83,7 @@ describe('TextHighlighter Utils', () => {
       
       // Color IDs should be sequential (though exact values depend on test order)
       expect(highlight2.colorId).toBeGreaterThanOrEqual(1);
-      expect(highlight2.colorId).toBeLessThanOrEqual(20);
+      expect(highlight2.colorId).toBeLessThanOrEqual(15);
     });
   });
 
@@ -356,9 +343,9 @@ describe('TextHighlighter Utils', () => {
 
   describe('updateHighlight', () => {
     const highlights = [
-      { id: '1', start: 0, end: 2, colorId: 3 },
-      { id: '2', start: 5, end: 8, colorId: 7 },
-      { id: '3', start: 10, end: 15, colorId: 11 }
+      { id: '1', start: 0, end: 2, color: 'red' },
+      { id: '2', start: 5, end: 8, color: 'blue' },
+      { id: '3', start: 10, end: 15, color: 'green' }
     ];
 
     it('should update specific highlight', () => {
@@ -366,7 +353,7 @@ describe('TextHighlighter Utils', () => {
       
       expect(updated).toHaveLength(3);
       expect(updated[0]).toEqual(highlights[0]); // unchanged
-      expect(updated[1]).toEqual({ id: '2', start: 4, end: 9, colorId: 7 });
+      expect(updated[1]).toEqual({ id: '2', start: 4, end: 9, color: 'blue' });
       expect(updated[2]).toEqual(highlights[2]); // unchanged
     });
 
@@ -384,7 +371,7 @@ describe('TextHighlighter Utils', () => {
 
   describe('addHighlight', () => {
     const initialHighlights = [
-      { id: '1', start: 0, end: 2, colorId: 3 }
+      { id: '1', start: 0, end: 2, color: 'red' }
     ];
 
     beforeEach(() => {
@@ -393,31 +380,31 @@ describe('TextHighlighter Utils', () => {
     });
 
     it('should add new highlight to array', () => {
-      const result = addHighlight(initialHighlights, 5, 8);
+      const usedColors = new Set(['red']);
+      const result = addHighlight(initialHighlights, 5, 8, usedColors);
       
       expect(result.highlights).toHaveLength(2);
       expect(result.highlights[0]).toEqual(initialHighlights[0]);
       expect(result.newHighlight).toMatchObject({
         start: 5,
-        end: 8
+        end: 8,
+        color: 'var(--highlight-1)'
       });
-      expect(result.newHighlight.colorId).toBeGreaterThanOrEqual(1);
-      expect(result.newHighlight.colorId).toBeLessThanOrEqual(20);
       expect(result.highlights[1]).toEqual(result.newHighlight);
     });
 
     it('should not mutate original array', () => {
       const original = [...initialHighlights];
-      addHighlight(initialHighlights, 5, 8);
+      addHighlight(initialHighlights, 5, 8, new Set());
       expect(initialHighlights).toEqual(original);
     });
   });
 
   describe('removeHighlight', () => {
     const highlights = [
-      { id: '1', start: 0, end: 2, colorId: 3 },
-      { id: '2', start: 5, end: 8, colorId: 7 },
-      { id: '3', start: 10, end: 15, colorId: 11 }
+      { id: '1', start: 0, end: 2, color: 'red' },
+      { id: '2', start: 5, end: 8, color: 'blue' },
+      { id: '3', start: 10, end: 15, color: 'green' }
     ];
 
     it('should remove specific highlight', () => {
