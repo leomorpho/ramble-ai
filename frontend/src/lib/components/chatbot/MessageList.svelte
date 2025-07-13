@@ -41,29 +41,29 @@
       title: "Analyze Content",
       description: "Get insights about your highlights",
       icon: "📊",
-      message: "Please analyze my highlights and provide insights about content themes, structure, and engagement potential."
+      message: "Just analyze my content structure and themes - no reordering needed, only provide insights."
     },
-    {
-      id: "hook",
-      title: "Create Hook",
-      description: "Optimize opening for maximum engagement",
-      icon: "🎯",
-      message: "Help me reorder these highlights to create a compelling hook that grabs viewers' attention from the start."
-    },
-    {
-      id: "flow",
-      title: "Improve Flow",
-      description: "Enhance narrative and pacing",
-      icon: "🌊",
-      message: "Please reorder my highlights to improve narrative flow and create better pacing throughout the video."
-    },
-    {
-      id: "conclusion",
-      title: "Create Conclusion",
-      description: "Structure highlights with a strong ending",
-      icon: "🎬",
-      message: "Help me reorder these highlights to create a strong conclusion section that leaves viewers satisfied and engaged."
-    },
+    // {
+    //   id: "hook",
+    //   title: "Create Hook",
+    //   description: "Optimize opening for maximum engagement",
+    //   icon: "🎯",
+    //   message: "Help me reorder these highlights to create a compelling hook that grabs viewers' attention from the start."
+    // },
+    // {
+    //   id: "flow",
+    //   title: "Improve Flow",
+    //   description: "Enhance narrative and pacing",
+    //   icon: "🌊",
+    //   message: "Please reorder my highlights to improve narrative flow and create better pacing throughout the video."
+    // },
+    // {
+    //   id: "conclusion",
+    //   title: "Create Conclusion",
+    //   description: "Structure highlights with a strong ending",
+    //   icon: "🎬",
+    //   message: "Help me reorder these highlights to create a strong conclusion section that leaves viewers satisfied and engaged."
+    // },
     {
       id: "silences",
       title: "Improve Silences",

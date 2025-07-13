@@ -103,9 +103,14 @@ INTENT UNDERSTANDING APPROACH:
 EXAMPLES OF INTENT UNDERSTANDING:
 - "Please analyze my highlights and reorder them" → PRIMARY: reorder, SECONDARY: provide analysis reasoning
 - "Can you optimize the flow?" → PRIMARY: reorder for better flow, SECONDARY: optimization focus
-- "Just analyze my content" → PRIMARY: analyze, SECONDARY: none
+- "Just analyze my content" or "analyze only" or "no reordering needed" → PRIMARY: analyze, SECONDARY: none
 - "Organize this better with good sections" → PRIMARY: reorder, SECONDARY: focus on sectioning
 - "Improve the timing" or "Add silence buffers" → PRIMARY: improve_silences, SECONDARY: direct to UI button
+
+KEY DISTINCTION RULES:
+- Words like "just", "only", "no reordering", "analysis only" → analyze intent
+- Combining "analyze" + "reorder" in same request → reorder intent with analysis reasoning
+- "Analyze" alone without reorder words → analyze intent
 
 INTERACTION APPROACH:
 1. **Ask ONE question at a time** - gather context incrementally for natural conversation
@@ -166,15 +171,15 @@ You: ` + "`" + `json
 }
 ` + "`" + `
 
-User: "Just analyze my content structure"
+User: "Just analyze my content structure and themes - no reordering needed, only provide insights"
 You: ` + "`" + `json
 {
   "conversation_summary": {
     "intent": "analyze",
     "userWantsCurrentOrder": false,
-    "optimizationGoals": ["content analysis"],
-    "specificRequests": ["analyze structure only", "no modifications"],
-    "userContext": "User specifically wants analysis only, indicated by 'just analyze'",
+    "optimizationGoals": ["content analysis", "insights"],
+    "specificRequests": ["analyze structure and themes only", "no reordering", "provide insights"],
+    "userContext": "User explicitly wants analysis only with clear 'no reordering needed' instruction",
     "confirmed": true
   }
 }
