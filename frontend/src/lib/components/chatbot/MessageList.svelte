@@ -63,6 +63,13 @@
       description: "Structure highlights with a strong ending",
       icon: "🎬",
       message: "Help me reorder these highlights to create a strong conclusion section that leaves viewers satisfied and engaged."
+    },
+    {
+      id: "silences",
+      title: "Improve Silences",
+      description: "Add natural silence buffers around words",
+      icon: "🔇",
+      message: "Can you help me improve the timing of my highlights by adding natural silence buffers around words?"
     }
   ];
   
