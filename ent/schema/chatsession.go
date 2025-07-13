@@ -32,6 +32,9 @@ func (ChatSession) Fields() []ent.Field {
 			Default(time.Now).
 			UpdateDefault(time.Now).
 			Comment("When the session was last updated"),
+		field.String("selected_model").
+			Optional().
+			Comment("The AI model selected for this chat session"),
 	}
 }
 

@@ -66,8 +66,9 @@ type FunctionExecutionResult struct {
 
 // ChatHistoryResponse represents chat history for a project/endpoint
 type ChatHistoryResponse struct {
-	SessionID string        `json:"sessionId"`
-	Messages  []ChatMessage `json:"messages"`
+	SessionID     string        `json:"sessionId"`
+	Messages      []ChatMessage `json:"messages"`
+	SelectedModel string        `json:"selectedModel,omitempty"`
 }
 
 // FunctionDefinition represents a function that can be called by the LLM

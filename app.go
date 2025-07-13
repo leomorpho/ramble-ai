@@ -587,3 +587,9 @@ func (a *App) ClearChatHistory(projectID int, endpointID string) error {
 	service := chatbot.NewChatbotService(a.client, a.ctx, a.UpdateProjectHighlightOrderWithTitles)
 	return service.ClearChatHistory(projectID, endpointID)
 }
+
+// SaveChatModelSelection saves the selected model for a chat session
+func (a *App) SaveChatModelSelection(projectID int, endpointID string, model string) error {
+	service := chatbot.NewChatbotService(a.client, a.ctx, a.UpdateProjectHighlightOrderWithTitles)
+	return service.SaveModelSelection(projectID, endpointID, model)
+}

@@ -796,6 +796,7 @@ type ChatSessionMutation struct {
 	endpoint_id     *string
 	created_at      *time.Time
 	updated_at      *time.Time
+	selected_model  *string
 	clearedFields   map[string]struct{}
 	project         *int
 	clearedproject  bool
@@ -1085,6 +1086,55 @@ func (m *ChatSessionMutation) ResetUpdatedAt() {
 	m.updated_at = nil
 }
 
+// SetSelectedModel sets the "selected_model" field.
+func (m *ChatSessionMutation) SetSelectedModel(s string) {
+	m.selected_model = &s
+}
+
+// SelectedModel returns the value of the "selected_model" field in the mutation.
+func (m *ChatSessionMutation) SelectedModel() (r string, exists bool) {
+	v := m.selected_model
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSelectedModel returns the old "selected_model" field's value of the ChatSession entity.
+// If the ChatSession object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ChatSessionMutation) OldSelectedModel(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSelectedModel is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSelectedModel requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSelectedModel: %w", err)
+	}
+	return oldValue.SelectedModel, nil
+}
+
+// ClearSelectedModel clears the value of the "selected_model" field.
+func (m *ChatSessionMutation) ClearSelectedModel() {
+	m.selected_model = nil
+	m.clearedFields[chatsession.FieldSelectedModel] = struct{}{}
+}
+
+// SelectedModelCleared returns if the "selected_model" field was cleared in this mutation.
+func (m *ChatSessionMutation) SelectedModelCleared() bool {
+	_, ok := m.clearedFields[chatsession.FieldSelectedModel]
+	return ok
+}
+
+// ResetSelectedModel resets all changes to the "selected_model" field.
+func (m *ChatSessionMutation) ResetSelectedModel() {
+	m.selected_model = nil
+	delete(m.clearedFields, chatsession.FieldSelectedModel)
+}
+
 // ClearProject clears the "project" edge to the Project entity.
 func (m *ChatSessionMutation) ClearProject() {
 	m.clearedproject = true
@@ -1200,7 +1250,7 @@ func (m *ChatSessionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ChatSessionMutation) Fields() []string {
-	fields := make([]string, 0, 5)
+	fields := make([]string, 0, 6)
 	if m.session_id != nil {
 		fields = append(fields, chatsession.FieldSessionID)
 	}
@@ -1215,6 +1265,9 @@ func (m *ChatSessionMutation) Fields() []string {
 	}
 	if m.updated_at != nil {
 		fields = append(fields, chatsession.FieldUpdatedAt)
+	}
+	if m.selected_model != nil {
+		fields = append(fields, chatsession.FieldSelectedModel)
 	}
 	return fields
 }
@@ -1234,6 +1287,8 @@ func (m *ChatSessionMutation) Field(name string) (ent.Value, bool) {
 		return m.CreatedAt()
 	case chatsession.FieldUpdatedAt:
 		return m.UpdatedAt()
+	case chatsession.FieldSelectedModel:
+		return m.SelectedModel()
 	}
 	return nil, false
 }
@@ -1253,6 +1308,8 @@ func (m *ChatSessionMutation) OldField(ctx context.Context, name string) (ent.Va
 		return m.OldCreatedAt(ctx)
 	case chatsession.FieldUpdatedAt:
 		return m.OldUpdatedAt(ctx)
+	case chatsession.FieldSelectedModel:
+		return m.OldSelectedModel(ctx)
 	}
 	return nil, fmt.Errorf("unknown ChatSession field %s", name)
 }
@@ -1297,6 +1354,13 @@ func (m *ChatSessionMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetUpdatedAt(v)
 		return nil
+	case chatsession.FieldSelectedModel:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSelectedModel(v)
+		return nil
 	}
 	return fmt.Errorf("unknown ChatSession field %s", name)
 }
@@ -1329,7 +1393,11 @@ func (m *ChatSessionMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared during this
 // mutation.
 func (m *ChatSessionMutation) ClearedFields() []string {
-	return nil
+	var fields []string
+	if m.FieldCleared(chatsession.FieldSelectedModel) {
+		fields = append(fields, chatsession.FieldSelectedModel)
+	}
+	return fields
 }
 
 // FieldCleared returns a boolean indicating if a field with the given name was
@@ -1342,6 +1410,11 @@ func (m *ChatSessionMutation) FieldCleared(name string) bool {
 // ClearField clears the value of the field with the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *ChatSessionMutation) ClearField(name string) error {
+	switch name {
+	case chatsession.FieldSelectedModel:
+		m.ClearSelectedModel()
+		return nil
+	}
 	return fmt.Errorf("unknown ChatSession nullable field %s", name)
 }
 
@@ -1363,6 +1436,9 @@ func (m *ChatSessionMutation) ResetField(name string) error {
 		return nil
 	case chatsession.FieldUpdatedAt:
 		m.ResetUpdatedAt()
+		return nil
+	case chatsession.FieldSelectedModel:
+		m.ResetSelectedModel()
 		return nil
 	}
 	return fmt.Errorf("unknown ChatSession field %s", name)

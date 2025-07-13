@@ -182,6 +182,10 @@ export function ReorderHighlightsWithAI(arg1, arg2) {
   return window['go']['main']['App']['ReorderHighlightsWithAI'](arg1, arg2);
 }
 
+export function SaveChatModelSelection(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SaveChatModelSelection'](arg1, arg2, arg3);
+}
+
 export function SaveOpenAIApiKey(arg1) {
   return window['go']['main']['App']['SaveOpenAIApiKey'](arg1);
 }

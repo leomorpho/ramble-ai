@@ -6,7 +6,7 @@
   import MessageInput from "./MessageInput.svelte";
   import ChatSettings from "./ChatSettings.svelte";
   import { ENDPOINT_CONFIGS, AVAILABLE_MODELS } from "$lib/constants/chatbot.js";
-  import { SendChatMessage, GetChatHistory, ClearChatHistory } from "$lib/wailsjs/go/main/App.js";
+  import { SendChatMessage, GetChatHistory, ClearChatHistory, SaveChatModelSelection } from "$lib/wailsjs/go/main/App.js";
   import { toast } from "svelte-sonner";
   import { 
     connectChatbotSession, 
@@ -37,19 +37,20 @@
   let selectedModel = $state(AVAILABLE_MODELS[0].value);
   let customModelValue = $state("");
   let messagesContainer;
+  let hasLoadedHistory = $state(false);
+  
+  // Set default model from config when it becomes available
+  $effect(() => {
+    if (config.defaultModel && !hasLoadedHistory) {
+      selectedModel = config.defaultModel;
+    }
+  });
   
   // Real-time stores
   let realtimeMessages = $derived(getChatbotMessages(projectId, endpointId));
   let realtimeSessionId = $derived(getChatbotSessionId(projectId, endpointId));
   let progressMessage = $derived(getChatbotProgress(projectId, endpointId));
   let unsubscribeRealtime = null;
-  
-  // Set default model when config changes
-  $effect(() => {
-    if (config.defaultModel && selectedModel === AVAILABLE_MODELS[0].value) {
-      selectedModel = config.defaultModel;
-    }
-  });
   
   // Load chat history and set up real-time connection when component mounts
   onMount(async () => {
@@ -69,8 +70,9 @@
   // Reload and reconnect when projectId or endpointId changes
   $effect(() => {
     if (projectId && endpointId) {
-      loadChatHistory();
-      setupRealtimeConnection();
+      // Reset the flag when endpoint changes so we can load the saved model
+      hasLoadedHistory = false;
+      loadChatHistory(); // This already calls setupRealtimeConnection
     }
     
     // Cleanup function for effect
@@ -85,9 +87,26 @@
   async function loadChatHistory() {
     try {
       const history = await GetChatHistory(projectId, endpointId);
-      if (history && history.messages) {
+      if (history) {
+        // Load saved model if available - only if we haven't loaded history before
+        if (history.selectedModel) {
+          // Check if it's a custom model
+          if (!AVAILABLE_MODELS.find(m => m.value === history.selectedModel)) {
+            selectedModel = "custom";
+            customModelValue = history.selectedModel;
+          } else {
+            selectedModel = history.selectedModel;
+          }
+        }
+        
         // Initialize the real-time store with the loaded messages
-        setupRealtimeConnection(history.messages, history.sessionId);
+        if (history.messages) {
+          setupRealtimeConnection(history.messages, history.sessionId);
+        } else {
+          setupRealtimeConnection([], history.sessionId);
+        }
+        
+        hasLoadedHistory = true;
       } else {
         // Initialize with empty messages
         setupRealtimeConnection([], null);
@@ -126,13 +145,15 @@
       const currentSessionId = $realtimeSessionId;
       
       // Send message to backend - no need to inject context, backend handles it automatically
+      const modelToSend = selectedModel === "custom" ? customModelValue : selectedModel;
+      
       const response = await SendChatMessage({
         projectId,
         endpointId,
         message: messageText,
         sessionId: currentSessionId,
         contextData: { ...contextData }, // Pass through any provided context data
-        model: selectedModel === "custom" ? customModelValue : selectedModel
+        model: modelToSend
       });
       
       // Update session ID if we got a new one
@@ -192,6 +213,33 @@
   function toggleSettings() {
     settingsOpen = !settingsOpen;
   }
+  
+  // Save model selection when it changes
+  async function saveModelSelection() {
+    if (!projectId || !endpointId) return;
+    
+    try {
+      const modelToSave = selectedModel === "custom" ? customModelValue : selectedModel;
+      await SaveChatModelSelection(projectId, endpointId, modelToSave);
+    } catch (error) {
+      console.error('Failed to save model selection:', error);
+    }
+  }
+  
+  // Watch for model changes and save them
+  $effect(() => {
+    // Only save if we have loaded history (to avoid saving during initialization)
+    if (hasLoadedHistory && selectedModel) {
+      saveModelSelection();
+    }
+  });
+  
+  // Also watch for custom model value changes
+  $effect(() => {
+    if (hasLoadedHistory && selectedModel === "custom" && customModelValue) {
+      saveModelSelection();
+    }
+  });
   
   // Scroll to bottom function
   function scrollToBottom() {

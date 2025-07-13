@@ -62,6 +62,7 @@ var (
 		{Name: "endpoint_id", Type: field.TypeString},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "selected_model", Type: field.TypeString, Nullable: true},
 		{Name: "project_id", Type: field.TypeInt},
 	}
 	// ChatSessionsTable holds the schema information for the "chat_sessions" table.
@@ -72,7 +73,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "chat_sessions_projects_chat_sessions",
-				Columns:    []*schema.Column{ChatSessionsColumns[5]},
+				Columns:    []*schema.Column{ChatSessionsColumns[6]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -86,12 +87,12 @@ var (
 			{
 				Name:    "chatsession_project_id_endpoint_id",
 				Unique:  true,
-				Columns: []*schema.Column{ChatSessionsColumns[5], ChatSessionsColumns[2]},
+				Columns: []*schema.Column{ChatSessionsColumns[6], ChatSessionsColumns[2]},
 			},
 			{
 				Name:    "chatsession_project_id",
 				Unique:  false,
-				Columns: []*schema.Column{ChatSessionsColumns[5]},
+				Columns: []*schema.Column{ChatSessionsColumns[6]},
 			},
 			{
 				Name:    "chatsession_endpoint_id",

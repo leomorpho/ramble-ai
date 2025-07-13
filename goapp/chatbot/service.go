@@ -127,6 +127,17 @@ func (s *ChatbotService) SendMessage(req ChatRequest, getAPIKey func() (string, 
 		}, nil
 	}
 	
+	// Update selected model if it's different from what's saved
+	if req.Model != "" && req.Model != session.SelectedModel {
+		session, err = session.Update().
+			SetSelectedModel(req.Model).
+			Save(s.ctx)
+		if err != nil {
+			log.Printf("Failed to update selected model: %v", err)
+			// Continue without failing - this is a non-critical error
+		}
+	}
+	
 	// Generate user message ID and persist user message
 	userMessageID := fmt.Sprintf("user_%d", time.Now().UnixNano())
 	err = s.persistMessage(session, userMessageID, "user", req.Message, "", "")
@@ -543,18 +554,21 @@ func (s *ChatbotService) GetChatHistory(projectID int, endpointID string) (*Chat
 
 	var sessionID string
 	var messages []ChatMessage
+	var selectedModel string
 
 	if err != nil {
 		if ent.IsNotFound(err) {
 			// Session doesn't exist yet, return empty history with generated session ID
 			sessionID = fmt.Sprintf("session_%d_%s_%d", projectID, endpointID, time.Now().Unix())
 			messages = []ChatMessage{}
+			// session is nil, so no selected model
 		} else {
 			return nil, fmt.Errorf("failed to query chat session: %w", err)
 		}
 	} else {
 		// Session exists, convert messages
 		sessionID = session.SessionID
+		selectedModel = session.SelectedModel
 		messages = make([]ChatMessage, len(session.Edges.Messages))
 		
 		for i, msg := range session.Edges.Messages {
@@ -567,10 +581,36 @@ func (s *ChatbotService) GetChatHistory(projectID int, endpointID string) (*Chat
 		}
 	}
 
-	return &ChatHistoryResponse{
+	response := &ChatHistoryResponse{
 		SessionID: sessionID,
 		Messages:  messages,
-	}, nil
+	}
+	
+	// Include selected model if available
+	if selectedModel != "" {
+		response.SelectedModel = selectedModel
+	}
+	
+	return response, nil
+}
+
+// SaveModelSelection saves the selected model for a chat session
+func (s *ChatbotService) SaveModelSelection(projectID int, endpointID string, model string) error {
+	// Find or create session
+	session, err := s.findOrCreateSession(projectID, endpointID, "")
+	if err != nil {
+		return fmt.Errorf("failed to find or create session: %w", err)
+	}
+	
+	// Update the selected model
+	_, err = session.Update().
+		SetSelectedModel(model).
+		Save(s.ctx)
+	if err != nil {
+		return fmt.Errorf("failed to update selected model: %w", err)
+	}
+	
+	return nil
 }
 
 // ClearChatHistory clears chat history for a project/endpoint

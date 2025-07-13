@@ -92,6 +92,26 @@ func (csu *ChatSessionUpdate) SetUpdatedAt(t time.Time) *ChatSessionUpdate {
 	return csu
 }
 
+// SetSelectedModel sets the "selected_model" field.
+func (csu *ChatSessionUpdate) SetSelectedModel(s string) *ChatSessionUpdate {
+	csu.mutation.SetSelectedModel(s)
+	return csu
+}
+
+// SetNillableSelectedModel sets the "selected_model" field if the given value is not nil.
+func (csu *ChatSessionUpdate) SetNillableSelectedModel(s *string) *ChatSessionUpdate {
+	if s != nil {
+		csu.SetSelectedModel(*s)
+	}
+	return csu
+}
+
+// ClearSelectedModel clears the value of the "selected_model" field.
+func (csu *ChatSessionUpdate) ClearSelectedModel() *ChatSessionUpdate {
+	csu.mutation.ClearSelectedModel()
+	return csu
+}
+
 // SetProject sets the "project" edge to the Project entity.
 func (csu *ChatSessionUpdate) SetProject(p *Project) *ChatSessionUpdate {
 	return csu.SetProjectID(p.ID)
@@ -221,6 +241,12 @@ func (csu *ChatSessionUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := csu.mutation.UpdatedAt(); ok {
 		_spec.SetField(chatsession.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if value, ok := csu.mutation.SelectedModel(); ok {
+		_spec.SetField(chatsession.FieldSelectedModel, field.TypeString, value)
+	}
+	if csu.mutation.SelectedModelCleared() {
+		_spec.ClearField(chatsession.FieldSelectedModel, field.TypeString)
 	}
 	if csu.mutation.ProjectCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -375,6 +401,26 @@ func (csuo *ChatSessionUpdateOne) SetNillableCreatedAt(t *time.Time) *ChatSessio
 // SetUpdatedAt sets the "updated_at" field.
 func (csuo *ChatSessionUpdateOne) SetUpdatedAt(t time.Time) *ChatSessionUpdateOne {
 	csuo.mutation.SetUpdatedAt(t)
+	return csuo
+}
+
+// SetSelectedModel sets the "selected_model" field.
+func (csuo *ChatSessionUpdateOne) SetSelectedModel(s string) *ChatSessionUpdateOne {
+	csuo.mutation.SetSelectedModel(s)
+	return csuo
+}
+
+// SetNillableSelectedModel sets the "selected_model" field if the given value is not nil.
+func (csuo *ChatSessionUpdateOne) SetNillableSelectedModel(s *string) *ChatSessionUpdateOne {
+	if s != nil {
+		csuo.SetSelectedModel(*s)
+	}
+	return csuo
+}
+
+// ClearSelectedModel clears the value of the "selected_model" field.
+func (csuo *ChatSessionUpdateOne) ClearSelectedModel() *ChatSessionUpdateOne {
+	csuo.mutation.ClearSelectedModel()
 	return csuo
 }
 
@@ -537,6 +583,12 @@ func (csuo *ChatSessionUpdateOne) sqlSave(ctx context.Context) (_node *ChatSessi
 	}
 	if value, ok := csuo.mutation.UpdatedAt(); ok {
 		_spec.SetField(chatsession.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if value, ok := csuo.mutation.SelectedModel(); ok {
+		_spec.SetField(chatsession.FieldSelectedModel, field.TypeString, value)
+	}
+	if csuo.mutation.SelectedModelCleared() {
+		_spec.ClearField(chatsession.FieldSelectedModel, field.TypeString)
 	}
 	if csuo.mutation.ProjectCleared() {
 		edge := &sqlgraph.EdgeSpec{

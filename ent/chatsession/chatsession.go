@@ -24,6 +24,8 @@ const (
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
 	FieldUpdatedAt = "updated_at"
+	// FieldSelectedModel holds the string denoting the selected_model field in the database.
+	FieldSelectedModel = "selected_model"
 	// EdgeProject holds the string denoting the project edge name in mutations.
 	EdgeProject = "project"
 	// EdgeMessages holds the string denoting the messages edge name in mutations.
@@ -54,6 +56,7 @@ var Columns = []string{
 	FieldEndpointID,
 	FieldCreatedAt,
 	FieldUpdatedAt,
+	FieldSelectedModel,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -110,6 +113,11 @@ func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
 // ByUpdatedAt orders the results by the updated_at field.
 func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldUpdatedAt, opts...).ToFunc()
+}
+
+// BySelectedModel orders the results by the selected_model field.
+func BySelectedModel(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSelectedModel, opts...).ToFunc()
 }
 
 // ByProjectField orders the results by project field.

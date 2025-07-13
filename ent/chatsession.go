@@ -28,6 +28,8 @@ type ChatSession struct {
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// When the session was last updated
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
+	// The AI model selected for this chat session
+	SelectedModel string `json:"selected_model,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ChatSessionQuery when eager-loading is set.
 	Edges        ChatSessionEdges `json:"edges"`
@@ -72,7 +74,7 @@ func (*ChatSession) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case chatsession.FieldID, chatsession.FieldProjectID:
 			values[i] = new(sql.NullInt64)
-		case chatsession.FieldSessionID, chatsession.FieldEndpointID:
+		case chatsession.FieldSessionID, chatsession.FieldEndpointID, chatsession.FieldSelectedModel:
 			values[i] = new(sql.NullString)
 		case chatsession.FieldCreatedAt, chatsession.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -126,6 +128,12 @@ func (cs *ChatSession) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field updated_at", values[i])
 			} else if value.Valid {
 				cs.UpdatedAt = value.Time
+			}
+		case chatsession.FieldSelectedModel:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field selected_model", values[i])
+			} else if value.Valid {
+				cs.SelectedModel = value.String
 			}
 		default:
 			cs.selectValues.Set(columns[i], values[i])
@@ -187,6 +195,9 @@ func (cs *ChatSession) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("updated_at=")
 	builder.WriteString(cs.UpdatedAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("selected_model=")
+	builder.WriteString(cs.SelectedModel)
 	builder.WriteByte(')')
 	return builder.String()
 }

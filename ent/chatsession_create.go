@@ -68,6 +68,20 @@ func (csc *ChatSessionCreate) SetNillableUpdatedAt(t *time.Time) *ChatSessionCre
 	return csc
 }
 
+// SetSelectedModel sets the "selected_model" field.
+func (csc *ChatSessionCreate) SetSelectedModel(s string) *ChatSessionCreate {
+	csc.mutation.SetSelectedModel(s)
+	return csc
+}
+
+// SetNillableSelectedModel sets the "selected_model" field if the given value is not nil.
+func (csc *ChatSessionCreate) SetNillableSelectedModel(s *string) *ChatSessionCreate {
+	if s != nil {
+		csc.SetSelectedModel(*s)
+	}
+	return csc
+}
+
 // SetProject sets the "project" edge to the Project entity.
 func (csc *ChatSessionCreate) SetProject(p *Project) *ChatSessionCreate {
 	return csc.SetProjectID(p.ID)
@@ -204,6 +218,10 @@ func (csc *ChatSessionCreate) createSpec() (*ChatSession, *sqlgraph.CreateSpec) 
 	if value, ok := csc.mutation.UpdatedAt(); ok {
 		_spec.SetField(chatsession.FieldUpdatedAt, field.TypeTime, value)
 		_node.UpdatedAt = value
+	}
+	if value, ok := csc.mutation.SelectedModel(); ok {
+		_spec.SetField(chatsession.FieldSelectedModel, field.TypeString, value)
+		_node.SelectedModel = value
 	}
 	if nodes := csc.mutation.ProjectIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

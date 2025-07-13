@@ -77,6 +77,7 @@ export namespace chatbot {
 	export class ChatHistoryResponse {
 	    sessionId: string;
 	    messages: ChatMessage[];
+	    selectedModel?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ChatHistoryResponse(source);
@@ -86,6 +87,7 @@ export namespace chatbot {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.sessionId = source["sessionId"];
 	        this.messages = this.convertValues(source["messages"], ChatMessage);
+	        this.selectedModel = source["selectedModel"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

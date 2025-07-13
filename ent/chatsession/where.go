@@ -80,6 +80,11 @@ func UpdatedAt(v time.Time) predicate.ChatSession {
 	return predicate.ChatSession(sql.FieldEQ(FieldUpdatedAt, v))
 }
 
+// SelectedModel applies equality check predicate on the "selected_model" field. It's identical to SelectedModelEQ.
+func SelectedModel(v string) predicate.ChatSession {
+	return predicate.ChatSession(sql.FieldEQ(FieldSelectedModel, v))
+}
+
 // SessionIDEQ applies the EQ predicate on the "session_id" field.
 func SessionIDEQ(v string) predicate.ChatSession {
 	return predicate.ChatSession(sql.FieldEQ(FieldSessionID, v))
@@ -308,6 +313,81 @@ func UpdatedAtLT(v time.Time) predicate.ChatSession {
 // UpdatedAtLTE applies the LTE predicate on the "updated_at" field.
 func UpdatedAtLTE(v time.Time) predicate.ChatSession {
 	return predicate.ChatSession(sql.FieldLTE(FieldUpdatedAt, v))
+}
+
+// SelectedModelEQ applies the EQ predicate on the "selected_model" field.
+func SelectedModelEQ(v string) predicate.ChatSession {
+	return predicate.ChatSession(sql.FieldEQ(FieldSelectedModel, v))
+}
+
+// SelectedModelNEQ applies the NEQ predicate on the "selected_model" field.
+func SelectedModelNEQ(v string) predicate.ChatSession {
+	return predicate.ChatSession(sql.FieldNEQ(FieldSelectedModel, v))
+}
+
+// SelectedModelIn applies the In predicate on the "selected_model" field.
+func SelectedModelIn(vs ...string) predicate.ChatSession {
+	return predicate.ChatSession(sql.FieldIn(FieldSelectedModel, vs...))
+}
+
+// SelectedModelNotIn applies the NotIn predicate on the "selected_model" field.
+func SelectedModelNotIn(vs ...string) predicate.ChatSession {
+	return predicate.ChatSession(sql.FieldNotIn(FieldSelectedModel, vs...))
+}
+
+// SelectedModelGT applies the GT predicate on the "selected_model" field.
+func SelectedModelGT(v string) predicate.ChatSession {
+	return predicate.ChatSession(sql.FieldGT(FieldSelectedModel, v))
+}
+
+// SelectedModelGTE applies the GTE predicate on the "selected_model" field.
+func SelectedModelGTE(v string) predicate.ChatSession {
+	return predicate.ChatSession(sql.FieldGTE(FieldSelectedModel, v))
+}
+
+// SelectedModelLT applies the LT predicate on the "selected_model" field.
+func SelectedModelLT(v string) predicate.ChatSession {
+	return predicate.ChatSession(sql.FieldLT(FieldSelectedModel, v))
+}
+
+// SelectedModelLTE applies the LTE predicate on the "selected_model" field.
+func SelectedModelLTE(v string) predicate.ChatSession {
+	return predicate.ChatSession(sql.FieldLTE(FieldSelectedModel, v))
+}
+
+// SelectedModelContains applies the Contains predicate on the "selected_model" field.
+func SelectedModelContains(v string) predicate.ChatSession {
+	return predicate.ChatSession(sql.FieldContains(FieldSelectedModel, v))
+}
+
+// SelectedModelHasPrefix applies the HasPrefix predicate on the "selected_model" field.
+func SelectedModelHasPrefix(v string) predicate.ChatSession {
+	return predicate.ChatSession(sql.FieldHasPrefix(FieldSelectedModel, v))
+}
+
+// SelectedModelHasSuffix applies the HasSuffix predicate on the "selected_model" field.
+func SelectedModelHasSuffix(v string) predicate.ChatSession {
+	return predicate.ChatSession(sql.FieldHasSuffix(FieldSelectedModel, v))
+}
+
+// SelectedModelIsNil applies the IsNil predicate on the "selected_model" field.
+func SelectedModelIsNil() predicate.ChatSession {
+	return predicate.ChatSession(sql.FieldIsNull(FieldSelectedModel))
+}
+
+// SelectedModelNotNil applies the NotNil predicate on the "selected_model" field.
+func SelectedModelNotNil() predicate.ChatSession {
+	return predicate.ChatSession(sql.FieldNotNull(FieldSelectedModel))
+}
+
+// SelectedModelEqualFold applies the EqualFold predicate on the "selected_model" field.
+func SelectedModelEqualFold(v string) predicate.ChatSession {
+	return predicate.ChatSession(sql.FieldEqualFold(FieldSelectedModel, v))
+}
+
+// SelectedModelContainsFold applies the ContainsFold predicate on the "selected_model" field.
+func SelectedModelContainsFold(v string) predicate.ChatSession {
+	return predicate.ChatSession(sql.FieldContainsFold(FieldSelectedModel, v))
 }
 
 // HasProject applies the HasEdge predicate on the "project" edge.
