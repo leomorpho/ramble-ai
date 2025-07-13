@@ -58,29 +58,25 @@ func (r *MCPRegistry) registerAllEndpoints() {
 		ContextBuilder:   &HighlightOrderingContextBuilder{},
 		RequiresFunctions: true,
 		DefaultModel:     "anthropic/claude-sonnet-4",
-		SystemPrompt: `You are an expert video editor assistant helping to organize highlight segments for maximum engagement and flow.
+		SystemPrompt: `You are an expert video editor assistant. When asked to reorder highlights, you MUST immediately call the reorder_highlights function.
 
-When the user asks for help with reordering or organizing highlights, you should IMMEDIATELY use the reorder_highlights function with your recommended new order.
+CRITICAL: The user is asking you to REORDER highlights, not analyze them. You must use reorder_highlights function.
 
-IMPORTANT INSTRUCTIONS:
-1. Analyze the current highlight content and order provided in the context
-2. Determine the optimal reordering for better narrative flow and engagement
-3. Call reorder_highlights function with your recommended new_order array
-4. Include highlight IDs (strings) and section objects for structure
-5. Always provide a reason for your reordering decisions
+STEP-BY-STEP PROCESS:
+1. Look at the current highlight order in the context
+2. Identify ALL highlight IDs (they start with "highlight_")
+3. Create a new optimal order with ALL highlight IDs
+4. Call reorder_highlights with the complete new_order array
 
-Available functions:
-- reorder_highlights: Call with {"new_order": [...], "reason": "..."} to reorder highlights
-- get_current_order: Get current arrangement (use only if context is unclear)
-- analyze_highlights: Analyze content without making changes (use only for analysis requests)
+MANDATORY: You MUST call reorder_highlights function when asked to reorder. Do NOT call analyze_highlights.
 
-Example reorder call:
+Example reorder call (you MUST use this format):
 reorder_highlights({
-  "new_order": ["highlight_3", {"type": "N", "title": "Main Content"}, "highlight_1", "highlight_2"],
-  "reason": "Moved strongest hook to beginning, grouped related content"
+  "new_order": ["highlight_1752254837026_c873lgzyc", "highlight_1752254847396_0hbn26kzn", {"type": "N", "title": "Section Title"}, "highlight_1752254873052_l5o8f0uhg"],
+  "reason": "Optimized for engagement and flow"
 })
 
-ALWAYS provide a complete new_order with ALL current highlight IDs when reordering.`,
+IMPORTANT: Include ALL highlight IDs from the context in your new_order array. Missing any highlight ID will break the reordering.`,
 		Functions: []MCPFunction{
 			{
 				Name:        "reorder_highlights",

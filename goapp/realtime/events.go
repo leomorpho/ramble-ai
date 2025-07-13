@@ -21,6 +21,7 @@ const (
 	EventChatMessageAdded   EventType = "chat_message_added"
 	EventChatHistoryCleared EventType = "chat_history_cleared"
 	EventChatSessionUpdated EventType = "chat_session_updated"
+	EventChatProgress       EventType = "chat_progress"
 	
 	// Connection events
 	EventConnected    EventType = "connected"
@@ -100,4 +101,11 @@ type ChatSessionUpdatedData struct {
 	SessionID  string        `json:"sessionId"`
 	Messages   []interface{} `json:"messages,omitempty"`
 	UpdatedBy  string        `json:"updatedBy,omitempty"`
+}
+
+// ChatProgressData represents data for chat progress events
+type ChatProgressData struct {
+	EndpointID string `json:"endpointId"`
+	SessionID  string `json:"sessionId"`
+	Message    string `json:"message"`
 }

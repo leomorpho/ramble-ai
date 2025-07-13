@@ -26,6 +26,7 @@ export const EVENT_TYPES = {
   CHAT_MESSAGE_ADDED: 'chat_message_added',
   CHAT_HISTORY_CLEARED: 'chat_history_cleared',
   CHAT_SESSION_UPDATED: 'chat_session_updated',
+  CHAT_PROGRESS: 'chat_progress',
   CONNECTED: 'connected',
   DISCONNECTED: 'disconnected'
 };

@@ -303,7 +303,9 @@ Always explain your reasoning when reordering highlights.`, context)
 
 // sendRegularMessage handles regular chat without function calling
 func (s *ChatbotService) sendRegularMessage(req ChatRequest, messageID string, getAPIKey func() (string, error), session *ent.ChatSession) (*ChatResponse, error) {
-	// Get chat history for context
+	// Skip getting chat history since we're not using it
+	// This improves performance by avoiding database queries
+	/*
 	history, err := s.GetChatHistory(req.ProjectID, req.EndpointID)
 	if err != nil {
 		log.Printf("Failed to get chat history: %v", err)
@@ -313,6 +315,7 @@ func (s *ChatbotService) sendRegularMessage(req ChatRequest, messageID string, g
 			Messages:  []ChatMessage{},
 		}
 	}
+	*/
 	
 	// Build messages for OpenRouter
 	messages := []map[string]interface{}{}
@@ -324,7 +327,10 @@ func (s *ChatbotService) sendRegularMessage(req ChatRequest, messageID string, g
 		"content": systemMessage,
 	})
 	
-	// Add conversation history (limit to last 10 messages for context window)
+	// Skip conversation history - only send current message
+	// This improves performance and reduces token usage
+	// Uncomment below to include history if needed
+	/*
 	historyLimit := 10
 	startIdx := 0
 	if len(history.Messages) > historyLimit {
@@ -338,6 +344,7 @@ func (s *ChatbotService) sendRegularMessage(req ChatRequest, messageID string, g
 			"content": msg.Content,
 		})
 	}
+	*/
 	
 	// Add current user message
 	messages = append(messages, map[string]interface{}{
@@ -611,6 +618,11 @@ func (s *ChatbotService) ClearChatHistory(projectID int, endpointID string) erro
 
 // sendMessageWithMCPActions handles LLM requests using the MCP registry system
 func (s *ChatbotService) sendMessageWithMCPActions(req ChatRequest, messageID string, getAPIKey func() (string, error), session *ent.ChatSession) (*ChatResponse, error) {
+	// Broadcast progress: Starting AI processing
+	projectIDStr := strconv.Itoa(req.ProjectID)
+	manager := realtime.GetManager()
+	manager.BroadcastChatProgress(projectIDStr, req.EndpointID, session.SessionID, "Initializing AI assistant...")
+	
 	// Get API key
 	apiKey, err := getAPIKey()
 	if err != nil || apiKey == "" {
@@ -632,6 +644,9 @@ func (s *ChatbotService) sendMessageWithMCPActions(req ChatRequest, messageID st
 			Error:     fmt.Sprintf("Endpoint %s not found in MCP registry", req.EndpointID),
 		}, nil
 	}
+	
+	// Broadcast progress: Building context
+	manager.BroadcastChatProgress(projectIDStr, req.EndpointID, session.SessionID, "Analyzing current highlight structure...")
 	
 	// Build context using MCP registry
 	context, err := s.mcpRegistry.BuildContextForEndpoint(req.EndpointID, req.ProjectID, s)
@@ -655,7 +670,7 @@ IMPORTANT: If you need to perform actions (like reordering highlights), use the 
 		tools = []map[string]interface{}{}
 	}
 	
-	// Step 1: Call LLM with function tools
+	// Step 1: Call LLM with function tools - optimized for speed
 	openRouterReq := map[string]interface{}{
 		"model": req.Model,
 		"messages": []map[string]interface{}{
@@ -668,15 +683,29 @@ IMPORTANT: If you need to perform actions (like reordering highlights), use the 
 				"content": req.Message,
 			},
 		},
-		"temperature": 0.7,
-		"max_tokens":  4000,
+		"temperature": 0.3, // Lower temperature for faster, more focused responses
+		"max_tokens":  4000, // Increased to ensure complete function arguments
 	}
 	
-	// Add tools if available
+	// Add tools if available and force function calling for reordering
 	if len(tools) > 0 {
 		openRouterReq["tools"] = tools
-		openRouterReq["tool_choice"] = "auto"
+		
+		// For highlight ordering, force the LLM to call reorder_highlights
+		if req.EndpointID == "highlight_ordering" {
+			openRouterReq["tool_choice"] = map[string]interface{}{
+				"type": "function",
+				"function": map[string]interface{}{
+					"name": "reorder_highlights",
+				},
+			}
+		} else {
+			openRouterReq["tool_choice"] = "auto"
+		}
 	}
+	
+	// Broadcast progress: Sending to AI
+	manager.BroadcastChatProgress(projectIDStr, req.EndpointID, session.SessionID, "Consulting AI for optimal arrangement...")
 	
 	// Call OpenRouter API
 	aiResponse, err := s.callOpenRouterAPI(apiKey, openRouterReq)
@@ -702,6 +731,9 @@ IMPORTANT: If you need to perform actions (like reordering highlights), use the 
 	
 	if toolCalls, ok := aiResponse["tool_calls"].([]interface{}); ok && len(toolCalls) > 0 {
 		response.HasActions = true
+		
+		// Broadcast progress: Executing actions
+		manager.BroadcastChatProgress(projectIDStr, req.EndpointID, session.SessionID, "Applying highlight reordering...")
 		
 		for _, toolCallInterface := range toolCalls {
 			if toolCall, ok := toolCallInterface.(map[string]interface{}); ok {
@@ -729,13 +761,30 @@ IMPORTANT: If you need to perform actions (like reordering highlights), use the 
 		}
 	}
 	
-	// Get the AI's response message
-	if content, ok := aiResponse["content"].(string); ok {
-		response.Message = content
-	} else {
-		// If no direct content, create a message based on actions performed
-		if len(actionsPerformed) > 0 {
+	// Get the AI's response message - prioritize function results over LLM verbose responses
+	if len(actionsPerformed) > 0 {
+		// For action-based responses, use the concise reason from function results
+		var actionMessage string
+		for _, result := range functionResults {
+			if result.Success && result.Result != nil {
+				if resultMap, ok := result.Result.(map[string]interface{}); ok {
+					if reason, ok := resultMap["reason"].(string); ok && reason != "" {
+						actionMessage = reason
+						break
+					}
+				}
+			}
+		}
+		
+		if actionMessage != "" {
+			response.Message = actionMessage
+		} else {
 			response.Message = response.ActionSummary
+		}
+	} else {
+		// For non-action responses, use LLM's direct content
+		if content, ok := aiResponse["content"].(string); ok {
+			response.Message = content
 		} else {
 			response.Message = "I've processed your request. How else can I help you?"
 		}

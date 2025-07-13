@@ -236,6 +236,27 @@ func (m *Manager) BroadcastChatSessionUpdated(projectID string, endpointID strin
 	log.Printf("Broadcasted chat session updated for project %s, endpoint %s", projectID, endpointID)
 }
 
+// BroadcastChatProgress broadcasts a chat progress update event
+func (m *Manager) BroadcastChatProgress(projectID string, endpointID string, sessionID string, message string) {
+	data := &ChatProgressData{
+		EndpointID: endpointID,
+		SessionID:  sessionID,
+		Message:    message,
+	}
+	
+	event := NewEvent(EventChatProgress, projectID, data)
+	
+	// Broadcast via SSE for browser connections
+	m.sseManager.BroadcastToProject(projectID, event)
+	
+	// Broadcast via Wails events for desktop app
+	if m.ctx != nil {
+		runtime.EventsEmit(m.ctx, string(EventChatProgress), event)
+	}
+	
+	log.Printf("Broadcasted chat progress for project %s, endpoint %s: %s", projectID, endpointID, message)
+}
+
 // GetStats returns statistics about connected clients
 func (m *Manager) GetStats() map[string]interface{} {
 	return map[string]interface{}{

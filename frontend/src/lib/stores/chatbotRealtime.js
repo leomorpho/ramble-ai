@@ -12,6 +12,9 @@ const chatbotSessions = writable(new Map()); // Map<`${projectId}_${endpointId}`
 // Store for real-time chatbot events
 export const lastChatbotEvent = writable(null);
 
+// Store for chatbot progress messages
+const chatbotProgress = writable(new Map()); // Map<`${projectId}_${endpointId}`, string>
+
 /**
  * Connect to real-time updates for a specific chatbot session
  * @param {number} projectId - The project ID
@@ -49,6 +52,10 @@ export function connectChatbotSession(projectId, endpointId, initialMessages = [
     
     onRealtimeEvent(EVENT_TYPES.CHAT_SESSION_UPDATED, (data) => {
       handleChatSessionUpdated(projectId, endpointId, data);
+    }),
+    
+    onRealtimeEvent(EVENT_TYPES.CHAT_PROGRESS, (data) => {
+      handleChatProgress(projectId, endpointId, data);
     })
   ];
   
@@ -103,6 +110,20 @@ export function getChatbotSessionId(projectId, endpointId) {
   return derived(chatbotSessions, $sessions => {
     const session = $sessions.get(sessionKey);
     return session ? session.sessionId : null;
+  });
+}
+
+/**
+ * Get progress message for a specific chatbot session
+ * @param {number} projectId - The project ID
+ * @param {string} endpointId - The chatbot endpoint ID
+ * @returns {import('svelte/store').Readable<string|null>} Readable store with progress message
+ */
+export function getChatbotProgress(projectId, endpointId) {
+  const sessionKey = `${projectId}_${endpointId}`;
+  
+  return derived(chatbotProgress, $progress => {
+    return $progress.get(sessionKey) || null;
   });
 }
 
@@ -288,6 +309,44 @@ function handleChatSessionUpdated(projectId, endpointId, eventData) {
       }
     } catch (error) {
       console.error('Error processing chat session updated event:', error);
+    }
+  }
+}
+
+function handleChatProgress(projectId, endpointId, eventData) {
+  console.log('Processing chat progress event:', eventData);
+  
+  // Only process if this event is for the current project
+  if (eventData.projectId === projectId?.toString()) {
+    try {
+      const { data } = eventData;
+      
+      // Check if this progress is for the current endpoint
+      if (data.endpointId === endpointId) {
+        const sessionKey = `${projectId}_${endpointId}`;
+        const message = data.message;
+        
+        chatbotProgress.update(progress => {
+          const newProgress = new Map(progress);
+          newProgress.set(sessionKey, message);
+          return newProgress;
+        });
+        
+        console.log(`Updated chat progress for ${projectId}_${endpointId}: ${message}`);
+        
+        // Clear progress after 5 seconds to avoid stale messages
+        setTimeout(() => {
+          chatbotProgress.update(progress => {
+            const newProgress = new Map(progress);
+            if (newProgress.get(sessionKey) === message) {
+              newProgress.delete(sessionKey);
+            }
+            return newProgress;
+          });
+        }, 5000);
+      }
+    } catch (error) {
+      console.error('Error processing chat progress event:', error);
     }
   }
 }

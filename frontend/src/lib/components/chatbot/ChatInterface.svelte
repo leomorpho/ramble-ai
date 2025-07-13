@@ -14,7 +14,8 @@
     getChatbotSessionId,
     clearChatbotMessages,
     updateChatbotSessionId,
-    addChatbotMessage
+    addChatbotMessage,
+    getChatbotProgress
   } from "$lib/stores/chatbotRealtime.js";
   
   let {
@@ -40,6 +41,7 @@
   // Real-time stores
   let realtimeMessages = $derived(getChatbotMessages(projectId, endpointId));
   let realtimeSessionId = $derived(getChatbotSessionId(projectId, endpointId));
+  let progressMessage = $derived(getChatbotProgress(projectId, endpointId));
   let unsubscribeRealtime = null;
   
   // Set default model when config changes
@@ -284,6 +286,16 @@
   
   <!-- Messages Area -->
   <div bind:this={messagesContainer} class="flex-1 overflow-y-auto px-6 scrollbar-thin">
+    <!-- Progress indicator -->
+    {#if $progressMessage}
+      <div class="sticky top-0 z-10 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-2 mb-4 mt-4">
+        <div class="flex items-center gap-3">
+          <div class="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+          <span class="text-sm text-blue-700 dark:text-blue-300 font-medium">{$progressMessage}</span>
+        </div>
+      </div>
+    {/if}
+    
     <MessageList 
       messages={$realtimeMessages} 
       {loading} 
