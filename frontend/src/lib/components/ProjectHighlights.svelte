@@ -5,7 +5,7 @@
     GetVideoClipsByProject,
   } from "$lib/wailsjs/go/main/App";
   import { toast } from "svelte-sonner";
-  import { Play, Film, Sparkles, Clock, Undo, Redo } from "@lucide/svelte";
+  import { Play, Film, Clock, Undo, Redo, Ear } from "@lucide/svelte";
   import {
     Dialog,
     DialogContent,
@@ -27,8 +27,6 @@
     undoOrderChange,
     redoOrderChange,
     orderHistoryStatus,
-    insertNewLine,
-    removeNewLine,
     updateNewLineTitle,
   } from "$lib/stores/projectHighlights.js";
   import { ImproveHighlightSilencesWithAI } from "$lib/wailsjs/go/main/App";
@@ -388,7 +386,7 @@
             </svg>
             Improving...
           {:else}
-            <Clock class="w-4 h-4" />
+            <Ear class="w-4 h-4" />
             AI Improve Silences
           {/if}
         </Button>
