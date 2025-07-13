@@ -57,9 +57,6 @@
   let highlightToDelete = $state(null);
   let deleting = $state(false);
 
-  // AI reordering state
-  let aiSheetOpen = $state(false);
-
   // AI silence improvement state
   let aiSilenceLoading = $state(false);
   let showAISilenceConfirmation = $state(false);
@@ -279,25 +276,6 @@
     await updateHighlightOrder(newOrder);
   }
 
-  // Handle AI reordering - open sheet
-  function handleAIReorder() {
-    if (!projectId || highlights.length === 0) {
-      toast.error("No highlights to reorder");
-      return;
-    }
-
-    aiSheetOpen = true;
-  }
-
-  // Handle AI reorder apply callback
-  function handleAIApply(reorderedHighlights) {
-    console.log(
-      "AI reordering applied:",
-      reorderedHighlights.length,
-      "highlights"
-    );
-  }
-
   async function handleAISilenceImprovement() {
     if (!projectId || highlights.length === 0) {
       toast.error("No highlights to improve");
@@ -385,22 +363,12 @@
           <Redo class="w-4 h-4" />
         </Button>
       </div>
-      {#if highlights.length > 1}
-        <Button
-          variant="outline"
-          size="sm"
-          onclick={handleAIReorder}
-          class="flex items-center gap-2"
-        >
-          <Sparkles class="w-4 h-4" />
-          AI Reorder
-        </Button>
-      {/if}
+
       {#if highlights.length > 0}
         <Button
           variant="outline"
           size="sm"
-          onclick={() => showAISilenceConfirmation = true}
+          onclick={() => (showAISilenceConfirmation = true)}
           disabled={aiSilenceLoading}
           class="flex items-center gap-2"
         >
@@ -500,7 +468,6 @@
   </VideoPlayerKeyHandler>
 </div>
 
-
 <!-- AI Improve Silences Confirmation Dialog -->
 <Dialog bind:open={showAISilenceConfirmation}>
   <DialogContent class="z-[100] sm:max-w-md">
@@ -509,11 +476,15 @@
       <DialogDescription>
         <div class="space-y-3 pt-2">
           <p>
-            The AI will analyze the gaps between your highlights and adjust timing to reduce unnecessary silence while preserving natural speech pauses.
+            The AI will analyze the gaps between your highlights and adjust
+            timing to reduce unnecessary silence while preserving natural speech
+            pauses.
           </p>
           <div class="bg-secondary/50 rounded-lg p-3 space-y-2">
             <p class="text-sm font-medium">
-              Analyzing: {highlights.length} highlight{highlights.length === 1 ? '' : 's'}
+              Analyzing: {highlights.length} highlight{highlights.length === 1
+                ? ""
+                : "s"}
             </p>
             <div class="text-sm space-y-1">
               <p class="font-medium">This will:</p>
@@ -526,7 +497,8 @@
             </div>
           </div>
           <p class="text-sm text-muted-foreground">
-            This action will modify your highlight timings. You can undo changes if needed.
+            This action will modify your highlight timings. You can undo changes
+            if needed.
           </p>
         </div>
       </DialogDescription>
@@ -534,7 +506,7 @@
     <div class="flex justify-end gap-2 pt-4">
       <Button
         variant="outline"
-        onclick={() => showAISilenceConfirmation = false}
+        onclick={() => (showAISilenceConfirmation = false)}
       >
         Cancel
       </Button>
@@ -550,14 +522,6 @@
     </div>
   </DialogContent>
 </Dialog>
-
-<!-- AI Reordering Sheet -->
-<AIReorderSheet
-  bind:open={aiSheetOpen}
-  {projectId}
-  {highlights}
-  onApply={handleAIApply}
-/>
 
 <!-- Video Player Dialog -->
 <Dialog bind:open={videoDialogOpen}>

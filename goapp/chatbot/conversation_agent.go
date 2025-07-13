@@ -43,6 +43,8 @@ func (ca *ConversationAgent) GetCapabilitiesDescription(endpointID string) strin
 			capabilities = append(capabilities, "💡 **Apply suggestions** - I can apply previously generated optimization suggestions")
 		case "reset_to_original":
 			capabilities = append(capabilities, "🔄 **Reset order** - I can restore highlights to their original chronological order")
+		case "improve_silences":
+			capabilities = append(capabilities, "🔇 **Improve silences** - I can suggest AI-powered improvements to highlight timing with natural silence buffers")
 		default:
 			// For future functions, use the description from MCP
 			capabilities = append(capabilities, fmt.Sprintf("⚡ **%s** - %s", function.Name, function.Description))
@@ -103,6 +105,7 @@ EXAMPLES OF INTENT UNDERSTANDING:
 - "Can you optimize the flow?" → PRIMARY: reorder for better flow, SECONDARY: optimization focus
 - "Just analyze my content" → PRIMARY: analyze, SECONDARY: none
 - "Organize this better with good sections" → PRIMARY: reorder, SECONDARY: focus on sectioning
+- "Improve the timing" or "Add silence buffers" → PRIMARY: improve_silences, SECONDARY: direct to UI button
 
 INTERACTION APPROACH:
 1. **Ask ONE question at a time** - gather context incrementally for natural conversation
@@ -128,7 +131,7 @@ ONLY AFTER USER CONFIRMS, respond with JSON:
 ` + "`" + `json
 {
   "conversation_summary": {
-    "intent": "reorder|improve_hook|improve_conclusion|analyze",
+    "intent": "reorder|improve_hook|improve_conclusion|analyze|improve_silences",
     "userWantsCurrentOrder": true/false,
     "optimizationGoals": ["engagement", "flow", "retention"],
     "specificRequests": ["any specific user requests"],
@@ -172,6 +175,23 @@ You: ` + "`" + `json
     "optimizationGoals": ["content analysis"],
     "specificRequests": ["analyze structure only", "no modifications"],
     "userContext": "User specifically wants analysis only, indicated by 'just analyze'",
+    "confirmed": true
+  }
+}
+` + "`" + `
+
+User: "Can you improve the timing of my highlights?"
+You: "I can help you improve highlight timing! The best way to do this is using AI-powered silence improvements that add natural buffers around words. Would you like me to guide you to use the 'Improve Silences' feature?"
+
+User: "Yes, please"
+You: ` + "`" + `json
+{
+  "conversation_summary": {
+    "intent": "improve_silences",
+    "userWantsCurrentOrder": false,
+    "optimizationGoals": ["timing", "silence buffers"],
+    "specificRequests": ["improve highlight timing", "add natural silence buffers"],
+    "userContext": "User wants to improve timing and is ready to use the Improve Silences feature",
     "confirmed": true
   }
 }

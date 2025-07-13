@@ -14,6 +14,7 @@ func (s *ChatbotService) registerFunctions() {
 	s.functionRegistry["analyze_highlights"] = s.executeAnalyzeHighlights
 	s.functionRegistry["apply_ai_suggestion"] = s.executeApplyAISuggestion
 	s.functionRegistry["reset_to_original"] = s.executeResetToOriginal
+	s.functionRegistry["improve_silences"] = s.executeImproveSilences
 	
 	// Define function schemas for LLM
 	s.functionDefs = []FunctionDefinition{
@@ -75,6 +76,14 @@ func (s *ChatbotService) registerFunctions() {
 		{
 			Name:        "reset_to_original",
 			Description: "Reset highlights to their original order",
+			Parameters: map[string]interface{}{
+				"type":       "object",
+				"properties": map[string]interface{}{},
+			},
+		},
+		{
+			Name:        "improve_silences",
+			Description: "Improve highlight timing by adding natural silence buffers around words using AI",
 			Parameters: map[string]interface{}{
 				"type":       "object",
 				"properties": map[string]interface{}{},
@@ -377,6 +386,18 @@ func (s *ChatbotService) executeResetToOriginal(args map[string]interface{}, pro
 		"count":        len(originalOrder),
 		"new_order":    originalOrder,
 		"apply_required": true,
+	}, nil
+}
+
+// executeImproveSilences improves highlight timing by adding natural silence buffers
+func (s *ChatbotService) executeImproveSilences(args map[string]interface{}, projectID int, service *ChatbotService) (interface{}, error) {
+	// For now, return a message indicating this should be called directly
+	// The chatbot can suggest this action, but the actual execution should use the main App function
+	return map[string]interface{}{
+		"success": true,
+		"message": "Please use the 'Improve Silences' button in the UI to apply AI silence improvements",
+		"action_required": "improve_silences_ui",
+		"description": "This action requires direct access to AI services and should be triggered from the UI",
 	}, nil
 }
 

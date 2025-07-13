@@ -106,6 +106,16 @@ ANALYSIS INSTRUCTIONS:
 - Do NOT reorder highlights - this is analysis only
 - Keep current order intact in your response`
 
+	case "improve_silences":
+		return `You are a YouTube content optimization specialist. Your task is to SUGGEST silence improvements.
+
+SILENCE IMPROVEMENT INSTRUCTIONS:
+- Suggest that the user use the "Improve Silences" button in the UI
+- Explain that this feature uses AI to add natural silence buffers around words
+- This improves the timing and flow of highlights for better video editing
+- Note that this action requires direct access to AI services
+- Keep current order intact in your response`
+
 	default:
 		return `You are a YouTube content optimization specialist. Your task is to optimize highlight organization.`
 	}
@@ -124,6 +134,22 @@ REQUIRED JSON OUTPUT FORMAT:
   "reasoning": "Detailed analysis of current structure, themes, flow, and potential improvements",
   "sectionCount": 0,
   "changes": ["Analysis only - no changes made"]
+}
+
+Return ONLY the JSON object above - no additional text.`
+
+	case "improve_silences":
+		return `
+
+REQUIRED JSON OUTPUT FORMAT:
+{
+  "success": true,
+  "newOrder": [exact same order as current - DO NOT CHANGE],
+  "reasoning": "Explanation of how silence improvements work and instructions to use the UI button",
+  "sectionCount": 0,
+  "changes": ["Recommended using 'Improve Silences' button in UI for AI-powered timing improvements"],
+  "action_required": "improve_silences_ui",
+  "description": "Use the 'Improve Silences' button to add natural silence buffers around words for better highlight timing"
 }
 
 Return ONLY the JSON object above - no additional text.`

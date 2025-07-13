@@ -168,6 +168,7 @@ func (s *ChatbotService) GetChatHistory(projectID int, endpointID string) (*Chat
 - `analyze_highlights` - Analyze content structure
 - `apply_ai_suggestion` - Apply cached AI suggestions
 - `reset_to_original` - Reset to original order
+- `improve_silences` - Guide users to AI-powered silence improvements for better highlight timing
 
 **Function Execution Flow**:
 1. Preparer calls MCP functions to gather data
