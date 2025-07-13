@@ -94,4 +94,5 @@ type ChatbotService struct {
 	aiService        *highlights.AIService
 	updateOrderFunc  UpdateOrderFunc
 	mcpRegistry      *MCPRegistry
+	conversationFlowManager *ConversationFlowManager
 }

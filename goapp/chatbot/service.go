@@ -26,6 +26,7 @@ func NewChatbotService(client *ent.Client, ctx context.Context, updateOrderFunc 
 		aiService:        highlights.NewAIService(client, ctx),
 		updateOrderFunc:  updateOrderFunc,
 		mcpRegistry:      NewMCPRegistry(),
+		conversationFlowManager: NewConversationFlowManager(),
 	}
 	
 	// Register available functions (legacy - will be replaced by MCP registry)
@@ -540,6 +541,11 @@ Focus on being helpful, accurate, and easy to understand.`
 
 // GetChatHistory retrieves chat history for a project/endpoint
 func (s *ChatbotService) GetChatHistory(projectID int, endpointID string) (*ChatHistoryResponse, error) {
+	return s.GetChatHistoryWithLimit(projectID, endpointID, 0) // 0 = no limit
+}
+
+// GetChatHistoryWithLimit retrieves chat history with optional message limit for performance
+func (s *ChatbotService) GetChatHistoryWithLimit(projectID int, endpointID string, limit int) (*ChatHistoryResponse, error) {
 	// Find existing chat session for this project/endpoint
 	session, err := s.client.ChatSession.
 		Query().
@@ -549,6 +555,10 @@ func (s *ChatbotService) GetChatHistory(projectID int, endpointID string) (*Chat
 		).
 		WithMessages(func(q *ent.ChatMessageQuery) {
 			q.Order(ent.Asc("timestamp"))
+			if limit > 0 {
+				// Get most recent messages by ordering desc first, limiting, then we'll reverse
+				q.Order(ent.Desc("timestamp")).Limit(limit)
+			}
 		}).
 		Only(s.ctx)
 
@@ -569,9 +579,18 @@ func (s *ChatbotService) GetChatHistory(projectID int, endpointID string) (*Chat
 		// Session exists, convert messages
 		sessionID = session.SessionID
 		selectedModel = session.SelectedModel
-		messages = make([]ChatMessage, len(session.Edges.Messages))
+		entMessages := session.Edges.Messages
 		
-		for i, msg := range session.Edges.Messages {
+		// If we used a limit, messages are in desc order, so reverse them
+		if limit > 0 && len(entMessages) > 1 {
+			for i := 0; i < len(entMessages)/2; i++ {
+				j := len(entMessages) - 1 - i
+				entMessages[i], entMessages[j] = entMessages[j], entMessages[i]
+			}
+		}
+		
+		messages = make([]ChatMessage, len(entMessages))
+		for i, msg := range entMessages {
 			messages[i] = ChatMessage{
 				ID:        msg.MessageID,
 				Role:      string(msg.Role),
@@ -645,6 +664,9 @@ func (s *ChatbotService) ClearChatHistory(projectID int, endpointID string) erro
 		if err != nil {
 			return fmt.Errorf("failed to delete chat messages: %w", err)
 		}
+		
+		// Clear conversation flow for this session
+		s.conversationFlowManager.ClearFlow(sessionID)
 	}
 	
 	// Broadcast chat history cleared event
@@ -656,12 +678,80 @@ func (s *ChatbotService) ClearChatHistory(projectID int, endpointID string) erro
 	return nil
 }
 
-// sendMessageWithMCPActions handles LLM requests using the MCP registry system
+// sendMessageWithMCPActions handles LLM requests using the conversational flow system
 func (s *ChatbotService) sendMessageWithMCPActions(req ChatRequest, messageID string, getAPIKey func() (string, error), session *ent.ChatSession) (*ChatResponse, error) {
-	// Broadcast progress: Starting AI processing
-	projectIDStr := strconv.Itoa(req.ProjectID)
-	manager := realtime.GetManager()
-	manager.BroadcastChatProgress(projectIDStr, req.EndpointID, session.SessionID, "Initializing AI assistant...")
+	// Get or create conversation flow for this session
+	flow := s.conversationFlowManager.GetOrCreateFlow(session.SessionID)
+	
+	// Create progress broadcaster
+	broadcaster := NewProgressBroadcaster(req.ProjectID, req.EndpointID, session.SessionID)
+	
+	// Determine which phase we're in
+	if flow.Phase == PhaseConversation {
+		return s.handleConversationPhase(req, messageID, getAPIKey, session, flow, broadcaster)
+	} else {
+		return s.handleExecutionPhase(req, messageID, getAPIKey, session, flow, broadcaster)
+	}
+}
+
+// handleConversationPhase processes messages in conversation mode
+func (s *ChatbotService) handleConversationPhase(req ChatRequest, messageID string, getAPIKey func() (string, error), session *ent.ChatSession, flow *ConversationFlow, broadcaster *ProgressBroadcaster) (*ChatResponse, error) {
+	broadcaster.UpdateProgress("conversation", "Understanding your request...")
+	
+	// Create conversation agent
+	conversationAgent := NewConversationAgent(req.EndpointID, s.mcpRegistry)
+	
+	// Process conversation
+	result, err := conversationAgent.ProcessConversation(req.Message, flow, getAPIKey, s, req.ProjectID)
+	if err != nil {
+		return &ChatResponse{
+			SessionID: session.SessionID,
+			MessageID: messageID,
+			Success:   false,
+			Error:     fmt.Sprintf("Conversation processing failed: %v", err),
+		}, nil
+	}
+	
+	response := &ChatResponse{
+		SessionID: session.SessionID,
+		MessageID: messageID,
+		Model:     "anthropic/claude-sonnet-4",
+		Success:   true,
+		Message:   result.Response,
+	}
+	
+	// If we got a confirmed conversation summary, prepare for execution
+	if result.HasConversationSummary {
+		flow.AddContext("conversation_summary", result.ConversationSummary)
+		flow.MoveToExecution()
+		s.conversationFlowManager.UpdateFlow(session.SessionID, flow)
+		
+		broadcaster.UpdateProgress("summary_confirmed", "User intent confirmed, preparing execution...")
+		
+		// Immediately execute using the conversation summary
+		return s.handleExecutionPhaseWithSummary(req, messageID, getAPIKey, session, flow, broadcaster, result.ConversationSummary)
+	}
+	
+	return response, nil
+}
+
+// handleExecutionPhaseWithSummary processes execution using conversation summary
+func (s *ChatbotService) handleExecutionPhaseWithSummary(req ChatRequest, messageID string, getAPIKey func() (string, error), session *ent.ChatSession, flow *ConversationFlow, broadcaster *ProgressBroadcaster, summary *ConversationSummary) (*ChatResponse, error) {
+	// Step 1: Prepare complete prompt using Go preparer
+	broadcaster.UpdateProgress("preparing", "Gathering data and building execution prompt...")
+	
+	completePrompt, err := s.PrepareExecutorPrompt(summary, req.ProjectID)
+	if err != nil {
+		return &ChatResponse{
+			SessionID: session.SessionID,
+			MessageID: messageID,
+			Success:   false,
+			Error:     fmt.Sprintf("Failed to prepare execution prompt: %v", err),
+		}, nil
+	}
+	
+	// Step 2: Execute using structured approach with complete prompt
+	broadcaster.UpdateProgress("processing", s.getProgressMessageForIntent(summary.Intent))
 	
 	// Get API key
 	apiKey, err := getAPIKey()
@@ -674,82 +764,23 @@ func (s *ChatbotService) sendMessageWithMCPActions(req ChatRequest, messageID st
 		}, nil
 	}
 	
-	// Get endpoint configuration from MCP registry
-	endpointConfig, exists := s.mcpRegistry.GetEndpointConfig(req.EndpointID)
-	if !exists {
-		return &ChatResponse{
-			SessionID: session.SessionID,
-			MessageID: messageID,
-			Success:   false,
-			Error:     fmt.Sprintf("Endpoint %s not found in MCP registry", req.EndpointID),
-		}, nil
-	}
-	
-	// Broadcast progress: Building context
-	manager.BroadcastChatProgress(projectIDStr, req.EndpointID, session.SessionID, "Analyzing current highlight structure...")
-	
-	// Build context using MCP registry
-	context, err := s.mcpRegistry.BuildContextForEndpoint(req.EndpointID, req.ProjectID, s)
-	if err != nil {
-		log.Printf("Failed to build context for endpoint %s: %v", req.EndpointID, err)
-		context = "Context unavailable."
-	}
-	
-	// Build system prompt using endpoint configuration
-	systemPrompt := fmt.Sprintf(`%s
-
-Current project context:
-%s
-
-IMPORTANT: If you need to perform actions (like reordering highlights), use the available functions. Always explain your reasoning clearly.`, endpointConfig.SystemPrompt, context)
-	
-	// Get MCP functions for this endpoint
-	tools, err := s.mcpRegistry.GetFunctionsForEndpoint(req.EndpointID)
-	if err != nil {
-		log.Printf("Failed to get functions for endpoint %s: %v", req.EndpointID, err)
-		tools = []map[string]interface{}{}
-	}
-	
-	// Step 1: Call LLM with function tools - optimized for speed
+	// Create OpenRouter request with complete prompt
 	openRouterReq := map[string]interface{}{
-		"model": req.Model,
+		"model": "anthropic/claude-sonnet-4",
 		"messages": []map[string]interface{}{
 			{
-				"role":    "system",
-				"content": systemPrompt,
-			},
-			{
 				"role":    "user",
-				"content": req.Message,
+				"content": completePrompt,
 			},
 		},
-		"temperature": 0.3, // Lower temperature for faster, more focused responses
-		"max_tokens":  4000, // Increased to ensure complete function arguments
+		"temperature": 0.3, // Lower temperature for precise, structured output
+		"max_tokens":  4000,
 	}
-	
-	// Add tools if available and force function calling for reordering
-	if len(tools) > 0 {
-		openRouterReq["tools"] = tools
-		
-		// For highlight ordering, force the LLM to call reorder_highlights
-		if req.EndpointID == "highlight_ordering" {
-			openRouterReq["tool_choice"] = map[string]interface{}{
-				"type": "function",
-				"function": map[string]interface{}{
-					"name": "reorder_highlights",
-				},
-			}
-		} else {
-			openRouterReq["tool_choice"] = "auto"
-		}
-	}
-	
-	// Broadcast progress: Sending to AI
-	manager.BroadcastChatProgress(projectIDStr, req.EndpointID, session.SessionID, "Consulting AI for optimal arrangement...")
 	
 	// Call OpenRouter API
 	aiResponse, err := s.callOpenRouterAPI(apiKey, openRouterReq)
 	if err != nil {
+		broadcaster.UpdateProgress("error", "AI processing failed")
 		return &ChatResponse{
 			SessionID: session.SessionID,
 			MessageID: messageID,
@@ -758,79 +789,129 @@ IMPORTANT: If you need to perform actions (like reordering highlights), use the 
 		}, nil
 	}
 	
+	// Extract content from response
+	content, ok := aiResponse["content"].(string)
+	if !ok {
+		broadcaster.UpdateProgress("error", "Invalid AI response format")
+		return &ChatResponse{
+			SessionID: session.SessionID,
+			MessageID: messageID,
+			Success:   false,
+			Error:     "AI response missing content",
+		}, nil
+	}
+	
+	broadcaster.UpdateProgress("parsing", "Parsing structured response...")
+	
+	// Parse structured output
+	structuredOutput, err := ParseStructuredExecutionOutput(content)
+	if err != nil {
+		broadcaster.UpdateProgress("error", "Failed to parse AI response")
+		return &ChatResponse{
+			SessionID: session.SessionID,
+			MessageID: messageID,
+			Success:   false,
+			Error:     fmt.Sprintf("Failed to parse structured output: %v", err),
+		}, nil
+	}
+	
+	broadcaster.UpdateProgress("applying", "Applying changes to your project...")
+	
+	// Step 3: Apply results using existing update function
+	if structuredOutput.Success && summary.Intent != "analyze" {
+		err = s.updateOrderFunc(req.ProjectID, structuredOutput.NewOrder)
+		if err != nil {
+			broadcaster.UpdateProgress("error", "Failed to apply changes")
+			return &ChatResponse{
+				SessionID: session.SessionID,
+				MessageID: messageID,
+				Success:   false,
+				Error:     fmt.Sprintf("Failed to apply changes: %v", err),
+			}, nil
+		}
+	}
+	
+	broadcaster.UpdateProgress("completed", "Successfully completed your request!")
+	
+	// Build response
 	response := &ChatResponse{
 		SessionID: session.SessionID,
 		MessageID: messageID,
-		Model:     req.Model,
-		Success:   true,
+		Model:     "anthropic/claude-sonnet-4",
+		Success:   structuredOutput.Success,
+		HasActions: summary.Intent != "analyze",
 	}
 	
-	// Process function calls if present
-	var functionResults []FunctionExecutionResult
-	var actionsPerformed []string
-	
-	if toolCalls, ok := aiResponse["tool_calls"].([]interface{}); ok && len(toolCalls) > 0 {
-		response.HasActions = true
-		
-		// Broadcast progress: Executing actions
-		manager.BroadcastChatProgress(projectIDStr, req.EndpointID, session.SessionID, "Applying highlight reordering...")
-		
-		for _, toolCallInterface := range toolCalls {
-			if toolCall, ok := toolCallInterface.(map[string]interface{}); ok {
-				result := s.executeMCPFunctionCall(toolCall, req.ProjectID, req.EndpointID)
-				functionResults = append(functionResults, result)
-				
-				if result.Success {
-					actionsPerformed = append(actionsPerformed, result.FunctionName)
-				}
-			}
-		}
-		
-		response.FunctionResults = functionResults
-		response.ActionsPerformed = actionsPerformed
-		
-		// Step 2: Generate human-readable action summary
-		if len(actionsPerformed) > 0 {
-			summary, err := s.generateActionSummary(actionsPerformed, functionResults, req.EndpointID, req.Message)
-			if err != nil {
-				log.Printf("Failed to generate action summary: %v", err)
-				response.ActionSummary = fmt.Sprintf("Performed %d actions successfully.", len(actionsPerformed))
-			} else {
-				response.ActionSummary = summary
-			}
-		}
-	}
-	
-	// Get the AI's response message - prioritize function results over LLM verbose responses
-	if len(actionsPerformed) > 0 {
-		// For action-based responses, use the concise reason from function results
-		var actionMessage string
-		for _, result := range functionResults {
-			if result.Success && result.Result != nil {
-				if resultMap, ok := result.Result.(map[string]interface{}); ok {
-					if reason, ok := resultMap["reason"].(string); ok && reason != "" {
-						actionMessage = reason
-						break
-					}
-				}
-			}
-		}
-		
-		if actionMessage != "" {
-			response.Message = actionMessage
-		} else {
-			response.Message = response.ActionSummary
+	if structuredOutput.Success {
+		response.Message = s.generateSummaryFromStructuredOutput(summary, structuredOutput)
+		if structuredOutput.Reasoning != "" {
+			response.ActionSummary = structuredOutput.Reasoning
 		}
 	} else {
-		// For non-action responses, use LLM's direct content
-		if content, ok := aiResponse["content"].(string); ok {
-			response.Message = content
-		} else {
-			response.Message = "I've processed your request. How else can I help you?"
-		}
+		response.Error = structuredOutput.Error
 	}
 	
+	// Reset flow for next conversation
+	flow.Reset()
+	s.conversationFlowManager.UpdateFlow(session.SessionID, flow)
+	
 	return response, nil
+}
+
+// generateSummaryFromStructuredOutput creates a human-readable summary
+func (s *ChatbotService) generateSummaryFromStructuredOutput(summary *ConversationSummary, output *StructuredExecutionOutput) string {
+	switch summary.Intent {
+	case "reorder":
+		return fmt.Sprintf("✅ **Success!** Reorganized your highlights into %d sections for better engagement and flow.\n\n**Key Changes:** %s\n\n**Reasoning:** %s", 
+			output.SectionCount, 
+			strings.Join(output.Changes, ", "),
+			output.Reasoning)
+			
+	case "improve_hook":
+		return fmt.Sprintf("✅ **Success!** Improved your opening section for stronger hook and better viewer retention.\n\n**Key Changes:** %s\n\n**Reasoning:** %s",
+			strings.Join(output.Changes, ", "),
+			output.Reasoning)
+			
+	case "improve_conclusion":
+		return fmt.Sprintf("✅ **Success!** Enhanced your conclusion for more powerful ending and better viewer satisfaction.\n\n**Key Changes:** %s\n\n**Reasoning:** %s",
+			strings.Join(output.Changes, ", "),
+			output.Reasoning)
+			
+	case "analyze":
+		return fmt.Sprintf("✅ **Analysis Complete!** Here are insights about your content structure:\n\n%s", output.Reasoning)
+		
+	default:
+		return fmt.Sprintf("✅ **Success!** Completed %s operation.\n\n**Reasoning:** %s", summary.Intent, output.Reasoning)
+	}
+}
+
+// getProgressMessageForIntent returns appropriate progress message for intent
+func (s *ChatbotService) getProgressMessageForIntent(intent string) string {
+	switch intent {
+	case "reorder":
+		return "Optimizing highlight arrangement..."
+	case "improve_hook":
+		return "Enhancing opening section..."
+	case "improve_conclusion":
+		return "Strengthening conclusion..."
+	case "analyze":
+		return "Analyzing content structure..."
+	default:
+		return "Processing your request..."
+	}
+}
+
+// LEGACY METHOD - keeping for backward compatibility
+// handleExecutionPhase processes messages in execution mode
+func (s *ChatbotService) handleExecutionPhase(req ChatRequest, messageID string, getAPIKey func() (string, error), session *ent.ChatSession, flow *ConversationFlow, broadcaster *ProgressBroadcaster) (*ChatResponse, error) {
+	// Legacy implementation kept for backward compatibility
+	// This method is no longer used - replaced by handleExecutionPhaseWithSummary
+	return &ChatResponse{
+		SessionID: session.SessionID,
+		MessageID: req.SessionID,
+		Success:   false,
+		Error:     "Legacy execution method - use conversation summary flow instead",
+	}, nil
 }
 
 // executeMCPFunctionCall executes a function call using the MCP registry

@@ -24,28 +24,38 @@ func (h *HighlightOrderingContextBuilder) BuildContext(projectID int, service *C
 	
 	// Build optimized context string for faster processing
 	var contextBuilder strings.Builder
-	contextBuilder.WriteString(fmt.Sprintf("REORDER REQUEST: The user wants you to reorder %d highlights for better flow.\n\n", len(projectHighlights)))
 	
 	// Create highlight ID to text map for efficient lookup
 	highlightMap := make(map[string]string)
+	allIDs := []string{}
 	for _, ph := range projectHighlights {
 		for _, h := range ph.Highlights {
-			// Truncate long text to reduce context size and improve LLM speed
+			// Keep full text for better context, but still reasonable length
 			text := h.Text
-			if len(text) > 60 {
-				text = text[:60] + "..."
+			if len(text) > 150 {
+				text = text[:150] + "..."
 			}
 			highlightMap[h.ID] = text
+			allIDs = append(allIDs, h.ID)
 		}
 	}
 	
-	contextBuilder.WriteString("Current highlight order (optimized for reordering):\n")
+	// Provide all highlight references with ID to text mapping
+	contextBuilder.WriteString("Available highlights for reordering:\n")
+	for _, ph := range projectHighlights {
+		for _, h := range ph.Highlights {
+			contextBuilder.WriteString(fmt.Sprintf("- %s: \"%s\"\n", h.ID, highlightMap[h.ID]))
+		}
+	}
+	
+	contextBuilder.WriteString(fmt.Sprintf("\nTotal: %d highlights - ALL highlight IDs must be included in your new_order array.\n", len(allIDs)))
+	
+	// Ask if user wants to see current order or start fresh
+	contextBuilder.WriteString("\nCurrent highlight order (for reference - ask user if they want to use this as starting point):\n")
 	for i, item := range currentOrder {
 		switch v := item.(type) {
 		case string:
-			if text, exists := highlightMap[v]; exists {
-				contextBuilder.WriteString(fmt.Sprintf("%d. %s: \"%s\"\n", i+1, v, text))
-			}
+			contextBuilder.WriteString(fmt.Sprintf("%d. %s\n", i+1, v))
 		case map[string]interface{}:
 			if title, ok := v["title"].(string); ok {
 				contextBuilder.WriteString(fmt.Sprintf("%d. [SECTION] %s\n", i+1, title))
@@ -55,43 +65,12 @@ func (h *HighlightOrderingContextBuilder) BuildContext(projectID int, service *C
 		}
 	}
 	
-	// Add compact highlight reference (only first 50 for performance)
-	contextBuilder.WriteString("\n\nHighlight reference (first 50 for optimal processing):\n")
-	count := 0
-	for _, ph := range projectHighlights {
-		if count >= 50 {
-			contextBuilder.WriteString(fmt.Sprintf("... and %d more highlights\n", len(projectHighlights)-count))
-			break
-		}
-		
-		for _, h := range ph.Highlights {
-			if count >= 50 {
-				break
-			}
-			contextBuilder.WriteString(fmt.Sprintf("- %s: \"%s\"\n", h.ID, highlightMap[h.ID]))
-			count++
-		}
-	}
-	
-	// Add complete list of ALL highlight IDs that MUST be included in reorder
-	contextBuilder.WriteString("\n\nCOMPLETE LIST OF ALL HIGHLIGHT IDs (YOU MUST INCLUDE ALL OF THESE IN YOUR REORDER):\n")
-	var allIDs []string
-	for _, ph := range projectHighlights {
-		for _, h := range ph.Highlights {
-			allIDs = append(allIDs, h.ID)
-		}
-	}
-	for i, id := range allIDs {
-		contextBuilder.WriteString(fmt.Sprintf("%d. %s\n", i+1, id))
-	}
-	contextBuilder.WriteString(fmt.Sprintf("\nTOTAL: %d highlight IDs - ALL must be in your new_order array\n", len(allIDs)))
-	
 	return contextBuilder.String(), nil
 }
 
 // GetContextDescription returns a description of what context this builder provides
 func (h *HighlightOrderingContextBuilder) GetContextDescription() string {
-	return "Current highlight order and detailed content for reordering operations"
+	return "Highlight content mapping and current order reference for reordering operations"
 }
 
 // GenericContextBuilder provides basic project context

@@ -58,25 +58,27 @@ func (r *MCPRegistry) registerAllEndpoints() {
 		ContextBuilder:   &HighlightOrderingContextBuilder{},
 		RequiresFunctions: true,
 		DefaultModel:     "anthropic/claude-sonnet-4",
-		SystemPrompt: `You are an expert video editor assistant. When asked to reorder highlights, you MUST immediately call the reorder_highlights function.
+		SystemPrompt: `You are an expert video editor assistant specializing in highlight organization. 
 
-CRITICAL: The user is asking you to REORDER highlights, not analyze them. You must use reorder_highlights function.
+When a user asks to reorder highlights:
 
-STEP-BY-STEP PROCESS:
-1. Look at the current highlight order in the context
-2. Identify ALL highlight IDs (they start with "highlight_")
-3. Create a new optimal order with ALL highlight IDs
-4. Call reorder_highlights with the complete new_order array
+1. FIRST ask if they want to use the current highlight order as a starting point or create a completely new arrangement
+2. If they want to modify the current order, reference the "Current highlight order" section provided in the context
+3. If they want to start fresh, focus only on the available highlights and their content
 
-MANDATORY: You MUST call reorder_highlights function when asked to reorder. Do NOT call analyze_highlights.
+WHEN READY TO REORDER:
+- Identify ALL highlight IDs from the "Available highlights" section (they start with "highlight_")
+- Create an optimal order considering narrative flow, engagement, and content themes
+- Call reorder_highlights with the complete new_order array including ALL highlight IDs
+- Provide a clear reason for your reordering decisions
 
-Example reorder call (you MUST use this format):
+Example reorder call format:
 reorder_highlights({
   "new_order": ["highlight_1752254837026_c873lgzyc", "highlight_1752254847396_0hbn26kzn", {"type": "N", "title": "Section Title"}, "highlight_1752254873052_l5o8f0uhg"],
-  "reason": "Optimized for engagement and flow"
+  "reason": "Created strong hook, built narrative tension, and ended with emotional payoff"
 })
 
-IMPORTANT: Include ALL highlight IDs from the context in your new_order array. Missing any highlight ID will break the reordering.`,
+CRITICAL: Include ALL highlight IDs from the context in your new_order array. Missing any highlight ID will break the reordering.`,
 		Functions: []MCPFunction{
 			{
 				Name:        "reorder_highlights",
