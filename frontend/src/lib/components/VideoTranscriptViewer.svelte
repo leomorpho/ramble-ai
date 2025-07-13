@@ -29,6 +29,9 @@
     highlightsHistoryStatus,
     updateHighlightsHistoryStatus,
   } from "$lib/stores/projectHighlights.js";
+  import {
+    getNextColorId,
+  } from "$lib/components/texthighlighter/TextHighlighter.utils.js";
   import CopyToClipboardButton from "./CopyToClipboardButton.svelte";
 
   let {
@@ -113,7 +116,7 @@ Return segments that would work well as standalone content pieces.`;
         id: h.id,
         start: h.start,
         end: h.end,
-        color: h.color,
+        colorId: h.colorId,
         text: h.text,
       }));
     }
@@ -298,7 +301,7 @@ Return segments that would work well as standalone content pieces.`;
           id: suggestion.id,
           start: suggestion.start, // Already in timestamp format
           end: suggestion.end, // Already in timestamp format
-          color: suggestion.color,
+          colorId: suggestion.colorId,
           text: suggestion.text,
           isSuggestion: true,
         };
@@ -339,44 +342,13 @@ Return segments that would work well as standalone content pieces.`;
     if (suggestedHighlights.length === 0 || !video) return;
 
     try {
-      // Get all available colors
-      const availableColors = [
-        "#FFEB3B",
-        "#FF9800",
-        "#F44336",
-        "#E91E63",
-        "#9C27B0",
-        "#673AB7",
-        "#3F51B5",
-        "#2196F3",
-        "#03A9F4",
-        "#00BCD4",
-        "#009688",
-        "#4CAF50",
-        "#8BC34A",
-        "#CDDC39",
-        "#FFC107",
-      ];
-
-      // Get used colors from existing highlights for this specific video clip
-      const videoHighlights = highlights.filter(
-        (h) => h.videoClipId === video.id && h.filePath === video.filePath
-      );
-      const usedColors = new Set(videoHighlights.map((h) => h.color));
-
-      // Convert all suggestions to regular highlights
+      // Convert all suggestions to regular highlights using colorId system
       const newHighlights = suggestedHighlights.map((suggestion, index) => {
-        // Find an available color
-        let color =
-          availableColors.find((c) => !usedColors.has(c)) ||
-          availableColors[index % availableColors.length];
-        usedColors.add(color);
-
         return {
           id: `highlight_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
           start: suggestion.start,
           end: suggestion.end,
-          color: color,
+          colorId: getNextColorId(),
         };
       });
 
