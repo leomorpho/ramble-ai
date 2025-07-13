@@ -25,7 +25,7 @@ func (s *ChatbotService) callOpenRouterAPI(apiKey string, request map[string]int
 		messageCount = len(messages)
 		log.Printf("🤖 [LLM REQUEST] Model: %s, Messages: %d", model, messageCount)
 		
-		// Log each message with truncated content
+		// Log each message with full content
 		for i, msg := range messages {
 			role := "unknown"
 			if r, ok := msg["role"].(string); ok {
@@ -34,15 +34,19 @@ func (s *ChatbotService) callOpenRouterAPI(apiKey string, request map[string]int
 			
 			content := "empty"
 			if c, ok := msg["content"].(string); ok {
-				// Truncate long content for readability
-				if len(c) > 500 {
-					content = c[:500] + "... [TRUNCATED]"
-				} else {
-					content = c
-				}
+				content = c
 			}
 			
-			log.Printf("🤖 [LLM REQUEST] Message %d (%s): %s", i+1, role, content)
+			// Determine message type for logging
+			messageType := "USER MESSAGE"
+			if role == "assistant" {
+				messageType = "LLM RESPONSE"
+			} else if role == "system" {
+				messageType = "SYSTEM MESSAGE"
+			}
+			
+			log.Printf("\n========== 🤖 [%s] Message %d (%s) ==========\n%s\n========== END MESSAGE ==========\n", 
+				messageType, i+1, role, content)
 		}
 	}
 	
@@ -124,13 +128,9 @@ func (s *ChatbotService) callOpenRouterAPI(apiKey string, request map[string]int
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 	
-	// Log the full raw response for debugging (temporarily)
+	// Log the full raw response for debugging
 	bodyStr := string(body)
-	if len(bodyStr) > 1000 {
-		log.Printf("🤖 [LLM DEBUG] Raw response (first 1000 chars): %s... [TRUNCATED]", bodyStr[:1000])
-	} else {
-		log.Printf("🤖 [LLM DEBUG] Raw response: %s", bodyStr)
-	}
+	log.Printf("\n========== 🤖 [LLM RAW RESPONSE] ==========\n%s\n========== END RAW RESPONSE ==========\n", bodyStr)
 	
 	// Check for errors
 	if errorInfo, ok := openRouterResp["error"]; ok {
@@ -164,11 +164,7 @@ func (s *ChatbotService) callOpenRouterAPI(apiKey string, request map[string]int
 	
 	// Log response content
 	if content, ok := message["content"].(string); ok && content != "" {
-		if len(content) > 500 {
-			log.Printf("🤖 [LLM RESPONSE] Content (first 500 chars): %s... [TRUNCATED]", content[:500])
-		} else {
-			log.Printf("🤖 [LLM RESPONSE] Content: %s", content)
-		}
+		log.Printf("\n========== 🤖 [LLM RESPONSE CONTENT] ==========\n%s\n========== END RESPONSE CONTENT ==========\n", content)
 	} else {
 		log.Printf("🤖 [LLM RESPONSE] Content: (empty or null)")
 	}
