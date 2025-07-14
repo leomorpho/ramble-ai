@@ -506,16 +506,16 @@ func (s *ExportService) extractHighlightSegment(segment HighlightSegment, tempDi
 	// Generate output filename
 	outputPath := filepath.Join(tempDir, fmt.Sprintf("segment_%03d.mp4", index))
 
-	// Build FFmpeg command
+	// Build FFmpeg command - using input seeking + minimal re-encoding for precision
+	duration := segment.End - segment.Start
 	cmd := exec.Command("ffmpeg",
-		"-i", segment.VideoPath,
 		"-ss", fmt.Sprintf("%.3f", segment.Start),
-		"-to", fmt.Sprintf("%.3f", segment.End),
+		"-i", segment.VideoPath,
+		"-t", fmt.Sprintf("%.3f", duration),
 		"-c:v", "libx264",
-		"-preset", "fast",
+		"-preset", "ultrafast",
 		"-crf", "18",
-		"-c:a", "aac",
-		"-b:a", "192k",
+		"-c:a", "copy",
 		"-movflags", "+faststart",
 		"-y",
 		outputPath,
@@ -532,16 +532,16 @@ func (s *ExportService) extractHighlightSegment(segment HighlightSegment, tempDi
 
 // extractHighlightSegmentDirect extracts a highlight segment directly to the output file
 func (s *ExportService) extractHighlightSegmentDirect(segment HighlightSegment, outputPath string) error {
-	// Build FFmpeg command
+	// Build FFmpeg command - using input seeking + minimal re-encoding for precision
+	duration := segment.End - segment.Start
 	cmd := exec.Command("ffmpeg",
-		"-i", segment.VideoPath,
 		"-ss", fmt.Sprintf("%.3f", segment.Start),
-		"-to", fmt.Sprintf("%.3f", segment.End),
+		"-i", segment.VideoPath,
+		"-t", fmt.Sprintf("%.3f", duration),
 		"-c:v", "libx264",
-		"-preset", "fast",
+		"-preset", "ultrafast",
 		"-crf", "18",
-		"-c:a", "aac",
-		"-b:a", "192k",
+		"-c:a", "copy",
 		"-movflags", "+faststart",
 		"-y",
 		outputPath,
@@ -670,17 +670,17 @@ func (s *ExportService) extractHighlightSegmentWithProgress(segment HighlightSeg
 		return "", fmt.Errorf("failed to calculate padded times: %w", err)
 	}
 
-	// Build FFmpeg command with progress tracking
+	// Build FFmpeg command with progress tracking - using input seeking + minimal re-encoding for precision
+	duration := paddedEnd - paddedStart
 	cmd := exec.Command("ffmpeg",
 		"-progress", "pipe:1",
-		"-i", segment.VideoPath,
 		"-ss", fmt.Sprintf("%.3f", paddedStart),
-		"-to", fmt.Sprintf("%.3f", paddedEnd),
+		"-i", segment.VideoPath,
+		"-t", fmt.Sprintf("%.3f", duration),
 		"-c:v", "libx264",
-		"-preset", "fast",
+		"-preset", "ultrafast",
 		"-crf", "18",
-		"-c:a", "aac",
-		"-b:a", "192k",
+		"-c:a", "copy",
 		"-movflags", "+faststart",
 		"-y",
 		outputPath,
@@ -727,17 +727,17 @@ func (s *ExportService) extractHighlightSegmentDirectWithProgress(segment Highli
 		return fmt.Errorf("failed to calculate padded times: %w", err)
 	}
 
-	// Build FFmpeg command with progress tracking
+	// Build FFmpeg command with progress tracking - using input seeking + minimal re-encoding for precision
+	duration := paddedEnd - paddedStart
 	cmd := exec.Command("ffmpeg",
 		"-progress", "pipe:1",
-		"-i", segment.VideoPath,
 		"-ss", fmt.Sprintf("%.3f", paddedStart),
-		"-to", fmt.Sprintf("%.3f", paddedEnd),
+		"-i", segment.VideoPath,
+		"-t", fmt.Sprintf("%.3f", duration),
 		"-c:v", "libx264",
-		"-preset", "fast",
+		"-preset", "ultrafast",
 		"-crf", "18",
-		"-c:a", "aac",
-		"-b:a", "192k",
+		"-c:a", "copy",
 		"-movflags", "+faststart",
 		"-y",
 		outputPath,
