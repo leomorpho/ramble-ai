@@ -12,7 +12,6 @@ import (
 
 	"MYAPP/ent"
 	"MYAPP/ent/schema"
-	"MYAPP/goapp/ai"
 	"MYAPP/goapp/assetshandler"
 	"MYAPP/goapp/chatbot"
 	"MYAPP/goapp/exports"
@@ -258,21 +257,6 @@ func (a *App) GetThemePreference() (string, error) {
 	return service.GetThemePreference()
 }
 
-// Type aliases for AI service responses
-type TestOpenAIApiKeyResponse = ai.TestOpenAIApiKeyResponse
-type TestOpenRouterApiKeyResponse = ai.TestOpenRouterApiKeyResponse
-
-// TestOpenAIApiKey tests if the stored OpenAI API key is valid
-func (a *App) TestOpenAIApiKey() (*TestOpenAIApiKeyResponse, error) {
-	service := ai.NewApiKeyService(a.client, a.ctx)
-	return service.TestOpenAIApiKey()
-}
-
-// TestOpenRouterApiKey tests if the stored OpenRouter API key is valid
-func (a *App) TestOpenRouterApiKey() (*TestOpenRouterApiKeyResponse, error) {
-	service := ai.NewApiKeyService(a.client, a.ctx)
-	return service.TestOpenRouterApiKey()
-}
 
 // Word represents a single word with timing information
 type Word struct {

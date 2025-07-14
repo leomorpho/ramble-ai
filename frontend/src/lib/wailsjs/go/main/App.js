@@ -234,14 +234,6 @@ export function SuggestHighlightsWithAI(arg1, arg2, arg3) {
   return window['go']['main']['App']['SuggestHighlightsWithAI'](arg1, arg2, arg3);
 }
 
-export function TestOpenAIApiKey() {
-  return window['go']['main']['App']['TestOpenAIApiKey']();
-}
-
-export function TestOpenRouterApiKey() {
-  return window['go']['main']['App']['TestOpenRouterApiKey']();
-}
-
 export function TranscribeVideoClip(arg1) {
   return window['go']['main']['App']['TranscribeVideoClip'](arg1);
 }

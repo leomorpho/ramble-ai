@@ -1,6 +1,6 @@
 <script>
   import { Button } from "$lib/components/ui/button";
-  import { GetOpenAIApiKey, SaveOpenAIApiKey, DeleteOpenAIApiKey, TestOpenAIApiKey } from "$lib/wailsjs/go/main/App";
+  import { GetOpenAIApiKey, SaveOpenAIApiKey, DeleteOpenAIApiKey } from "$lib/wailsjs/go/main/App";
   import { onMount } from "svelte";
 
   let openaiApiKey = $state("");
@@ -8,8 +8,6 @@
   let loading = $state(false);
   let error = $state("");
   let showApiKey = $state(false);
-  let testing = $state(false);
-  let testResult = $state(null);
 
   onMount(() => {
     loadApiKey();
@@ -35,7 +33,6 @@
     try {
       loading = true;
       error = "";
-      testResult = null;
       await SaveOpenAIApiKey(openaiApiKey);
       saved = true;
       
@@ -54,7 +51,6 @@
     try {
       loading = true;
       error = "";
-      testResult = null;
       openaiApiKey = "";
       await DeleteOpenAIApiKey();
       saved = true;
@@ -74,22 +70,6 @@
     showApiKey = !showApiKey;
   }
 
-  async function testApiKey() {
-    try {
-      testing = true;
-      error = "";
-      testResult = null;
-      
-      const result = await TestOpenAIApiKey();
-      testResult = result;
-    } catch (err) {
-      console.error("Failed to test API key:", err);
-      error = "Failed to test API key";
-      testResult = null;
-    } finally {
-      testing = false;
-    }
-  }
 </script>
 
 <div class="bg-card border rounded-lg p-6 space-y-6">
@@ -175,28 +155,18 @@
     <div class="flex gap-2">
       <Button 
         onclick={saveApiKey}
-        disabled={loading || testing || !openaiApiKey.trim()}
+        disabled={loading || !openaiApiKey.trim()}
         class="flex-1"
       >
         {loading ? "Saving..." : saved ? "Saved!" : "Save API Key"}
       </Button>
       
-      {#if openaiApiKey}
-        <Button 
-          variant="outline" 
-          onclick={testApiKey}
-          disabled={loading || testing}
-          class="flex-1"
-        >
-          {testing ? "Testing..." : "Test API Key"}
-        </Button>
-      {/if}
       
       {#if openaiApiKey}
         <Button 
           variant="outline" 
           onclick={clearApiKey}
-          disabled={loading || testing}
+          disabled={loading}
           class="flex-1"
         >
           {loading ? "Clearing..." : "Clear"}
@@ -210,28 +180,6 @@
       </div>
     {/if}
 
-    {#if testResult}
-      <div class="rounded-md p-3 text-sm border {testResult.valid ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}">
-        <div class="flex items-start gap-2">
-          {#if testResult.valid}
-            <svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-            </svg>
-          {:else}
-            <svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          {/if}
-          <div>
-            <p class="font-medium">{testResult.valid ? "Success" : "Error"}</p>
-            <p>{testResult.message}</p>
-            {#if testResult.model}
-              <p class="text-xs mt-1 opacity-75">Available model: {testResult.model}</p>
-            {/if}
-          </div>
-        </div>
-      </div>
-    {/if}
 
     {#if saved && !error}
       <div class="bg-green-50 border border-green-200 text-green-800 rounded-md p-3 text-sm">

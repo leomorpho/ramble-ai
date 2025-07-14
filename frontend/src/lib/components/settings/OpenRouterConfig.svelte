@@ -1,6 +1,6 @@
 <script>
   import { Button } from "$lib/components/ui/button";
-  import { GetOpenRouterApiKey, SaveOpenRouterApiKey, DeleteOpenRouterApiKey, TestOpenRouterApiKey } from "$lib/wailsjs/go/main/App";
+  import { GetOpenRouterApiKey, SaveOpenRouterApiKey, DeleteOpenRouterApiKey } from "$lib/wailsjs/go/main/App";
   import { onMount } from "svelte";
 
   let openrouterApiKey = $state("");
@@ -8,8 +8,6 @@
   let openrouterLoading = $state(false);
   let openrouterError = $state("");
   let showOpenRouterApiKey = $state(false);
-  let openrouterTesting = $state(false);
-  let openrouterTestResult = $state(null);
 
   onMount(() => {
     loadOpenRouterApiKey();
@@ -35,7 +33,6 @@
     try {
       openrouterLoading = true;
       openrouterError = "";
-      openrouterTestResult = null;
       await SaveOpenRouterApiKey(openrouterApiKey);
       openrouterSaved = true;
       
@@ -54,7 +51,6 @@
     try {
       openrouterLoading = true;
       openrouterError = "";
-      openrouterTestResult = null;
       openrouterApiKey = "";
       await DeleteOpenRouterApiKey();
       openrouterSaved = true;
@@ -74,22 +70,6 @@
     showOpenRouterApiKey = !showOpenRouterApiKey;
   }
 
-  async function testOpenRouterApiKey() {
-    try {
-      openrouterTesting = true;
-      openrouterError = "";
-      openrouterTestResult = null;
-      
-      const result = await TestOpenRouterApiKey();
-      openrouterTestResult = result;
-    } catch (err) {
-      console.error("Failed to test OpenRouter API key:", err);
-      openrouterError = "Failed to test OpenRouter API key";
-      openrouterTestResult = null;
-    } finally {
-      openrouterTesting = false;
-    }
-  }
 </script>
 
 <div class="bg-card border rounded-lg p-6 space-y-6">
@@ -175,28 +155,18 @@
     <div class="flex gap-2">
       <Button 
         onclick={saveOpenRouterApiKey}
-        disabled={openrouterLoading || openrouterTesting || !openrouterApiKey.trim()}
+        disabled={openrouterLoading || !openrouterApiKey.trim()}
         class="flex-1"
       >
         {openrouterLoading ? "Saving..." : openrouterSaved ? "Saved!" : "Save API Key"}
       </Button>
       
-      {#if openrouterApiKey}
-        <Button 
-          variant="outline" 
-          onclick={testOpenRouterApiKey}
-          disabled={openrouterLoading || openrouterTesting}
-          class="flex-1"
-        >
-          {openrouterTesting ? "Testing..." : "Test API Key"}
-        </Button>
-      {/if}
       
       {#if openrouterApiKey}
         <Button 
           variant="outline" 
           onclick={clearOpenRouterApiKey}
-          disabled={openrouterLoading || openrouterTesting}
+          disabled={openrouterLoading}
           class="flex-1"
         >
           {openrouterLoading ? "Clearing..." : "Clear"}
@@ -210,28 +180,6 @@
       </div>
     {/if}
 
-    {#if openrouterTestResult}
-      <div class="rounded-md p-3 text-sm border {openrouterTestResult.valid ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}">
-        <div class="flex items-start gap-2">
-          {#if openrouterTestResult.valid}
-            <svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-            </svg>
-          {:else}
-            <svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          {/if}
-          <div>
-            <p class="font-medium">{openrouterTestResult.valid ? "Success" : "Error"}</p>
-            <p>{openrouterTestResult.message}</p>
-            {#if openrouterTestResult.model}
-              <p class="text-xs mt-1 opacity-75">Available model: {openrouterTestResult.model}</p>
-            {/if}
-          </div>
-        </div>
-      </div>
-    {/if}
 
     {#if openrouterSaved && !openrouterError}
       <div class="bg-green-50 border border-green-200 text-green-800 rounded-md p-3 text-sm">
