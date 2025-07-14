@@ -58,12 +58,12 @@ export function DeleteVideoClip(arg1) {
   return window['go']['main']['App']['DeleteVideoClip'](arg1);
 }
 
-export function ExportIndividualHighlights(arg1, arg2) {
-  return window['go']['main']['App']['ExportIndividualHighlights'](arg1, arg2);
+export function ExportIndividualHighlights(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ExportIndividualHighlights'](arg1, arg2, arg3);
 }
 
-export function ExportStitchedHighlights(arg1, arg2) {
-  return window['go']['main']['App']['ExportStitchedHighlights'](arg1, arg2);
+export function ExportStitchedHighlights(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ExportStitchedHighlights'](arg1, arg2, arg3);
 }
 
 export function GetChatHistory(arg1, arg2) {

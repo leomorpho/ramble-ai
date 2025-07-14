@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -80,7 +81,7 @@ func NewExportService(client *ent.Client, ctx context.Context) *ExportService {
 }
 
 // ExportStitchedHighlights exports all highlights from a project as a single stitched video
-func (s *ExportService) ExportStitchedHighlights(projectID int, outputFolder string) (string, error) {
+func (s *ExportService) ExportStitchedHighlights(projectID int, outputFolder string, paddingSeconds float64) (string, error) {
 	// Generate unique job ID
 	jobID := fmt.Sprintf("export_%d_%d", projectID, time.Now().UnixNano())
 
@@ -118,13 +119,13 @@ func (s *ExportService) ExportStitchedHighlights(projectID int, outputFolder str
 	activeJobsMutex.Unlock()
 
 	// Run export in background
-	go s.performStitchedExport(dbJob, activeJob)
+	go s.performStitchedExport(dbJob, activeJob, paddingSeconds)
 
 	return jobID, nil
 }
 
 // ExportIndividualHighlights exports each highlight as a separate video file
-func (s *ExportService) ExportIndividualHighlights(projectID int, outputFolder string) (string, error) {
+func (s *ExportService) ExportIndividualHighlights(projectID int, outputFolder string, paddingSeconds float64) (string, error) {
 	// Generate unique job ID
 	jobID := fmt.Sprintf("export_%d_%d", projectID, time.Now().UnixNano())
 
@@ -162,7 +163,7 @@ func (s *ExportService) ExportIndividualHighlights(projectID int, outputFolder s
 	activeJobsMutex.Unlock()
 
 	// Run export in background
-	go s.performIndividualExport(dbJob, activeJob)
+	go s.performIndividualExport(dbJob, activeJob, paddingSeconds)
 
 	return jobID, nil
 }
@@ -311,7 +312,7 @@ func (s *ExportService) RecoverActiveExportJobs() error {
 }
 
 // performStitchedExport performs the actual stitched export in the background
-func (s *ExportService) performStitchedExport(dbJob *ent.ExportJob, activeJob *ActiveExportJob) {
+func (s *ExportService) performStitchedExport(dbJob *ent.ExportJob, activeJob *ActiveExportJob, paddingSeconds float64) {
 	defer func() {
 		// Cleanup active job
 		activeJobsMutex.Lock()
@@ -377,7 +378,7 @@ func (s *ExportService) performStitchedExport(dbJob *ent.ExportJob, activeJob *A
 
 		s.updateJobProgress(dbJob.JobID, "extracting", progress, fileName, len(segments), i)
 
-		segmentPath, err := s.extractHighlightSegmentWithProgress(segment, tempDir, i+1, dbJob.JobID, activeJob.Cancel)
+		segmentPath, err := s.extractHighlightSegmentWithProgress(segment, tempDir, i+1, dbJob.JobID, activeJob.Cancel, paddingSeconds)
 		if err != nil {
 			s.updateJobFailed(dbJob.JobID, fmt.Sprintf("Failed to extract segment %d: %v", i+1, err))
 			return
@@ -402,7 +403,7 @@ func (s *ExportService) performStitchedExport(dbJob *ent.ExportJob, activeJob *A
 }
 
 // performIndividualExport performs the actual individual export in the background
-func (s *ExportService) performIndividualExport(dbJob *ent.ExportJob, activeJob *ActiveExportJob) {
+func (s *ExportService) performIndividualExport(dbJob *ent.ExportJob, activeJob *ActiveExportJob, paddingSeconds float64) {
 	defer func() {
 		// Cleanup active job
 		activeJobsMutex.Lock()
@@ -468,7 +469,7 @@ func (s *ExportService) performIndividualExport(dbJob *ent.ExportJob, activeJob 
 		// Generate unique filename for this highlight in the project directory
 		outputFile := filepath.Join(projectDir, s.generateOutputFilename(proj.Name, fmt.Sprintf("highlight_%03d", i+1)))
 
-		err := s.extractHighlightSegmentDirectWithProgress(segment, outputFile, dbJob.JobID, activeJob.Cancel)
+		err := s.extractHighlightSegmentDirectWithProgress(segment, outputFile, dbJob.JobID, activeJob.Cancel, paddingSeconds)
 		if err != nil {
 			s.updateJobFailed(dbJob.JobID, fmt.Sprintf("Failed to extract segment %d: %v", i+1, err))
 			return
@@ -485,6 +486,19 @@ func (s *ExportService) performIndividualExport(dbJob *ent.ExportJob, activeJob 
 func (s *ExportService) getProjectHighlightsForExport(projectID int) ([]HighlightSegment, error) {
 	service := highlights.NewHighlightService(s.client, s.ctx)
 	return service.GetProjectHighlightsForExport(projectID)
+}
+
+// calculatePaddedTimes calculates start and end times with padding, respecting video boundaries
+func (s *ExportService) calculatePaddedTimes(segment HighlightSegment, paddingSeconds float64) (float64, float64, error) {
+	// Calculate padded start time (never go below 0)
+	paddedStart := math.Max(0, segment.Start-paddingSeconds)
+	
+	// For end time, we'll use the original end + padding
+	// Note: We don't validate against video duration here since FFmpeg will handle it gracefully
+	// by using the maximum available duration if we exceed the video length
+	paddedEnd := segment.End + paddingSeconds
+	
+	return paddedStart, paddedEnd, nil
 }
 
 // extractHighlightSegment extracts a single highlight segment to a temp file
@@ -646,16 +660,22 @@ func (s *ExportService) updateJobCancelled(jobID string) {
 }
 
 // extractHighlightSegmentWithProgress extracts a highlight with progress tracking
-func (s *ExportService) extractHighlightSegmentWithProgress(segment HighlightSegment, tempDir string, index int, jobID string, cancel chan bool) (string, error) {
+func (s *ExportService) extractHighlightSegmentWithProgress(segment HighlightSegment, tempDir string, index int, jobID string, cancel chan bool, paddingSeconds float64) (string, error) {
 	// Generate output filename
 	outputPath := filepath.Join(tempDir, fmt.Sprintf("segment_%03d.mp4", index))
+
+	// Calculate padded times
+	paddedStart, paddedEnd, err := s.calculatePaddedTimes(segment, paddingSeconds)
+	if err != nil {
+		return "", fmt.Errorf("failed to calculate padded times: %w", err)
+	}
 
 	// Build FFmpeg command with progress tracking
 	cmd := exec.Command("ffmpeg",
 		"-progress", "pipe:1",
 		"-i", segment.VideoPath,
-		"-ss", fmt.Sprintf("%.3f", segment.Start),
-		"-to", fmt.Sprintf("%.3f", segment.End),
+		"-ss", fmt.Sprintf("%.3f", paddedStart),
+		"-to", fmt.Sprintf("%.3f", paddedEnd),
 		"-c:v", "libx264",
 		"-preset", "fast",
 		"-crf", "18",
@@ -700,13 +720,19 @@ func (s *ExportService) extractHighlightSegmentWithProgress(segment HighlightSeg
 }
 
 // extractHighlightSegmentDirectWithProgress extracts directly with progress tracking
-func (s *ExportService) extractHighlightSegmentDirectWithProgress(segment HighlightSegment, outputPath, jobID string, cancel chan bool) error {
+func (s *ExportService) extractHighlightSegmentDirectWithProgress(segment HighlightSegment, outputPath, jobID string, cancel chan bool, paddingSeconds float64) error {
+	// Calculate padded times
+	paddedStart, paddedEnd, err := s.calculatePaddedTimes(segment, paddingSeconds)
+	if err != nil {
+		return fmt.Errorf("failed to calculate padded times: %w", err)
+	}
+
 	// Build FFmpeg command with progress tracking
 	cmd := exec.Command("ffmpeg",
 		"-progress", "pipe:1",
 		"-i", segment.VideoPath,
-		"-ss", fmt.Sprintf("%.3f", segment.Start),
-		"-to", fmt.Sprintf("%.3f", segment.End),
+		"-ss", fmt.Sprintf("%.3f", paddedStart),
+		"-to", fmt.Sprintf("%.3f", paddedEnd),
 		"-c:v", "libx264",
 		"-preset", "fast",
 		"-crf", "18",

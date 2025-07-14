@@ -29,7 +29,7 @@ func TestExportStitchedHighlights_DatabaseError(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Test export with closed database
-	_, err = service.ExportStitchedHighlights(1, tempDir)
+	_, err = service.ExportStitchedHighlights(1, tempDir, 0.0)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get project")
 }
@@ -48,7 +48,7 @@ func TestExportIndividualHighlights_DatabaseError(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Test export with closed database
-	_, err = service.ExportIndividualHighlights(1, tempDir)
+	_, err = service.ExportIndividualHighlights(1, tempDir, 0.0)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get project")
 }
@@ -64,7 +64,7 @@ func TestExportStitchedHighlights_EmptyOutputFolder(t *testing.T) {
 	createTestHighlight(t, client, ctx, clip, 10.0, 20.0)
 
 	// Test with empty output folder - should fail at job creation due to validation
-	_, err := service.ExportStitchedHighlights(proj.ID, "")
+	_, err := service.ExportStitchedHighlights(proj.ID, "", 0.0)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "validator failed for field \"ExportJob.output_path\"")
 }
@@ -80,7 +80,7 @@ func TestExportIndividualHighlights_EmptyOutputFolder(t *testing.T) {
 	createTestHighlight(t, client, ctx, clip, 10.0, 20.0)
 
 	// Test with empty output folder - should fail at job creation due to validation
-	_, err := service.ExportIndividualHighlights(proj.ID, "")
+	_, err := service.ExportIndividualHighlights(proj.ID, "", 0.0)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "validator failed for field \"ExportJob.output_path\"")
 }
@@ -173,7 +173,7 @@ func TestExportWithNonExistentVideoFiles(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Test individual export
-	jobID, err := service.ExportIndividualHighlights(proj.ID, tempDir)
+	jobID, err := service.ExportIndividualHighlights(proj.ID, tempDir, 0.0)
 	require.NoError(t, err)
 
 	// Wait for processing
@@ -215,7 +215,7 @@ func TestExportWithInvalidHighlightTimes(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Test export
-	jobID, err := service.ExportIndividualHighlights(proj.ID, tempDir)
+	jobID, err := service.ExportIndividualHighlights(proj.ID, tempDir, 0.0)
 	require.NoError(t, err)
 
 	// Wait for processing
@@ -256,7 +256,7 @@ func TestExportWithNegativeHighlightTimes(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Test export
-	jobID, err := service.ExportIndividualHighlights(proj.ID, tempDir)
+	jobID, err := service.ExportIndividualHighlights(proj.ID, tempDir, 0.0)
 	require.NoError(t, err)
 
 	// Wait for processing
@@ -317,7 +317,7 @@ func TestExportWithReadOnlyOutputDirectory(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test export
-	jobID, err := service.ExportIndividualHighlights(proj.ID, readOnlyDir)
+	jobID, err := service.ExportIndividualHighlights(proj.ID, readOnlyDir, 0.0)
 	require.NoError(t, err)
 
 	// Wait for processing
@@ -345,7 +345,7 @@ func TestExportWithDiskSpaceIssues(t *testing.T) {
 	invalidPath := "/dev/null"
 
 	// Test export
-	jobID, err := service.ExportIndividualHighlights(proj.ID, invalidPath)
+	jobID, err := service.ExportIndividualHighlights(proj.ID, invalidPath, 0.0)
 	require.NoError(t, err)
 
 	// Wait for processing
@@ -406,7 +406,7 @@ func TestExportWithCorruptedDatabase(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Test export - should handle gracefully
-	jobID, err := service.ExportIndividualHighlights(proj.ID, tempDir)
+	jobID, err := service.ExportIndividualHighlights(proj.ID, tempDir, 0.0)
 	require.NoError(t, err)
 
 	// Wait for processing
@@ -499,7 +499,7 @@ func TestExportWithVeryLongProjectName(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Test export - should handle long names gracefully
-	jobID, err := service.ExportIndividualHighlights(proj.ID, tempDir)
+	jobID, err := service.ExportIndividualHighlights(proj.ID, tempDir, 0.0)
 	require.NoError(t, err)
 
 	// Wait for processing
@@ -533,7 +533,7 @@ func TestExportWithSpecialCharacterPaths(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test export
-	jobID, err := service.ExportIndividualHighlights(proj.ID, specialDir)
+	jobID, err := service.ExportIndividualHighlights(proj.ID, specialDir, 0.0)
 	require.NoError(t, err)
 
 	// Wait for processing
@@ -566,7 +566,7 @@ func TestMemoryLeakPrevention(t *testing.T) {
 		// Add some delay to ensure unique timestamps in job IDs
 		time.Sleep(10 * time.Millisecond)
 		
-		jobID, err := service.ExportIndividualHighlights(proj.ID, tempDir)
+		jobID, err := service.ExportIndividualHighlights(proj.ID, tempDir, 0.0)
 		require.NoError(t, err)
 		jobIDs = append(jobIDs, jobID)
 		

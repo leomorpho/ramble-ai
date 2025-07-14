@@ -29,7 +29,7 @@ func TestStitchedExport_SingleVideo(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Start stitched export
-	jobID, err := service.ExportStitchedHighlights(proj.ID, tempDir)
+	jobID, err := service.ExportStitchedHighlights(proj.ID, tempDir, 0.0)
 	require.NoError(t, err)
 
 	// Verify job was created
@@ -61,7 +61,7 @@ func TestStitchedExport_MultipleVideos(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Start stitched export
-	jobID, err := service.ExportStitchedHighlights(proj.ID, tempDir)
+	jobID, err := service.ExportStitchedHighlights(proj.ID, tempDir, 0.0)
 	require.NoError(t, err)
 
 	// Verify job was created with correct total files
@@ -86,7 +86,7 @@ func TestStitchedExport_NoHighlights(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Start stitched export
-	jobID, err := service.ExportStitchedHighlights(proj.ID, tempDir)
+	jobID, err := service.ExportStitchedHighlights(proj.ID, tempDir, 0.0)
 	require.NoError(t, err)
 
 	// Wait for background processing
@@ -119,7 +119,7 @@ func TestStitchedExport_OverlappingHighlights(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Start stitched export
-	jobID, err := service.ExportStitchedHighlights(proj.ID, tempDir)
+	jobID, err := service.ExportStitchedHighlights(proj.ID, tempDir, 0.0)
 	require.NoError(t, err)
 
 	// Verify job was created
@@ -145,7 +145,7 @@ func TestStitchedExport_CancellationDuringPreparation(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Start stitched export
-	jobID, err := service.ExportStitchedHighlights(proj.ID, tempDir)
+	jobID, err := service.ExportStitchedHighlights(proj.ID, tempDir, 0.0)
 	require.NoError(t, err)
 
 	// Wait a moment for processing to start
@@ -178,7 +178,7 @@ func TestStitchedExport_InvalidOutputPath(t *testing.T) {
 	invalidPath := "/invalid/nonexistent/path"
 
 	// Start stitched export
-	jobID, err := service.ExportStitchedHighlights(proj.ID, invalidPath)
+	jobID, err := service.ExportStitchedHighlights(proj.ID, invalidPath, 0.0)
 	require.NoError(t, err)
 
 	// Wait for background processing
@@ -211,7 +211,7 @@ func TestStitchedExport_ProgressTracking(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Start stitched export
-	jobID, err := service.ExportStitchedHighlights(proj.ID, tempDir)
+	jobID, err := service.ExportStitchedHighlights(proj.ID, tempDir, 0.0)
 	require.NoError(t, err)
 
 	// Track progress over time
@@ -268,10 +268,10 @@ func TestStitchedExport_ProjectIsolation(t *testing.T) {
 	defer os.RemoveAll(tempDir2)
 
 	// Start stitched exports
-	jobID1, err := service.ExportStitchedHighlights(proj1.ID, tempDir1)
+	jobID1, err := service.ExportStitchedHighlights(proj1.ID, tempDir1, 0.0)
 	require.NoError(t, err)
 
-	jobID2, err := service.ExportStitchedHighlights(proj2.ID, tempDir2)
+	jobID2, err := service.ExportStitchedHighlights(proj2.ID, tempDir2, 0.0)
 	require.NoError(t, err)
 
 	// Verify jobs are different
@@ -305,7 +305,7 @@ func TestStitchedExport_FilenameGeneration(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Start stitched export
-	_, err = service.ExportStitchedHighlights(proj.ID, tempDir)
+	_, err = service.ExportStitchedHighlights(proj.ID, tempDir, 0.0)
 	require.NoError(t, err)
 
 	// Check that filename generation works correctly
@@ -349,13 +349,13 @@ func TestStitchedExport_ConcurrentExports(t *testing.T) {
 	defer os.RemoveAll(tempDir3)
 
 	// Start concurrent stitched exports
-	jobID1, err := service.ExportStitchedHighlights(proj1.ID, tempDir1)
+	jobID1, err := service.ExportStitchedHighlights(proj1.ID, tempDir1, 0.0)
 	require.NoError(t, err)
 
-	jobID2, err := service.ExportStitchedHighlights(proj2.ID, tempDir2)
+	jobID2, err := service.ExportStitchedHighlights(proj2.ID, tempDir2, 0.0)
 	require.NoError(t, err)
 
-	jobID3, err := service.ExportStitchedHighlights(proj3.ID, tempDir3)
+	jobID3, err := service.ExportStitchedHighlights(proj3.ID, tempDir3, 0.0)
 	require.NoError(t, err)
 
 	// Verify all jobs are running
@@ -393,7 +393,7 @@ func TestStitchedExport_TempDirectoryCleanup(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Start stitched export
-	jobID, err := service.ExportStitchedHighlights(proj.ID, tempDir)
+	jobID, err := service.ExportStitchedHighlights(proj.ID, tempDir, 0.0)
 	require.NoError(t, err)
 
 	// Wait for processing to start
@@ -434,7 +434,7 @@ func TestStitchedExport_LargeNumberOfHighlights(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Start stitched export
-	jobID, err := service.ExportStitchedHighlights(proj.ID, tempDir)
+	jobID, err := service.ExportStitchedHighlights(proj.ID, tempDir, 0.0)
 	require.NoError(t, err)
 
 	// Wait for background processing to start and set total files

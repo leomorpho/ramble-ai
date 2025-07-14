@@ -411,7 +411,7 @@ func TestActiveJobsManagement(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Start export
-	jobID, err := service.ExportIndividualHighlights(proj.ID, tempDir)
+	jobID, err := service.ExportIndividualHighlights(proj.ID, tempDir, 0.0)
 	require.NoError(t, err)
 
 	// Verify active job exists

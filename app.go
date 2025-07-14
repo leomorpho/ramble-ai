@@ -397,15 +397,15 @@ func (a *App) SelectExportFolder() (string, error) {
 }
 
 // ExportStitchedHighlights exports all highlights as a single stitched video
-func (a *App) ExportStitchedHighlights(projectID int, outputFolder string) (string, error) {
+func (a *App) ExportStitchedHighlights(projectID int, outputFolder string, paddingSeconds float64) (string, error) {
 	service := exports.NewExportService(a.client, a.ctx)
-	return service.ExportStitchedHighlights(projectID, outputFolder)
+	return service.ExportStitchedHighlights(projectID, outputFolder, paddingSeconds)
 }
 
 // ExportIndividualHighlights exports each highlight as a separate file
-func (a *App) ExportIndividualHighlights(projectID int, outputFolder string) (string, error) {
+func (a *App) ExportIndividualHighlights(projectID int, outputFolder string, paddingSeconds float64) (string, error) {
 	service := exports.NewExportService(a.client, a.ctx)
-	return service.ExportIndividualHighlights(projectID, outputFolder)
+	return service.ExportIndividualHighlights(projectID, outputFolder, paddingSeconds)
 }
 
 // GetExportProgress returns the current progress of an export job

@@ -1,5 +1,6 @@
 <script>
   import { Button } from "$lib/components/ui/button";
+  import { Slider } from "$lib/components/ui/slider/index.js";
   import {
     SelectExportFolder,
     ExportStitchedHighlights,
@@ -27,6 +28,10 @@
   let progressInterval = $state(null);
   let exportHistory = $state([]);
   let showExportHistory = $state(false);
+  
+  // Padding settings
+  let paddingValue = $state([0]); // Slider component expects an array
+  let showPaddingOptions = $state(false);
 
   onMount(async () => {
     await loadExportHistory();
@@ -79,7 +84,8 @@
       }
 
       // Start export job
-      const jobId = await ExportStitchedHighlights(projectId, exportFolder);
+      const paddingSeconds = paddingValue[0] / 10; // Convert from slider value to seconds
+      const jobId = await ExportStitchedHighlights(projectId, exportFolder, paddingSeconds);
       currentExportJob = jobId;
 
       // Start progress tracking
@@ -113,7 +119,8 @@
       }
 
       // Start export job
-      const jobId = await ExportIndividualHighlights(projectId, exportFolder);
+      const paddingSeconds = paddingValue[0] / 10; // Convert from slider value to seconds
+      const jobId = await ExportIndividualHighlights(projectId, exportFolder, paddingSeconds);
       currentExportJob = jobId;
 
       // Start progress tracking
@@ -247,6 +254,76 @@
         </Button>
       </div>
     {/if}
+
+    <!-- Padding Settings -->
+    <div class="border rounded-lg p-4 space-y-3">
+      <div 
+        class="flex items-center justify-between cursor-pointer"
+        onclick={() => showPaddingOptions = !showPaddingOptions}
+      >
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div>
+            <h4 class="font-medium">Clip Padding</h4>
+            <p class="text-sm text-muted-foreground">
+              {paddingValue[0] === 0 ? 'No padding' : `${(paddingValue[0] / 10).toFixed(1)}s padding`} - Click to configure
+            </p>
+          </div>
+        </div>
+        
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-medium text-muted-foreground">
+            {(paddingValue[0] / 10).toFixed(1)}s
+          </span>
+          <svg 
+            class="w-4 h-4 text-muted-foreground transition-transform duration-200 {showPaddingOptions ? 'rotate-180' : ''}"
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </div>
+      
+      {#if showPaddingOptions}
+        <div class="space-y-3 pt-2 animate-in slide-in-from-top-2 duration-200">
+          <div class="flex items-center justify-between">
+            <label class="text-sm font-medium">Padding duration</label>
+            <span class="text-sm text-muted-foreground">
+              {(paddingValue[0] / 10).toFixed(1)}s
+            </span>
+          </div>
+          
+          <Slider 
+            bind:value={paddingValue} 
+            max={40} 
+            step={1} 
+            class="w-full"
+          />
+          
+          <div class="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <div class="flex gap-2">
+              <svg class="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <div class="text-sm text-amber-800">
+                <p class="font-medium mb-1">Padding Note:</p>
+                <p>Only available padding will be added if there's not enough content before/after the clip in the original video.</p>
+              </div>
+            </div>
+          </div>
+          
+          <p class="text-xs text-muted-foreground">
+            Adds {(paddingValue[0] / 10).toFixed(1)} seconds before and after each clip
+          </p>
+        </div>
+      {/if}
+    </div>
 
     <!-- Export options -->
     <div class="grid gap-4 md:grid-cols-2">

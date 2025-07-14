@@ -29,7 +29,7 @@ func TestIndividualExport_DirectoryCreation(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Start export
-	_, err = service.ExportIndividualHighlights(proj.ID, tempDir)
+	_, err = service.ExportIndividualHighlights(proj.ID, tempDir, 0.0)
 	require.NoError(t, err)
 
 	// Wait a moment for background processing to start
@@ -61,7 +61,7 @@ func TestIndividualExport_MultipleHighlights(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Start export
-	jobID, err := service.ExportIndividualHighlights(proj.ID, tempDir)
+	jobID, err := service.ExportIndividualHighlights(proj.ID, tempDir, 0.0)
 	require.NoError(t, err)
 
 	// Verify job was created with correct total files
@@ -88,7 +88,7 @@ func TestIndividualExport_NoHighlights(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Start export
-	jobID, err := service.ExportIndividualHighlights(proj.ID, tempDir)
+	jobID, err := service.ExportIndividualHighlights(proj.ID, tempDir, 0.0)
 	require.NoError(t, err)
 
 	// Wait for background processing
@@ -115,7 +115,7 @@ func TestIndividualExport_InvalidOutputPath(t *testing.T) {
 	invalidPath := "/invalid/nonexistent/path"
 
 	// Start export
-	jobID, err := service.ExportIndividualHighlights(proj.ID, invalidPath)
+	jobID, err := service.ExportIndividualHighlights(proj.ID, invalidPath, 0.0)
 	require.NoError(t, err)
 
 	// Wait for background processing
@@ -145,7 +145,7 @@ func TestIndividualExport_CancellationDuringExport(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Start export
-	jobID, err := service.ExportIndividualHighlights(proj.ID, tempDir)
+	jobID, err := service.ExportIndividualHighlights(proj.ID, tempDir, 0.0)
 	require.NoError(t, err)
 
 	// Wait a moment for processing to start
@@ -187,7 +187,7 @@ func TestIndividualExport_ProjectIsolation(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Export from project 1
-	jobID1, err := service.ExportIndividualHighlights(proj1.ID, tempDir)
+	jobID1, err := service.ExportIndividualHighlights(proj1.ID, tempDir, 0.0)
 	require.NoError(t, err)
 
 	// Wait for processing to start
@@ -198,7 +198,7 @@ func TestIndividualExport_ProjectIsolation(t *testing.T) {
 	assert.DirExists(t, proj1Dir)
 
 	// Export from project 2
-	jobID2, err := service.ExportIndividualHighlights(proj2.ID, tempDir)
+	jobID2, err := service.ExportIndividualHighlights(proj2.ID, tempDir, 0.0)
 	require.NoError(t, err)
 
 	// Wait for processing to start
@@ -230,7 +230,7 @@ func TestIndividualExport_ProgressTracking(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Start export
-	jobID, err := service.ExportIndividualHighlights(proj.ID, tempDir)
+	jobID, err := service.ExportIndividualHighlights(proj.ID, tempDir, 0.0)
 	require.NoError(t, err)
 
 	// Track progress over time
@@ -318,7 +318,7 @@ func TestIndividualExport_DirectoryPermissions(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Start export
-	_, err = service.ExportIndividualHighlights(proj.ID, tempDir)
+	_, err = service.ExportIndividualHighlights(proj.ID, tempDir, 0.0)
 	require.NoError(t, err)
 
 	// Wait for directory creation
@@ -361,10 +361,10 @@ func TestIndividualExport_ConcurrentExports(t *testing.T) {
 	defer os.RemoveAll(tempDir2)
 
 	// Start concurrent exports
-	jobID1, err := service.ExportIndividualHighlights(proj1.ID, tempDir1)
+	jobID1, err := service.ExportIndividualHighlights(proj1.ID, tempDir1, 0.0)
 	require.NoError(t, err)
 
-	jobID2, err := service.ExportIndividualHighlights(proj2.ID, tempDir2)
+	jobID2, err := service.ExportIndividualHighlights(proj2.ID, tempDir2, 0.0)
 	require.NoError(t, err)
 
 	// Verify both jobs are running

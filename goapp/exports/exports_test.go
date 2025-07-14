@@ -128,7 +128,7 @@ func TestExportStitchedHighlights_Success(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Test export
-	jobID, err := service.ExportStitchedHighlights(proj.ID, tempDir)
+	jobID, err := service.ExportStitchedHighlights(proj.ID, tempDir, 0.0)
 	require.NoError(t, err)
 	assert.NotEmpty(t, jobID)
 
@@ -158,7 +158,7 @@ func TestExportIndividualHighlights_Success(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Test export
-	jobID, err := service.ExportIndividualHighlights(proj.ID, tempDir)
+	jobID, err := service.ExportIndividualHighlights(proj.ID, tempDir, 0.0)
 	require.NoError(t, err)
 	assert.NotEmpty(t, jobID)
 
@@ -182,7 +182,7 @@ func TestExportStitchedHighlights_ProjectNotFound(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Test export with non-existent project
-	_, err = service.ExportStitchedHighlights(999, tempDir)
+	_, err = service.ExportStitchedHighlights(999, tempDir, 0.0)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get project")
 }
@@ -198,7 +198,7 @@ func TestExportIndividualHighlights_ProjectNotFound(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	// Test export with non-existent project
-	_, err = service.ExportIndividualHighlights(999, tempDir)
+	_, err = service.ExportIndividualHighlights(999, tempDir, 0.0)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get project")
 }

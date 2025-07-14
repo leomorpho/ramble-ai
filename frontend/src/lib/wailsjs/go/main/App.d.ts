@@ -35,9 +35,9 @@ export function DeleteSuggestedHighlight(arg1:number,arg2:string):Promise<void>;
 
 export function DeleteVideoClip(arg1:number):Promise<void>;
 
-export function ExportIndividualHighlights(arg1:number,arg2:string):Promise<string>;
+export function ExportIndividualHighlights(arg1:number,arg2:string,arg3:number):Promise<string>;
 
-export function ExportStitchedHighlights(arg1:number,arg2:string):Promise<string>;
+export function ExportStitchedHighlights(arg1:number,arg2:string,arg3:number):Promise<string>;
 
 export function GetChatHistory(arg1:number,arg2:string):Promise<chatbot.ChatHistoryResponse>;
 
