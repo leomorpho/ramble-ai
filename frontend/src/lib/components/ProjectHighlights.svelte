@@ -291,11 +291,16 @@
         // Apply the improvements directly to the project highlights
         await updateHighlightOrder(improvedHighlights);
 
+        // Count total highlights across all video clips
+        const totalHighlights = improvedHighlights.reduce((total, videoClip) => {
+          return total + (videoClip.highlights ? videoClip.highlights.length : 0);
+        }, 0);
+
         toast.success(
-          `Applied AI silence improvements to ${improvedHighlights.length} video(s)!`
+          `Added silence padding to ${totalHighlights} highlight${totalHighlights === 1 ? '' : 's'} across ${improvedHighlights.length} video${improvedHighlights.length === 1 ? '' : 's'}!`
         );
       } else {
-        toast.info("No silence improvements were suggested by AI");
+        toast.info("No silence padding improvements were suggested by AI");
       }
     } catch (error) {
       console.error("Failed to improve highlights with AI:", error);
@@ -370,6 +375,7 @@
           onclick={() => (showAISilenceConfirmation = true)}
           disabled={aiSilenceLoading}
           class="flex items-center gap-2"
+          title="Add natural silence padding around highlights for smoother transitions"
         >
           {#if aiSilenceLoading}
             <svg
@@ -385,10 +391,10 @@
                 d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
               />
             </svg>
-            Improving...
+            Adding Padding...
           {:else}
             <Ear class="w-4 h-4" />
-            AI Improve Silences
+            AI Add Silence Padding
           {/if}
         </Button>
       {/if}
@@ -467,38 +473,30 @@
   </VideoPlayerKeyHandler>
 </div>
 
-<!-- AI Improve Silences Confirmation Dialog -->
+<!-- AI Add Silence Padding Confirmation Dialog -->
 <Dialog bind:open={showAISilenceConfirmation}>
-  <DialogContent class="z-[100] sm:max-w-md">
+  <DialogContent class="z-[100] sm:max-w-lg">
     <DialogHeader>
-      <DialogTitle>AI Improve Silences?</DialogTitle>
+      <DialogTitle>Add Silence Padding with AI?</DialogTitle>
       <DialogDescription>
         <div class="space-y-3 pt-2">
-          <p>
-            The AI will analyze the gaps between your highlights and adjust
-            timing to reduce unnecessary silence while preserving natural speech
-            pauses.
-          </p>
-          <div class="bg-secondary/50 rounded-lg p-3 space-y-2">
-            <p class="text-sm font-medium">
-              Analyzing: {highlights.length} highlight{highlights.length === 1
-                ? ""
-                : "s"}
+          <div class="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+            <p class="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">
+              💡 Why is this needed?
             </p>
-            <div class="text-sm space-y-1">
-              <p class="font-medium">This will:</p>
-              <ul class="list-disc list-inside text-muted-foreground">
-                <li>Detect silence periods at highlight boundaries</li>
-                <li>Intelligently trim excessive pauses</li>
-                <li>Preserve natural speech rhythm</li>
-                <li>Update highlight timings automatically</li>
-              </ul>
-            </div>
+            <p class="text-sm text-blue-800 dark:text-blue-200">
+              Transcription-based highlights cut off abruptly without breathing room, creating jarring transitions between clips.
+            </p>
           </div>
-          <p class="text-sm text-muted-foreground">
-            This action will modify your highlight timings. You can undo changes
-            if needed.
-          </p>
+          
+          <div class="bg-secondary/50 rounded-lg p-3">
+            <p class="text-sm font-medium mb-2">
+              AI will extend {highlights.length} highlight{highlights.length === 1 ? "" : "s"} to include natural silence padding before and after speech.
+            </p>
+            <p class="text-sm text-muted-foreground">
+              You can undo these changes if needed.
+            </p>
+          </div>
         </div>
       </DialogDescription>
     </DialogHeader>
@@ -515,8 +513,8 @@
           handleAISilenceImprovement();
         }}
       >
-        <Clock class="w-4 h-4 mr-2" />
-        Improve Silences
+        <Ear class="w-4 h-4 mr-2" />
+        Add Silence Padding
       </Button>
     </div>
   </DialogContent>
