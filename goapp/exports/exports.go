@@ -466,8 +466,8 @@ func (s *ExportService) performIndividualExport(dbJob *ent.ExportJob, activeJob 
 
 		s.updateJobProgress(dbJob.JobID, "extracting", progress, fileName, len(segments), i)
 
-		// Generate unique filename for this highlight in the project directory
-		outputFile := filepath.Join(projectDir, s.generateOutputFilename(proj.Name, fmt.Sprintf("highlight_%03d", i+1)))
+		// Generate simple numbered filename for this highlight in the project directory
+		outputFile := filepath.Join(projectDir, fmt.Sprintf("%d.mp4", i+1))
 
 		err := s.extractHighlightSegmentDirectWithProgress(segment, outputFile, dbJob.JobID, activeJob.Cancel, paddingSeconds)
 		if err != nil {
