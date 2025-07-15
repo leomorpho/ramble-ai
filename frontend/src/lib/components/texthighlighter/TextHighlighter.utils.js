@@ -12,18 +12,50 @@ export function getColorFromId(colorId) {
 
 let colorIdCounter = 0;
 
-export function getNextColorId() {
-  // Cycle through colors 1-20
-  colorIdCounter = (colorIdCounter % 20) + 1;
-  return colorIdCounter;
+export function getNextColorId(existingHighlights = []) {
+  // If no existing highlights, start with color 1
+  if (!existingHighlights || existingHighlights.length === 0) {
+    return 1;
+  }
+  
+  // Count usage of each color ID
+  const colorUsage = {};
+  for (let i = 1; i <= 20; i++) {
+    colorUsage[i] = 0;
+  }
+  
+  // Count how many times each color is used
+  existingHighlights.forEach(highlight => {
+    if (highlight.colorId && highlight.colorId >= 1 && highlight.colorId <= 20) {
+      colorUsage[highlight.colorId]++;
+    }
+  });
+  
+  // Find the color ID with the least usage
+  let minUsage = Infinity;
+  let bestColorId = 1;
+  
+  for (let i = 1; i <= 20; i++) {
+    if (colorUsage[i] < minUsage) {
+      minUsage = colorUsage[i];
+      bestColorId = i;
+    }
+  }
+  
+  return bestColorId;
 }
 
-export function createHighlight(start, end, colorId = null) {
+export function createHighlight(start, end, colorId = null, existingHighlights = []) {
+  const finalColorId = colorId || getNextColorId(existingHighlights);
+  
+  // Ensure we never create a highlight with colorId 0
+  const safeColorId = finalColorId && finalColorId >= 1 && finalColorId <= 20 ? finalColorId : 1;
+  
   return {
     id: `highlight_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     start,
     end,
-    colorId: colorId || getNextColorId()
+    colorId: safeColorId
   };
 }
 
@@ -136,7 +168,7 @@ export function updateHighlight(highlights, highlightId, newStart, newEnd) {
 }
 
 export function addHighlight(highlights, start, end, colorId = null) {
-  const newHighlight = createHighlight(start, end, colorId);
+  const newHighlight = createHighlight(start, end, colorId, highlights);
   return {
     highlights: [...highlights, newHighlight],
     newHighlight

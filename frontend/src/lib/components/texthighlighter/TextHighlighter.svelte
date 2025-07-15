@@ -65,15 +65,23 @@
 
   // === CORE STATE ===
   
+  // Local highlights state to ensure we always have the most up-to-date highlights
+  let currentHighlights = $state([]);
+  
   // Pause detection settings
   const SHOW_ALL_PAUSES = false; // show even normal pauses with subtle indicators
   
+  // Sync local highlights with props
+  $effect(() => {
+    currentHighlights = highlights || [];
+  });
+  
   // Find highlight for a word by its timestamp
   function findHighlightForWordByTime(wordIndex) {
-    if (!words || !highlights || wordIndex < 0 || wordIndex >= words.length) return null;
+    if (!words || !currentHighlights || wordIndex < 0 || wordIndex >= words.length) return null;
     
     const word = words[wordIndex];
-    return highlights.find(h => 
+    return currentHighlights.find(h => 
       word.start >= h.start && word.end <= h.end
     );
   }
@@ -144,6 +152,9 @@
 
 
   function emitChanges(newTimestampHighlights) {
+    // Update local state immediately
+    currentHighlights = newTimestampHighlights;
+    
     if (onHighlightsChange) {
       // Notify parent of the change
       onHighlightsChange(newTimestampHighlights);
@@ -215,7 +226,7 @@
     // Get timestamps from word indices
     const startWord = words[startIndex];
     const endWord = words[endIndex];
-    const result = addHighlight(highlights, startWord.start, endWord.end);
+    const result = addHighlight(currentHighlights, startWord.start, endWord.end);
     const newTimestampHighlights = result.highlights;
     
     emitChanges(newTimestampHighlights);
@@ -443,7 +454,7 @@
 
     // Create new highlight from word timestamps
     const word = words[wordIndex];
-    const result = addHighlight(highlights, word.start, word.end);
+    const result = addHighlight(currentHighlights, word.start, word.end);
     emitChanges(result.highlights);
 
     event.preventDefault();
@@ -473,7 +484,7 @@
       });
       
       const updatedHighlights = updateHighlight(
-        highlights,
+        currentHighlights,
         dragTarget.highlightId,
         selectionStart,
         selectionEnd
@@ -493,7 +504,7 @@
 
       if (Math.abs(selectionStart - selectionEnd) > 0.01) {
         // Create new highlight from timestamps
-        const result = addHighlight(highlights, selectionStart, selectionEnd);
+        const result = addHighlight(currentHighlights, selectionStart, selectionEnd);
         emitChanges(result.highlights);
       }
     }
@@ -511,7 +522,7 @@
   }
 
   function handleDeleteHighlight(highlightId) {
-    const updatedHighlights = removeHighlight(highlights, highlightId);
+    const updatedHighlights = removeHighlight(currentHighlights, highlightId);
     showDeleteButton = false;
     deleteButtonHighlight = null;
     emitChanges(updatedHighlights);

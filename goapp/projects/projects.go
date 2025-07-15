@@ -510,12 +510,25 @@ func (s *ProjectService) UpdateVideoClipHighlights(clipID int, highlights []High
 
 	// Convert Highlights to schema.Highlights for database storage
 	var schemaHighlights []schema.Highlight
+	colorCounter := 1
 	for _, h := range highlights {
+		colorID := h.ColorID
+		
+		// Validate ColorID - if invalid (0, negative, or out of range), assign a valid one
+		if colorID < 1 || colorID > 20 {
+			fmt.Printf("Warning: Invalid ColorID %d for highlight %s, assigning ColorID %d\n", h.ColorID, h.ID, colorCounter)
+			colorID = colorCounter
+			colorCounter++
+			if colorCounter > 20 {
+				colorCounter = 1 // Wrap around to color 1
+			}
+		}
+		
 		schemaHighlights = append(schemaHighlights, schema.Highlight{
 			ID:    h.ID,
 			Start: h.Start,
 			End:   h.End,
-			ColorID: h.ColorID,
+			ColorID: colorID,
 		})
 	}
 	
@@ -557,12 +570,25 @@ func (s *ProjectService) UpdateVideoClipHighlights(clipID int, highlights []High
 func (s *ProjectService) UpdateVideoClipSuggestedHighlights(clipID int, suggestedHighlights []Highlight) error {
 	// Convert Highlights to schema.Highlights for database storage
 	var schemaHighlights []schema.Highlight
+	colorCounter := 1
 	for _, h := range suggestedHighlights {
+		colorID := h.ColorID
+		
+		// Validate ColorID - if invalid (0, negative, or out of range), assign a valid one
+		if colorID < 1 || colorID > 20 {
+			fmt.Printf("Warning: Invalid ColorID %d for suggested highlight %s, assigning ColorID %d\n", h.ColorID, h.ID, colorCounter)
+			colorID = colorCounter
+			colorCounter++
+			if colorCounter > 20 {
+				colorCounter = 1 // Wrap around to color 1
+			}
+		}
+		
 		schemaHighlights = append(schemaHighlights, schema.Highlight{
 			ID:    h.ID,
 			Start: h.Start,
 			End:   h.End,
-			ColorID: h.ColorID,
+			ColorID: colorID,
 		})
 	}
 	

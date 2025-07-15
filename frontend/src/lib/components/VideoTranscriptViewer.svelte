@@ -112,13 +112,28 @@ Return segments that would work well as standalone content pieces.`;
       const videoHighlights = highlights.filter(
         (h) => h.videoClipId === video.id && h.filePath === video.filePath
       );
-      transcriptPlayerHighlights = videoHighlights.map((h) => ({
-        id: h.id,
-        start: h.start,
-        end: h.end,
-        colorId: h.colorId,
-        text: h.text,
-      }));
+      
+      // Ensure all highlights have valid colorIds, assign them if missing
+      const processedHighlights = videoHighlights.map((h, index) => {
+        let validColorId = h.colorId;
+        
+        // If colorId is invalid (0, null, undefined, out of range), assign a new one
+        if (!validColorId || validColorId < 1 || validColorId > 20) {
+          console.warn('🎨 Found highlight with invalid colorId:', h.colorId, 'for highlight:', h.id);
+          validColorId = getNextColorId(videoHighlights.slice(0, index).filter(vh => vh.colorId >= 1 && vh.colorId <= 20));
+          console.log('🎨 Assigned new colorId:', validColorId);
+        }
+        
+        return {
+          id: h.id,
+          start: h.start,
+          end: h.end,
+          colorId: validColorId,
+          text: h.text,
+        };
+      });
+      
+      transcriptPlayerHighlights = processedHighlights;
     }
   });
 
@@ -343,13 +358,15 @@ Return segments that would work well as standalone content pieces.`;
 
     try {
       // Convert all suggestions to regular highlights using colorId system
-      const newHighlights = suggestedHighlights.map((suggestion, index) => {
-        return {
+      const newHighlights = [];
+      suggestedHighlights.forEach((suggestion, index) => {
+        const newHighlight = {
           id: `highlight_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
           start: suggestion.start,
           end: suggestion.end,
-          colorId: getNextColorId(),
+          colorId: getNextColorId([...transcriptPlayerHighlights, ...newHighlights]),
         };
+        newHighlights.push(newHighlight);
       });
 
       // Use the store function to update all highlights at once

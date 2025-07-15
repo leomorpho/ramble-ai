@@ -32,6 +32,12 @@ export const HIGHLIGHT_COLORS = {
  * @returns {string} - CSS custom property
  */
 export function getColorFromId(colorId) {
+  // Handle invalid colorId (0, null, undefined, out of range)
+  if (!colorId || colorId < 1 || colorId > 20) {
+    console.warn('🎨 Invalid colorId:', colorId, 'falling back to color 1');
+    return HIGHLIGHT_COLORS[1];
+  }
+  
   return HIGHLIGHT_COLORS[colorId] || HIGHLIGHT_COLORS[1]; // Fallback to first color
 }
 

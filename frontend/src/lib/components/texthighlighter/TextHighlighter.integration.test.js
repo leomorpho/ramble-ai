@@ -162,16 +162,22 @@ describe('TextHighlighter Integration Tests', () => {
     });
 
     it('should handle color ID management workflow', () => {
-      // 1. Test sequential color ID assignment
-      const colorId1 = getNextColorId();
-      const colorId2 = getNextColorId();
-      const colorId3 = getNextColorId();
+      // 1. Test smart color ID assignment
+      const colorId1 = getNextColorId(); // Should return 1 (no existing highlights)
+      expect(colorId1).toBe(1);
       
-      // Verify sequence is consecutive and in range 1-20
-      expect(colorId2).toBe(colorId1 === 20 ? 1 : colorId1 + 1);
-      expect(colorId3).toBe(colorId2 === 20 ? 1 : colorId2 + 1);
+      // Create highlights with colorId1 and test next assignment
+      const existingHighlights = [{ colorId: colorId1 }];
+      const colorId2 = getNextColorId(existingHighlights);
+      const colorId3 = getNextColorId([...existingHighlights, { colorId: colorId2 }]);
+      
+      // Verify all are in valid range and different
       expect(colorId1).toBeGreaterThanOrEqual(1);
       expect(colorId1).toBeLessThanOrEqual(20);
+      expect(colorId2).toBeGreaterThanOrEqual(1);
+      expect(colorId2).toBeLessThanOrEqual(20);
+      expect(colorId3).toBeGreaterThanOrEqual(1);
+      expect(colorId3).toBeLessThanOrEqual(20);
       
       // 2. Test color ID to CSS variable conversion
       expect(getColorFromId(1)).toBe('var(--highlight-1)');

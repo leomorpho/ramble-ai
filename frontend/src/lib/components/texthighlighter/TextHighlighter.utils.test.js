@@ -17,40 +17,31 @@ import {
 
 describe('TextHighlighter Utils', () => {
   describe('getNextColorId', () => {
-    it('should return colors in predetermined sequence', () => {
-      // Test that subsequent calls increment the counter
-      const first = getNextColorId();
-      const second = getNextColorId();
-      const third = getNextColorId();
+    it('should return color 1 when no existing highlights', () => {
+      // With no existing highlights, should return color 1
+      const colorId = getNextColorId([]);
+      expect(colorId).toBe(1);
       
-      // Verify sequence is consecutive and in range 1-20
-      expect(second).toBe(first === 20 ? 1 : first + 1);
-      expect(third).toBe(second === 20 ? 1 : second + 1);
-      expect(first).toBeGreaterThanOrEqual(1);
-      expect(first).toBeLessThanOrEqual(20);
+      // Calling again with no highlights should still return 1
+      const colorId2 = getNextColorId();
+      expect(colorId2).toBe(1);
     });
 
-    it('should cycle back to 1 after reaching 20', () => {
-      // Call getNextColorId enough times to guarantee we cycle through all 20 colors
-      // We'll call it 21 times to ensure we see the wrap-around
-      const results = [];
-      for (let i = 0; i < 21; i++) {
-        results.push(getNextColorId());
-      }
+    it('should return least used color based on existing highlights', () => {
+      // Create highlights with specific color usage
+      const existingHighlights = [
+        { colorId: 1 }, // Color 1 used once
+        { colorId: 2 }, // Color 2 used once  
+        { colorId: 2 }, // Color 2 used twice (total)
+        { colorId: 3 }  // Color 3 used once
+      ];
       
-      // Check that all values are in range 1-20
-      results.forEach(colorId => {
-        expect(colorId).toBeGreaterThanOrEqual(1);
-        expect(colorId).toBeLessThanOrEqual(20);
-      });
-      
-      // Verify that we have at least one wrap-around (last value should be different from expected linear sequence)
-      const hasWrapped = results.some((value, index) => {
-        if (index === 0) return false;
-        const expected = results[index - 1] === 20 ? 1 : results[index - 1] + 1;
-        return value === expected;
-      });
-      expect(hasWrapped).toBe(true);
+      // Should return color 1, 3, or 4+ (least used colors)
+      // Color 2 is used twice, so it shouldn't be selected
+      const colorId = getNextColorId(existingHighlights);
+      expect(colorId).toBeGreaterThanOrEqual(1);
+      expect(colorId).toBeLessThanOrEqual(20);
+      expect(colorId).not.toBe(2); // Should not pick the most used color
     });
   });
 
