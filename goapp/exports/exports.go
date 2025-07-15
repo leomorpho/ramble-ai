@@ -92,18 +92,36 @@ func (s *ExportService) ExportStitchedHighlights(projectID int, outputFolder str
 		return "", fmt.Errorf("failed to get project: %w", err)
 	}
 
-	dbJob, err := s.client.ExportJob.
-		Create().
-		SetJobID(jobID).
-		SetExportType("stitched").
-		SetOutputPath(outputFolder).
-		SetStage("pending").
-		SetCreatedAt(time.Now()).
-		SetProject(proj).
-		Save(s.ctx)
+	// Retry job creation if database is locked
+	var dbJob *ent.ExportJob
+	for i := 0; i < 5; i++ {
+		var createErr error
+		dbJob, createErr = s.client.ExportJob.
+			Create().
+			SetJobID(jobID).
+			SetExportType("stitched").
+			SetOutputPath(outputFolder).
+			SetStage("pending").
+			SetCreatedAt(time.Now()).
+			SetProject(proj).
+			Save(s.ctx)
 
-	if err != nil {
-		return "", fmt.Errorf("failed to create export job record: %w", err)
+		if createErr == nil {
+			break
+		}
+		
+		// Check if it's a database lock error
+		if strings.Contains(createErr.Error(), "database table is locked") {
+			time.Sleep(time.Duration(i*10) * time.Millisecond)
+			continue
+		}
+		
+		// Other errors, don't retry
+		return "", fmt.Errorf("failed to create export job record: %w", createErr)
+	}
+
+	if dbJob == nil {
+		return "", fmt.Errorf("failed to create export job record after retries")
 	}
 
 	// Create active job
@@ -136,18 +154,36 @@ func (s *ExportService) ExportIndividualHighlights(projectID int, outputFolder s
 		return "", fmt.Errorf("failed to get project: %w", err)
 	}
 
-	dbJob, err := s.client.ExportJob.
-		Create().
-		SetJobID(jobID).
-		SetExportType("individual").
-		SetOutputPath(outputFolder).
-		SetStage("pending").
-		SetCreatedAt(time.Now()).
-		SetProject(proj).
-		Save(s.ctx)
+	// Retry job creation if database is locked
+	var dbJob *ent.ExportJob
+	for i := 0; i < 5; i++ {
+		var createErr error
+		dbJob, createErr = s.client.ExportJob.
+			Create().
+			SetJobID(jobID).
+			SetExportType("individual").
+			SetOutputPath(outputFolder).
+			SetStage("pending").
+			SetCreatedAt(time.Now()).
+			SetProject(proj).
+			Save(s.ctx)
 
-	if err != nil {
-		return "", fmt.Errorf("failed to create export job record: %w", err)
+		if createErr == nil {
+			break
+		}
+		
+		// Check if it's a database lock error
+		if strings.Contains(createErr.Error(), "database table is locked") {
+			time.Sleep(time.Duration(i*10) * time.Millisecond)
+			continue
+		}
+		
+		// Other errors, don't retry
+		return "", fmt.Errorf("failed to create export job record: %w", createErr)
+	}
+
+	if dbJob == nil {
+		return "", fmt.Errorf("failed to create export job record after retries")
 	}
 
 	// Create active job
@@ -226,15 +262,33 @@ func (s *ExportService) CancelExport(jobID string) error {
 		return fmt.Errorf("job not found: %w", err)
 	}
 
-	_, err = s.client.ExportJob.
-		Update().
-		Where(exportjob.JobID(jobID)).
-		SetIsCancelled(true).
-		SetStage("cancelled").
-		Save(s.ctx)
+	// Retry job update if database is locked
+	var updateErr error
+	for i := 0; i < 5; i++ {
+		_, updateErr = s.client.ExportJob.
+			Update().
+			Where(exportjob.JobID(jobID)).
+			SetIsCancelled(true).
+			SetStage("cancelled").
+			SetIsComplete(true).
+			Save(s.ctx)
 
-	if err != nil {
-		return fmt.Errorf("failed to update job status: %w", err)
+		if updateErr == nil {
+			break
+		}
+		
+		// Check if it's a database lock error
+		if strings.Contains(updateErr.Error(), "database table is locked") {
+			time.Sleep(time.Duration(i*10) * time.Millisecond)
+			continue
+		}
+		
+		// Other errors, don't retry
+		return fmt.Errorf("failed to update job status: %w", updateErr)
+	}
+
+	if updateErr != nil {
+		return fmt.Errorf("failed to update job status after retries: %w", updateErr)
 	}
 
 	return nil
@@ -589,74 +643,150 @@ func (s *ExportService) generateOutputFilename(projectName, suffix string) strin
 
 // Database update helper functions
 func (s *ExportService) updateJobStatus(jobID, stage string) {
-	_, err := s.client.ExportJob.
-		Update().
-		Where(exportjob.JobID(jobID)).
-		SetStage(stage).
-		Save(s.ctx)
+	// Retry job update if database is locked
+	for i := 0; i < 5; i++ {
+		_, err := s.client.ExportJob.
+			Update().
+			Where(exportjob.JobID(jobID)).
+			SetStage(stage).
+			Save(s.ctx)
 
-	if err != nil {
+		if err == nil {
+			return
+		}
+		
+		// Check if it's a database lock error
+		if strings.Contains(err.Error(), "database table is locked") {
+			time.Sleep(time.Duration(i*10) * time.Millisecond)
+			continue
+		}
+		
+		// Other errors, log and return
 		log.Printf("Failed to update job status: %v", err)
+		return
 	}
+	
+	log.Printf("Failed to update job status after retries")
 }
 
 func (s *ExportService) updateJobProgress(jobID, stage string, progress float64, currentFile string, totalFiles, processedFiles int) {
-	_, err := s.client.ExportJob.
-		Update().
-		Where(exportjob.JobID(jobID)).
-		SetStage(stage).
-		SetProgress(progress).
-		SetCurrentFile(currentFile).
-		SetTotalFiles(totalFiles).
-		SetProcessedFiles(processedFiles).
-		Save(s.ctx)
+	// Retry job update if database is locked
+	for i := 0; i < 5; i++ {
+		_, err := s.client.ExportJob.
+			Update().
+			Where(exportjob.JobID(jobID)).
+			SetStage(stage).
+			SetProgress(progress).
+			SetCurrentFile(currentFile).
+			SetTotalFiles(totalFiles).
+			SetProcessedFiles(processedFiles).
+			Save(s.ctx)
 
-	if err != nil {
+		if err == nil {
+			return
+		}
+		
+		// Check if it's a database lock error
+		if strings.Contains(err.Error(), "database table is locked") {
+			time.Sleep(time.Duration(i*10) * time.Millisecond)
+			continue
+		}
+		
+		// Other errors, log and return
 		log.Printf("Failed to update job progress: %v", err)
+		return
 	}
+	
+	log.Printf("Failed to update job progress after retries")
 }
 
 func (s *ExportService) updateJobCompleted(jobID, outputPath string) {
-	_, err := s.client.ExportJob.
-		Update().
-		Where(exportjob.JobID(jobID)).
-		SetIsComplete(true).
-		SetProgress(1.0).
-		SetCompletedAt(time.Now()).
-		SetOutputPath(outputPath).
-		Save(s.ctx)
+	// Retry job update if database is locked
+	for i := 0; i < 5; i++ {
+		_, err := s.client.ExportJob.
+			Update().
+			Where(exportjob.JobID(jobID)).
+			SetIsComplete(true).
+			SetProgress(1.0).
+			SetCompletedAt(time.Now()).
+			SetOutputPath(outputPath).
+			Save(s.ctx)
 
-	if err != nil {
+		if err == nil {
+			return
+		}
+		
+		// Check if it's a database lock error
+		if strings.Contains(err.Error(), "database table is locked") {
+			time.Sleep(time.Duration(i*10) * time.Millisecond)
+			continue
+		}
+		
+		// Other errors, log and return
 		log.Printf("Failed to update job as completed: %v", err)
+		return
 	}
+	
+	log.Printf("Failed to update job as completed after retries")
 }
 
 func (s *ExportService) updateJobFailed(jobID, errorMessage string) {
-	_, err := s.client.ExportJob.
-		Update().
-		Where(exportjob.JobID(jobID)).
-		SetHasError(true).
-		SetStage("failed").
-		SetErrorMessage(errorMessage).
-		SetIsComplete(true).
-		Save(s.ctx)
+	// Retry job update if database is locked
+	for i := 0; i < 5; i++ {
+		_, err := s.client.ExportJob.
+			Update().
+			Where(exportjob.JobID(jobID)).
+			SetHasError(true).
+			SetStage("failed").
+			SetErrorMessage(errorMessage).
+			SetIsComplete(true).
+			Save(s.ctx)
 
-	if err != nil {
+		if err == nil {
+			return
+		}
+		
+		// Check if it's a database lock error
+		if strings.Contains(err.Error(), "database table is locked") {
+			time.Sleep(time.Duration(i*10) * time.Millisecond)
+			continue
+		}
+		
+		// Other errors, log and return
 		log.Printf("Failed to update job as failed: %v", err)
+		return
 	}
+	
+	log.Printf("Failed to update job as failed after retries")
 }
 
 func (s *ExportService) updateJobCancelled(jobID string) {
-	_, err := s.client.ExportJob.
-		Update().
-		Where(exportjob.JobID(jobID)).
-		SetIsCancelled(true).
-		SetStage("cancelled").
-		Save(s.ctx)
+	// Retry job update if database is locked
+	for i := 0; i < 5; i++ {
+		_, err := s.client.ExportJob.
+			Update().
+			Where(exportjob.JobID(jobID)).
+			SetIsCancelled(true).
+			SetStage("cancelled").
+			SetIsComplete(true).
+			Save(s.ctx)
 
-	if err != nil {
+		if err == nil {
+			return
+		}
+		
+		// Check if it's a database lock error
+		if strings.Contains(err.Error(), "database table is locked") {
+			time.Sleep(time.Duration(i*10) * time.Millisecond)
+			continue
+		}
+		
+		// Other errors, log and return
 		log.Printf("Failed to update job as cancelled: %v", err)
+		return
 	}
+	
+	log.Printf("Failed to update job as cancelled after retries")
 }
 
 // extractHighlightSegmentWithProgress extracts a highlight with progress tracking

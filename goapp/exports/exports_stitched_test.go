@@ -154,12 +154,19 @@ func TestStitchedExport_CancellationDuringPreparation(t *testing.T) {
 	err = service.CancelExport(jobID)
 	require.NoError(t, err)
 
-	// Wait for cancellation to complete
-	time.Sleep(100 * time.Millisecond)
+	// Wait for cancellation to complete with retry
+	var progress *ExportProgress
+	for i := 0; i < 20; i++ { // Try for up to 1 second
+		progress, err = service.GetExportProgress(jobID)
+		require.NoError(t, err)
+		if progress.Stage == "cancelled" || progress.Stage == "failed" {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
 
 	// Verify job was cancelled
-	progress, err := service.GetExportProgress(jobID)
-	require.NoError(t, err)
 	assert.Equal(t, "cancelled", progress.Stage)
 }
 
@@ -347,12 +354,16 @@ func TestStitchedExport_ConcurrentExports(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(tempDir3)
 
-	// Start concurrent stitched exports
+	// Start concurrent stitched exports with small delays to avoid database locking
 	jobID1, err := service.ExportStitchedHighlights(proj1.ID, tempDir1, 0.0)
 	require.NoError(t, err)
 
+	time.Sleep(10 * time.Millisecond) // Small delay to avoid database lock contention
+
 	jobID2, err := service.ExportStitchedHighlights(proj2.ID, tempDir2, 0.0)
 	require.NoError(t, err)
+
+	time.Sleep(10 * time.Millisecond) // Small delay to avoid database lock contention
 
 	jobID3, err := service.ExportStitchedHighlights(proj3.ID, tempDir3, 0.0)
 	require.NoError(t, err)

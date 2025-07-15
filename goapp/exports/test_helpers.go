@@ -21,7 +21,7 @@ func setupTestDB(t testing.TB) (*ent.Client, context.Context) {
 	cleanupActiveJobs()
 
 	// Use unique database name per test to avoid sharing issues
-	dbName := fmt.Sprintf("file:ent_%d?mode=memory&cache=shared&_fk=1", time.Now().UnixNano())
+	dbName := fmt.Sprintf("file:ent_%d?mode=memory&cache=shared&_fk=1&_journal_mode=WAL&_busy_timeout=5000", time.Now().UnixNano())
 	client := enttest.Open(t, "sqlite3", dbName)
 	ctx := context.Background()
 
@@ -32,6 +32,8 @@ func setupTestDB(t testing.TB) (*ent.Client, context.Context) {
 	// Set up cleanup for when the test completes
 	t.Cleanup(func() {
 		cleanupActiveJobs()
+		// Give more time for background goroutines to finish
+		time.Sleep(200 * time.Millisecond)
 	})
 
 	return client, ctx

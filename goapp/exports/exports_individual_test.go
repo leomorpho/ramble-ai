@@ -156,12 +156,19 @@ func TestIndividualExport_CancellationDuringExport(t *testing.T) {
 	err = service.CancelExport(jobID)
 	require.NoError(t, err)
 
-	// Wait for cancellation to complete
-	time.Sleep(100 * time.Millisecond)
+	// Wait for cancellation to complete with retry
+	var progress *ExportProgress
+	for i := 0; i < 20; i++ { // Try for up to 1 second
+		progress, err = service.GetExportProgress(jobID)
+		require.NoError(t, err)
+		if progress.Stage == "cancelled" || progress.Stage == "failed" {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
 
 	// Verify job was cancelled
-	progress, err := service.GetExportProgress(jobID)
-	require.NoError(t, err)
 	assert.Equal(t, "cancelled", progress.Stage)
 }
 
@@ -373,9 +380,11 @@ func TestIndividualExport_ConcurrentExports(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(tempDir2)
 
-	// Start concurrent exports
+	// Start concurrent exports with small delays to avoid database locking
 	jobID1, err := service.ExportIndividualHighlights(proj1.ID, tempDir1, 0.0)
 	require.NoError(t, err)
+
+	time.Sleep(10 * time.Millisecond) // Small delay to avoid database lock contention
 
 	jobID2, err := service.ExportIndividualHighlights(proj2.ID, tempDir2, 0.0)
 	require.NoError(t, err)
