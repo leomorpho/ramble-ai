@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -34,13 +35,39 @@ type App struct {
 	client *ent.Client
 }
 
+// getUserDataDir returns the user data directory for the application
+func getUserDataDir() (string, error) {
+	userConfigDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get user config directory: %w", err)
+	}
+
+	appDataDir := filepath.Join(userConfigDir, "MYAPP")
+	
+	// Create directory if it doesn't exist
+	if err := os.MkdirAll(appDataDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create app data directory: %w", err)
+	}
+
+	return appDataDir, nil
+}
+
 // NewApp creates a new App application struct
 func NewApp() *App {
-	// Initialize database
-	db, err := sql.Open("sqlite3", "database.db?_fk=1")
+	// Get user data directory
+	userDataDir, err := getUserDataDir()
+	if err != nil {
+		log.Fatalf("failed to get user data directory: %v", err)
+	}
+
+	// Initialize database in user data directory
+	dbPath := filepath.Join(userDataDir, "database.db")
+	db, err := sql.Open("sqlite3", dbPath+"?_fk=1")
 	if err != nil {
 		log.Fatalf("failed opening connection to sqlite: %v", err)
 	}
+
+	log.Printf("Database initialized at: %s", dbPath)
 
 	// Create Ent client with proper dialect
 	drv := entsql.OpenDB(dialect.SQLite, db)

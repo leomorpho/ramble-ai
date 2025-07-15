@@ -3,7 +3,7 @@
 # Variables
 APP_NAME = MYAPP
 ENT_DIR = ./ent
-DB_FILE = database.db
+DB_FILE = ~/Library/Application\ Support/MYAPP/database.db
 
 # Default target
 .PHONY: help
@@ -21,10 +21,11 @@ build: ## Build the application for production
 	wails build -tags production
 
 .PHONY: build-obfuscated
-build-obfuscated: ## Build with obfuscation for code protection (requires Go 1.23.5+)
+build-obfuscated: ## Build with obfuscation for code protection (requires Go 1.24+)
 	@echo "🔒 Building with obfuscation for code protection..."
-	@echo "Note: Requires Go 1.23.5+ for obfuscation support"
-	wails build -tags production -obfuscated -garbleargs "-literals -tiny -seed=random"
+	@echo "Note: Requires Go 1.24+ for obfuscation support"
+	@echo "Excluding Atlas SQL packages from obfuscation..."
+	GOGARBLE="*,!ariga.io/atlas/..." wails build -tags production -obfuscated -garbleargs "-literals -tiny -seed=random"
 
 .PHONY: build-all-platforms
 build-all-platforms: ffmpeg-binaries ## Build for all platforms with embedded FFmpeg
@@ -35,7 +36,8 @@ build-all-platforms: ffmpeg-binaries ## Build for all platforms with embedded FF
 .PHONY: build-all-platforms-obfuscated
 build-all-platforms-obfuscated: ffmpeg-binaries ## Build obfuscated binaries for all platforms
 	@echo "🔒🚀 Building obfuscated binaries for all platforms..."
-	wails build -tags production -obfuscated -garbleargs "-literals -tiny -seed=random" -platform=windows/amd64,darwin/amd64,linux/amd64
+	@echo "Excluding Atlas SQL packages from obfuscation..."
+	GOGARBLE="*,!ariga.io/atlas/..." wails build -tags production -obfuscated -garbleargs "-literals -tiny -seed=random" -platform=windows/amd64,darwin/amd64,linux/amd64
 	@echo "✅ Obfuscated multi-platform build complete!"
 
 .PHONY: clean
@@ -79,10 +81,10 @@ migrate-down: ## Rollback the last migration (WARNING: may cause data loss)
 
 .PHONY: schema-inspect
 schema-inspect: ## Inspect current database schema
-	@if [ -f $(DB_FILE) ]; then \
-		sqlite3 $(DB_FILE) ".schema"; \
+	@if [ -f "$(DB_FILE)" ]; then \
+		sqlite3 "$(DB_FILE)" ".schema"; \
 	else \
-		echo "Database file $(DB_FILE) not found. Run 'make migrate-up' first."; \
+		echo "Database file $(DB_FILE) not found. Run the app first to create it."; \
 	fi
 
 .PHONY: db-reset
@@ -90,8 +92,8 @@ db-reset: ## Reset database (WARNING: deletes all data)
 	@echo "WARNING: This will delete all data in the database!"
 	@echo "Press Ctrl+C to cancel, or Enter to continue..."
 	@read
-	rm -f $(DB_FILE)
-	@echo "Database deleted. Run 'make migrate-up' to recreate."
+	rm -f "$(DB_FILE)"
+	@echo "Database deleted. Run the app to recreate it."
 
 # Frontend
 .PHONY: frontend-install
@@ -224,16 +226,16 @@ ffmpeg-clean: ## Clean downloaded FFmpeg binaries
 # Database utilities
 .PHONY: db-shell
 db-shell: ## Open SQLite shell for the database
-	@if [ -f $(DB_FILE) ]; then \
-		sqlite3 $(DB_FILE); \
+	@if [ -f "$(DB_FILE)" ]; then \
+		sqlite3 "$(DB_FILE)"; \
 	else \
-		echo "Database file $(DB_FILE) not found. Run 'make migrate-up' first."; \
+		echo "Database file $(DB_FILE) not found. Run the app first to create it."; \
 	fi
 
 .PHONY: db-backup
 db-backup: ## Backup database to timestamped file
-	@if [ -f $(DB_FILE) ]; then \
-		cp $(DB_FILE) $(DB_FILE).backup.$$(date +%Y%m%d_%H%M%S); \
+	@if [ -f "$(DB_FILE)" ]; then \
+		cp "$(DB_FILE)" "$(DB_FILE).backup.$$(date +%Y%m%d_%H%M%S)"; \
 		echo "Database backed up to $(DB_FILE).backup.$$(date +%Y%m%d_%H%M%S)"; \
 	else \
 		echo "Database file $(DB_FILE) not found."; \

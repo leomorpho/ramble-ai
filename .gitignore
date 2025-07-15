@@ -1,7 +1,8 @@
-build
+build/
 frontend/dist
 frontend/node_modules
-frontend/wailsjs
+# Wails auto-generated bindings
+frontend/src/lib/wailsjs/
 frontend.bak
 frontend/*.lock
 frontend/*.md5
