@@ -20,6 +20,24 @@ dev: ## Start development server with hot reload
 build: ## Build the application for production
 	wails build
 
+.PHONY: build-obfuscated
+build-obfuscated: ## Build with obfuscation for code protection (requires Go 1.23.5+)
+	@echo "🔒 Building with obfuscation for code protection..."
+	@echo "Note: Requires Go 1.23.5+ for obfuscation support"
+	wails build -obfuscated -garbleargs "-literals -tiny -seed=random"
+
+.PHONY: build-all-platforms
+build-all-platforms: ffmpeg-binaries ## Build for all platforms with embedded FFmpeg
+	@echo "🚀 Building for all platforms with embedded FFmpeg..."
+	wails build -platform=windows/amd64,darwin/amd64,linux/amd64
+	@echo "✅ Multi-platform build complete!"
+
+.PHONY: build-all-platforms-obfuscated
+build-all-platforms-obfuscated: ffmpeg-binaries ## Build obfuscated binaries for all platforms
+	@echo "🔒🚀 Building obfuscated binaries for all platforms..."
+	wails build -obfuscated -garbleargs "-literals -tiny -seed=random" -platform=windows/amd64,darwin/amd64,linux/amd64
+	@echo "✅ Obfuscated multi-platform build complete!"
+
 .PHONY: clean
 clean: ## Clean build artifacts
 	rm -rf build/
@@ -177,6 +195,31 @@ setup: deps frontend-install generate ## Set up the project for development
 
 .PHONY: full-build
 full-build: clean frontend-install frontend-build build ## Clean build from scratch
+
+# FFmpeg binaries
+.PHONY: ffmpeg-binaries
+ffmpeg-binaries: ## Download FFmpeg binaries for all platforms
+	@echo "📦 Downloading FFmpeg binaries..."
+	@mkdir -p binaries/static
+	@echo "Downloading Windows binary..."
+	@curl -L -o binaries/static/ffmpeg-windows.zip https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-win-64.zip
+	@echo "Downloading macOS binary..."
+	@curl -L -o binaries/static/ffmpeg-macos.zip https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-macos-64.zip
+	@echo "Downloading Linux binary..."
+	@curl -L -o binaries/static/ffmpeg-linux.zip https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-linux-64.zip
+	@echo "Extracting binaries..."
+	@cd binaries/static && unzip -o ffmpeg-windows.zip && mv ffmpeg.exe ffmpeg-windows-amd64.exe
+	@cd binaries/static && unzip -o ffmpeg-macos.zip && mv ffmpeg ffmpeg-darwin-amd64
+	@cd binaries/static && unzip -o ffmpeg-linux.zip && mv ffmpeg ffmpeg-linux-amd64
+	@echo "Cleaning up zip files..."
+	@rm -f binaries/static/*.zip
+	@echo "✅ FFmpeg binaries downloaded and extracted!"
+
+.PHONY: ffmpeg-clean
+ffmpeg-clean: ## Clean downloaded FFmpeg binaries
+	@echo "🧹 Cleaning FFmpeg binaries..."
+	@rm -rf binaries/static
+	@echo "✅ FFmpeg binaries cleaned!"
 
 # Database utilities
 .PHONY: db-shell

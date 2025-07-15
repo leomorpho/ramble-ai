@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
 
+	"MYAPP/binaries"
 	"MYAPP/ent"
 	"MYAPP/ent/schema"
 	"MYAPP/goapp/assetshandler"
@@ -67,6 +69,15 @@ func (a *App) startup(ctx context.Context) {
 
 	log.Println("Database initialized and migrations applied")
 
+	// Initialize FFmpeg binary
+	if ffmpegPath, err := binaries.GetFFmpegPath(); err != nil {
+		log.Printf("Failed to extract FFmpeg binary: %v", err)
+	} else {
+		// Set environment variable for video processing services
+		os.Setenv("FFMPEG_PATH", ffmpegPath)
+		log.Printf("FFmpeg initialized successfully: %s (version %s)", ffmpegPath, binaries.GetFFmpegVersion())
+	}
+
 	// Recover any incomplete export jobs
 	if err := a.RecoverActiveExportJobs(); err != nil {
 		log.Printf("Failed to recover active export jobs: %v", err)
@@ -75,6 +86,9 @@ func (a *App) startup(ctx context.Context) {
 
 // shutdown is called when the app shuts down
 func (a *App) shutdown(ctx context.Context) {
+	// Cleanup FFmpeg binary
+	binaries.CleanupFFmpeg()
+	
 	// Shutdown real-time manager
 	manager := realtime.GetManager()
 	manager.Shutdown()

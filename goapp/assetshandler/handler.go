@@ -9,11 +9,11 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 
+	"MYAPP/goapp"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 )
 
@@ -264,7 +264,7 @@ func (h *AssetHandler) GenerateThumbnail(videoPath string) (string, error) {
 	log.Printf("[THUMBNAIL] Generating new thumbnail for: %s", videoPath)
 
 	// Use ffmpeg to generate thumbnail at 10% of video duration
-	cmd := exec.Command("ffmpeg",
+	cmd := goapp.GetFFmpegCommand(
 		"-i", videoPath,
 		"-ss", "00:00:03", // Seek to 3 seconds
 		"-vframes", "1", // Extract 1 frame

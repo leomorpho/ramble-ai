@@ -36,3 +36,6 @@ gahara/
 coverage.out
 coverage.html
 MYAPP
+
+# FFmpeg binaries (downloaded with make ffmpeg-binaries)
+binaries/static/

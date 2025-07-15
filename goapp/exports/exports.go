@@ -8,7 +8,6 @@ import (
 	"log"
 	"math"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -18,6 +17,7 @@ import (
 
 	"MYAPP/ent"
 	"MYAPP/ent/exportjob"
+	"MYAPP/goapp"
 	"MYAPP/ent/project"
 	"MYAPP/goapp/highlights"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -508,7 +508,7 @@ func (s *ExportService) extractHighlightSegment(segment HighlightSegment, tempDi
 
 	// Build FFmpeg command - using input seeking + minimal re-encoding for precision
 	duration := segment.End - segment.Start
-	cmd := exec.Command("ffmpeg",
+	cmd := goapp.GetFFmpegCommand(
 		"-ss", fmt.Sprintf("%.3f", segment.Start),
 		"-i", segment.VideoPath,
 		"-t", fmt.Sprintf("%.3f", duration),
@@ -534,7 +534,7 @@ func (s *ExportService) extractHighlightSegment(segment HighlightSegment, tempDi
 func (s *ExportService) extractHighlightSegmentDirect(segment HighlightSegment, outputPath string) error {
 	// Build FFmpeg command - using input seeking + minimal re-encoding for precision
 	duration := segment.End - segment.Start
-	cmd := exec.Command("ffmpeg",
+	cmd := goapp.GetFFmpegCommand(
 		"-ss", fmt.Sprintf("%.3f", segment.Start),
 		"-i", segment.VideoPath,
 		"-t", fmt.Sprintf("%.3f", duration),
@@ -672,7 +672,7 @@ func (s *ExportService) extractHighlightSegmentWithProgress(segment HighlightSeg
 
 	// Build FFmpeg command with progress tracking - using input seeking + minimal re-encoding for precision
 	duration := paddedEnd - paddedStart
-	cmd := exec.Command("ffmpeg",
+	cmd := goapp.GetFFmpegCommand(
 		"-progress", "pipe:1",
 		"-ss", fmt.Sprintf("%.3f", paddedStart),
 		"-i", segment.VideoPath,
@@ -729,7 +729,7 @@ func (s *ExportService) extractHighlightSegmentDirectWithProgress(segment Highli
 
 	// Build FFmpeg command with progress tracking - using input seeking + minimal re-encoding for precision
 	duration := paddedEnd - paddedStart
-	cmd := exec.Command("ffmpeg",
+	cmd := goapp.GetFFmpegCommand(
 		"-progress", "pipe:1",
 		"-ss", fmt.Sprintf("%.3f", paddedStart),
 		"-i", segment.VideoPath,
@@ -818,7 +818,7 @@ func (s *ExportService) stitchSegments(segmentPaths []string, outputPath string,
 	}
 
 	// Build FFmpeg concat command with progress
-	cmd := exec.Command("ffmpeg",
+	cmd := goapp.GetFFmpegCommand(
 		"-progress", "pipe:1",
 		"-f", "concat",
 		"-safe", "0",

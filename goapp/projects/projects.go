@@ -13,11 +13,12 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"MYAPP/goapp"
 
 	"MYAPP/ent"
 	"MYAPP/ent/project"
@@ -1544,7 +1545,7 @@ func (s *ProjectService) extractAudio(videoPath string) (string, error) {
 	log.Printf("[TRANSCRIPTION] Extracting audio from: %s to: %s", videoPath, audioPath)
 
 	// Use ffmpeg to extract audio
-	cmd := exec.Command("ffmpeg",
+	cmd := goapp.GetFFmpegCommand(
 		"-i", videoPath,
 		"-vn",            // No video
 		"-acodec", "mp3", // Audio codec
