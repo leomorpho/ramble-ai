@@ -459,8 +459,7 @@ export async function addHighlight(videoClipId, highlight) {
       id: h.id,
       start: h.start,
       end: h.end,
-      color: h.color,
-      text: h.text
+      colorId: h.colorId || h.color || 1, // Handle both colorId and color fields
     }));
     
     // Update backend
@@ -496,8 +495,7 @@ export async function updateVideoHighlights(videoClipId, highlights) {
       id: h.id,
       start: h.start,
       end: h.end,
-      color: h.color,
-      text: h.text
+      colorId: h.colorId || h.color || 1, // Handle both colorId and color fields
     }));
     
     // Update backend

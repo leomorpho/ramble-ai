@@ -29,6 +29,8 @@
     redoOrderChange,
     orderHistoryStatus,
     updateNewLineTitle,
+    updateVideoHighlights,
+    refreshHighlights,
   } from "$lib/stores/projectHighlights.js";
   import { ImproveHighlightSilencesWithAI } from "$lib/wailsjs/go/main/App";
 
@@ -288,8 +290,14 @@
         await ImproveHighlightSilencesWithAI(projectId);
 
       if (improvedHighlights && improvedHighlights.length > 0) {
-        // Apply the improvements directly to the project highlights
-        await updateHighlightOrder(improvedHighlights);
+        // Apply the improvements to each video clip's highlights
+        for (const videoClip of improvedHighlights) {
+          if (videoClip.highlights && videoClip.highlights.length > 0) {
+            // The highlights already have the correct format from the backend
+            // Update the highlights for this video clip
+            await updateVideoHighlights(videoClip.videoClipId, videoClip.highlights);
+          }
+        }
 
         // Count total highlights across all video clips
         const totalHighlights = improvedHighlights.reduce((total, videoClip) => {
@@ -299,6 +307,9 @@
         toast.success(
           `Added silence padding to ${totalHighlights} highlight${totalHighlights === 1 ? '' : 's'} across ${improvedHighlights.length} video${improvedHighlights.length === 1 ? '' : 's'}!`
         );
+        
+        // Refresh highlights to show the changes
+        await refreshHighlights();
       } else {
         toast.info("No silence padding improvements were suggested by AI");
       }
