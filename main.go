@@ -1,8 +1,6 @@
 package main
 
 import (
-	"embed"
-
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -13,11 +11,8 @@ import (
 // 'npm run dev' or your flavor such as pnpm in the frontend
 // directory seperately.
 
-// The comment below chooses what gets packaged with
-// the application.
-
-//go:embed all:frontend/build
-var assets embed.FS
+// The assets variable is defined in embed_prod.go (production builds)
+// or embed_dev.go (development/test builds)
 
 func main() {
 	// Create an instance of the app structure

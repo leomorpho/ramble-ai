@@ -18,24 +18,24 @@ dev: ## Start development server with hot reload
 
 .PHONY: build
 build: ## Build the application for production
-	wails build
+	wails build -tags production
 
 .PHONY: build-obfuscated
 build-obfuscated: ## Build with obfuscation for code protection (requires Go 1.23.5+)
 	@echo "🔒 Building with obfuscation for code protection..."
 	@echo "Note: Requires Go 1.23.5+ for obfuscation support"
-	wails build -obfuscated -garbleargs "-literals -tiny -seed=random"
+	wails build -tags production -obfuscated -garbleargs "-literals -tiny -seed=random"
 
 .PHONY: build-all-platforms
 build-all-platforms: ffmpeg-binaries ## Build for all platforms with embedded FFmpeg
 	@echo "🚀 Building for all platforms with embedded FFmpeg..."
-	wails build -platform=windows/amd64,darwin/amd64,linux/amd64
+	wails build -tags production -platform=windows/amd64,darwin/amd64,linux/amd64
 	@echo "✅ Multi-platform build complete!"
 
 .PHONY: build-all-platforms-obfuscated
 build-all-platforms-obfuscated: ffmpeg-binaries ## Build obfuscated binaries for all platforms
 	@echo "🔒🚀 Building obfuscated binaries for all platforms..."
-	wails build -obfuscated -garbleargs "-literals -tiny -seed=random" -platform=windows/amd64,darwin/amd64,linux/amd64
+	wails build -tags production -obfuscated -garbleargs "-literals -tiny -seed=random" -platform=windows/amd64,darwin/amd64,linux/amd64
 	@echo "✅ Obfuscated multi-platform build complete!"
 
 .PHONY: clean

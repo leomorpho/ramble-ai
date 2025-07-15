@@ -26,6 +26,11 @@ func GetFFmpegPath() (string, error) {
 
 // extractFFmpeg extracts the embedded FFmpeg binary to a temporary file
 func extractFFmpeg() (string, error) {
+	// If no binary is embedded (dev/test mode), return an error
+	if len(FFmpegBinary) == 0 {
+		return "", fmt.Errorf("no embedded FFmpeg binary available (dev/test mode)")
+	}
+
 	// Create a temporary file with the appropriate extension
 	tmpFile, err := os.CreateTemp("", "ffmpeg"+FFmpegExtension)
 	if err != nil {
