@@ -1,11 +1,11 @@
 VERSION 0.8
 
 # Use a multi-stage approach for better caching
-FROM golang:1.22-alpine
+FROM golang:1.23-alpine
 WORKDIR /app
 
 # Install base system dependencies
-base:
+deps:
     RUN apk add --no-cache \
         build-base \
         git \
@@ -13,10 +13,11 @@ base:
         npm \
         sqlite \
         sqlite-dev
+    RUN npm install -g pnpm
 
 # Install and cache Go dependencies
 go-deps:
-    FROM +base
+    FROM +deps
     COPY go.mod go.sum ./
     RUN go mod download
     SAVE ARTIFACT go.mod AS LOCAL go.mod.cached
@@ -24,15 +25,15 @@ go-deps:
 
 # Install and cache frontend dependencies  
 frontend-deps:
-    FROM +base
-    COPY frontend/package*.json ./frontend/
+    FROM +deps
+    COPY frontend/package.json frontend/pnpm-lock.yaml ./frontend/
     WORKDIR /app/frontend
-    RUN npm ci
+    RUN pnpm install --frozen-lockfile
     SAVE ARTIFACT node_modules AS LOCAL frontend/node_modules.cached
 
 # Copy all source code
 src:
-    FROM +base
+    FROM +deps
     # Copy cached Go deps
     COPY +go-deps/go.mod +go-deps/go.sum ./
     RUN go mod download
@@ -58,7 +59,7 @@ test-go:
 test-frontend:
     FROM +src
     WORKDIR /app/frontend
-    RUN --no-cache npm run test:run -- --reporter=verbose
+    RUN --no-cache pnpm run test:run -- --reporter=verbose
     
 # Run Go lint checks
 lint-go:
@@ -75,7 +76,7 @@ lint-go:
 check-frontend:
     FROM +src
     WORKDIR /app/frontend
-    RUN npm run check
+    RUN pnpm run check
 
 # Run all tests
 test:
@@ -91,7 +92,7 @@ lint:
 build-frontend:
     FROM +src
     WORKDIR /app/frontend
-    RUN npm run build
+    RUN pnpm run build
     SAVE ARTIFACT build AS LOCAL frontend/build
 
 # Build Go binary (without Wails for CI)
@@ -113,4 +114,4 @@ test-watch:
     WORKDIR /app
     RUN --interactive --push \
         echo "Running tests in watch mode..." && \
-        cd frontend && npm run test:watch
+        cd frontend && pnpm run test:watch
