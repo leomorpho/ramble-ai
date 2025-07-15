@@ -37,6 +37,17 @@ type App struct {
 
 // getUserDataDir returns the user data directory for the application
 func getUserDataDir() (string, error) {
+	// Check if we're in development mode by looking for go.mod file
+	if _, err := os.Stat("go.mod"); err == nil {
+		// In development mode, use current directory
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "", fmt.Errorf("failed to get current working directory: %w", err)
+		}
+		return cwd, nil
+	}
+
+	// In production mode, use user config directory
 	userConfigDir, err := os.UserConfigDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get user config directory: %w", err)
