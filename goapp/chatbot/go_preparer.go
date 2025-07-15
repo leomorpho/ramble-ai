@@ -9,13 +9,13 @@ import (
 func (s *ChatbotService) PrepareExecutorPrompt(summary *ConversationSummary, projectID int) (string, error) {
 	// Start with base template for the intent
 	basePrompt := getExecutorTemplate(summary.Intent)
-	
+
 	// Always get project highlights
 	projectHighlights, err := s.highlightService.GetProjectHighlights(projectID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get project highlights: %w", err)
 	}
-	
+
 	// Build highlight map section
 	basePrompt += "\n\nAVAILABLE HIGHLIGHTS:\n"
 	highlightCount := 0
@@ -26,7 +26,7 @@ func (s *ChatbotService) PrepareExecutorPrompt(summary *ConversationSummary, pro
 		}
 	}
 	basePrompt += fmt.Sprintf("\nTotal highlights: %d (ALL must be included in new order)\n", highlightCount)
-	
+
 	// Conditionally get current order if user wants it
 	if summary.UserWantsCurrentOrder {
 		currentOrder, err := s.highlightService.GetProjectHighlightOrderWithTitles(projectID)
@@ -42,23 +42,23 @@ func (s *ChatbotService) PrepareExecutorPrompt(summary *ConversationSummary, pro
 	} else {
 		basePrompt += "\n\nCURRENT ORDER: User prefers to start fresh (not using current order)\n"
 	}
-	
+
 	// Add user goals and context
 	if len(summary.OptimizationGoals) > 0 {
 		basePrompt += fmt.Sprintf("\n\nUSER OPTIMIZATION GOALS: %s\n", strings.Join(summary.OptimizationGoals, ", "))
 	}
-	
+
 	if len(summary.SpecificRequests) > 0 {
 		basePrompt += fmt.Sprintf("\nSPECIFIC USER REQUESTS: %s\n", strings.Join(summary.SpecificRequests, ", "))
 	}
-	
+
 	if summary.UserContext != "" {
 		basePrompt += fmt.Sprintf("\nUSER CONTEXT: %s\n", summary.UserContext)
 	}
-	
+
 	// Add output format requirements
 	basePrompt += getOutputFormatRequirements(summary.Intent)
-	
+
 	return basePrompt, nil
 }
 

@@ -110,12 +110,12 @@ func (s *HighlightService) GetSuggestedHighlights(videoID int) ([]HighlightSugge
 
 		// Debug log conversion
 		log.Printf("  Converting highlight %d: Time(%.3f-%.3f) -> WordIndex(%d-%d)", i+1, h.Start, h.End, startIndex, endIndex)
-		
+
 		// Additional debug: show what words are at these times
 		if startIndex < len(clip.TranscriptionWords) {
-			log.Printf("    Start: Time %.3f -> Word[%d]='%s' (%.3f-%.3f)", h.Start, startIndex, 
-				clip.TranscriptionWords[startIndex].Word, 
-				clip.TranscriptionWords[startIndex].Start, 
+			log.Printf("    Start: Time %.3f -> Word[%d]='%s' (%.3f-%.3f)", h.Start, startIndex,
+				clip.TranscriptionWords[startIndex].Word,
+				clip.TranscriptionWords[startIndex].Start,
 				clip.TranscriptionWords[startIndex].End)
 		}
 		if endIndex < len(clip.TranscriptionWords) {
@@ -138,10 +138,10 @@ func (s *HighlightService) GetSuggestedHighlights(videoID int) ([]HighlightSugge
 		log.Printf("  Extracted text %d: '%s'", i+1, text)
 
 		suggestion := HighlightSuggestion{
-			ID:    h.ID,
-			Start: startIndex,
-			End:   endIndex,
-			Text:  text,
+			ID:      h.ID,
+			Start:   startIndex,
+			End:     endIndex,
+			Text:    text,
 			ColorID: h.ColorID,
 		}
 		suggestions = append(suggestions, suggestion)
@@ -296,9 +296,9 @@ func (s *HighlightService) GetProjectHighlights(projectID int) ([]ProjectHighlig
 		var highlightsWithText []HighlightWithText
 		for _, h := range clip.Highlights {
 			hwt := HighlightWithText{
-				ID:    h.ID,
-				Start: h.Start,
-				End:   h.End,
+				ID:      h.ID,
+				Start:   h.Start,
+				End:     h.End,
 				ColorID: h.ColorID,
 			}
 
@@ -395,7 +395,7 @@ func (s *HighlightService) GetProjectHighlightOrder(projectID int) ([]string, er
 		case string:
 			result = append(result, v)
 		case map[string]interface{}:
-			// Convert newline objects back to simple "N" 
+			// Convert newline objects back to simple "N"
 			if typeVal, ok := v["type"].(string); ok && typeVal == "N" {
 				result = append(result, "N")
 			}
@@ -549,14 +549,14 @@ func (s *HighlightService) timeToWordIndex(timeSeconds float64, transcriptWords 
 	if timeSeconds <= 0 {
 		return 0
 	}
-	
+
 	// First pass: find word that starts at exactly this time
 	for i, word := range transcriptWords {
 		if timeSeconds == word.Start {
 			return i
 		}
 	}
-	
+
 	// Second pass: find word that contains this time
 	for i, word := range transcriptWords {
 		if timeSeconds > word.Start && timeSeconds <= word.End {
@@ -575,10 +575,10 @@ func (s *HighlightService) timeToWordIndexForEnd(timeSeconds float64, transcript
 	// This is the inverse of: endTime = transcriptWords[suggestion.End-1].End
 	// We need to find the word whose end time matches (or is closest to) the given time,
 	// then return the index + 1 to get back to the exclusive end index
-	
+
 	// Find the last word whose end time is <= the given time
 	for i := len(transcriptWords) - 1; i >= 0; i-- {
-		if transcriptWords[i].End <= timeSeconds + 0.001 { // Small epsilon for floating point comparison
+		if transcriptWords[i].End <= timeSeconds+0.001 { // Small epsilon for floating point comparison
 			// The saved time was from word i, so the exclusive end index is i+1
 			return i + 1
 		}

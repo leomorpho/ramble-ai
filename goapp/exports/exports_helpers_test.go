@@ -15,7 +15,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-
 func TestGenerateListFile_Success(t *testing.T) {
 	client, ctx := setupTestDB(t)
 	defer client.Close()
@@ -77,7 +76,7 @@ func TestGenerateListFile_EmptyPaths(t *testing.T) {
 
 	// Verify empty file exists
 	assert.FileExists(t, listFile)
-	
+
 	// Content should be empty
 	content, err := os.ReadFile(listFile)
 	require.NoError(t, err)
@@ -104,45 +103,45 @@ func TestGenerateOutputFilename_EdgeCases(t *testing.T) {
 	service := NewExportService(client, ctx)
 
 	tests := []struct {
-		name        string
-		projectName string
-		suffix      string
+		name         string
+		projectName  string
+		suffix       string
 		wantContains string
 	}{
 		{
-			name:        "empty project name",
-			projectName: "",
-			suffix:      "test",
+			name:         "empty project name",
+			projectName:  "",
+			suffix:       "test",
 			wantContains: "_test_",
 		},
 		{
-			name:        "empty suffix",
-			projectName: "Project",
-			suffix:      "",
+			name:         "empty suffix",
+			projectName:  "Project",
+			suffix:       "",
 			wantContains: "Project__",
 		},
 		{
-			name:        "both empty",
-			projectName: "",
-			suffix:      "",
+			name:         "both empty",
+			projectName:  "",
+			suffix:       "",
 			wantContains: "__",
 		},
 		{
-			name:        "only special characters",
-			projectName: "@#$%^&*()",
-			suffix:      "!@#$%",
+			name:         "only special characters",
+			projectName:  "@#$%^&*()",
+			suffix:       "!@#$%",
 			wantContains: "__________",
 		},
 		{
-			name:        "unicode characters",
-			projectName: "Project™®©",
-			suffix:      "test",
+			name:         "unicode characters",
+			projectName:  "Project™®©",
+			suffix:       "test",
 			wantContains: "Project____test_",
 		},
 		{
-			name:        "very long name",
-			projectName: strings.Repeat("VeryLongProjectName", 10),
-			suffix:      "test",
+			name:         "very long name",
+			projectName:  strings.Repeat("VeryLongProjectName", 10),
+			suffix:       "test",
 			wantContains: "VeryLongProjectName",
 		},
 	}
@@ -150,7 +149,7 @@ func TestGenerateOutputFilename_EdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := service.generateOutputFilename(tt.projectName, tt.suffix)
-			
+
 			assert.Contains(t, result, tt.wantContains)
 			assert.True(t, strings.HasSuffix(result, ".mp4"))
 			assert.True(t, len(result) > 0)
@@ -178,7 +177,7 @@ func TestGetProjectHighlightsForExport(t *testing.T) {
 	// Test getting highlights for project 1
 	segments1, err := service.getProjectHighlightsForExport(proj1.ID)
 	require.NoError(t, err)
-	
+
 	// Should get highlights for project1 only
 	foundProject1Highlights := 0
 	for _, segment := range segments1 {
@@ -233,7 +232,7 @@ func TestParseFFmpegProgress(t *testing.T) {
 	// Create test project and job
 	proj := createTestProject(t, client, ctx, "ProgressProject")
 	jobID := "test_job_123"
-	
+
 	// Create export job
 	_, err := client.ExportJob.
 		Create().
@@ -253,19 +252,19 @@ frame=  360 fps= 30 q=28.0 size=    3072kB time=00:00:12.00 bitrate=2097.2kbits/
 
 	// Create reader from output
 	reader := strings.NewReader(ffmpegOutput)
-	
+
 	// Mock cancel channel
 	cancel := make(chan bool)
-	
+
 	// Test progress parsing (this will run in background)
 	go service.parseFFmpegProgress(io.NopCloser(reader), jobID, 20.0, cancel)
-	
+
 	// Wait for parsing to complete
 	time.Sleep(100 * time.Millisecond)
-	
+
 	// Close cancel channel
 	close(cancel)
-	
+
 	// Verify progress was updated (we can't guarantee exact values due to timing)
 	progress, err := service.GetExportProgress(jobID)
 	require.NoError(t, err)
@@ -280,7 +279,7 @@ func TestParseFFmpegProgress_InvalidFormat(t *testing.T) {
 	// Create test project and job
 	proj := createTestProject(t, client, ctx, "ProgressProject")
 	jobID := "test_job_123"
-	
+
 	// Create export job
 	_, err := client.ExportJob.
 		Create().
@@ -300,19 +299,19 @@ frame=abc fps=xyz`
 
 	// Create reader from output
 	reader := strings.NewReader(invalidOutput)
-	
+
 	// Mock cancel channel
 	cancel := make(chan bool)
-	
+
 	// Test progress parsing (should not crash)
 	go service.parseFFmpegProgress(io.NopCloser(reader), jobID, 20.0, cancel)
-	
+
 	// Wait for parsing to complete
 	time.Sleep(100 * time.Millisecond)
-	
+
 	// Close cancel channel
 	close(cancel)
-	
+
 	// Should not crash or cause errors
 	progress, err := service.GetExportProgress(jobID)
 	require.NoError(t, err)
@@ -327,7 +326,7 @@ func TestUpdateJobStatus(t *testing.T) {
 	// Create test project and job
 	proj := createTestProject(t, client, ctx, "StatusProject")
 	jobID := "test_job_123"
-	
+
 	// Create export job
 	_, err := client.ExportJob.
 		Create().
@@ -342,7 +341,7 @@ func TestUpdateJobStatus(t *testing.T) {
 
 	// Test updating status
 	service.updateJobStatus(jobID, "processing")
-	
+
 	// Verify status was updated
 	progress, err := service.GetExportProgress(jobID)
 	require.NoError(t, err)
@@ -356,7 +355,7 @@ func TestUpdateJobStatus_InvalidJob(t *testing.T) {
 
 	// Test updating non-existent job (should not crash)
 	service.updateJobStatus("non_existent_job", "processing")
-	
+
 	// No assertion needed - just verify it doesn't crash
 }
 
@@ -368,7 +367,7 @@ func TestHighlightSegmentConversion(t *testing.T) {
 	// Create test project and highlights
 	proj := createTestProject(t, client, ctx, "ConversionProject")
 	clip := createTestVideoClip(t, client, ctx, proj, "ConversionClip")
-	
+
 	// Add transcription to the clip
 	_, err := client.VideoClip.
 		UpdateOne(clip).
@@ -418,7 +417,7 @@ func TestActiveJobsManagement(t *testing.T) {
 	activeJobsMutex.Lock()
 	activeJob, exists := activeJobs[jobID]
 	activeJobsMutex.Unlock()
-	
+
 	assert.True(t, exists)
 	assert.Equal(t, jobID, activeJob.JobID)
 	assert.True(t, activeJob.IsActive)
@@ -435,17 +434,17 @@ func TestActiveJobsManagement(t *testing.T) {
 	activeJobsMutex.Lock()
 	_, exists = activeJobs[jobID]
 	activeJobsMutex.Unlock()
-	
+
 	assert.False(t, exists)
 }
 
 func TestFFmpegProgressParsing(t *testing.T) {
 	tests := []struct {
-		name           string
-		line           string
-		expectedTime   float64
-		expectedFrame  int
-		shouldHaveTime bool
+		name            string
+		line            string
+		expectedTime    float64
+		expectedFrame   int
+		shouldHaveTime  bool
 		shouldHaveFrame bool
 	}{
 		{
@@ -517,22 +516,22 @@ func TestFileOperations(t *testing.T) {
 	// Test file creation
 	testFile := filepath.Join(tempDir, "test.txt")
 	content := "test content"
-	
+
 	err = os.WriteFile(testFile, []byte(content), 0644)
 	require.NoError(t, err)
-	
+
 	// Verify file exists
 	assert.FileExists(t, testFile)
-	
+
 	// Read and verify content
 	readContent, err := os.ReadFile(testFile)
 	require.NoError(t, err)
 	assert.Equal(t, content, string(readContent))
-	
+
 	// Test file deletion
 	err = os.Remove(testFile)
 	require.NoError(t, err)
-	
+
 	// Verify file was deleted
 	assert.NoFileExists(t, testFile)
 }
@@ -606,7 +605,7 @@ func BenchmarkGetProjectHighlights(b *testing.B) {
 	// Create test project with highlights
 	proj := createTestProject(b, client, ctx, "BenchmarkProject")
 	clip := createTestVideoClip(b, client, ctx, proj, "BenchmarkClip")
-	
+
 	// Create multiple highlights
 	for i := 0; i < 50; i++ {
 		start := float64(i * 10)

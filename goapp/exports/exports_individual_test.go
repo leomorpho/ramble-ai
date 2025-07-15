@@ -14,7 +14,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-
 func TestIndividualExport_DirectoryCreation(t *testing.T) {
 	client, ctx := setupTestDB(t)
 	defer client.Close()
@@ -51,7 +50,7 @@ func TestIndividualExport_MultipleHighlights(t *testing.T) {
 	proj := createTestProject(t, client, ctx, "MultiHighlightProject")
 	clip1 := createTestVideoClip(t, client, ctx, proj, "Clip1")
 	clip2 := createTestVideoClip(t, client, ctx, proj, "Clip2")
-	
+
 	// Create multiple highlights
 	createTestHighlight(t, client, ctx, clip1, 10.0, 20.0)
 	createTestHighlight(t, client, ctx, clip1, 30.0, 40.0)
@@ -70,7 +69,7 @@ func TestIndividualExport_MultipleHighlights(t *testing.T) {
 	progress, err := service.GetExportProgress(jobID)
 	require.NoError(t, err)
 	assert.NotEmpty(t, progress.JobID)
-	
+
 	// The job should be processing or pending initially
 	assert.Contains(t, []string{"pending", "processing", "extracting"}, progress.Stage)
 }
@@ -178,7 +177,7 @@ func TestIndividualExport_ProjectIsolation(t *testing.T) {
 	// Create clips and highlights for each project
 	clip1 := createTestVideoClip(t, client, ctx, proj1, "Clip1")
 	clip2 := createTestVideoClip(t, client, ctx, proj2, "Clip2")
-	
+
 	createTestHighlight(t, client, ctx, clip1, 10.0, 20.0)
 	createTestHighlight(t, client, ctx, clip1, 30.0, 40.0)
 	createTestHighlight(t, client, ctx, clip2, 5.0, 15.0)
@@ -240,14 +239,14 @@ func TestIndividualExport_ProgressTracking(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		progress, err := service.GetExportProgress(jobID)
 		require.NoError(t, err)
-		
+
 		progressStages = append(progressStages, progress.Stage)
-		
+
 		// Break if completed or failed
 		if progress.Stage == "completed" || progress.Stage == "failed" {
 			break
 		}
-		
+
 		time.Sleep(50 * time.Millisecond)
 	}
 
@@ -262,23 +261,23 @@ func TestIndividualExport_FilenameGeneration(t *testing.T) {
 	service := NewExportService(client, ctx)
 
 	tests := []struct {
-		name        string
-		projectName string
+		name          string
+		projectName   string
 		expectedFiles []string
 	}{
 		{
-			name:        "simple project",
-			projectName: "SimpleProject",
+			name:          "simple project",
+			projectName:   "SimpleProject",
 			expectedFiles: []string{"1.mp4", "2.mp4"},
 		},
 		{
-			name:        "project with spaces",
-			projectName: "My Video Project",
+			name:          "project with spaces",
+			projectName:   "My Video Project",
 			expectedFiles: []string{"1.mp4", "2.mp4"},
 		},
 		{
-			name:        "project with special chars",
-			projectName: "Project@2024#Final!",
+			name:          "project with special chars",
+			projectName:   "Project@2024#Final!",
 			expectedFiles: []string{"1.mp4", "2.mp4"},
 		},
 	}
@@ -361,7 +360,7 @@ func TestIndividualExport_ConcurrentExports(t *testing.T) {
 	// Create clips and highlights
 	clip1 := createTestVideoClip(t, client, ctx, proj1, "Clip1")
 	clip2 := createTestVideoClip(t, client, ctx, proj2, "Clip2")
-	
+
 	createTestHighlight(t, client, ctx, clip1, 10.0, 20.0)
 	createTestHighlight(t, client, ctx, clip2, 30.0, 40.0)
 

@@ -8,9 +8,6 @@ import (
 	"MYAPP/ent/settings"
 )
 
-
-
-
 // ApiKeyService provides API key testing functionality
 type ApiKeyService struct {
 	client *ent.Client
@@ -43,8 +40,6 @@ func (s *ApiKeyService) getSetting(key string) (string, error) {
 
 	return setting.Value, nil
 }
-
-
 
 // getOpenAIApiKey retrieves the OpenAI API key from settings
 func (s *ApiKeyService) getOpenAIApiKey() (string, error) {

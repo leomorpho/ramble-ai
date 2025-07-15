@@ -13,7 +13,7 @@
 // - api.go: OpenRouter API communication
 //
 // Usage:
-//   service := chatbot.NewChatbotService(client, ctx)
-//   response, err := service.SendMessage(request, getAPIKeyFunc)
 //
+//	service := chatbot.NewChatbotService(client, ctx)
+//	response, err := service.SendMessage(request, getAPIKeyFunc)
 package chatbot

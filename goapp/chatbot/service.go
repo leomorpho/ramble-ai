@@ -19,19 +19,19 @@ import (
 // NewChatbotService creates a new chatbot service
 func NewChatbotService(client *ent.Client, ctx context.Context, updateOrderFunc UpdateOrderFunc) *ChatbotService {
 	s := &ChatbotService{
-		client:           client,
-		ctx:              ctx,
-		functionRegistry: make(map[string]FunctionExecutor),
-		highlightService: highlights.NewHighlightService(client, ctx),
-		aiService:        highlights.NewAIService(client, ctx),
-		updateOrderFunc:  updateOrderFunc,
-		mcpRegistry:      NewMCPRegistry(),
+		client:                  client,
+		ctx:                     ctx,
+		functionRegistry:        make(map[string]FunctionExecutor),
+		highlightService:        highlights.NewHighlightService(client, ctx),
+		aiService:               highlights.NewAIService(client, ctx),
+		updateOrderFunc:         updateOrderFunc,
+		mcpRegistry:             NewMCPRegistry(),
 		conversationFlowManager: NewConversationFlowManager(),
 	}
-	
+
 	// Register available functions (legacy - will be replaced by MCP registry)
 	s.registerFunctions()
-	
+
 	return s
 }
 
@@ -50,7 +50,7 @@ func (s *ChatbotService) findOrCreateSession(projectID int, endpointID, sessionI
 			return nil, fmt.Errorf("failed to query session by ID: %w", err)
 		}
 	}
-	
+
 	// Try to find existing session by project/endpoint
 	session, err := s.client.ChatSession.
 		Query().
@@ -65,13 +65,13 @@ func (s *ChatbotService) findOrCreateSession(projectID int, endpointID, sessionI
 	if !ent.IsNotFound(err) {
 		return nil, fmt.Errorf("failed to query session by project/endpoint: %w", err)
 	}
-	
+
 	// Create new session
 	newSessionID := sessionID
 	if newSessionID == "" {
 		newSessionID = fmt.Sprintf("session_%d_%s_%d", projectID, endpointID, time.Now().Unix())
 	}
-	
+
 	return s.client.ChatSession.
 		Create().
 		SetSessionID(newSessionID).
@@ -88,15 +88,15 @@ func (s *ChatbotService) persistMessage(session *ent.ChatSession, messageID, rol
 		SetSessionID(session.ID).
 		SetRole(chatmessage.Role(role)).
 		SetContent(content)
-	
+
 	if hiddenContext != "" {
 		msgCreate = msgCreate.SetHiddenContext(hiddenContext)
 	}
-	
+
 	if model != "" {
 		msgCreate = msgCreate.SetModel(model)
 	}
-	
+
 	_, err := msgCreate.Save(s.ctx)
 	return err
 }
@@ -105,7 +105,7 @@ func (s *ChatbotService) persistMessage(session *ent.ChatSession, messageID, rol
 func (s *ChatbotService) SendMessage(req ChatRequest, getAPIKey func() (string, error)) (*ChatResponse, error) {
 	// Generate message ID
 	messageID := fmt.Sprintf("msg_%d", time.Now().UnixNano())
-	
+
 	// Validate required fields
 	if req.ProjectID == 0 {
 		return &ChatResponse{
@@ -115,7 +115,7 @@ func (s *ChatbotService) SendMessage(req ChatRequest, getAPIKey func() (string, 
 			Error:     "Project ID is required",
 		}, nil
 	}
-	
+
 	// Find or create session for persistence
 	session, err := s.findOrCreateSession(req.ProjectID, req.EndpointID, req.SessionID)
 	if err != nil {
@@ -127,7 +127,7 @@ func (s *ChatbotService) SendMessage(req ChatRequest, getAPIKey func() (string, 
 			Error:     "Failed to initialize chat session",
 		}, nil
 	}
-	
+
 	// Update selected model if it's different from what's saved
 	if req.Model != "" && req.Model != session.SelectedModel {
 		session, err = session.Update().
@@ -138,7 +138,7 @@ func (s *ChatbotService) SendMessage(req ChatRequest, getAPIKey func() (string, 
 			// Continue without failing - this is a non-critical error
 		}
 	}
-	
+
 	// Generate user message ID and persist user message
 	userMessageID := fmt.Sprintf("user_%d", time.Now().UnixNano())
 	err = s.persistMessage(session, userMessageID, "user", req.Message, "", "")
@@ -146,7 +146,7 @@ func (s *ChatbotService) SendMessage(req ChatRequest, getAPIKey func() (string, 
 		log.Printf("Failed to persist user message: %v", err)
 		// Continue without failing - this is a non-critical error
 	}
-	
+
 	// Broadcast user message
 	userMessage := ChatMessage{
 		ID:        userMessageID,
@@ -154,17 +154,17 @@ func (s *ChatbotService) SendMessage(req ChatRequest, getAPIKey func() (string, 
 		Content:   req.Message,
 		Timestamp: time.Now(),
 	}
-	
+
 	projectIDStr := strconv.Itoa(req.ProjectID)
 	manager := realtime.GetManager()
 	manager.BroadcastChatMessageAdded(projectIDStr, req.EndpointID, session.SessionID, userMessage)
-	
+
 	var response *ChatResponse
 	var responseErr error
-	
+
 	// Check if endpoint supports MCP actions using registry
 	supportsActions := s.mcpRegistry.SupportsActions(req.EndpointID)
-	
+
 	// Use MCP-based action flow if endpoint supports it
 	if supportsActions {
 		response, responseErr = s.sendMessageWithMCPActions(req, messageID, getAPIKey, session)
@@ -172,7 +172,7 @@ func (s *ChatbotService) SendMessage(req ChatRequest, getAPIKey func() (string, 
 		// Otherwise, send regular chat message
 		response, responseErr = s.sendRegularMessage(req, messageID, getAPIKey, session)
 	}
-	
+
 	// Persist and broadcast AI response if successful
 	if responseErr == nil && response.Success && response.Message != "" {
 		// Persist AI message with model info
@@ -181,21 +181,21 @@ func (s *ChatbotService) SendMessage(req ChatRequest, getAPIKey func() (string, 
 			log.Printf("Failed to persist AI message: %v", persistErr)
 			// Continue without failing - this is a non-critical error
 		}
-		
+
 		aiMessage := ChatMessage{
 			ID:        response.MessageID,
 			Role:      "assistant",
 			Content:   response.Message,
 			Timestamp: time.Now(),
 		}
-		
+
 		manager.BroadcastChatMessageAdded(projectIDStr, req.EndpointID, session.SessionID, aiMessage)
 	}
-	
+
 	return response, responseErr
 }
 
-// sendMessageWithFunctions handles LLM requests with function calling enabled  
+// sendMessageWithFunctions handles LLM requests with function calling enabled
 func (s *ChatbotService) sendMessageWithFunctions(req ChatRequest, messageID string, getAPIKey func() (string, error), session *ent.ChatSession) (*ChatResponse, error) {
 	// Get API key
 	apiKey, err := getAPIKey()
@@ -207,14 +207,14 @@ func (s *ChatbotService) sendMessageWithFunctions(req ChatRequest, messageID str
 			Error:     "OpenRouter API key not configured",
 		}, nil
 	}
-	
+
 	// Build context for reorder mode
 	context, err := s.buildReorderContext(req.ProjectID)
 	if err != nil {
 		log.Printf("Failed to build reorder context: %v", err)
 		context = "Current highlights context unavailable."
 	}
-	
+
 	// Build system prompt for reorder mode
 	systemPrompt := fmt.Sprintf(`You are an expert video editor assistant helping to organize highlight segments for maximum engagement and flow.
 
@@ -235,7 +235,7 @@ When suggesting reorders, consider:
 - Maintaining viewer engagement throughout
 
 Always explain your reasoning when reordering highlights.`, context)
-	
+
 	// Create OpenRouter request with function calling
 	openRouterReq := map[string]interface{}{
 		"model": req.Model,
@@ -245,13 +245,13 @@ Always explain your reasoning when reordering highlights.`, context)
 				"content": systemPrompt,
 			},
 			{
-				"role":    "user", 
+				"role":    "user",
 				"content": req.Message,
 			},
 		},
 		"tools": s.buildToolDefinitions(),
 	}
-	
+
 	// Call OpenRouter API
 	llmResponse, err := s.callOpenRouterAPI(apiKey, openRouterReq)
 	if err != nil {
@@ -262,7 +262,7 @@ Always explain your reasoning when reordering highlights.`, context)
 			Error:     fmt.Sprintf("LLM API call failed: %v", err),
 		}, nil
 	}
-	
+
 	// Process LLM response and execute any function calls
 	response := &ChatResponse{
 		SessionID: session.SessionID,
@@ -270,21 +270,21 @@ Always explain your reasoning when reordering highlights.`, context)
 		Model:     req.Model,
 		Success:   true,
 	}
-	
+
 	// Extract message and tool calls from LLM response
 	if content, ok := llmResponse["content"].(string); ok {
 		response.Message = content
 	}
-	
+
 	// Process function calls if present
 	if toolCalls, ok := llmResponse["tool_calls"].([]interface{}); ok {
 		var functionResults []FunctionExecutionResult
-		
+
 		for _, toolCall := range toolCalls {
 			if toolCallMap, ok := toolCall.(map[string]interface{}); ok {
 				result := s.executeFunctionCall(toolCallMap, req.ProjectID)
 				functionResults = append(functionResults, result)
-				
+
 				// If the function result requires applying an order, do it now
 				if result.Success && result.Result != nil {
 					if resultMap, ok := result.Result.(map[string]interface{}); ok {
@@ -306,10 +306,10 @@ Always explain your reasoning when reordering highlights.`, context)
 				}
 			}
 		}
-		
+
 		response.FunctionResults = functionResults
 	}
-	
+
 	return response, nil
 }
 
@@ -318,58 +318,58 @@ func (s *ChatbotService) sendRegularMessage(req ChatRequest, messageID string, g
 	// Skip getting chat history since we're not using it
 	// This improves performance by avoiding database queries
 	/*
-	history, err := s.GetChatHistory(req.ProjectID, req.EndpointID)
-	if err != nil {
-		log.Printf("Failed to get chat history: %v", err)
-		// Continue with empty history
-		history = &ChatHistoryResponse{
-			SessionID: session.SessionID,
-			Messages:  []ChatMessage{},
+		history, err := s.GetChatHistory(req.ProjectID, req.EndpointID)
+		if err != nil {
+			log.Printf("Failed to get chat history: %v", err)
+			// Continue with empty history
+			history = &ChatHistoryResponse{
+				SessionID: session.SessionID,
+				Messages:  []ChatMessage{},
+			}
 		}
-	}
 	*/
-	
+
 	// Build messages for OpenRouter
 	messages := []map[string]interface{}{}
-	
+
 	// Add system message based on endpoint
 	systemMessage := s.getSystemPromptForEndpoint(req.EndpointID, req.ContextData)
 	messages = append(messages, map[string]interface{}{
 		"role":    "system",
 		"content": systemMessage,
 	})
-	
+
 	// Skip conversation history - only send current message
 	// This improves performance and reduces token usage
 	// Uncomment below to include history if needed
 	/*
-	historyLimit := 10
-	startIdx := 0
-	if len(history.Messages) > historyLimit {
-		startIdx = len(history.Messages) - historyLimit
-	}
-	
-	for i := startIdx; i < len(history.Messages); i++ {
-		msg := history.Messages[i]
-		messages = append(messages, map[string]interface{}{
-			"role":    msg.Role,
-			"content": msg.Content,
-		})
-	}
+		historyLimit := 10
+		startIdx := 0
+		if len(history.Messages) > historyLimit {
+			startIdx = len(history.Messages) - historyLimit
+		}
+
+		for i := startIdx; i < len(history.Messages); i++ {
+			msg := history.Messages[i]
+			messages = append(messages, map[string]interface{}{
+				"role":    msg.Role,
+				"content": msg.Content,
+			})
+		}
 	*/
-	
+
 	// Add current user message
 	messages = append(messages, map[string]interface{}{
 		"role":    "user",
 		"content": req.Message,
 	})
-	
+
 	// Create OpenRouter request
 	openRouterReq := map[string]interface{}{
 		"model":    req.Model,
 		"messages": messages,
 	}
-	
+
 	// Get API key
 	apiKey, err := getAPIKey()
 	if err != nil || apiKey == "" {
@@ -380,7 +380,7 @@ func (s *ChatbotService) sendRegularMessage(req ChatRequest, messageID string, g
 			Error:     "OpenRouter API key not configured",
 		}, nil
 	}
-	
+
 	// Call OpenRouter API
 	aiResponse, err := s.callOpenRouterAPI(apiKey, openRouterReq)
 	if err != nil {
@@ -391,7 +391,7 @@ func (s *ChatbotService) sendRegularMessage(req ChatRequest, messageID string, g
 			Error:     fmt.Sprintf("AI request failed: %v", err),
 		}, nil
 	}
-	
+
 	// Extract response
 	response := &ChatResponse{
 		SessionID: session.SessionID,
@@ -399,14 +399,14 @@ func (s *ChatbotService) sendRegularMessage(req ChatRequest, messageID string, g
 		Model:     req.Model,
 		Success:   true,
 	}
-	
+
 	if content, ok := aiResponse["content"].(string); ok {
 		response.Message = content
 	} else {
 		response.Message = "I couldn't generate a proper response. Please try again."
 		response.Success = false
 	}
-	
+
 	return response, nil
 }
 
@@ -417,17 +417,17 @@ func (s *ChatbotService) buildReorderContext(projectID int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	// Get highlight summaries
 	projectHighlights, err := s.highlightService.GetProjectHighlights(projectID)
 	if err != nil {
 		return "", err
 	}
-	
+
 	// Build context string
 	var contextBuilder strings.Builder
 	contextBuilder.WriteString(fmt.Sprintf("Total highlights: %d\n\n", len(projectHighlights)))
-	
+
 	contextBuilder.WriteString("Current highlight order:\n")
 	for i, item := range currentOrder {
 		switch v := item.(type) {
@@ -451,7 +451,7 @@ func (s *ChatbotService) buildReorderContext(projectID int) (string, error) {
 			}
 		}
 	}
-	
+
 	return contextBuilder.String(), nil
 }
 
@@ -472,7 +472,7 @@ Be concise, practical, and focused on maximizing viewer retention and emotional 
 		if highlightsData, ok := contextData["highlights"].(map[string]interface{}); ok {
 			if highlightMap, ok := highlightsData["highlightMap"].(map[string]interface{}); ok {
 				basePrompt += "\n\nCURRENT PROJECT HIGHLIGHTS:\n\n"
-				
+
 				// Add highlight information
 				for id, textInterface := range highlightMap {
 					if text, ok := textInterface.(string); ok {
@@ -484,7 +484,7 @@ Be concise, practical, and focused on maximizing viewer retention and emotional 
 						basePrompt += fmt.Sprintf("- %s: \"%s\"\n", id, displayText)
 					}
 				}
-				
+
 				// Add current order information
 				if currentOrder, ok := highlightsData["currentOrder"].([]interface{}); ok {
 					basePrompt += "\nCURRENT ORDER:\n"
@@ -499,17 +499,17 @@ Be concise, practical, and focused on maximizing viewer retention and emotional 
 						}
 					}
 				}
-				
+
 				if totalHighlights, ok := highlightsData["totalHighlights"].(float64); ok {
 					basePrompt += fmt.Sprintf("\nTotal highlights in project: %.0f\n", totalHighlights)
 				}
-				
+
 				basePrompt += "\nYou can now provide specific reordering recommendations based on this content. Use the reorder_highlights function if you want to suggest a new arrangement."
 			}
 		}
-		
+
 		return basePrompt
-		
+
 	case "highlight_suggestions":
 		return `You are an AI video analysis assistant that helps identify the most engaging moments in video content.
 Your expertise includes:
@@ -519,7 +519,7 @@ Your expertise includes:
 - Understanding audience engagement patterns
 
 Provide specific, actionable suggestions for highlight selection.`
-		
+
 	case "export_assistance":
 		return `You are a video export and optimization specialist. 
 Help users with:
@@ -530,14 +530,13 @@ Help users with:
 - Batch processing strategies
 
 Be technical when needed but explain concepts clearly.`
-		
+
 	default:
 		return `You are a helpful AI assistant for video editing and content creation.
 Provide clear, concise, and practical advice to help users create better video content.
 Focus on being helpful, accurate, and easy to understand.`
 	}
 }
-
 
 // GetChatHistory retrieves chat history for a project/endpoint
 func (s *ChatbotService) GetChatHistory(projectID int, endpointID string) (*ChatHistoryResponse, error) {
@@ -580,7 +579,7 @@ func (s *ChatbotService) GetChatHistoryWithLimit(projectID int, endpointID strin
 		sessionID = session.SessionID
 		selectedModel = session.SelectedModel
 		entMessages := session.Edges.Messages
-		
+
 		// If we used a limit, messages are in desc order, so reverse them
 		if limit > 0 && len(entMessages) > 1 {
 			for i := 0; i < len(entMessages)/2; i++ {
@@ -588,7 +587,7 @@ func (s *ChatbotService) GetChatHistoryWithLimit(projectID int, endpointID strin
 				entMessages[i], entMessages[j] = entMessages[j], entMessages[i]
 			}
 		}
-		
+
 		messages = make([]ChatMessage, len(entMessages))
 		for i, msg := range entMessages {
 			messages[i] = ChatMessage{
@@ -604,12 +603,12 @@ func (s *ChatbotService) GetChatHistoryWithLimit(projectID int, endpointID strin
 		SessionID: sessionID,
 		Messages:  messages,
 	}
-	
+
 	// Include selected model if available
 	if selectedModel != "" {
 		response.SelectedModel = selectedModel
 	}
-	
+
 	return response, nil
 }
 
@@ -620,7 +619,7 @@ func (s *ChatbotService) SaveModelSelection(projectID int, endpointID string, mo
 	if err != nil {
 		return fmt.Errorf("failed to find or create session: %w", err)
 	}
-	
+
 	// Update the selected model
 	_, err = session.Update().
 		SetSelectedModel(model).
@@ -628,7 +627,7 @@ func (s *ChatbotService) SaveModelSelection(projectID int, endpointID string, mo
 	if err != nil {
 		return fmt.Errorf("failed to update selected model: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -644,7 +643,7 @@ func (s *ChatbotService) ClearChatHistory(projectID int, endpointID string) erro
 		Only(s.ctx)
 
 	var sessionID string
-	
+
 	if err != nil {
 		if ent.IsNotFound(err) {
 			// No session exists, nothing to clear but generate session ID for broadcast
@@ -655,26 +654,26 @@ func (s *ChatbotService) ClearChatHistory(projectID int, endpointID string) erro
 	} else {
 		// Session exists, delete all messages
 		sessionID = session.SessionID
-		
+
 		_, err = s.client.ChatMessage.
 			Delete().
 			Where(chatmessage.SessionID(session.ID)).
 			Exec(s.ctx)
-			
+
 		if err != nil {
 			return fmt.Errorf("failed to delete chat messages: %w", err)
 		}
-		
+
 		// Clear conversation flow for this session
 		s.conversationFlowManager.ClearFlow(sessionID)
 	}
-	
+
 	// Broadcast chat history cleared event
 	projectIDStr := strconv.Itoa(projectID)
-	
+
 	manager := realtime.GetManager()
 	manager.BroadcastChatHistoryCleared(projectIDStr, endpointID, sessionID)
-	
+
 	return nil
 }
 
@@ -682,10 +681,10 @@ func (s *ChatbotService) ClearChatHistory(projectID int, endpointID string) erro
 func (s *ChatbotService) sendMessageWithMCPActions(req ChatRequest, messageID string, getAPIKey func() (string, error), session *ent.ChatSession) (*ChatResponse, error) {
 	// Get or create conversation flow for this session
 	flow := s.conversationFlowManager.GetOrCreateFlow(session.SessionID)
-	
+
 	// Create progress broadcaster
 	broadcaster := NewProgressBroadcaster(req.ProjectID, req.EndpointID, session.SessionID)
-	
+
 	// Determine which phase we're in
 	if flow.Phase == PhaseConversation {
 		return s.handleConversationPhase(req, messageID, getAPIKey, session, flow, broadcaster)
@@ -697,10 +696,10 @@ func (s *ChatbotService) sendMessageWithMCPActions(req ChatRequest, messageID st
 // handleConversationPhase processes messages in conversation mode
 func (s *ChatbotService) handleConversationPhase(req ChatRequest, messageID string, getAPIKey func() (string, error), session *ent.ChatSession, flow *ConversationFlow, broadcaster *ProgressBroadcaster) (*ChatResponse, error) {
 	broadcaster.UpdateProgress("conversation", "Understanding your request...")
-	
+
 	// Create conversation agent
 	conversationAgent := NewConversationAgent(req.EndpointID, s.mcpRegistry)
-	
+
 	// Process conversation
 	result, err := conversationAgent.ProcessConversation(req.Message, flow, getAPIKey, s, req.ProjectID)
 	if err != nil {
@@ -711,7 +710,7 @@ func (s *ChatbotService) handleConversationPhase(req ChatRequest, messageID stri
 			Error:     fmt.Sprintf("Conversation processing failed: %v", err),
 		}, nil
 	}
-	
+
 	response := &ChatResponse{
 		SessionID: session.SessionID,
 		MessageID: messageID,
@@ -719,19 +718,19 @@ func (s *ChatbotService) handleConversationPhase(req ChatRequest, messageID stri
 		Success:   true,
 		Message:   result.Response,
 	}
-	
+
 	// If we got a confirmed conversation summary, prepare for execution
 	if result.HasConversationSummary {
 		flow.AddContext("conversation_summary", result.ConversationSummary)
 		flow.MoveToExecution()
 		s.conversationFlowManager.UpdateFlow(session.SessionID, flow)
-		
+
 		broadcaster.UpdateProgress("summary_confirmed", "User intent confirmed, preparing execution...")
-		
+
 		// Immediately execute using the conversation summary
 		return s.handleExecutionPhaseWithSummary(req, messageID, getAPIKey, session, flow, broadcaster, result.ConversationSummary)
 	}
-	
+
 	return response, nil
 }
 
@@ -739,7 +738,7 @@ func (s *ChatbotService) handleConversationPhase(req ChatRequest, messageID stri
 func (s *ChatbotService) handleExecutionPhaseWithSummary(req ChatRequest, messageID string, getAPIKey func() (string, error), session *ent.ChatSession, flow *ConversationFlow, broadcaster *ProgressBroadcaster, summary *ConversationSummary) (*ChatResponse, error) {
 	// Step 1: Prepare complete prompt using Go preparer
 	broadcaster.UpdateProgress("preparing", "Gathering data and building execution prompt...")
-	
+
 	completePrompt, err := s.PrepareExecutorPrompt(summary, req.ProjectID)
 	if err != nil {
 		return &ChatResponse{
@@ -749,10 +748,10 @@ func (s *ChatbotService) handleExecutionPhaseWithSummary(req ChatRequest, messag
 			Error:     fmt.Sprintf("Failed to prepare execution prompt: %v", err),
 		}, nil
 	}
-	
+
 	// Step 2: Execute using structured approach with complete prompt
 	broadcaster.UpdateProgress("processing", s.getProgressMessageForIntent(summary.Intent))
-	
+
 	// Get API key
 	apiKey, err := getAPIKey()
 	if err != nil || apiKey == "" {
@@ -763,7 +762,7 @@ func (s *ChatbotService) handleExecutionPhaseWithSummary(req ChatRequest, messag
 			Error:     "OpenRouter API key not configured",
 		}, nil
 	}
-	
+
 	// Create OpenRouter request with complete prompt
 	openRouterReq := map[string]interface{}{
 		"model": "anthropic/claude-sonnet-4",
@@ -776,7 +775,7 @@ func (s *ChatbotService) handleExecutionPhaseWithSummary(req ChatRequest, messag
 		"temperature": 0.3, // Lower temperature for precise, structured output
 		"max_tokens":  4000,
 	}
-	
+
 	// Call OpenRouter API
 	aiResponse, err := s.callOpenRouterAPI(apiKey, openRouterReq)
 	if err != nil {
@@ -788,7 +787,7 @@ func (s *ChatbotService) handleExecutionPhaseWithSummary(req ChatRequest, messag
 			Error:     fmt.Sprintf("AI API call failed: %v", err),
 		}, nil
 	}
-	
+
 	// Extract content from response
 	content, ok := aiResponse["content"].(string)
 	if !ok {
@@ -800,9 +799,9 @@ func (s *ChatbotService) handleExecutionPhaseWithSummary(req ChatRequest, messag
 			Error:     "AI response missing content",
 		}, nil
 	}
-	
+
 	broadcaster.UpdateProgress("parsing", "Parsing structured response...")
-	
+
 	// Parse structured output
 	structuredOutput, err := ParseStructuredExecutionOutput(content)
 	if err != nil {
@@ -814,9 +813,9 @@ func (s *ChatbotService) handleExecutionPhaseWithSummary(req ChatRequest, messag
 			Error:     fmt.Sprintf("Failed to parse structured output: %v", err),
 		}, nil
 	}
-	
+
 	broadcaster.UpdateProgress("applying", "Applying changes to your project...")
-	
+
 	// Step 3: Apply results using existing update function
 	if structuredOutput.Success && summary.Intent != "analyze" {
 		err = s.updateOrderFunc(req.ProjectID, structuredOutput.NewOrder)
@@ -830,18 +829,18 @@ func (s *ChatbotService) handleExecutionPhaseWithSummary(req ChatRequest, messag
 			}, nil
 		}
 	}
-	
+
 	broadcaster.UpdateProgress("completed", "Successfully completed your request!")
-	
+
 	// Build response
 	response := &ChatResponse{
-		SessionID: session.SessionID,
-		MessageID: messageID,
-		Model:     "anthropic/claude-sonnet-4",
-		Success:   structuredOutput.Success,
+		SessionID:  session.SessionID,
+		MessageID:  messageID,
+		Model:      "anthropic/claude-sonnet-4",
+		Success:    structuredOutput.Success,
 		HasActions: summary.Intent != "analyze",
 	}
-	
+
 	if structuredOutput.Success {
 		response.Message = s.generateSummaryFromStructuredOutput(summary, structuredOutput)
 		if structuredOutput.Reasoning != "" {
@@ -850,11 +849,11 @@ func (s *ChatbotService) handleExecutionPhaseWithSummary(req ChatRequest, messag
 	} else {
 		response.Error = structuredOutput.Error
 	}
-	
+
 	// Reset flow for next conversation
 	flow.Reset()
 	s.conversationFlowManager.UpdateFlow(session.SessionID, flow)
-	
+
 	return response, nil
 }
 
@@ -862,24 +861,24 @@ func (s *ChatbotService) handleExecutionPhaseWithSummary(req ChatRequest, messag
 func (s *ChatbotService) generateSummaryFromStructuredOutput(summary *ConversationSummary, output *StructuredExecutionOutput) string {
 	switch summary.Intent {
 	case "reorder":
-		return fmt.Sprintf("✅ **Success!** Reorganized your highlights into %d sections for better engagement and flow.\n\n**Key Changes:** %s\n\n**Reasoning:** %s", 
-			output.SectionCount, 
+		return fmt.Sprintf("✅ **Success!** Reorganized your highlights into %d sections for better engagement and flow.\n\n**Key Changes:** %s\n\n**Reasoning:** %s",
+			output.SectionCount,
 			strings.Join(output.Changes, ", "),
 			output.Reasoning)
-			
+
 	case "improve_hook":
 		return fmt.Sprintf("✅ **Success!** Improved your opening section for stronger hook and better viewer retention.\n\n**Key Changes:** %s\n\n**Reasoning:** %s",
 			strings.Join(output.Changes, ", "),
 			output.Reasoning)
-			
+
 	case "improve_conclusion":
 		return fmt.Sprintf("✅ **Success!** Enhanced your conclusion for more powerful ending and better viewer satisfaction.\n\n**Key Changes:** %s\n\n**Reasoning:** %s",
 			strings.Join(output.Changes, ", "),
 			output.Reasoning)
-			
+
 	case "analyze":
 		return fmt.Sprintf("✅ **Analysis Complete!** Here are insights about your content structure:\n\n%s", output.Reasoning)
-		
+
 	default:
 		return fmt.Sprintf("✅ **Success!** Completed %s operation.\n\n**Reasoning:** %s", summary.Intent, output.Reasoning)
 	}
@@ -923,7 +922,7 @@ func (s *ChatbotService) executeMCPFunctionCall(toolCall map[string]interface{},
 			Error:   "Invalid function call format",
 		}
 	}
-	
+
 	functionName, ok := functionInfo["name"].(string)
 	if !ok {
 		return FunctionExecutionResult{
@@ -931,7 +930,7 @@ func (s *ChatbotService) executeMCPFunctionCall(toolCall map[string]interface{},
 			Error:   "Function name not found",
 		}
 	}
-	
+
 	// Parse arguments
 	var args map[string]interface{}
 	if argsStr, ok := functionInfo["arguments"].(string); ok {
@@ -945,18 +944,18 @@ func (s *ChatbotService) executeMCPFunctionCall(toolCall map[string]interface{},
 			}
 		}
 	}
-	
+
 	// Initialize args if nil
 	if args == nil {
 		args = make(map[string]interface{})
 	}
-	
+
 	// Execute using MCP registry
 	result, err := s.mcpRegistry.ExecuteFunction(endpointID, functionName, args, projectID, s)
 	if err != nil {
 		log.Printf("MCP function execution failed: %v", err)
 	}
-	
+
 	return result
 }
 
@@ -964,14 +963,14 @@ func (s *ChatbotService) executeMCPFunctionCall(toolCall map[string]interface{},
 func (s *ChatbotService) generateActionSummary(actionsPerformed []string, functionResults []FunctionExecutionResult, endpointID, originalMessage string) (string, error) {
 	// Build a summary based on the actions performed
 	var summaryBuilder strings.Builder
-	
+
 	summaryBuilder.WriteString("✅ **Actions Completed:**\n\n")
-	
+
 	for i, action := range actionsPerformed {
 		switch action {
 		case "reorder_highlights":
 			summaryBuilder.WriteString(fmt.Sprintf("%d. **Reordered highlights** for better narrative flow\n", i+1))
-			
+
 			// Add details from function result if available
 			if i < len(functionResults) && functionResults[i].Success {
 				if result, ok := functionResults[i].Result.(map[string]interface{}); ok {
@@ -983,24 +982,24 @@ func (s *ChatbotService) generateActionSummary(actionsPerformed []string, functi
 					}
 				}
 			}
-			
+
 		case "analyze_highlights":
 			summaryBuilder.WriteString(fmt.Sprintf("%d. **Analyzed highlight content** for themes and structure\n", i+1))
-			
+
 		case "get_current_order":
 			summaryBuilder.WriteString(fmt.Sprintf("%d. **Retrieved current highlight order** for reference\n", i+1))
-			
+
 		case "apply_ai_suggestion":
 			summaryBuilder.WriteString(fmt.Sprintf("%d. **Applied AI suggestion** to improve highlight order\n", i+1))
-			
+
 		case "reset_to_original":
 			summaryBuilder.WriteString(fmt.Sprintf("%d. **Reset highlights** to original order\n", i+1))
-			
+
 		default:
 			summaryBuilder.WriteString(fmt.Sprintf("%d. **Performed action:** %s\n", i+1, action))
 		}
 	}
-	
+
 	// Add contextual message based on endpoint
 	switch endpointID {
 	case "highlight_ordering":
@@ -1012,7 +1011,7 @@ func (s *ChatbotService) generateActionSummary(actionsPerformed []string, functi
 	case "export_optimization":
 		summaryBuilder.WriteString("\n💡 **Next Steps:** Apply these optimizations to your export settings.")
 	}
-	
+
 	return summaryBuilder.String(), nil
 }
 

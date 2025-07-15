@@ -21,14 +21,14 @@ type MCPFunction struct {
 
 // EndpointMCPConfig defines the MCP configuration for a specific endpoint
 type EndpointMCPConfig struct {
-	EndpointID       string                 `json:"endpointId"`
-	Name             string                 `json:"name"`
-	Description      string                 `json:"description"`
-	ContextBuilder   ContextBuilder         `json:"-"` // Not serialized
-	Functions        []MCPFunction          `json:"functions"`
-	SystemPrompt     string                 `json:"systemPrompt"`
-	RequiresFunctions bool                  `json:"requiresFunctions"`
-	DefaultModel     string                 `json:"defaultModel"`
+	EndpointID        string         `json:"endpointId"`
+	Name              string         `json:"name"`
+	Description       string         `json:"description"`
+	ContextBuilder    ContextBuilder `json:"-"` // Not serialized
+	Functions         []MCPFunction  `json:"functions"`
+	SystemPrompt      string         `json:"systemPrompt"`
+	RequiresFunctions bool           `json:"requiresFunctions"`
+	DefaultModel      string         `json:"defaultModel"`
 }
 
 // MCPRegistry manages MCP configurations for all endpoints
@@ -41,10 +41,10 @@ func NewMCPRegistry() *MCPRegistry {
 	registry := &MCPRegistry{
 		configs: make(map[string]*EndpointMCPConfig),
 	}
-	
+
 	// Register all endpoint configurations
 	registry.registerAllEndpoints()
-	
+
 	return registry
 }
 
@@ -52,12 +52,12 @@ func NewMCPRegistry() *MCPRegistry {
 func (r *MCPRegistry) registerAllEndpoints() {
 	// Register highlight ordering endpoint
 	r.RegisterEndpoint(&EndpointMCPConfig{
-		EndpointID:       "highlight_ordering",
-		Name:             "Highlight Ordering Assistant",
-		Description:      "Help with organizing and reordering highlights for better flow",
-		ContextBuilder:   &HighlightOrderingContextBuilder{},
+		EndpointID:        "highlight_ordering",
+		Name:              "Highlight Ordering Assistant",
+		Description:       "Help with organizing and reordering highlights for better flow",
+		ContextBuilder:    &HighlightOrderingContextBuilder{},
 		RequiresFunctions: true,
-		DefaultModel:     "anthropic/claude-sonnet-4",
+		DefaultModel:      "anthropic/claude-sonnet-4",
 		SystemPrompt: `You are an expert video editor assistant specializing in highlight organization. 
 
 When a user asks to reorder highlights:
@@ -163,36 +163,36 @@ CRITICAL: Include ALL highlight IDs from the context in your new_order array. Mi
 
 	// Register other endpoints with placeholder configs
 	r.RegisterEndpoint(&EndpointMCPConfig{
-		EndpointID:       "highlight_suggestions",
-		Name:             "Highlight Suggestions Assistant",
-		Description:      "Get AI suggestions for creating engaging highlights",
-		ContextBuilder:   &GenericContextBuilder{},
+		EndpointID:        "highlight_suggestions",
+		Name:              "Highlight Suggestions Assistant",
+		Description:       "Get AI suggestions for creating engaging highlights",
+		ContextBuilder:    &GenericContextBuilder{},
 		RequiresFunctions: false,
-		DefaultModel:     "anthropic/claude-sonnet-4",
-		SystemPrompt:     "You are an expert at identifying compelling moments in video content. Help suggest highlights that will engage viewers.",
-		Functions:        []MCPFunction{}, // No MCP functions yet
+		DefaultModel:      "anthropic/claude-sonnet-4",
+		SystemPrompt:      "You are an expert at identifying compelling moments in video content. Help suggest highlights that will engage viewers.",
+		Functions:         []MCPFunction{}, // No MCP functions yet
 	})
 
 	r.RegisterEndpoint(&EndpointMCPConfig{
-		EndpointID:       "content_analysis",
-		Name:             "Content Analysis Assistant", 
-		Description:      "Analyze video content for insights and recommendations",
-		ContextBuilder:   &GenericContextBuilder{},
+		EndpointID:        "content_analysis",
+		Name:              "Content Analysis Assistant",
+		Description:       "Analyze video content for insights and recommendations",
+		ContextBuilder:    &GenericContextBuilder{},
 		RequiresFunctions: false,
-		DefaultModel:     "google/gemini-2.0-flash-001",
-		SystemPrompt:     "You are a content analysis expert. Help analyze video content for themes, key messages, and audience engagement opportunities.",
-		Functions:        []MCPFunction{}, // No MCP functions yet
+		DefaultModel:      "google/gemini-2.0-flash-001",
+		SystemPrompt:      "You are a content analysis expert. Help analyze video content for themes, key messages, and audience engagement opportunities.",
+		Functions:         []MCPFunction{}, // No MCP functions yet
 	})
 
 	r.RegisterEndpoint(&EndpointMCPConfig{
-		EndpointID:       "export_optimization",
-		Name:             "Export Optimization Assistant",
-		Description:      "Optimize export settings and final video production",
-		ContextBuilder:   &GenericContextBuilder{},
+		EndpointID:        "export_optimization",
+		Name:              "Export Optimization Assistant",
+		Description:       "Optimize export settings and final video production",
+		ContextBuilder:    &GenericContextBuilder{},
 		RequiresFunctions: false,
-		DefaultModel:     "anthropic/claude-3.5-haiku-20241022",
-		SystemPrompt:     "You are a video production expert. Help optimize export settings and final video production for different platforms and audiences.",
-		Functions:        []MCPFunction{}, // No MCP functions yet
+		DefaultModel:      "anthropic/claude-3.5-haiku-20241022",
+		SystemPrompt:      "You are a video production expert. Help optimize export settings and final video production for different platforms and audiences.",
+		Functions:         []MCPFunction{}, // No MCP functions yet
 	})
 }
 
@@ -202,12 +202,12 @@ func (r *MCPRegistry) RegisterEndpoint(config *EndpointMCPConfig) {
 		log.Printf("Warning: Attempted to register nil endpoint config")
 		return
 	}
-	
+
 	if config.EndpointID == "" {
 		log.Printf("Warning: Attempted to register endpoint with empty ID")
 		return
 	}
-	
+
 	r.configs[config.EndpointID] = config
 	log.Printf("Registered MCP endpoint: %s with %d functions", config.EndpointID, len(config.Functions))
 }
@@ -233,11 +233,11 @@ func (r *MCPRegistry) BuildContextForEndpoint(endpointID string, projectID int, 
 	if !exists {
 		return "", fmt.Errorf("endpoint %s not found in MCP registry", endpointID)
 	}
-	
+
 	if config.ContextBuilder == nil {
 		return "", fmt.Errorf("no context builder configured for endpoint %s", endpointID)
 	}
-	
+
 	return config.ContextBuilder.BuildContext(projectID, service)
 }
 
@@ -247,7 +247,7 @@ func (r *MCPRegistry) GetFunctionsForEndpoint(endpointID string) ([]map[string]i
 	if !exists {
 		return nil, fmt.Errorf("endpoint %s not found in MCP registry", endpointID)
 	}
-	
+
 	var tools []map[string]interface{}
 	for _, mcpFunc := range config.Functions {
 		tool := map[string]interface{}{
@@ -260,7 +260,7 @@ func (r *MCPRegistry) GetFunctionsForEndpoint(endpointID string) ([]map[string]i
 		}
 		tools = append(tools, tool)
 	}
-	
+
 	return tools, nil
 }
 
@@ -274,7 +274,7 @@ func (r *MCPRegistry) ExecuteFunction(endpointID, functionName string, args map[
 			Error:        fmt.Sprintf("endpoint %s not found", endpointID),
 		}, fmt.Errorf("endpoint %s not found in MCP registry", endpointID)
 	}
-	
+
 	// Find the function
 	for _, mcpFunc := range config.Functions {
 		if mcpFunc.Name == functionName {
@@ -285,7 +285,7 @@ func (r *MCPRegistry) ExecuteFunction(endpointID, functionName string, args map[
 					Error:        "function executor not configured",
 				}, fmt.Errorf("function executor not configured for %s", functionName)
 			}
-			
+
 			// Execute the function
 			result, err := mcpFunc.Executor(args, projectID, service)
 			if err != nil {
@@ -295,7 +295,7 @@ func (r *MCPRegistry) ExecuteFunction(endpointID, functionName string, args map[
 					Error:        err.Error(),
 				}, err
 			}
-			
+
 			return FunctionExecutionResult{
 				FunctionName: functionName,
 				Success:      true,
@@ -303,7 +303,7 @@ func (r *MCPRegistry) ExecuteFunction(endpointID, functionName string, args map[
 			}, nil
 		}
 	}
-	
+
 	return FunctionExecutionResult{
 		FunctionName: functionName,
 		Success:      false,

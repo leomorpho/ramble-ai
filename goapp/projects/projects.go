@@ -32,11 +32,11 @@ import (
 
 // Transcription state constants
 const (
-	TranscriptionStateIdle        = "idle"
-	TranscriptionStateChecking    = "checking"
+	TranscriptionStateIdle         = "idle"
+	TranscriptionStateChecking     = "checking"
 	TranscriptionStateTranscribing = "transcribing"
-	TranscriptionStateCompleted   = "completed"
-	TranscriptionStateError       = "error"
+	TranscriptionStateCompleted    = "completed"
+	TranscriptionStateError        = "error"
 )
 
 // Word represents a single word with timing information
@@ -108,30 +108,30 @@ type TranscriptionResponse struct {
 
 // VideoClipResponse represents a video clip response for the frontend
 type VideoClipResponse struct {
-	ID                      int         `json:"id"`
-	Name                    string      `json:"name"`
-	Description             string      `json:"description"`
-	FilePath                string      `json:"filePath"`
-	FileName                string      `json:"fileName"`
-	FileSize                int64       `json:"fileSize"`
-	Duration                float64     `json:"duration"`
-	Format                  string      `json:"format"`
-	Width                   int         `json:"width"`
-	Height                  int         `json:"height"`
-	ProjectID               int         `json:"projectId"`
-	CreatedAt               string      `json:"createdAt"`
-	UpdatedAt               string      `json:"updatedAt"`
-	Exists                  bool        `json:"exists"`
-	ThumbnailURL            string      `json:"thumbnailUrl"`
-	Transcription           string      `json:"transcription"`
-	TranscriptionWords      []Word      `json:"transcriptionWords"`
-	TranscriptionLanguage   string      `json:"transcriptionLanguage"`
-	TranscriptionDuration   float64     `json:"transcriptionDuration"`
-	TranscriptionState      string      `json:"transcriptionState"`
-	TranscriptionError      string      `json:"transcriptionError"`
-	TranscriptionStartedAt  string      `json:"transcriptionStartedAt"`
-	TranscriptionCompletedAt string     `json:"transcriptionCompletedAt"`
-	Highlights              []Highlight `json:"highlights"`
+	ID                       int         `json:"id"`
+	Name                     string      `json:"name"`
+	Description              string      `json:"description"`
+	FilePath                 string      `json:"filePath"`
+	FileName                 string      `json:"fileName"`
+	FileSize                 int64       `json:"fileSize"`
+	Duration                 float64     `json:"duration"`
+	Format                   string      `json:"format"`
+	Width                    int         `json:"width"`
+	Height                   int         `json:"height"`
+	ProjectID                int         `json:"projectId"`
+	CreatedAt                string      `json:"createdAt"`
+	UpdatedAt                string      `json:"updatedAt"`
+	Exists                   bool        `json:"exists"`
+	ThumbnailURL             string      `json:"thumbnailUrl"`
+	Transcription            string      `json:"transcription"`
+	TranscriptionWords       []Word      `json:"transcriptionWords"`
+	TranscriptionLanguage    string      `json:"transcriptionLanguage"`
+	TranscriptionDuration    float64     `json:"transcriptionDuration"`
+	TranscriptionState       string      `json:"transcriptionState"`
+	TranscriptionError       string      `json:"transcriptionError"`
+	TranscriptionStartedAt   string      `json:"transcriptionStartedAt"`
+	TranscriptionCompletedAt string      `json:"transcriptionCompletedAt"`
+	Highlights               []Highlight `json:"highlights"`
 }
 
 // LocalVideoFile represents a local video file
@@ -162,7 +162,7 @@ func NewProjectService(client *ent.Client, ctx context.Context) *ProjectService 
 func (s *ProjectService) CreateProject(name, description string) (*ProjectResponse, error) {
 	// Create project directory path
 	projectPath := filepath.Join("projects", name)
-	
+
 	// Create the project in the database
 	proj, err := s.client.Project.
 		Create().
@@ -170,11 +170,11 @@ func (s *ProjectService) CreateProject(name, description string) (*ProjectRespon
 		SetDescription(description).
 		SetPath(projectPath).
 		Save(s.ctx)
-		
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to create project: %w", err)
 	}
-	
+
 	return &ProjectResponse{
 		ID:          proj.ID,
 		Name:        proj.Name,
@@ -192,7 +192,7 @@ func (s *ProjectService) GetProjects() ([]*ProjectResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get projects: %w", err)
 	}
-	
+
 	var responses []*ProjectResponse
 	for _, proj := range projects {
 		responses = append(responses, &ProjectResponse{
@@ -205,7 +205,7 @@ func (s *ProjectService) GetProjects() ([]*ProjectResponse, error) {
 			ActiveTab:   proj.ActiveTab,
 		})
 	}
-	
+
 	return responses, nil
 }
 
@@ -215,11 +215,11 @@ func (s *ProjectService) GetProjectByID(id int) (*ProjectResponse, error) {
 		Query().
 		Where(project.ID(id)).
 		Only(s.ctx)
-		
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get project: %w", err)
 	}
-	
+
 	return &ProjectResponse{
 		ID:          proj.ID,
 		Name:        proj.Name,
@@ -235,18 +235,18 @@ func (s *ProjectService) GetProjectByID(id int) (*ProjectResponse, error) {
 func (s *ProjectService) UpdateProject(id int, name, description string) (*ProjectResponse, error) {
 	// Update project path based on new name
 	projectPath := filepath.Join("projects", name)
-	
+
 	proj, err := s.client.Project.
 		UpdateOneID(id).
 		SetName(name).
 		SetDescription(description).
 		SetPath(projectPath).
 		Save(s.ctx)
-		
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to update project: %w", err)
 	}
-	
+
 	return &ProjectResponse{
 		ID:          proj.ID,
 		Name:        proj.Name,
@@ -273,17 +273,17 @@ func (s *ProjectService) CreateVideoClip(projectID int, filePath string) (*Video
 	if !s.isVideoFile(filePath) {
 		return nil, fmt.Errorf("file is not a supported video format")
 	}
-	
+
 	// Get file information
 	fileSize, format, exists := s.getFileInfo(filePath)
 	if !exists {
 		return nil, fmt.Errorf("file does not exist")
 	}
-	
+
 	// Extract filename without extension for default name
 	fileName := filepath.Base(filePath)
 	name := strings.TrimSuffix(fileName, filepath.Ext(fileName))
-	
+
 	// Create the video clip in the database
 	clip, err := s.client.VideoClip.
 		Create().
@@ -293,36 +293,36 @@ func (s *ProjectService) CreateVideoClip(projectID int, filePath string) (*Video
 		SetFormat(format).
 		SetProjectID(projectID).
 		Save(s.ctx)
-		
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to create video clip: %w", err)
 	}
-	
+
 	return &VideoClipResponse{
-		ID:                      clip.ID,
-		Name:                    clip.Name,
-		Description:             clip.Description,
-		FilePath:                clip.FilePath,
-		FileName:                fileName,
-		FileSize:                fileSize,
-		Duration:                clip.Duration,
-		Format:                  format,
-		Width:                   clip.Width,
-		Height:                  clip.Height,
-		ProjectID:               0, // Will need to be loaded separately
-		CreatedAt:               clip.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt:               clip.UpdatedAt.Format("2006-01-02 15:04:05"),
-		Exists:                  exists,
-		ThumbnailURL:            s.getThumbnailURL(filePath),
-		Transcription:           clip.Transcription,
-		TranscriptionWords:      s.schemaWordsToWords(clip.TranscriptionWords),
-		TranscriptionLanguage:   clip.TranscriptionLanguage,
-		TranscriptionDuration:   clip.TranscriptionDuration,
-		TranscriptionState:      clip.TranscriptionState,
-		TranscriptionError:      clip.TranscriptionError,
-		TranscriptionStartedAt:  s.formatTime(clip.TranscriptionStartedAt),
+		ID:                       clip.ID,
+		Name:                     clip.Name,
+		Description:              clip.Description,
+		FilePath:                 clip.FilePath,
+		FileName:                 fileName,
+		FileSize:                 fileSize,
+		Duration:                 clip.Duration,
+		Format:                   format,
+		Width:                    clip.Width,
+		Height:                   clip.Height,
+		ProjectID:                0, // Will need to be loaded separately
+		CreatedAt:                clip.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:                clip.UpdatedAt.Format("2006-01-02 15:04:05"),
+		Exists:                   exists,
+		ThumbnailURL:             s.getThumbnailURL(filePath),
+		Transcription:            clip.Transcription,
+		TranscriptionWords:       s.schemaWordsToWords(clip.TranscriptionWords),
+		TranscriptionLanguage:    clip.TranscriptionLanguage,
+		TranscriptionDuration:    clip.TranscriptionDuration,
+		TranscriptionState:       clip.TranscriptionState,
+		TranscriptionError:       clip.TranscriptionError,
+		TranscriptionStartedAt:   s.formatTime(clip.TranscriptionStartedAt),
 		TranscriptionCompletedAt: s.formatTime(clip.TranscriptionCompletedAt),
-		Highlights:              s.schemaHighlightsToHighlights(clip.Highlights),
+		Highlights:               s.schemaHighlightsToHighlights(clip.Highlights),
 	}, nil
 }
 
@@ -332,44 +332,44 @@ func (s *ProjectService) GetVideoClipsByProject(projectID int) ([]*VideoClipResp
 		Query().
 		Where(videoclip.HasProjectWith(project.ID(projectID))).
 		All(s.ctx)
-		
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get video clips: %w", err)
 	}
-	
+
 	var responses []*VideoClipResponse
 	for _, clip := range clips {
 		fileSize, format, exists := s.getFileInfo(clip.FilePath)
 		fileName := filepath.Base(clip.FilePath)
-		
+
 		responses = append(responses, &VideoClipResponse{
-			ID:                      clip.ID,
-			Name:                    clip.Name,
-			Description:             clip.Description,
-			FilePath:                clip.FilePath,
-			FileName:                fileName,
-			FileSize:                fileSize,
-			Duration:                clip.Duration,
-			Format:                  format,
-			Width:                   clip.Width,
-			Height:                  clip.Height,
-			ProjectID:               projectID,
-			CreatedAt:               clip.CreatedAt.Format("2006-01-02 15:04:05"),
-			UpdatedAt:               clip.UpdatedAt.Format("2006-01-02 15:04:05"),
-			Exists:                  exists,
-			ThumbnailURL:            s.getThumbnailURL(clip.FilePath),
-			Transcription:           clip.Transcription,
-			TranscriptionWords:      s.schemaWordsToWords(clip.TranscriptionWords),
-			TranscriptionLanguage:   clip.TranscriptionLanguage,
-			TranscriptionDuration:   clip.TranscriptionDuration,
-			TranscriptionState:      clip.TranscriptionState,
-			TranscriptionError:      clip.TranscriptionError,
-			TranscriptionStartedAt:  s.formatTime(clip.TranscriptionStartedAt),
+			ID:                       clip.ID,
+			Name:                     clip.Name,
+			Description:              clip.Description,
+			FilePath:                 clip.FilePath,
+			FileName:                 fileName,
+			FileSize:                 fileSize,
+			Duration:                 clip.Duration,
+			Format:                   format,
+			Width:                    clip.Width,
+			Height:                   clip.Height,
+			ProjectID:                projectID,
+			CreatedAt:                clip.CreatedAt.Format("2006-01-02 15:04:05"),
+			UpdatedAt:                clip.UpdatedAt.Format("2006-01-02 15:04:05"),
+			Exists:                   exists,
+			ThumbnailURL:             s.getThumbnailURL(clip.FilePath),
+			Transcription:            clip.Transcription,
+			TranscriptionWords:       s.schemaWordsToWords(clip.TranscriptionWords),
+			TranscriptionLanguage:    clip.TranscriptionLanguage,
+			TranscriptionDuration:    clip.TranscriptionDuration,
+			TranscriptionState:       clip.TranscriptionState,
+			TranscriptionError:       clip.TranscriptionError,
+			TranscriptionStartedAt:   s.formatTime(clip.TranscriptionStartedAt),
 			TranscriptionCompletedAt: s.formatTime(clip.TranscriptionCompletedAt),
-			Highlights:              s.schemaHighlightsToHighlights(clip.Highlights),
+			Highlights:               s.schemaHighlightsToHighlights(clip.Highlights),
 		})
 	}
-	
+
 	return responses, nil
 }
 
@@ -380,39 +380,39 @@ func (s *ProjectService) UpdateVideoClip(id int, name, description string) (*Vid
 		SetName(name).
 		SetDescription(description).
 		Save(s.ctx)
-		
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to update video clip: %w", err)
 	}
-	
+
 	fileSize, format, exists := s.getFileInfo(clip.FilePath)
 	fileName := filepath.Base(clip.FilePath)
-	
+
 	return &VideoClipResponse{
-		ID:                      clip.ID,
-		Name:                    clip.Name,
-		Description:             clip.Description,
-		FilePath:                clip.FilePath,
-		FileName:                fileName,
-		FileSize:                fileSize,
-		Duration:                clip.Duration,
-		Format:                  format,
-		Width:                   clip.Width,
-		Height:                  clip.Height,
-		ProjectID:               0, // Will need to be loaded separately
-		CreatedAt:               clip.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt:               clip.UpdatedAt.Format("2006-01-02 15:04:05"),
-		Exists:                  exists,
-		ThumbnailURL:            s.getThumbnailURL(clip.FilePath),
-		Transcription:           clip.Transcription,
-		TranscriptionWords:      s.schemaWordsToWords(clip.TranscriptionWords),
-		TranscriptionLanguage:   clip.TranscriptionLanguage,
-		TranscriptionDuration:   clip.TranscriptionDuration,
-		TranscriptionState:      clip.TranscriptionState,
-		TranscriptionError:      clip.TranscriptionError,
-		TranscriptionStartedAt:  s.formatTime(clip.TranscriptionStartedAt),
+		ID:                       clip.ID,
+		Name:                     clip.Name,
+		Description:              clip.Description,
+		FilePath:                 clip.FilePath,
+		FileName:                 fileName,
+		FileSize:                 fileSize,
+		Duration:                 clip.Duration,
+		Format:                   format,
+		Width:                    clip.Width,
+		Height:                   clip.Height,
+		ProjectID:                0, // Will need to be loaded separately
+		CreatedAt:                clip.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:                clip.UpdatedAt.Format("2006-01-02 15:04:05"),
+		Exists:                   exists,
+		ThumbnailURL:             s.getThumbnailURL(clip.FilePath),
+		Transcription:            clip.Transcription,
+		TranscriptionWords:       s.schemaWordsToWords(clip.TranscriptionWords),
+		TranscriptionLanguage:    clip.TranscriptionLanguage,
+		TranscriptionDuration:    clip.TranscriptionDuration,
+		TranscriptionState:       clip.TranscriptionState,
+		TranscriptionError:       clip.TranscriptionError,
+		TranscriptionStartedAt:   s.formatTime(clip.TranscriptionStartedAt),
 		TranscriptionCompletedAt: s.formatTime(clip.TranscriptionCompletedAt),
-		Highlights:              s.schemaHighlightsToHighlights(clip.Highlights),
+		Highlights:               s.schemaHighlightsToHighlights(clip.Highlights),
 	}, nil
 }
 
@@ -436,18 +436,18 @@ func (s *ProjectService) SelectVideoFiles(ctx context.Context) ([]*LocalVideoFil
 			},
 		},
 	})
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file dialog: %w", err)
 	}
-	
+
 	var videoFiles []*LocalVideoFile
 	for _, filePath := range files {
 		if s.isVideoFile(filePath) {
 			fileSize, format, exists := s.getFileInfo(filePath)
 			fileName := filepath.Base(filePath)
 			name := strings.TrimSuffix(fileName, filepath.Ext(fileName))
-			
+
 			videoFiles = append(videoFiles, &LocalVideoFile{
 				Name:     name,
 				FilePath: filePath,
@@ -458,7 +458,7 @@ func (s *ProjectService) SelectVideoFiles(ctx context.Context) ([]*LocalVideoFil
 			})
 		}
 	}
-	
+
 	return videoFiles, nil
 }
 
@@ -467,11 +467,11 @@ func (s *ProjectService) GetVideoFileInfo(filePath string) (*LocalVideoFile, err
 	if !s.isVideoFile(filePath) {
 		return nil, fmt.Errorf("file is not a supported video format")
 	}
-	
+
 	fileSize, format, exists := s.getFileInfo(filePath)
 	fileName := filepath.Base(filePath)
 	name := strings.TrimSuffix(fileName, filepath.Ext(fileName))
-	
+
 	return &LocalVideoFile{
 		Name:     name,
 		FilePath: filePath,
@@ -487,16 +487,16 @@ func (s *ProjectService) GetVideoURL(filePath string) (string, error) {
 	if !s.isVideoFile(filePath) {
 		return "", fmt.Errorf("file is not a supported video format")
 	}
-	
+
 	// Check if file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		return "", fmt.Errorf("video file does not exist")
 	}
-	
+
 	// Create a URL-safe path for the video to work with the asset middleware
 	encodedPath := url.QueryEscape(filePath)
 	videoURL := fmt.Sprintf("/api/video/%s", encodedPath)
-	
+
 	return videoURL, nil
 }
 
@@ -514,7 +514,7 @@ func (s *ProjectService) UpdateVideoClipHighlights(clipID int, highlights []High
 	colorCounter := 1
 	for _, h := range highlights {
 		colorID := h.ColorID
-		
+
 		// Validate ColorID - if invalid (0, negative, or out of range), assign a valid one
 		if colorID < 1 || colorID > 20 {
 			fmt.Printf("Warning: Invalid ColorID %d for highlight %s, assigning ColorID %d\n", h.ColorID, h.ID, colorCounter)
@@ -524,15 +524,15 @@ func (s *ProjectService) UpdateVideoClipHighlights(clipID int, highlights []High
 				colorCounter = 1 // Wrap around to color 1
 			}
 		}
-		
+
 		schemaHighlights = append(schemaHighlights, schema.Highlight{
-			ID:    h.ID,
-			Start: h.Start,
-			End:   h.End,
+			ID:      h.ID,
+			Start:   h.Start,
+			End:     h.End,
 			ColorID: colorID,
 		})
 	}
-	
+
 	// Get the video clip to find its project ID
 	clip, err := s.client.VideoClip.
 		Query().
@@ -542,7 +542,7 @@ func (s *ProjectService) UpdateVideoClipHighlights(clipID int, highlights []High
 	if err != nil {
 		return fmt.Errorf("failed to get video clip for real-time update: %w", err)
 	}
-	
+
 	_, err = s.client.VideoClip.
 		UpdateOneID(clipID).
 		SetHighlights(schemaHighlights).
@@ -550,12 +550,12 @@ func (s *ProjectService) UpdateVideoClipHighlights(clipID int, highlights []High
 	if err != nil {
 		return err
 	}
-		
+
 	// Broadcast real-time update
 	if clip.Edges.Project != nil {
 		projectID := strconv.Itoa(clip.Edges.Project.ID)
 		manager := realtime.GetManager()
-		
+
 		// Get the full project highlights structure for broadcasting
 		highlightService := highlightsservice.NewHighlightService(s.client, s.ctx)
 		projectHighlights, err := highlightService.GetProjectHighlights(clip.Edges.Project.ID)
@@ -563,7 +563,7 @@ func (s *ProjectService) UpdateVideoClipHighlights(clipID int, highlights []High
 			manager.BroadcastHighlightsUpdate(projectID, projectHighlights)
 		}
 	}
-		
+
 	return nil
 }
 
@@ -574,7 +574,7 @@ func (s *ProjectService) UpdateVideoClipSuggestedHighlights(clipID int, suggeste
 	colorCounter := 1
 	for _, h := range suggestedHighlights {
 		colorID := h.ColorID
-		
+
 		// Validate ColorID - if invalid (0, negative, or out of range), assign a valid one
 		if colorID < 1 || colorID > 20 {
 			fmt.Printf("Warning: Invalid ColorID %d for suggested highlight %s, assigning ColorID %d\n", h.ColorID, h.ID, colorCounter)
@@ -584,15 +584,15 @@ func (s *ProjectService) UpdateVideoClipSuggestedHighlights(clipID int, suggeste
 				colorCounter = 1 // Wrap around to color 1
 			}
 		}
-		
+
 		schemaHighlights = append(schemaHighlights, schema.Highlight{
-			ID:    h.ID,
-			Start: h.Start,
-			End:   h.End,
+			ID:      h.ID,
+			Start:   h.Start,
+			End:     h.End,
 			ColorID: colorID,
 		})
 	}
-	
+
 	// Get clip with project information for broadcasting
 	clip, err := s.client.VideoClip.
 		Query().
@@ -602,21 +602,21 @@ func (s *ProjectService) UpdateVideoClipSuggestedHighlights(clipID int, suggeste
 	if err != nil {
 		return fmt.Errorf("failed to get video clip: %w", err)
 	}
-	
+
 	_, err = s.client.VideoClip.
 		UpdateOneID(clipID).
 		SetSuggestedHighlights(schemaHighlights).
 		Save(s.ctx)
-	
+
 	if err != nil {
 		return err
 	}
-	
+
 	// Broadcast real-time update for suggested highlights
 	if clip.Edges.Project != nil {
 		projectIDStr := strconv.Itoa(clip.Edges.Project.ID)
 		manager := realtime.GetManager()
-		
+
 		// Get the full project highlights structure for broadcasting
 		highlightService := highlightsservice.NewHighlightService(s.client, s.ctx)
 		projectHighlights, err := highlightService.GetProjectHighlights(clip.Edges.Project.ID)
@@ -624,7 +624,7 @@ func (s *ProjectService) UpdateVideoClipSuggestedHighlights(clipID int, suggeste
 			manager.BroadcastHighlightsUpdate(projectIDStr, projectHighlights)
 		}
 	}
-		
+
 	return nil
 }
 
@@ -634,11 +634,11 @@ func (s *ProjectService) UpdateProjectActiveTab(projectID int, activeTab string)
 		UpdateOneID(projectID).
 		SetActiveTab(activeTab).
 		Save(s.ctx)
-		
+
 	if err != nil {
 		return fmt.Errorf("failed to update project active tab: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -662,16 +662,16 @@ func (s *ProjectService) UpdateProjectHighlightOrder(projectID int, highlightOrd
 		UpdateOneID(projectID).
 		SetHighlightOrder(interfaceOrder).
 		Save(s.ctx)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to update project highlight order: %w", err)
 	}
-	
+
 	// Broadcast real-time update
 	projectIDStr := strconv.Itoa(projectID)
 	manager := realtime.GetManager()
 	manager.BroadcastHighlightsReorder(projectIDStr, interfaceOrder)
-	
+
 	return nil
 }
 
@@ -681,7 +681,7 @@ func (s *ProjectService) UpdateProjectHighlightOrder(projectID int, highlightOrd
 func (s *ProjectService) isVideoFile(filePath string) bool {
 	ext := strings.ToLower(filepath.Ext(filePath))
 	videoExts := []string{".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv", ".webm", ".m4v", ".3gp", ".ogv"}
-	
+
 	for _, videoExt := range videoExts {
 		if ext == videoExt {
 			return true
@@ -696,10 +696,10 @@ func (s *ProjectService) getFileInfo(filePath string) (int64, string, bool) {
 	if err != nil {
 		return 0, "", false
 	}
-	
+
 	ext := strings.ToLower(filepath.Ext(filePath))
 	format := strings.TrimPrefix(ext, ".")
-	
+
 	return info.Size(), format, true
 }
 
@@ -708,7 +708,7 @@ func (s *ProjectService) getThumbnailURL(filePath string) string {
 	if !s.isVideoFile(filePath) {
 		return ""
 	}
-	
+
 	encodedPath := url.QueryEscape(filePath)
 	return fmt.Sprintf("/api/thumbnail/%s", encodedPath)
 }
@@ -731,9 +731,9 @@ func (s *ProjectService) schemaHighlightsToHighlights(schemaHighlights []schema.
 	var highlights []Highlight
 	for _, sh := range schemaHighlights {
 		highlights = append(highlights, Highlight{
-			ID:    sh.ID,
-			Start: sh.Start,
-			End:   sh.End,
+			ID:      sh.ID,
+			Start:   sh.Start,
+			End:     sh.End,
 			ColorID: sh.ColorID,
 		})
 	}
@@ -904,26 +904,26 @@ func (s *ProjectService) UndoOrderChange(projectID int) ([]string, error) {
 
 	history := project.OrderHistory
 	currentIndex := project.OrderHistoryIndex
-	
+
 	// Special handling when we're at the current state (index == -1)
 	if currentIndex == -1 {
 		// Before undoing from current state, we need to save the current state to history
 		// so we can redo back to it later
-		
+
 		// Get current order and preserve full objects
 		var currentOrder []interface{}
 		if project.HighlightOrder != nil {
 			currentOrder = make([]interface{}, len(project.HighlightOrder))
 			copy(currentOrder, project.HighlightOrder)
 		}
-		
+
 		// Add current state to history if it's different from the last history entry
 		if len(history) == 0 || !equalInterfaceSlices(currentOrder, history[len(history)-1]) {
 			history = append(history, currentOrder)
 			if len(history) > 20 {
 				history = history[1:] // Remove oldest entry
 			}
-			
+
 			// Update history in database
 			project, err = s.client.Project.
 				UpdateOneID(projectID).
@@ -934,7 +934,7 @@ func (s *ProjectService) UndoOrderChange(projectID int) ([]string, error) {
 			}
 		}
 	}
-	
+
 	// Refresh history after potential update
 	history = project.OrderHistory
 	if history == nil || len(history) == 0 {
@@ -1010,13 +1010,13 @@ func (s *ProjectService) RedoOrderChange(projectID int) ([]string, error) {
 	}
 
 	currentIndex := project.OrderHistoryIndex
-	
+
 	// Calculate new index (move forward)
 	if currentIndex == -1 {
 		// Already at current state
 		return nil, fmt.Errorf("cannot redo further")
 	}
-	
+
 	if currentIndex >= len(history)-1 {
 		// At the last history entry, check if we can move to current state
 		// We can only move to current state (-1) if the current project order
@@ -1026,15 +1026,15 @@ func (s *ProjectService) RedoOrderChange(projectID int) ([]string, error) {
 			currentOrder = make([]interface{}, len(project.HighlightOrder))
 			copy(currentOrder, project.HighlightOrder)
 		}
-		
+
 		// If last history entry matches current state, we can't redo
 		if equalInterfaceSlices(history[len(history)-1], currentOrder) {
 			return nil, fmt.Errorf("cannot redo further")
 		}
-		
+
 		// Move to current state
 		newIndex := -1
-		
+
 		// Update project index
 		_, err = s.client.Project.
 			UpdateOneID(projectID).
@@ -1043,7 +1043,7 @@ func (s *ProjectService) RedoOrderChange(projectID int) ([]string, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to update history index: %w", err)
 		}
-		
+
 		// Convert current order to string array for return value
 		var currentOrderStrings []string
 		for _, item := range currentOrder {
@@ -1058,7 +1058,7 @@ func (s *ProjectService) RedoOrderChange(projectID int) ([]string, error) {
 				currentOrderStrings = append(currentOrderStrings, fmt.Sprintf("%v", v))
 			}
 		}
-		
+
 		// Return the current order (which is already applied)
 		return currentOrderStrings, nil
 	}
@@ -1119,12 +1119,12 @@ func (s *ProjectService) GetOrderHistoryStatus(projectID int) (bool, bool, error
 	}
 
 	currentIndex := project.OrderHistoryIndex
-	
+
 	// Can undo if:
 	// 1. We're at current state (index == -1) and have history
 	// 2. We're in history and not at the oldest entry (index > 0)
 	canUndo := (currentIndex == -1 && len(history) > 0) || currentIndex > 0
-	
+
 	// Can redo if:
 	// 1. We're in history and not at the last entry (index < len(history)-1)
 	// 2. We're at the last history entry and current state differs from it
@@ -1140,7 +1140,7 @@ func (s *ProjectService) GetOrderHistoryStatus(projectID int) (bool, bool, error
 				currentOrder = make([]interface{}, len(project.HighlightOrder))
 				copy(currentOrder, project.HighlightOrder)
 			}
-			
+
 			// Can redo if current state differs from last history entry
 			canRedo = !equalInterfaceSlices(history[len(history)-1], currentOrder)
 		}
@@ -1167,7 +1167,7 @@ func (s *ProjectService) UndoHighlightsChange(clipID int) ([]Highlight, error) {
 	}
 
 	currentIndex := clip.HighlightsHistoryIndex
-	
+
 	// Calculate new index (move backward)
 	var newIndex int
 	if currentIndex == -1 {
@@ -1198,7 +1198,7 @@ func (s *ProjectService) UndoHighlightsChange(clipID int) ([]Highlight, error) {
 	if clip.Edges.Project != nil {
 		projectIDStr := strconv.Itoa(clip.Edges.Project.ID)
 		manager := realtime.GetManager()
-		
+
 		// Get the full project highlights structure for broadcasting
 		highlightService := highlightsservice.NewHighlightService(s.client, s.ctx)
 		projectHighlights, err := highlightService.GetProjectHighlights(clip.Edges.Project.ID)
@@ -1229,7 +1229,7 @@ func (s *ProjectService) RedoHighlightsChange(clipID int) ([]Highlight, error) {
 	}
 
 	currentIndex := clip.HighlightsHistoryIndex
-	
+
 	// Calculate new index (move forward)
 	if currentIndex == -1 || currentIndex >= len(history)-1 {
 		// Already at newest entry or current state
@@ -1255,7 +1255,7 @@ func (s *ProjectService) RedoHighlightsChange(clipID int) ([]Highlight, error) {
 	if clip.Edges.Project != nil {
 		projectIDStr := strconv.Itoa(clip.Edges.Project.ID)
 		manager := realtime.GetManager()
-		
+
 		// Get the full project highlights structure for broadcasting
 		highlightService := highlightsservice.NewHighlightService(s.client, s.ctx)
 		projectHighlights, err := highlightService.GetProjectHighlights(clip.Edges.Project.ID)
@@ -1285,16 +1285,15 @@ func (s *ProjectService) GetHighlightsHistoryStatus(clipID int) (bool, bool, err
 	}
 
 	currentIndex := clip.HighlightsHistoryIndex
-	
+
 	// Can undo if we have history and we're not at the oldest entry
 	canUndo := len(history) > 0 && (currentIndex == -1 || currentIndex > 0)
-	
+
 	// Can redo if we have history and we're not at the newest entry
 	canRedo := len(history) > 0 && currentIndex != -1 && currentIndex < len(history)-1
 
 	return canUndo, canRedo, nil
 }
-
 
 // SaveSectionTitle saves or updates the title for a newline section at a specific position
 func (s *ProjectService) SaveSectionTitle(projectID int, position int, title string) error {
@@ -1384,16 +1383,16 @@ func (s *ProjectService) UpdateProjectHighlightOrderWithTitles(projectID int, hi
 		UpdateOneID(projectID).
 		SetHighlightOrder(highlightOrder).
 		Save(s.ctx)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to update project highlight order with titles: %w", err)
 	}
-	
+
 	// Broadcast real-time update
 	projectIDStr := strconv.Itoa(projectID)
 	manager := realtime.GetManager()
 	manager.BroadcastHighlightsReorder(projectIDStr, highlightOrder)
-	
+
 	return nil
 }
 
@@ -1549,10 +1548,10 @@ func (s *ProjectService) extractAudio(videoPath string) (string, error) {
 		"-i", videoPath,
 		"-vn",            // No video
 		"-acodec", "mp3", // Audio codec
-		"-ar", "16000",   // Sample rate (16kHz for Whisper)
-		"-ac", "1",       // Mono channel
-		"-b:a", "64k",    // Bitrate
-		"-y",             // Overwrite output file
+		"-ar", "16000", // Sample rate (16kHz for Whisper)
+		"-ac", "1", // Mono channel
+		"-b:a", "64k", // Bitrate
+		"-y", // Overwrite output file
 		audioPath,
 	)
 
@@ -1684,17 +1683,17 @@ func (s *ProjectService) getSetting(key string) (string, error) {
 // updateTranscriptionState updates the transcription state and error message for a video clip
 func (s *ProjectService) updateTranscriptionState(clipID int, state string, errorMsg string) error {
 	update := s.client.VideoClip.UpdateOneID(clipID).SetTranscriptionState(state)
-	
+
 	if state == TranscriptionStateTranscribing && errorMsg == "" {
 		update = update.SetTranscriptionStartedAt(time.Now())
 	}
-	
+
 	if errorMsg != "" {
 		update = update.SetTranscriptionError(errorMsg)
 	} else {
 		update = update.ClearTranscriptionError()
 	}
-	
+
 	_, err := update.Save(s.ctx)
 	return err
 }

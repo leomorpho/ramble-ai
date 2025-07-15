@@ -17,8 +17,8 @@ import (
 
 	"MYAPP/ent"
 	"MYAPP/ent/exportjob"
-	"MYAPP/goapp"
 	"MYAPP/ent/project"
+	"MYAPP/goapp"
 	"MYAPP/goapp/highlights"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -436,7 +436,7 @@ func (s *ExportService) performIndividualExport(dbJob *ent.ExportJob, activeJob 
 	// Create subdirectory with project name
 	sanitizedProjectName := regexp.MustCompile(`[^a-zA-Z0-9_-]`).ReplaceAllString(proj.Name, "_")
 	projectDir := filepath.Join(dbJob.OutputPath, sanitizedProjectName)
-	
+
 	// Create the directory if it doesn't exist
 	if err := os.MkdirAll(projectDir, 0755); err != nil {
 		s.updateJobFailed(dbJob.JobID, fmt.Sprintf("Failed to create project directory: %v", err))
@@ -492,12 +492,12 @@ func (s *ExportService) getProjectHighlightsForExport(projectID int) ([]Highligh
 func (s *ExportService) calculatePaddedTimes(segment HighlightSegment, paddingSeconds float64) (float64, float64, error) {
 	// Calculate padded start time (never go below 0)
 	paddedStart := math.Max(0, segment.Start-paddingSeconds)
-	
+
 	// For end time, we'll use the original end + padding
 	// Note: We don't validate against video duration here since FFmpeg will handle it gracefully
 	// by using the maximum available duration if we exceed the video length
 	paddedEnd := segment.End + paddingSeconds
-	
+
 	return paddedStart, paddedEnd, nil
 }
 
@@ -579,10 +579,10 @@ func (s *ExportService) generateListFile(segmentPaths []string, tempDir string) 
 func (s *ExportService) generateOutputFilename(projectName, suffix string) string {
 	// Sanitize project name
 	sanitized := regexp.MustCompile(`[^a-zA-Z0-9_-]`).ReplaceAllString(projectName, "_")
-	
+
 	// Create timestamp
 	timestamp := time.Now().Format("20060102_150405")
-	
+
 	// Generate filename
 	return fmt.Sprintf("%s_%s_%s.mp4", sanitized, suffix, timestamp)
 }
@@ -783,7 +783,7 @@ func (s *ExportService) parseFFmpegProgress(stdout io.ReadCloser, jobID string, 
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		
+
 		// Parse progress lines
 		if strings.HasPrefix(line, "out_time_ms=") {
 			if timeMsStr := strings.TrimPrefix(line, "out_time_ms="); timeMsStr != "" {
@@ -798,7 +798,7 @@ func (s *ExportService) parseFFmpegProgress(stdout io.ReadCloser, jobID string, 
 				}
 			}
 		}
-		
+
 		// Check for cancellation
 		select {
 		case <-cancel:

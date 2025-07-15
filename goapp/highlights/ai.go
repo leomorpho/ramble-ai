@@ -1226,11 +1226,11 @@ func (s *AIService) improveVideoHighlights(apiKey string, model string, videoHig
 	for i, h := range videoHighlights.Highlights {
 		if timing, exists := timingMap[h.ID]; exists {
 			improved.Highlights[i] = HighlightWithText{
-				ID:    h.ID,
-				Start: timing.Start,
-				End:   timing.End,
+				ID:      h.ID,
+				Start:   timing.Start,
+				End:     timing.End,
 				ColorID: h.ColorID,
-				Text:  h.Text,
+				Text:    h.Text,
 			}
 		} else {
 			// Keep original if no improvement found
@@ -1443,11 +1443,11 @@ func (s *AIService) saveAISilenceImprovements(projectID int, improvements []Proj
 
 		for _, h := range ph.Highlights {
 			highlightData := map[string]interface{}{
-				"id":    h.ID,
-				"start": h.Start,
-				"end":   h.End,
+				"id":      h.ID,
+				"start":   h.Start,
+				"end":     h.End,
 				"colorId": h.ColorID,
-				"text":  h.Text,
+				"text":    h.Text,
 			}
 			videoData["highlights"] = append(videoData["highlights"].([]map[string]interface{}), highlightData)
 		}

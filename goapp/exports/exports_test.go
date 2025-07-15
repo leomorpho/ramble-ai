@@ -12,7 +12,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-
 func TestNewExportService(t *testing.T) {
 	client, ctx := setupTestDB(t)
 	defer client.Close()
@@ -64,7 +63,7 @@ func TestGenerateOutputFilename(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := service.generateOutputFilename(tt.projectName, tt.suffix)
-			
+
 			// Check prefix matches expected (without timestamp)
 			assert.True(t, len(result) > len(tt.expected))
 			assert.Contains(t, result, tt.expected)
@@ -105,7 +104,7 @@ func TestGenerateListFile(t *testing.T) {
 	// Verify list file content
 	content, err := os.ReadFile(listFile)
 	require.NoError(t, err)
-	
+
 	for _, path := range segmentPaths {
 		assert.Contains(t, string(content), "file '"+path+"'")
 	}
@@ -211,7 +210,7 @@ func TestGetExportProgress_Success(t *testing.T) {
 	// Create test project and export job
 	proj := createTestProject(t, client, ctx, "TestProject")
 	jobID := "test_job_123"
-	
+
 	// Create export job manually
 	_, err := client.ExportJob.
 		Create().
@@ -258,7 +257,7 @@ func TestCancelExport_Success(t *testing.T) {
 	// Create test project and export job
 	proj := createTestProject(t, client, ctx, "TestProject")
 	jobID := "test_job_123"
-	
+
 	// Create export job manually
 	_, err := client.ExportJob.
 		Create().
@@ -360,7 +359,7 @@ func TestRecoverActiveExportJobs_Success(t *testing.T) {
 	// Create test project and processing job
 	proj := createTestProject(t, client, ctx, "TestProject")
 	jobID := "test_job_123"
-	
+
 	// Create processing job
 	_, err := client.ExportJob.
 		Create().
@@ -392,7 +391,7 @@ func TestUpdateJobProgress(t *testing.T) {
 	// Create test project and job
 	proj := createTestProject(t, client, ctx, "TestProject")
 	jobID := "test_job_123"
-	
+
 	// Create export job
 	_, err := client.ExportJob.
 		Create().
@@ -426,7 +425,7 @@ func TestUpdateJobCompleted(t *testing.T) {
 	// Create test project and job
 	proj := createTestProject(t, client, ctx, "TestProject")
 	jobID := "test_job_123"
-	
+
 	// Create export job
 	_, err := client.ExportJob.
 		Create().
@@ -458,7 +457,7 @@ func TestUpdateJobFailed(t *testing.T) {
 	// Create test project and job
 	proj := createTestProject(t, client, ctx, "TestProject")
 	jobID := "test_job_123"
-	
+
 	// Create export job
 	_, err := client.ExportJob.
 		Create().
@@ -490,7 +489,7 @@ func TestUpdateJobCancelled(t *testing.T) {
 	// Create test project and job
 	proj := createTestProject(t, client, ctx, "TestProject")
 	jobID := "test_job_123"
-	
+
 	// Create export job
 	_, err := client.ExportJob.
 		Create().
@@ -511,4 +510,3 @@ func TestUpdateJobCancelled(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "cancelled", progress.Stage)
 }
-

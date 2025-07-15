@@ -37,18 +37,18 @@ func TestParseAIHighlightSuggestionsResponse(t *testing.T) {
 			aiResponse: `[{"start": 0, "end": 2}, {"start": 3, "end": 6}]`,
 			expected: []HighlightSuggestion{
 				{
-					ID:    "suggestion_0_2",
-					Start: 0,
-					End:   2,
-					Text:  "Hello world", // Exclusive end: words 0 and 1
+					ID:      "suggestion_0_2",
+					Start:   0,
+					End:     2,
+					Text:    "Hello world", // Exclusive end: words 0 and 1
 					ColorID: 1,
 				},
 				{
-					ID:    "suggestion_3_6",
-					Start: 3,
-					End:   6,
-					Text:  "is a test", // Exclusive end: words 3, 4, and 5
-					ColorID: 2, // baseColorIDs[1%5] = baseColorIDs[1] = 2
+					ID:      "suggestion_3_6",
+					Start:   3,
+					End:     6,
+					Text:    "is a test", // Exclusive end: words 3, 4, and 5
+					ColorID: 2,           // baseColorIDs[1%5] = baseColorIDs[1] = 2
 				},
 			},
 			shouldError: false,
@@ -58,10 +58,10 @@ func TestParseAIHighlightSuggestionsResponse(t *testing.T) {
 			aiResponse: `Here are the suggestions: [{"start": 1, "end": 3}] That's all!`,
 			expected: []HighlightSuggestion{
 				{
-					ID:    "suggestion_1_3",
-					Start: 1,
-					End:   3,
-					Text:  "world this", // Exclusive end: words 1 and 2
+					ID:      "suggestion_1_3",
+					Start:   1,
+					End:     3,
+					Text:    "world this", // Exclusive end: words 1 and 2
 					ColorID: 1,
 				},
 			},
@@ -74,21 +74,21 @@ func TestParseAIHighlightSuggestionsResponse(t *testing.T) {
 			shouldError: true,
 		},
 		{
-			name:       "Empty array",
-			aiResponse: "[]",
-			expected:   []HighlightSuggestion{},
+			name:        "Empty array",
+			aiResponse:  "[]",
+			expected:    []HighlightSuggestion{},
 			shouldError: false,
 		},
 		{
-			name:       "Invalid indices - start > end",
-			aiResponse: `[{"start": 5, "end": 3}]`,
-			expected:   []HighlightSuggestion{}, // Should skip invalid suggestion
+			name:        "Invalid indices - start > end",
+			aiResponse:  `[{"start": 5, "end": 3}]`,
+			expected:    []HighlightSuggestion{}, // Should skip invalid suggestion
 			shouldError: false,
 		},
 		{
-			name:       "Invalid indices - out of bounds",
-			aiResponse: `[{"start": 0, "end": 100}]`,
-			expected:   []HighlightSuggestion{}, // Should skip invalid suggestion
+			name:        "Invalid indices - out of bounds",
+			aiResponse:  `[{"start": 0, "end": 100}]`,
+			expected:    []HighlightSuggestion{}, // Should skip invalid suggestion
 			shouldError: false,
 		},
 		{
@@ -96,10 +96,10 @@ func TestParseAIHighlightSuggestionsResponse(t *testing.T) {
 			aiResponse: `[{"start": 2, "end": 3}]`,
 			expected: []HighlightSuggestion{
 				{
-					ID:    "suggestion_2_3",
-					Start: 2,
-					End:   3,
-					Text:  "this", // Just word 2
+					ID:      "suggestion_2_3",
+					Start:   2,
+					End:     3,
+					Text:    "this", // Just word 2
 					ColorID: 1,
 				},
 			},
@@ -145,24 +145,24 @@ func TestSaveSuggestedHighlights(t *testing.T) {
 
 	suggestions := []HighlightSuggestion{
 		{
-			ID:    "suggestion_0_2",
-			Start: 0,
-			End:   2,   // Exclusive: includes words 0 and 1
-			Text:  "Hello world",
+			ID:      "suggestion_0_2",
+			Start:   0,
+			End:     2, // Exclusive: includes words 0 and 1
+			Text:    "Hello world",
 			ColorID: 1,
 		},
 		{
-			ID:    "suggestion_3_5",
-			Start: 3,
-			End:   5,   // Exclusive: includes words 3 and 4
-			Text:  "is a",
+			ID:      "suggestion_3_5",
+			Start:   3,
+			End:     5, // Exclusive: includes words 3 and 4
+			Text:    "is a",
 			ColorID: 3,
 		},
 	}
 
 	// Test the conversion logic that would happen in saveSuggestedHighlights
 	service := &HighlightService{}
-	
+
 	for _, suggestion := range suggestions {
 		startTime := service.wordIndexToTime(suggestion.Start, transcriptWords)
 		endTime := service.wordIndexToTime(suggestion.End, transcriptWords)
@@ -257,7 +257,7 @@ func TestFlattenConsecutiveNewlines(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := service.flattenConsecutiveNewlines(tt.input)
-			
+
 			assert.Equal(t, len(tt.expected), len(result))
 			for i, expected := range tt.expected {
 				assert.Equal(t, expected, result[i])
@@ -291,19 +291,19 @@ func TestFilterValidHighlightSuggestions(t *testing.T) {
 	}
 
 	suggestions := []HighlightSuggestion{
-		{ID: "s1", Start: 0, End: 2, Text: "Word0 Word1"},     // No overlap
-		{ID: "s2", Start: 2, End: 4, Text: "Word2 Word3"},     // Overlaps with existing1
-		{ID: "s3", Start: 5, End: 7, Text: "Word5 Word6"},     // No overlap
-		{ID: "s4", Start: 6, End: 8, Text: "Word6 Word7"},     // Overlaps with existing2
-		{ID: "s5", Start: 8, End: 10, Text: "Word8 Word9"},    // No overlap
-		{ID: "s6", Start: 1, End: 3, Text: "Word1 Word2"},     // Overlaps with existing1
+		{ID: "s1", Start: 0, End: 2, Text: "Word0 Word1"},  // No overlap
+		{ID: "s2", Start: 2, End: 4, Text: "Word2 Word3"},  // Overlaps with existing1
+		{ID: "s3", Start: 5, End: 7, Text: "Word5 Word6"},  // No overlap
+		{ID: "s4", Start: 6, End: 8, Text: "Word6 Word7"},  // Overlaps with existing2
+		{ID: "s5", Start: 8, End: 10, Text: "Word8 Word9"}, // No overlap
+		{ID: "s6", Start: 1, End: 3, Text: "Word1 Word2"},  // Overlaps with existing1
 	}
 
 	validSuggestions := service.filterValidHighlightSuggestions(suggestions, existingHighlights, transcriptWords)
 
 	// Should only include non-overlapping suggestions
 	assert.Equal(t, 3, len(validSuggestions))
-	
+
 	expectedIDs := map[string]bool{"s1": true, "s3": true, "s5": true}
 	for _, vs := range validSuggestions {
 		assert.True(t, expectedIDs[vs.ID], "Unexpected suggestion ID: %s", vs.ID)
@@ -323,10 +323,10 @@ func TestTimeToWordIndexRoundTrip(t *testing.T) {
 	}
 
 	tests := []struct {
-		name           string
-		startIndex     int
-		endIndex       int // Exclusive
-		expectedText   string
+		name         string
+		startIndex   int
+		endIndex     int // Exclusive
+		expectedText string
 	}{
 		{
 			name:         "Single word",
@@ -368,7 +368,7 @@ func TestTimeToWordIndexRoundTrip(t *testing.T) {
 			// Convert back to indices (as done in GetSuggestedHighlights)
 			recoveredStartIndex := service.timeToWordIndex(startTime, transcriptWords)
 			recoveredEndIndex := service.timeToWordIndexForEnd(endTime, transcriptWords)
-			
+
 			t.Logf("Test %s: Start time %f -> index %d", tt.name, startTime, recoveredStartIndex)
 			t.Logf("Test %s: End time %f -> index %d", tt.name, endTime, recoveredEndIndex)
 
@@ -503,7 +503,7 @@ func TestParseAIReorderingResponse(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := service.parseAIReorderingResponse(tt.input)
-			
+
 			if tt.wantErr {
 				assert.Error(t, err)
 				return
@@ -540,53 +540,53 @@ func TestProcessReorderedItems(t *testing.T) {
 	}
 
 	tests := []struct {
-		name        string
+		name           string
 		reorderedItems []interface{}
-		originalIDs []string
-		expected    []interface{}
+		originalIDs    []string
+		expected       []interface{}
 	}{
 		{
-			name:        "No duplicates with N characters",
+			name:           "No duplicates with N characters",
 			reorderedItems: []interface{}{"id1", "id2", "N", "id3", "id4"},
-			originalIDs: []string{"id1", "id2", "id3", "id4"},
-			expected:    []interface{}{"id1", "id2", "N", "id3", "id4"},
+			originalIDs:    []string{"id1", "id2", "id3", "id4"},
+			expected:       []interface{}{"id1", "id2", "N", "id3", "id4"},
 		},
 		{
-			name:        "Duplicates with N characters",
+			name:           "Duplicates with N characters",
 			reorderedItems: []interface{}{"id1", "id2", "N", "id1", "id3", "N", "id2", "id4"},
-			originalIDs: []string{"id1", "id2", "id3", "id4"},
-			expected:    []interface{}{"id1", "id2", "N", "id3", "N", "id4"},
+			originalIDs:    []string{"id1", "id2", "id3", "id4"},
+			expected:       []interface{}{"id1", "id2", "N", "id3", "N", "id4"},
 		},
 		{
-			name:        "Missing ID gets added at end",
+			name:           "Missing ID gets added at end",
 			reorderedItems: []interface{}{"id1", "N", "id3"},
-			originalIDs: []string{"id1", "id2", "id3"},
-			expected:    []interface{}{"id1", "N", "id3", "id2"},
+			originalIDs:    []string{"id1", "id2", "id3"},
+			expected:       []interface{}{"id1", "N", "id3", "id2"},
 		},
 		{
-			name:        "Unknown IDs get filtered out",
+			name:           "Unknown IDs get filtered out",
 			reorderedItems: []interface{}{"id1", "unknown", "N", "id2", "another_unknown"},
-			originalIDs: []string{"id1", "id2"},
-			expected:    []interface{}{"id1", "N", "id2"},
+			originalIDs:    []string{"id1", "id2"},
+			expected:       []interface{}{"id1", "N", "id2"},
 		},
 		{
-			name:        "Complex case with duplicates and unknowns",
+			name:           "Complex case with duplicates and unknowns",
 			reorderedItems: []interface{}{"id1", "id2", "N", "id1", "unknown", "id3", "N", "id2", "id4"},
-			originalIDs: []string{"id1", "id2", "id3", "id4"},
-			expected:    []interface{}{"id1", "id2", "N", "id3", "N", "id4"},
+			originalIDs:    []string{"id1", "id2", "id3", "id4"},
+			expected:       []interface{}{"id1", "id2", "N", "id3", "N", "id4"},
 		},
 		{
-			name:        "Section objects are preserved",
+			name:           "Section objects are preserved",
 			reorderedItems: []interface{}{"id1", map[string]interface{}{"type": "N", "title": "Section 1"}, "id2", "N", "id3"},
-			originalIDs: []string{"id1", "id2", "id3"},
-			expected:    []interface{}{"id1", map[string]interface{}{"type": "N", "title": "Section 1"}, "id2", "N", "id3"},
+			originalIDs:    []string{"id1", "id2", "id3"},
+			expected:       []interface{}{"id1", map[string]interface{}{"type": "N", "title": "Section 1"}, "id2", "N", "id3"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := service.processReorderedItems(tt.reorderedItems, tt.originalIDs)
-			
+
 			assert.Equal(t, len(tt.expected), len(result))
 
 			for i, expected := range tt.expected {
@@ -618,39 +618,39 @@ func TestAIReorderingWithNCharacters(t *testing.T) {
 
 	// Test the complete flow from LLM response to final output
 	tests := []struct {
-		name         string
-		llmResponse  string
-		originalIDs  []string
+		name          string
+		llmResponse   string
+		originalIDs   []string
 		expectedFinal []interface{}
 	}{
 		{
-			name:         "Perfect LLM response with N characters",
-			llmResponse:  `["highlight_1", "highlight_2", "N", "highlight_3", "highlight_4"]`,
-			originalIDs:  []string{"highlight_1", "highlight_2", "highlight_3", "highlight_4"},
+			name:          "Perfect LLM response with N characters",
+			llmResponse:   `["highlight_1", "highlight_2", "N", "highlight_3", "highlight_4"]`,
+			originalIDs:   []string{"highlight_1", "highlight_2", "highlight_3", "highlight_4"},
 			expectedFinal: []interface{}{"highlight_1", "highlight_2", "N", "highlight_3", "highlight_4"},
 		},
 		{
-			name:         "LLM response with duplicates",
-			llmResponse:  `["highlight_1", "highlight_2", "N", "highlight_1", "highlight_3", "N", "highlight_2", "highlight_4"]`,
-			originalIDs:  []string{"highlight_1", "highlight_2", "highlight_3", "highlight_4"},
+			name:          "LLM response with duplicates",
+			llmResponse:   `["highlight_1", "highlight_2", "N", "highlight_1", "highlight_3", "N", "highlight_2", "highlight_4"]`,
+			originalIDs:   []string{"highlight_1", "highlight_2", "highlight_3", "highlight_4"},
 			expectedFinal: []interface{}{"highlight_1", "highlight_2", "N", "highlight_3", "N", "highlight_4"},
 		},
 		{
-			name:         "LLM response with missing ID",
-			llmResponse:  `["highlight_1", "N", "highlight_3"]`,
-			originalIDs:  []string{"highlight_1", "highlight_2", "highlight_3"},
+			name:          "LLM response with missing ID",
+			llmResponse:   `["highlight_1", "N", "highlight_3"]`,
+			originalIDs:   []string{"highlight_1", "highlight_2", "highlight_3"},
 			expectedFinal: []interface{}{"highlight_1", "N", "highlight_3", "highlight_2"},
 		},
 		{
-			name:         "LLM response with unknown and duplicate IDs",
-			llmResponse:  `["highlight_1", "unknown_id", "N", "highlight_1", "highlight_2", "N", "highlight_3"]`,
-			originalIDs:  []string{"highlight_1", "highlight_2", "highlight_3"},
+			name:          "LLM response with unknown and duplicate IDs",
+			llmResponse:   `["highlight_1", "unknown_id", "N", "highlight_1", "highlight_2", "N", "highlight_3"]`,
+			originalIDs:   []string{"highlight_1", "highlight_2", "highlight_3"},
 			expectedFinal: []interface{}{"highlight_1", "N", "highlight_2", "N", "highlight_3"},
 		},
 		{
-			name:         "Real-world example from logs",
-			llmResponse:  `["highlight_1752086566479_yioxdt6gz", "highlight_1752086557450_lr1swkjaj", "N", "highlight_1752086566479_yioxdt6gz", "highlight_1752086564341_wmna40inb", "highlight_1752086565468_egogda0qe", "N", "highlight_1752086562788_zo9mju0n2", "highlight_1752086566479_yioxdt6gz", "highlight_1752086567716_54jz3puhk"]`,
-			originalIDs:  []string{"highlight_1752086566479_yioxdt6gz", "highlight_1752086557450_lr1swkjaj", "highlight_1752086564341_wmna40inb", "highlight_1752086565468_egogda0qe", "highlight_1752086562788_zo9mju0n2", "highlight_1752086567716_54jz3puhk"},
+			name:          "Real-world example from logs",
+			llmResponse:   `["highlight_1752086566479_yioxdt6gz", "highlight_1752086557450_lr1swkjaj", "N", "highlight_1752086566479_yioxdt6gz", "highlight_1752086564341_wmna40inb", "highlight_1752086565468_egogda0qe", "N", "highlight_1752086562788_zo9mju0n2", "highlight_1752086566479_yioxdt6gz", "highlight_1752086567716_54jz3puhk"]`,
+			originalIDs:   []string{"highlight_1752086566479_yioxdt6gz", "highlight_1752086557450_lr1swkjaj", "highlight_1752086564341_wmna40inb", "highlight_1752086565468_egogda0qe", "highlight_1752086562788_zo9mju0n2", "highlight_1752086567716_54jz3puhk"},
 			expectedFinal: []interface{}{"highlight_1752086566479_yioxdt6gz", "highlight_1752086557450_lr1swkjaj", "N", "highlight_1752086564341_wmna40inb", "highlight_1752086565468_egogda0qe", "N", "highlight_1752086562788_zo9mju0n2", "highlight_1752086567716_54jz3puhk"},
 		},
 	}
@@ -709,73 +709,73 @@ func TestAvailableRangeCalculation(t *testing.T) {
 
 	// Create test transcript words with clear boundaries
 	transcriptWords := []schema.Word{
-		{Word: "Hello", Start: 0.0, End: 0.5},     // Word 0
-		{Word: "world", Start: 0.6, End: 1.0},     // Word 1
-		{Word: "this", Start: 1.2, End: 1.5},      // Word 2
-		{Word: "is", Start: 1.6, End: 1.8},        // Word 3
-		{Word: "a", Start: 1.9, End: 2.0},         // Word 4
-		{Word: "test", Start: 2.1, End: 2.5},      // Word 5
+		{Word: "Hello", Start: 0.0, End: 0.5},      // Word 0
+		{Word: "world", Start: 0.6, End: 1.0},      // Word 1
+		{Word: "this", Start: 1.2, End: 1.5},       // Word 2
+		{Word: "is", Start: 1.6, End: 1.8},         // Word 3
+		{Word: "a", Start: 1.9, End: 2.0},          // Word 4
+		{Word: "test", Start: 2.1, End: 2.5},       // Word 5
 		{Word: "transcript", Start: 2.6, End: 3.2}, // Word 6
-		{Word: "with", Start: 3.3, End: 3.6},      // Word 7
-		{Word: "multiple", Start: 3.7, End: 4.2},  // Word 8
-		{Word: "words", Start: 4.3, End: 4.8},     // Word 9
+		{Word: "with", Start: 3.3, End: 3.6},       // Word 7
+		{Word: "multiple", Start: 3.7, End: 4.2},   // Word 8
+		{Word: "words", Start: 4.3, End: 4.8},      // Word 9
 	}
 
 	tests := []struct {
-		name                string
-		highlightStart      float64
-		highlightEnd        float64
-		expectedPrevWordEnd float64
+		name                  string
+		highlightStart        float64
+		highlightEnd          float64
+		expectedPrevWordEnd   float64
 		expectedNextWordStart float64
-		description         string
+		description           string
 	}{
 		{
-			name:                "Highlight at beginning of transcript",
-			highlightStart:      0.0,
-			highlightEnd:        1.0,
-			expectedPrevWordEnd: 0.0, // No word before, should default to 0.0
+			name:                  "Highlight at beginning of transcript",
+			highlightStart:        0.0,
+			highlightEnd:          1.0,
+			expectedPrevWordEnd:   0.0, // No word before, should default to 0.0
 			expectedNextWordStart: 1.2, // Start of word 2 ("this")
-			description:         "When highlight starts at beginning, prevWordEnd should be 0.0",
+			description:           "When highlight starts at beginning, prevWordEnd should be 0.0",
 		},
 		{
-			name:                "Highlight in middle of transcript",
-			highlightStart:      1.6,
-			highlightEnd:        2.5,
-			expectedPrevWordEnd: 1.5, // End of word 2 ("this")
+			name:                  "Highlight in middle of transcript",
+			highlightStart:        1.6,
+			highlightEnd:          2.5,
+			expectedPrevWordEnd:   1.5, // End of word 2 ("this")
 			expectedNextWordStart: 2.6, // Start of word 6 ("transcript")
-			description:         "Normal case: prevWordEnd from word before, nextWordStart from word after",
+			description:           "Normal case: prevWordEnd from word before, nextWordStart from word after",
 		},
 		{
-			name:                "Highlight at end of transcript",
-			highlightStart:      4.0,
-			highlightEnd:        4.8,
-			expectedPrevWordEnd: 3.6, // End of word 7 ("with") - word before word 8 which contains 4.0
+			name:                  "Highlight at end of transcript",
+			highlightStart:        4.0,
+			highlightEnd:          4.8,
+			expectedPrevWordEnd:   3.6, // End of word 7 ("with") - word before word 8 which contains 4.0
 			expectedNextWordStart: 5.3, // Last word end + 0.5 buffer
-			description:         "When highlight at end, nextWordStart should be last word end + 0.5",
+			description:           "When highlight at end, nextWordStart should be last word end + 0.5",
 		},
 		{
-			name:                "Single word highlight",
-			highlightStart:      2.1,
-			highlightEnd:        2.5,
-			expectedPrevWordEnd: 2.0, // End of word 4 ("a")
+			name:                  "Single word highlight",
+			highlightStart:        2.1,
+			highlightEnd:          2.5,
+			expectedPrevWordEnd:   2.0, // End of word 4 ("a")
 			expectedNextWordStart: 2.6, // Start of word 6 ("transcript")
-			description:         "Single word highlight should have proper boundaries",
+			description:           "Single word highlight should have proper boundaries",
 		},
 		{
-			name:                "Highlight spanning multiple words",
-			highlightStart:      1.9,
-			highlightEnd:        3.2,
-			expectedPrevWordEnd: 1.8, // End of word 3 ("is")
+			name:                  "Highlight spanning multiple words",
+			highlightStart:        1.9,
+			highlightEnd:          3.2,
+			expectedPrevWordEnd:   1.8, // End of word 3 ("is")
 			expectedNextWordStart: 3.3, // Start of word 7 ("with")
-			description:         "Multi-word highlight should respect word boundaries",
+			description:           "Multi-word highlight should respect word boundaries",
 		},
 		{
-			name:                "Highlight between word gaps",
-			highlightStart:      2.0,
-			highlightEnd:        2.1,
-			expectedPrevWordEnd: 1.8, // End of word 3 ("is") - word before word 4 which contains 2.0
+			name:                  "Highlight between word gaps",
+			highlightStart:        2.0,
+			highlightEnd:          2.1,
+			expectedPrevWordEnd:   1.8, // End of word 3 ("is") - word before word 4 which contains 2.0
 			expectedNextWordStart: 2.6, // Start of word 6 ("transcript") - first word that starts after 2.1
-			description:         "Highlight in gap should find correct boundaries",
+			description:           "Highlight in gap should find correct boundaries",
 		},
 	}
 
@@ -815,23 +815,23 @@ func TestAvailableRangeCalculation(t *testing.T) {
 			}
 
 			// Verify the calculations
-			assert.Equal(t, tt.expectedPrevWordEnd, prevWordEnd, 
+			assert.Equal(t, tt.expectedPrevWordEnd, prevWordEnd,
 				"PrevWordEnd mismatch for %s: %s", tt.name, tt.description)
-			assert.Equal(t, tt.expectedNextWordStart, nextWordStart, 
+			assert.Equal(t, tt.expectedNextWordStart, nextWordStart,
 				"NextWordStart mismatch for %s: %s", tt.name, tt.description)
 
 			// Additional verification: ensure range is valid
-			assert.LessOrEqual(t, prevWordEnd, highlight.Start, 
+			assert.LessOrEqual(t, prevWordEnd, highlight.Start,
 				"PrevWordEnd should be <= highlight start")
-			assert.GreaterOrEqual(t, nextWordStart, highlight.End, 
+			assert.GreaterOrEqual(t, nextWordStart, highlight.End,
 				"NextWordStart should be >= highlight end")
-			
+
 			// Log the results for debugging
 			t.Logf("Test: %s", tt.name)
 			t.Logf("  Highlight: %.3f - %.3f", highlight.Start, highlight.End)
 			t.Logf("  Available range: %.3f - %.3f", prevWordEnd, nextWordStart)
-			t.Logf("  Buffer before: %.3fms, after: %.3fms", 
-				(highlight.Start-prevWordEnd)*1000, 
+			t.Logf("  Buffer before: %.3fms, after: %.3fms",
+				(highlight.Start-prevWordEnd)*1000,
 				(nextWordStart-highlight.End)*1000)
 		})
 	}
@@ -844,33 +844,33 @@ func TestAvailableRangeEdgeCases(t *testing.T) {
 	}
 
 	tests := []struct {
-		name            string
-		transcriptWords []schema.Word
-		highlightStart  float64
-		highlightEnd    float64
-		expectedPrevWordEnd float64
+		name                  string
+		transcriptWords       []schema.Word
+		highlightStart        float64
+		highlightEnd          float64
+		expectedPrevWordEnd   float64
 		expectedNextWordStart float64
-		description     string
+		description           string
 	}{
 		{
-			name:            "Empty transcript",
-			transcriptWords: []schema.Word{},
-			highlightStart:  1.0,
-			highlightEnd:    2.0,
-			expectedPrevWordEnd: 0.0, // Should default to 0.0
+			name:                  "Empty transcript",
+			transcriptWords:       []schema.Word{},
+			highlightStart:        1.0,
+			highlightEnd:          2.0,
+			expectedPrevWordEnd:   0.0, // Should default to 0.0
 			expectedNextWordStart: 2.0, // Should default to highlight end
-			description:     "Empty transcript should use safe defaults",
+			description:           "Empty transcript should use safe defaults",
 		},
 		{
 			name: "Single word transcript",
 			transcriptWords: []schema.Word{
 				{Word: "Hello", Start: 1.0, End: 2.0},
 			},
-			highlightStart:  1.0,
-			highlightEnd:    2.0,
-			expectedPrevWordEnd: 0.0, // No word before
+			highlightStart:        1.0,
+			highlightEnd:          2.0,
+			expectedPrevWordEnd:   0.0, // No word before
 			expectedNextWordStart: 2.5, // Last word end + 0.5
-			description:     "Single word transcript edge case",
+			description:           "Single word transcript edge case",
 		},
 		{
 			name: "Highlight covers entire transcript",
@@ -878,11 +878,11 @@ func TestAvailableRangeEdgeCases(t *testing.T) {
 				{Word: "Hello", Start: 1.0, End: 1.5},
 				{Word: "world", Start: 1.6, End: 2.0},
 			},
-			highlightStart:  1.0,
-			highlightEnd:    2.0,
-			expectedPrevWordEnd: 0.0, // No word before
+			highlightStart:        1.0,
+			highlightEnd:          2.0,
+			expectedPrevWordEnd:   0.0, // No word before
 			expectedNextWordStart: 2.5, // Last word end + 0.5
-			description:     "Highlight covering entire transcript",
+			description:           "Highlight covering entire transcript",
 		},
 		{
 			name: "Highlight extends beyond transcript",
@@ -890,11 +890,11 @@ func TestAvailableRangeEdgeCases(t *testing.T) {
 				{Word: "Hello", Start: 1.0, End: 1.5},
 				{Word: "world", Start: 1.6, End: 2.0},
 			},
-			highlightStart:  1.8,
-			highlightEnd:    3.0, // Beyond last word
-			expectedPrevWordEnd: 1.5, // End of first word
+			highlightStart:        1.8,
+			highlightEnd:          3.0, // Beyond last word
+			expectedPrevWordEnd:   1.5, // End of first word
 			expectedNextWordStart: 2.5, // Last word end + 0.5
-			description:     "Highlight extending beyond transcript should use last word + buffer",
+			description:           "Highlight extending beyond transcript should use last word + buffer",
 		},
 	}
 
@@ -939,9 +939,9 @@ func TestAvailableRangeEdgeCases(t *testing.T) {
 			}
 
 			// Verify the calculations
-			assert.Equal(t, tt.expectedPrevWordEnd, prevWordEnd, 
+			assert.Equal(t, tt.expectedPrevWordEnd, prevWordEnd,
 				"PrevWordEnd mismatch for %s: %s", tt.name, tt.description)
-			assert.Equal(t, tt.expectedNextWordStart, nextWordStart, 
+			assert.Equal(t, tt.expectedNextWordStart, nextWordStart,
 				"NextWordStart mismatch for %s: %s", tt.name, tt.description)
 
 			t.Logf("Test: %s", tt.name)

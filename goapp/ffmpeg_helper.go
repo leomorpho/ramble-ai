@@ -11,7 +11,7 @@ func GetFFmpegCommand(args ...string) *exec.Cmd {
 	if ffmpegPath := os.Getenv("FFMPEG_PATH"); ffmpegPath != "" {
 		return exec.Command(ffmpegPath, args...)
 	}
-	
+
 	// Fallback to system FFmpeg if extraction failed
 	return exec.Command("ffmpeg", args...)
 }

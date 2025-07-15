@@ -12,7 +12,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-
 func TestStitchedExport_SingleVideo(t *testing.T) {
 	client, ctx := setupTestDB(t)
 	defer client.Close()
@@ -49,7 +48,7 @@ func TestStitchedExport_MultipleVideos(t *testing.T) {
 	clip1 := createTestVideoClip(t, client, ctx, proj, "Clip1")
 	clip2 := createTestVideoClip(t, client, ctx, proj, "Clip2")
 	clip3 := createTestVideoClip(t, client, ctx, proj, "Clip3")
-	
+
 	// Create highlights on different clips
 	createTestHighlight(t, client, ctx, clip1, 10.0, 20.0)
 	createTestHighlight(t, client, ctx, clip2, 30.0, 40.0)
@@ -107,7 +106,7 @@ func TestStitchedExport_OverlappingHighlights(t *testing.T) {
 	// Create test project with overlapping highlights
 	proj := createTestProject(t, client, ctx, "OverlapProject")
 	clip := createTestVideoClip(t, client, ctx, proj, "OverlapClip")
-	
+
 	// Create overlapping highlights
 	createTestHighlight(t, client, ctx, clip, 10.0, 25.0)
 	createTestHighlight(t, client, ctx, clip, 20.0, 35.0)
@@ -200,7 +199,7 @@ func TestStitchedExport_ProgressTracking(t *testing.T) {
 	proj := createTestProject(t, client, ctx, "ProgressProject")
 	clip1 := createTestVideoClip(t, client, ctx, proj, "ProgressClip1")
 	clip2 := createTestVideoClip(t, client, ctx, proj, "ProgressClip2")
-	
+
 	createTestHighlight(t, client, ctx, clip1, 10.0, 20.0)
 	createTestHighlight(t, client, ctx, clip2, 30.0, 40.0)
 	createTestHighlight(t, client, ctx, clip1, 50.0, 60.0)
@@ -217,19 +216,19 @@ func TestStitchedExport_ProgressTracking(t *testing.T) {
 	// Track progress over time
 	var progressStages []string
 	var progressValues []float64
-	
+
 	for i := 0; i < 10; i++ {
 		progress, err := service.GetExportProgress(jobID)
 		require.NoError(t, err)
-		
+
 		progressStages = append(progressStages, progress.Stage)
 		progressValues = append(progressValues, progress.Progress)
-		
+
 		// Break if completed or failed
 		if progress.Stage == "completed" || progress.Stage == "failed" {
 			break
 		}
-		
+
 		time.Sleep(50 * time.Millisecond)
 	}
 
@@ -253,7 +252,7 @@ func TestStitchedExport_ProjectIsolation(t *testing.T) {
 	// Create clips and highlights for each project
 	clip1 := createTestVideoClip(t, client, ctx, proj1, "Clip1")
 	clip2 := createTestVideoClip(t, client, ctx, proj2, "Clip2")
-	
+
 	createTestHighlight(t, client, ctx, clip1, 10.0, 20.0)
 	createTestHighlight(t, client, ctx, clip1, 30.0, 40.0)
 	createTestHighlight(t, client, ctx, clip2, 5.0, 15.0)
@@ -310,7 +309,7 @@ func TestStitchedExport_FilenameGeneration(t *testing.T) {
 
 	// Check that filename generation works correctly
 	filename := service.generateOutputFilename("Test Project @2024", "stitched")
-	
+
 	// Should sanitize special characters
 	assert.Contains(t, filename, "Test_Project__2024_stitched_")
 	assert.Equal(t, ".mp4", filepath.Ext(filename))
@@ -330,7 +329,7 @@ func TestStitchedExport_ConcurrentExports(t *testing.T) {
 	clip1 := createTestVideoClip(t, client, ctx, proj1, "Clip1")
 	clip2 := createTestVideoClip(t, client, ctx, proj2, "Clip2")
 	clip3 := createTestVideoClip(t, client, ctx, proj3, "Clip3")
-	
+
 	createTestHighlight(t, client, ctx, clip1, 10.0, 20.0)
 	createTestHighlight(t, client, ctx, clip2, 30.0, 40.0)
 	createTestHighlight(t, client, ctx, clip3, 50.0, 60.0)
@@ -420,7 +419,7 @@ func TestStitchedExport_LargeNumberOfHighlights(t *testing.T) {
 	// Create test project with many highlights
 	proj := createTestProject(t, client, ctx, "LargeProject")
 	clip := createTestVideoClip(t, client, ctx, proj, "LargeClip")
-	
+
 	// Create 20 highlights
 	for i := 0; i < 20; i++ {
 		start := float64(i * 10)

@@ -14,7 +14,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-
 func TestExportStitchedHighlights_DatabaseError(t *testing.T) {
 	client, ctx := setupTestDB(t)
 	defer client.Close()
@@ -93,7 +92,7 @@ func TestGetExportProgress_DatabaseClosed(t *testing.T) {
 	// Create test project and job first
 	proj := createTestProject(t, client, ctx, "TestProject")
 	jobID := "test_job_123"
-	
+
 	_, err := client.ExportJob.
 		Create().
 		SetJobID(jobID).
@@ -121,7 +120,7 @@ func TestCancelExport_DatabaseClosed(t *testing.T) {
 	// Create test project and job first
 	proj := createTestProject(t, client, ctx, "TestProject")
 	jobID := "test_job_123"
-	
+
 	_, err := client.ExportJob.
 		Create().
 		SetJobID(jobID).
@@ -197,12 +196,12 @@ func TestExportWithInvalidHighlightTimes(t *testing.T) {
 
 	// Create highlight with invalid times (end before start)
 	invalidHighlight := schema.Highlight{
-		ID:    "invalid_highlight",
-		Start: 30.0,
-		End:   10.0, // End before start
+		ID:      "invalid_highlight",
+		Start:   30.0,
+		End:     10.0, // End before start
 		ColorID: 3,
 	}
-	
+
 	_, err := client.VideoClip.
 		UpdateOne(clip).
 		SetHighlights([]schema.Highlight{invalidHighlight}).
@@ -238,12 +237,12 @@ func TestExportWithNegativeHighlightTimes(t *testing.T) {
 
 	// Create highlight with negative times
 	negativeHighlight := schema.Highlight{
-		ID:    "negative_highlight",
-		Start: -10.0, // Negative start
-		End:   20.0,
+		ID:      "negative_highlight",
+		Start:   -10.0, // Negative start
+		End:     20.0,
 		ColorID: 3,
 	}
-	
+
 	_, err := client.VideoClip.
 		UpdateOne(clip).
 		SetHighlights([]schema.Highlight{negativeHighlight}).
@@ -365,7 +364,7 @@ func TestCancelExport_NonExistentActiveJob(t *testing.T) {
 	// Create test project and job
 	proj := createTestProject(t, client, ctx, "TestProject")
 	jobID := "test_job_123"
-	
+
 	// Create export job but not active job
 	_, err := client.ExportJob.
 		Create().
@@ -447,7 +446,7 @@ func TestUpdateJobProgress_ConcurrentUpdates(t *testing.T) {
 	// Create test project and job
 	proj := createTestProject(t, client, ctx, "ConcurrentProject")
 	jobID := "test_job_123"
-	
+
 	_, err := client.ExportJob.
 		Create().
 		SetJobID(jobID).
@@ -461,7 +460,7 @@ func TestUpdateJobProgress_ConcurrentUpdates(t *testing.T) {
 
 	// Simulate concurrent updates
 	done := make(chan bool, 10)
-	
+
 	for i := 0; i < 10; i++ {
 		go func(index int) {
 			service.updateJobProgress(jobID, "processing", float64(index)/10.0, "file.mp4", 10, index)
@@ -508,7 +507,7 @@ func TestExportWithVeryLongProjectName(t *testing.T) {
 	// Check that directory was created (may be truncated by filesystem)
 	progress, err := service.GetExportProgress(jobID)
 	require.NoError(t, err)
-	
+
 	// Should either succeed or fail gracefully
 	assert.Contains(t, []string{"processing", "extracting", "completed", "failed"}, progress.Stage)
 }
@@ -565,11 +564,11 @@ func TestMemoryLeakPrevention(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		// Add some delay to ensure unique timestamps in job IDs
 		time.Sleep(10 * time.Millisecond)
-		
+
 		jobID, err := service.ExportIndividualHighlights(proj.ID, tempDir, 0.0)
 		require.NoError(t, err)
 		jobIDs = append(jobIDs, jobID)
-		
+
 		// Cancel immediately
 		time.Sleep(10 * time.Millisecond)
 		err = service.CancelExport(jobID)

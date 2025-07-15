@@ -40,7 +40,7 @@ func TestImproveHighlightSilencesWithAIIntegration(t *testing.T) {
 		{Word: "amazing", Start: 1.2, End: 1.6},
 		{Word: "product", Start: 1.65, End: 2.0},
 		{Word: "demo", Start: 2.05, End: 2.3},
-		// Silence gap  
+		// Silence gap
 		{Word: "today", Start: 2.8, End: 3.1},
 	}
 
@@ -58,8 +58,8 @@ func TestImproveHighlightSilencesWithAIIntegration(t *testing.T) {
 	highlights1 := []schema.Highlight{
 		{
 			ID:      "highlight_demo_1",
-			Start:   1.2,   // Exact start of "amazing"
-			End:     2.3,   // Exact end of "demo"
+			Start:   1.2, // Exact start of "amazing"
+			End:     2.3, // Exact end of "demo"
 			ColorID: 1,
 		},
 	}
@@ -90,8 +90,8 @@ func TestImproveHighlightSilencesWithAIIntegration(t *testing.T) {
 	highlights2 := []schema.Highlight{
 		{
 			ID:      "highlight_tips_1",
-			Start:   0.35,  // Start of "tips"
-			End:     1.2,   // End of "success"
+			Start:   0.35, // Start of "tips"
+			End:     1.2,  // End of "success"
 			ColorID: 2,
 		},
 	}
@@ -106,7 +106,7 @@ func TestImproveHighlightSilencesWithAIIntegration(t *testing.T) {
 		// Verify request
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, "/api/v1/chat/completions", r.URL.Path)
-		
+
 		// Return mock AI response with improved timings
 		response := OpenRouterResponse{
 			Choices: []Choice{
@@ -144,8 +144,8 @@ func TestImproveHighlightSilencesWithAIIntegration(t *testing.T) {
 
 	// Create service with mock server
 	service := &AIService{
-		client: client,
-		ctx:    ctx,
+		client:           client,
+		ctx:              ctx,
 		highlightService: NewHighlightService(client, ctx),
 	}
 
@@ -160,8 +160,8 @@ func TestImproveHighlightSilencesWithAIIntegration(t *testing.T) {
 			Highlights: []HighlightWithText{
 				{
 					ID:      "highlight_demo_1",
-					Start:   0.95,   // Added ~250ms padding before
-					End:     2.55,   // Added ~250ms padding after
+					Start:   0.95, // Added ~250ms padding before
+					End:     2.55, // Added ~250ms padding after
 					ColorID: 1,
 					Text:    "amazing product demo",
 				},
@@ -175,8 +175,8 @@ func TestImproveHighlightSilencesWithAIIntegration(t *testing.T) {
 			Highlights: []HighlightWithText{
 				{
 					ID:      "highlight_tips_1",
-					Start:   0.32,   // Added small padding (limited by prev word)
-					End:     1.25,   // Added small padding
+					Start:   0.32, // Added small padding (limited by prev word)
+					End:     1.25, // Added small padding
 					ColorID: 2,
 					Text:    "tips for success",
 				},
@@ -189,7 +189,7 @@ func TestImproveHighlightSilencesWithAIIntegration(t *testing.T) {
 		// Video 1 improvements
 		assert.Equal(t, 0.95, improvedHighlights[0].Highlights[0].Start)
 		assert.Equal(t, 2.55, improvedHighlights[0].Highlights[0].End)
-		
+
 		// Verify padding doesn't overlap with words
 		assert.Greater(t, improvedHighlights[0].Highlights[0].Start, words1[2].End) // After "our"
 		assert.Less(t, improvedHighlights[0].Highlights[0].Start, words1[3].Start)  // Before "amazing"
@@ -199,7 +199,7 @@ func TestImproveHighlightSilencesWithAIIntegration(t *testing.T) {
 		// Video 2 improvements (limited padding due to tight spacing)
 		assert.Equal(t, 0.32, improvedHighlights[1].Highlights[0].Start)
 		assert.Equal(t, 1.25, improvedHighlights[1].Highlights[0].End)
-		
+
 		// Verify limited padding respects word boundaries
 		assert.Greater(t, improvedHighlights[1].Highlights[0].Start, words2[0].End) // After "Quick"
 		assert.Less(t, improvedHighlights[1].Highlights[0].Start, words2[1].Start)  // Before "tips"
@@ -213,11 +213,11 @@ func TestImproveHighlightSilencesWithAIIntegration(t *testing.T) {
 		// Verify cached improvements
 		cachedImprovements, createdAt, model, err := service.GetProjectAISilenceImprovements(project.ID)
 		require.NoError(t, err)
-		
+
 		assert.Equal(t, "test-model", model)
 		assert.NotZero(t, createdAt)
 		assert.Len(t, cachedImprovements, 2)
-		
+
 		// Verify first video improvements
 		assert.Equal(t, clip1.ID, cachedImprovements[0].VideoClipID)
 		assert.Len(t, cachedImprovements[0].Highlights, 1)
@@ -229,15 +229,15 @@ func TestImproveHighlightSilencesWithAIIntegration(t *testing.T) {
 // TestValidatePaddingConstraints ensures padding respects all constraints
 func TestValidatePaddingConstraints(t *testing.T) {
 	testCases := []struct {
-		name            string
-		currentStart    float64
-		currentEnd      float64
-		prevWordEnd     float64
-		nextWordStart   float64
-		videoDuration   float64
-		expectedStart   float64
-		expectedEnd     float64
-		description     string
+		name          string
+		currentStart  float64
+		currentEnd    float64
+		prevWordEnd   float64
+		nextWordStart float64
+		videoDuration float64
+		expectedStart float64
+		expectedEnd   float64
+		description   string
 	}{
 		{
 			name:          "NormalPadding",
@@ -246,15 +246,15 @@ func TestValidatePaddingConstraints(t *testing.T) {
 			prevWordEnd:   1.5,
 			nextWordStart: 3.5,
 			videoDuration: 10.0,
-			expectedStart: 1.7,  // 300ms padding
-			expectedEnd:   3.3,  // 300ms padding
+			expectedStart: 1.7, // 300ms padding
+			expectedEnd:   3.3, // 300ms padding
 			description:   "Should add normal padding when space available",
 		},
 		{
 			name:          "LimitedByPreviousWord",
 			currentStart:  2.0,
 			currentEnd:    3.0,
-			prevWordEnd:   1.9,  // Only 100ms gap
+			prevWordEnd:   1.9, // Only 100ms gap
 			nextWordStart: 3.5,
 			videoDuration: 10.0,
 			expectedStart: 1.92, // Limited to ~80ms
@@ -266,7 +266,7 @@ func TestValidatePaddingConstraints(t *testing.T) {
 			currentStart:  2.0,
 			currentEnd:    3.0,
 			prevWordEnd:   1.5,
-			nextWordStart: 3.1,  // Only 100ms gap
+			nextWordStart: 3.1, // Only 100ms gap
 			videoDuration: 10.0,
 			expectedStart: 1.7,  // Normal padding
 			expectedEnd:   3.08, // Limited to ~80ms
@@ -276,7 +276,7 @@ func TestValidatePaddingConstraints(t *testing.T) {
 			name:          "AtVideoStart",
 			currentStart:  0.1,
 			currentEnd:    1.0,
-			prevWordEnd:   0.0,  // No previous word
+			prevWordEnd:   0.0, // No previous word
 			nextWordStart: 1.5,
 			videoDuration: 10.0,
 			expectedStart: 0.02, // Limited by minimum gap from previous word end
@@ -298,11 +298,11 @@ func TestValidatePaddingConstraints(t *testing.T) {
 			name:          "NoSpaceForPadding",
 			currentStart:  2.0,
 			currentEnd:    3.0,
-			prevWordEnd:   2.0,  // Adjacent to previous
-			nextWordStart: 3.0,  // Adjacent to next
+			prevWordEnd:   2.0, // Adjacent to previous
+			nextWordStart: 3.0, // Adjacent to next
 			videoDuration: 10.0,
-			expectedStart: 2.0,  // No change
-			expectedEnd:   3.0,  // No change
+			expectedStart: 2.0, // No change
+			expectedEnd:   3.0, // No change
 			description:   "Should not add padding when no space available",
 		},
 	}
@@ -311,7 +311,7 @@ func TestValidatePaddingConstraints(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Calculate ideal padding (this simulates what the AI would do)
 			idealPadding := 0.3 // 300ms
-			
+
 			// Calculate actual padding based on constraints
 			actualStart := tc.currentStart - idealPadding
 			if actualStart < tc.prevWordEnd {
@@ -324,7 +324,7 @@ func TestValidatePaddingConstraints(t *testing.T) {
 			if actualStart < 0 {
 				actualStart = 0
 			}
-			
+
 			actualEnd := tc.currentEnd + idealPadding
 			if actualEnd > tc.nextWordStart {
 				if tc.nextWordStart > tc.currentEnd {
@@ -336,7 +336,7 @@ func TestValidatePaddingConstraints(t *testing.T) {
 			if actualEnd > tc.videoDuration {
 				actualEnd = tc.videoDuration
 			}
-			
+
 			// Allow for small tolerance in floating point comparison
 			assert.InDelta(t, tc.expectedStart, actualStart, 0.01, tc.description+" (start)")
 			assert.InDelta(t, tc.expectedEnd, actualEnd, 0.01, tc.description+" (end)")
@@ -390,7 +390,7 @@ func TestAIPaddingPromptGeneration(t *testing.T) {
 	assert.Contains(t, prompt, "key takeaway")
 	assert.Contains(t, prompt, "10.000 - 11.000")
 	assert.Contains(t, prompt, "9.200 - 11.100")
-	
+
 	// Verify instructions
 	assert.Contains(t, prompt, "natural pauses")
 	assert.Contains(t, prompt, "breathing room")

@@ -15,7 +15,7 @@ func (s *ChatbotService) registerFunctions() {
 	s.functionRegistry["apply_ai_suggestion"] = s.executeApplyAISuggestion
 	s.functionRegistry["reset_to_original"] = s.executeResetToOriginal
 	s.functionRegistry["improve_silences"] = s.executeImproveSilences
-	
+
 	// Define function schemas for LLM
 	s.functionDefs = []FunctionDefinition{
 		{
@@ -42,7 +42,7 @@ func (s *ChatbotService) registerFunctions() {
 						},
 					},
 					"reason": map[string]interface{}{
-						"type":        "string", 
+						"type":        "string",
 						"description": "Brief explanation of why this order works better",
 					},
 				},
@@ -61,7 +61,7 @@ func (s *ChatbotService) registerFunctions() {
 			Name:        "analyze_highlights",
 			Description: "Analyze highlights for content, themes, and structure recommendations",
 			Parameters: map[string]interface{}{
-				"type":       "object", 
+				"type":       "object",
 				"properties": map[string]interface{}{},
 			},
 		},
@@ -95,7 +95,7 @@ func (s *ChatbotService) registerFunctions() {
 // buildToolDefinitions converts function definitions to OpenRouter tool format
 func (s *ChatbotService) buildToolDefinitions() []map[string]interface{} {
 	var tools []map[string]interface{}
-	
+
 	for _, funcDef := range s.functionDefs {
 		tool := map[string]interface{}{
 			"type": "function",
@@ -107,7 +107,7 @@ func (s *ChatbotService) buildToolDefinitions() []map[string]interface{} {
 		}
 		tools = append(tools, tool)
 	}
-	
+
 	return tools
 }
 
@@ -120,7 +120,7 @@ func (s *ChatbotService) executeFunctionCall(toolCall map[string]interface{}, pr
 			Error:   "Invalid function call format",
 		}
 	}
-	
+
 	functionName, ok := functionInfo["name"].(string)
 	if !ok {
 		return FunctionExecutionResult{
@@ -128,7 +128,7 @@ func (s *ChatbotService) executeFunctionCall(toolCall map[string]interface{}, pr
 			Error:   "Function name not found",
 		}
 	}
-	
+
 	// Parse arguments
 	var args map[string]interface{}
 	if argsStr, ok := functionInfo["arguments"].(string); ok {
@@ -140,7 +140,7 @@ func (s *ChatbotService) executeFunctionCall(toolCall map[string]interface{}, pr
 			}
 		}
 	}
-	
+
 	// Execute function
 	executor, exists := s.functionRegistry[functionName]
 	if !exists {
@@ -150,7 +150,7 @@ func (s *ChatbotService) executeFunctionCall(toolCall map[string]interface{}, pr
 			Error:        "Function not found",
 		}
 	}
-	
+
 	result, err := executor(args, projectID, s)
 	if err != nil {
 		return FunctionExecutionResult{
@@ -159,7 +159,7 @@ func (s *ChatbotService) executeFunctionCall(toolCall map[string]interface{}, pr
 			Error:        err.Error(),
 		}
 	}
-	
+
 	return FunctionExecutionResult{
 		FunctionName: functionName,
 		Success:      true,
@@ -177,35 +177,35 @@ func (s *ChatbotService) executeReorderHighlights(args map[string]interface{}, p
 		// If no new order provided, use AI to generate one
 		return s.executeAIReorderHighlights(args, projectID, service)
 	}
-	
+
 	// Convert interface{} to []interface{}
 	newOrderSlice, ok := newOrderInterface.([]interface{})
 	if !ok {
 		return nil, fmt.Errorf("new_order must be an array")
 	}
-	
+
 	// Apply the reordering immediately using the update function
 	err := s.updateOrderFunc(projectID, newOrderSlice)
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply highlight reorder: %w", err)
 	}
-	
+
 	reason := ""
 	if reasonInterface, ok := args["reason"]; ok {
 		if reasonStr, ok := reasonInterface.(string); ok {
 			reason = reasonStr
 		}
 	}
-	
+
 	log.Printf("Successfully reordered %d highlights for project %d", len(newOrderSlice), projectID)
-	
+
 	return map[string]interface{}{
-		"success":     true,
-		"message":     fmt.Sprintf("Successfully reordered %d highlights", len(newOrderSlice)),
-		"reason":      reason,
-		"count":       len(newOrderSlice),
-		"new_order":   newOrderSlice,
-		"applied":     true,
+		"success":   true,
+		"message":   fmt.Sprintf("Successfully reordered %d highlights", len(newOrderSlice)),
+		"reason":    reason,
+		"count":     len(newOrderSlice),
+		"new_order": newOrderSlice,
+		"applied":   true,
 	}, nil
 }
 
@@ -213,22 +213,22 @@ func (s *ChatbotService) executeReorderHighlights(args map[string]interface{}, p
 func (s *ChatbotService) executeAIReorderHighlights(args map[string]interface{}, projectID int, service *ChatbotService) (interface{}, error) {
 	// For now, implement a simple reordering algorithm instead of calling external AI
 	// This provides a working fallback until full AI integration is implemented
-	
+
 	// Get current highlights
 	projectHighlights, err := s.highlightService.GetProjectHighlights(projectID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get project highlights: %w", err)
 	}
-	
+
 	if len(projectHighlights) == 0 {
 		return nil, fmt.Errorf("no highlights found to reorder")
 	}
-	
+
 	// Simple reordering strategy: reverse the current order for demonstration
 	// In a real implementation, this would use sophisticated AI analysis
 	var newOrder []interface{}
 	highlightCount := 0
-	
+
 	// Collect all highlight IDs first
 	var allHighlights []string
 	for _, ph := range projectHighlights {
@@ -237,27 +237,27 @@ func (s *ChatbotService) executeAIReorderHighlights(args map[string]interface{},
 			highlightCount++
 		}
 	}
-	
+
 	// Simple reordering: reverse order as a demonstration
 	for i := len(allHighlights) - 1; i >= 0; i-- {
 		newOrder = append(newOrder, allHighlights[i])
 	}
-	
+
 	// Apply the reordering immediately
 	err = s.updateOrderFunc(projectID, newOrder)
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply reordering: %w", err)
 	}
-	
+
 	log.Printf("Successfully applied simple reordering for project %d with %d items", projectID, len(newOrder))
-	
+
 	return map[string]interface{}{
-		"success":     true,
-		"message":     fmt.Sprintf("Reordered %d highlights for better flow", len(newOrder)),
-		"reason":      "Applied optimal reordering for improved narrative structure",
-		"count":       len(newOrder),
-		"new_order":   newOrder,
-		"applied":     true,
+		"success":      true,
+		"message":      fmt.Sprintf("Reordered %d highlights for better flow", len(newOrder)),
+		"reason":       "Applied optimal reordering for improved narrative structure",
+		"count":        len(newOrder),
+		"new_order":    newOrder,
+		"applied":      true,
 		"ai_generated": true,
 	}, nil
 }
@@ -268,13 +268,13 @@ func (s *ChatbotService) executeGetCurrentOrder(args map[string]interface{}, pro
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current order: %w", err)
 	}
-	
+
 	// Get highlight details for context
 	projectHighlights, err := s.highlightService.GetProjectHighlights(projectID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get project highlights: %w", err)
 	}
-	
+
 	// Create a summary for the LLM
 	highlightSummary := make(map[string]string)
 	for _, ph := range projectHighlights {
@@ -287,7 +287,7 @@ func (s *ChatbotService) executeGetCurrentOrder(args map[string]interface{}, pro
 			highlightSummary[highlight.ID] = text
 		}
 	}
-	
+
 	return map[string]interface{}{
 		"current_order":     currentOrder,
 		"highlight_summary": highlightSummary,
@@ -301,19 +301,19 @@ func (s *ChatbotService) executeAnalyzeHighlights(args map[string]interface{}, p
 	if err != nil {
 		return nil, fmt.Errorf("failed to get project highlights: %w", err)
 	}
-	
+
 	if len(projectHighlights) == 0 {
 		return map[string]interface{}{
 			"total_highlights": 0,
 			"message":          "No highlights found for analysis",
 		}, nil
 	}
-	
+
 	// Analyze content
 	totalLength := 0
 	var allTexts []string
 	highlightCount := 0
-	
+
 	for _, ph := range projectHighlights {
 		for _, highlight := range ph.Highlights {
 			allTexts = append(allTexts, highlight.Text)
@@ -321,18 +321,18 @@ func (s *ChatbotService) executeAnalyzeHighlights(args map[string]interface{}, p
 			highlightCount++
 		}
 	}
-	
+
 	avgLength := 0
 	if highlightCount > 0 {
 		avgLength = totalLength / highlightCount
 	}
-	
+
 	return map[string]interface{}{
-		"total_highlights":   highlightCount,
-		"total_text_length":  totalLength,
-		"average_length":     avgLength,
-		"highlight_texts":    allTexts[:min(10, len(allTexts))], // First 10 for context
-		"analysis_complete":  true,
+		"total_highlights":  highlightCount,
+		"total_text_length": totalLength,
+		"average_length":    avgLength,
+		"highlight_texts":   allTexts[:min(10, len(allTexts))], // First 10 for context
+		"analysis_complete": true,
 	}, nil
 }
 
@@ -343,20 +343,20 @@ func (s *ChatbotService) executeApplyAISuggestion(args map[string]interface{}, p
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cached AI suggestion: %w", err)
 	}
-	
+
 	if cachedSuggestion == nil || len(cachedSuggestion.Order) == 0 {
 		return nil, fmt.Errorf("no cached AI suggestion found")
 	}
-	
+
 	// Return the cached suggestion for the caller to apply
 	// Note: The actual database update will be handled by the app layer
-	
+
 	return map[string]interface{}{
-		"success":      true,
-		"message":      "Cached AI suggestion prepared",
-		"model_used":   cachedSuggestion.Model,
-		"created_at":   cachedSuggestion.CreatedAt,
-		"new_order":    cachedSuggestion.Order,
+		"success":        true,
+		"message":        "Cached AI suggestion prepared",
+		"model_used":     cachedSuggestion.Model,
+		"created_at":     cachedSuggestion.CreatedAt,
+		"new_order":      cachedSuggestion.Order,
 		"apply_required": true,
 	}, nil
 }
@@ -368,7 +368,7 @@ func (s *ChatbotService) executeResetToOriginal(args map[string]interface{}, pro
 	if err != nil {
 		return nil, fmt.Errorf("failed to get project highlights: %w", err)
 	}
-	
+
 	// Create original order (just highlight IDs in sequence)
 	var originalOrder []interface{}
 	for _, ph := range projectHighlights {
@@ -376,15 +376,15 @@ func (s *ChatbotService) executeResetToOriginal(args map[string]interface{}, pro
 			originalOrder = append(originalOrder, highlight.ID)
 		}
 	}
-	
+
 	// Return the original order for the caller to apply
 	// Note: The actual database update will be handled by the app layer
-	
+
 	return map[string]interface{}{
-		"success":      true,
-		"message":      "Original order prepared",
-		"count":        len(originalOrder),
-		"new_order":    originalOrder,
+		"success":        true,
+		"message":        "Original order prepared",
+		"count":          len(originalOrder),
+		"new_order":      originalOrder,
 		"apply_required": true,
 	}, nil
 }
@@ -394,10 +394,10 @@ func (s *ChatbotService) executeImproveSilences(args map[string]interface{}, pro
 	// For now, return a message indicating this should be called directly
 	// The chatbot can suggest this action, but the actual execution should use the main App function
 	return map[string]interface{}{
-		"success": true,
-		"message": "Please use the 'Improve Silences' button in the UI to apply AI silence improvements",
+		"success":         true,
+		"message":         "Please use the 'Improve Silences' button in the UI to apply AI silence improvements",
 		"action_required": "improve_silences_ui",
-		"description": "This action requires direct access to AI services and should be triggered from the UI",
+		"description":     "This action requires direct access to AI services and should be triggered from the UI",
 	}, nil
 }
 

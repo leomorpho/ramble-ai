@@ -110,17 +110,17 @@ func (m *Manager) BroadcastHighlightsUpdate(projectID string, highlights interfa
 	data := &HighlightsUpdateData{
 		Highlights: highlights,
 	}
-	
+
 	event := NewEvent(EventHighlightsUpdated, projectID, data)
-	
+
 	// Broadcast via SSE for browser connections
 	m.sseManager.BroadcastToProject(projectID, event)
-	
+
 	// Broadcast via Wails events for desktop app
 	if m.ctx != nil {
 		runtime.EventsEmit(m.ctx, string(EventHighlightsUpdated), event)
 	}
-	
+
 	log.Printf("Broadcasted highlights update for project %s", projectID)
 }
 
@@ -129,17 +129,17 @@ func (m *Manager) BroadcastHighlightsDelete(projectID string, highlightIDs []str
 	data := &HighlightsDeleteData{
 		HighlightIDs: highlightIDs,
 	}
-	
+
 	event := NewEvent(EventHighlightsDeleted, projectID, data)
-	
+
 	// Broadcast via SSE for browser connections
 	m.sseManager.BroadcastToProject(projectID, event)
-	
+
 	// Broadcast via Wails events for desktop app
 	if m.ctx != nil {
 		runtime.EventsEmit(m.ctx, string(EventHighlightsDeleted), event)
 	}
-	
+
 	log.Printf("Broadcasted highlights delete for project %s", projectID)
 }
 
@@ -148,17 +148,17 @@ func (m *Manager) BroadcastHighlightsReorder(projectID string, newOrder []interf
 	data := &HighlightsReorderData{
 		NewOrder: newOrder,
 	}
-	
+
 	event := NewEvent(EventHighlightsReordered, projectID, data)
-	
+
 	// Broadcast via SSE for browser connections
 	m.sseManager.BroadcastToProject(projectID, event)
-	
+
 	// Broadcast via Wails events for desktop app
 	if m.ctx != nil {
 		runtime.EventsEmit(m.ctx, string(EventHighlightsReordered), event)
 	}
-	
+
 	log.Printf("Broadcasted highlights reorder for project %s", projectID)
 }
 
@@ -167,10 +167,10 @@ func (m *Manager) BroadcastProjectUpdate(projectID string, project interface{}) 
 	data := &ProjectUpdateData{
 		Project: project,
 	}
-	
+
 	event := NewEvent(EventProjectUpdated, projectID, data)
 	m.sseManager.BroadcastToProject(projectID, event)
-	
+
 	log.Printf("Broadcasted project update for project %s", projectID)
 }
 
@@ -181,17 +181,17 @@ func (m *Manager) BroadcastChatMessageAdded(projectID string, endpointID string,
 		SessionID:  sessionID,
 		Message:    message,
 	}
-	
+
 	event := NewEvent(EventChatMessageAdded, projectID, data)
-	
+
 	// Broadcast via SSE for browser connections
 	m.sseManager.BroadcastToProject(projectID, event)
-	
+
 	// Broadcast via Wails events for desktop app
 	if m.ctx != nil {
 		runtime.EventsEmit(m.ctx, string(EventChatMessageAdded), event)
 	}
-	
+
 	log.Printf("Broadcasted chat message added for project %s, endpoint %s", projectID, endpointID)
 }
 
@@ -201,17 +201,17 @@ func (m *Manager) BroadcastChatHistoryCleared(projectID string, endpointID strin
 		EndpointID: endpointID,
 		SessionID:  sessionID,
 	}
-	
+
 	event := NewEvent(EventChatHistoryCleared, projectID, data)
-	
+
 	// Broadcast via SSE for browser connections
 	m.sseManager.BroadcastToProject(projectID, event)
-	
+
 	// Broadcast via Wails events for desktop app
 	if m.ctx != nil {
 		runtime.EventsEmit(m.ctx, string(EventChatHistoryCleared), event)
 	}
-	
+
 	log.Printf("Broadcasted chat history cleared for project %s, endpoint %s", projectID, endpointID)
 }
 
@@ -222,17 +222,17 @@ func (m *Manager) BroadcastChatSessionUpdated(projectID string, endpointID strin
 		SessionID:  sessionID,
 		Messages:   messages,
 	}
-	
+
 	event := NewEvent(EventChatSessionUpdated, projectID, data)
-	
+
 	// Broadcast via SSE for browser connections
 	m.sseManager.BroadcastToProject(projectID, event)
-	
+
 	// Broadcast via Wails events for desktop app
 	if m.ctx != nil {
 		runtime.EventsEmit(m.ctx, string(EventChatSessionUpdated), event)
 	}
-	
+
 	log.Printf("Broadcasted chat session updated for project %s, endpoint %s", projectID, endpointID)
 }
 
@@ -243,17 +243,17 @@ func (m *Manager) BroadcastChatProgress(projectID string, endpointID string, ses
 		SessionID:  sessionID,
 		Message:    message,
 	}
-	
+
 	event := NewEvent(EventChatProgress, projectID, data)
-	
+
 	// Broadcast via SSE for browser connections
 	m.sseManager.BroadcastToProject(projectID, event)
-	
+
 	// Broadcast via Wails events for desktop app
 	if m.ctx != nil {
 		runtime.EventsEmit(m.ctx, string(EventChatProgress), event)
 	}
-	
+
 	log.Printf("Broadcasted chat progress for project %s, endpoint %s: %s", projectID, endpointID, message)
 }
 
@@ -275,7 +275,7 @@ func (m *Manager) GetProjectStats(projectID string) map[string]interface{} {
 func (m *Manager) Shutdown() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	if m.sseManager != nil {
 		m.sseManager.Shutdown()
 		log.Println("Real-time manager shut down")

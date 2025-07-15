@@ -36,7 +36,7 @@ func (h *AssetHandler) CreateAssetMiddleware() assetserver.Middleware {
 			w.Header().Set("Access-Control-Allow-Origin", "*")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-			
+
 			// Handle preflight requests
 			if r.Method == "OPTIONS" {
 				w.WriteHeader(http.StatusOK)
@@ -53,14 +53,14 @@ func (h *AssetHandler) CreateAssetMiddleware() assetserver.Middleware {
 				h.HandleThumbnailRequest(w, r)
 				return
 			}
-			
+
 			// For all other requests (including direct file paths), use gahara's approach
 			// Serve files directly from the filesystem with security checks
 			if h.isDirectFileRequest(r.URL.Path) {
 				h.HandleDirectFileRequest(w, r)
 				return
 			}
-			
+
 			// Pass to next handler for frontend assets
 			next.ServeHTTP(w, r)
 		})
@@ -325,21 +325,21 @@ func (h *AssetHandler) GetFileInfo(filePath string) (int64, string, bool) {
 // isDirectFileRequest checks if the request is for a direct file path (gahara approach)
 func (h *AssetHandler) isDirectFileRequest(path string) bool {
 	// Exclude frontend assets and development server paths
-	if strings.HasPrefix(path, "/_app/") || 
-	   strings.HasPrefix(path, "/api/") ||
-	   strings.HasPrefix(path, "/@") ||
-	   strings.HasPrefix(path, "/node_modules/") ||
-	   strings.Contains(path, ".svelte-kit") ||
-	   strings.Contains(path, "/src/") {
+	if strings.HasPrefix(path, "/_app/") ||
+		strings.HasPrefix(path, "/api/") ||
+		strings.HasPrefix(path, "/@") ||
+		strings.HasPrefix(path, "/node_modules/") ||
+		strings.Contains(path, ".svelte-kit") ||
+		strings.Contains(path, "/src/") {
 		log.Printf("[DIRECT] Excluding frontend asset path: %s", path)
 		return false
 	}
-	
+
 	// Check if this looks like an absolute file path with a video extension
 	// Support ANY absolute path (Unix: starts with /, Windows: drive letter format)
 	isAbsolutePath := strings.HasPrefix(path, "/") || // Unix-style absolute path
 		(len(path) >= 3 && path[1] == ':' && (path[2] == '\\' || path[2] == '/')) // Windows drive letter
-	
+
 	if isAbsolutePath && len(path) > 3 {
 		// Check if it has a video file extension
 		ext := strings.ToLower(filepath.Ext(path))
@@ -354,7 +354,7 @@ func (h *AssetHandler) isDirectFileRequest(path string) bool {
 	} else {
 		log.Printf("[DIRECT] Path is not absolute: %s", path)
 	}
-	
+
 	log.Printf("[DIRECT] Rejecting file request: %s", path)
 	return false
 }
@@ -368,19 +368,19 @@ func (h *AssetHandler) HandleDirectFileRequest(w http.ResponseWriter, r *http.Re
 		http.Error(w, "Invalid file path", http.StatusBadRequest)
 		return
 	}
-	
+
 	// Clean the path for security
 	filePath = filepath.Clean(filePath)
-	
+
 	log.Printf("[DIRECT] Serving file: %s", filePath)
-	
+
 	// Check if file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		log.Printf("[DIRECT] File not found: %s", err)
 		http.NotFound(w, r)
 		return
 	}
-	
+
 	// Serve the file directly (gahara approach)
 	http.ServeFile(w, r, filePath)
 }

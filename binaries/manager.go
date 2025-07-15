@@ -10,9 +10,9 @@ import (
 )
 
 var (
-	ffmpegPath     string
-	ffmpegOnce     sync.Once
-	extractionErr  error
+	ffmpegPath    string
+	ffmpegOnce    sync.Once
+	extractionErr error
 )
 
 // GetFFmpegPath returns the path to the extracted FFmpeg binary.

@@ -77,16 +77,16 @@ func (c *Client) Close() {
 type SSEManager struct {
 	clients    map[string]*Client
 	clientsMux sync.RWMutex
-	
+
 	// Project-specific client groups
 	projectClients map[string]map[string]*Client
 	projectMux     sync.RWMutex
-	
+
 	// Event channels
-	eventChan    chan *Event
+	eventChan        chan *Event
 	addClientChan    chan *Client
 	removeClientChan chan string
-	
+
 	ctx    context.Context
 	cancel context.CancelFunc
 }
@@ -94,7 +94,7 @@ type SSEManager struct {
 // NewSSEManager creates a new SSE manager
 func NewSSEManager() *SSEManager {
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	manager := &SSEManager{
 		clients:          make(map[string]*Client),
 		projectClients:   make(map[string]map[string]*Client),
@@ -151,7 +151,7 @@ func (m *SSEManager) GetClientCount() int {
 func (m *SSEManager) GetProjectClientCount(projectID string) int {
 	m.projectMux.RLock()
 	defer m.projectMux.RUnlock()
-	
+
 	if clients, exists := m.projectClients[projectID]; exists {
 		return len(clients)
 	}
@@ -199,7 +199,7 @@ func (m *SSEManager) addClientInternal(client *Client) {
 		"clientId": client.ID,
 		"message":  "Connected to real-time updates",
 	})
-	
+
 	if err := client.Send(confirmEvent); err != nil {
 		log.Printf("Failed to send connection confirmation to client %s: %v", client.ID, err)
 		m.RemoveClient(client.ID)

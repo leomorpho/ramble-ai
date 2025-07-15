@@ -10,19 +10,19 @@ type EventType string
 
 const (
 	// Highlight events
-	EventHighlightsUpdated  EventType = "highlights_updated"
-	EventHighlightsDeleted  EventType = "highlights_deleted"
+	EventHighlightsUpdated   EventType = "highlights_updated"
+	EventHighlightsDeleted   EventType = "highlights_deleted"
 	EventHighlightsReordered EventType = "highlights_reordered"
-	
+
 	// Project events
 	EventProjectUpdated EventType = "project_updated"
-	
+
 	// Chatbot events
 	EventChatMessageAdded   EventType = "chat_message_added"
 	EventChatHistoryCleared EventType = "chat_history_cleared"
 	EventChatSessionUpdated EventType = "chat_session_updated"
 	EventChatProgress       EventType = "chat_progress"
-	
+
 	// Connection events
 	EventConnected    EventType = "connected"
 	EventDisconnected EventType = "disconnected"
@@ -52,7 +52,7 @@ func (e *Event) ToSSE() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	return "data: " + string(data) + "\n\n", nil
 }
 
@@ -70,8 +70,8 @@ type HighlightsDeleteData struct {
 
 // HighlightsReorderData represents data for highlights reorder events
 type HighlightsReorderData struct {
-	NewOrder  []interface{} `json:"newOrder"`
-	ReorderedBy string       `json:"reorderedBy,omitempty"`
+	NewOrder    []interface{} `json:"newOrder"`
+	ReorderedBy string        `json:"reorderedBy,omitempty"`
 }
 
 // ProjectUpdateData represents data for project update events

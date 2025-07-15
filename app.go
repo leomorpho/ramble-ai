@@ -88,11 +88,11 @@ func (a *App) startup(ctx context.Context) {
 func (a *App) shutdown(ctx context.Context) {
 	// Cleanup FFmpeg binary
 	binaries.CleanupFFmpeg()
-	
+
 	// Shutdown real-time manager
 	manager := realtime.GetManager()
 	manager.Shutdown()
-	
+
 	// Close the database connection
 	if err := a.client.Close(); err != nil {
 		log.Printf("failed to close database connection: %v", err)
@@ -103,12 +103,12 @@ func (a *App) shutdown(ctx context.Context) {
 func (a *App) createAssetMiddleware() assetserver.Middleware {
 	assetHandler := assetshandler.NewAssetHandler()
 	originalMiddleware := assetHandler.CreateAssetMiddleware()
-	
+
 	// Wrap the original middleware to handle SSE endpoints
 	return func(next http.Handler) http.Handler {
 		// Apply the original middleware first
 		wrappedHandler := originalMiddleware(next)
-		
+
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Check if this is an SSE request
 			if strings.HasPrefix(r.URL.Path, "/api/sse/highlights") {
@@ -116,7 +116,7 @@ func (a *App) createAssetMiddleware() assetserver.Middleware {
 				manager.HandleSSEConnection(w, r)
 				return
 			}
-			
+
 			// For all other requests, use the original wrapped handler
 			wrappedHandler.ServeHTTP(w, r)
 		})
@@ -270,7 +270,6 @@ func (a *App) GetThemePreference() (string, error) {
 	service := settings.NewSettingsService(a.client, a.ctx)
 	return service.GetThemePreference()
 }
-
 
 // Word represents a single word with timing information
 type Word struct {
@@ -497,12 +496,12 @@ func (a *App) GetProjectAISilenceResult(projectID int) (*ProjectAISilenceResult,
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// If no cached improvements, return nil
 	if len(improvements) == 0 {
 		return nil, nil
 	}
-	
+
 	return &ProjectAISilenceResult{
 		Improvements: improvements,
 		CreatedAt:    createdAt.Format("2006-01-02T15:04:05Z07:00"),
@@ -616,13 +615,13 @@ func (a *App) migrateHighlightColors() error {
 	for _, clip := range videoClips {
 		needsUpdate := false
 		suggestedNeedsUpdate := false
-		
+
 		// Migrate main highlights
 		if len(clip.Highlights) > 0 {
 			var newHighlights []schema.Highlight
 			for _, highlight := range clip.Highlights {
 				newHighlight := highlight
-				
+
 				// Check if this highlight already uses integer colorId (skip if so)
 				if highlight.ColorID != 0 {
 					newHighlights = append(newHighlights, newHighlight)
@@ -653,7 +652,7 @@ func (a *App) migrateHighlightColors() error {
 			var newSuggestedHighlights []schema.Highlight
 			for _, highlight := range clip.SuggestedHighlights {
 				newHighlight := highlight
-				
+
 				// Check if this highlight already uses integer colorId (skip if so)
 				if highlight.ColorID != 0 {
 					newSuggestedHighlights = append(newSuggestedHighlights, newHighlight)
@@ -706,19 +705,19 @@ func convertLegacyColorToId(oldColor string, counter *int) int {
 	// Map common color patterns to IDs
 	colorMap := map[string]int{
 		// Common color names
-		"yellow":   1,
-		"orange":   2, 
-		"red":      3,
-		"pink":     4,
-		"purple":   5,
-		"blue":     7,
-		"cyan":     9,
-		"teal":     10,
-		"green":    11,
-		"lime":     13,
-		"amber":    14,
-		"brown":    15,
-		
+		"yellow": 1,
+		"orange": 2,
+		"red":    3,
+		"pink":   4,
+		"purple": 5,
+		"blue":   7,
+		"cyan":   9,
+		"teal":   10,
+		"green":  11,
+		"lime":   13,
+		"amber":  14,
+		"brown":  15,
+
 		// HSL patterns that match our CSS
 		"hsl(50, 100%, 85%)":  1,  // Yellow light mode
 		"hsl(50, 70%, 25%)":   1,  // Yellow dark mode

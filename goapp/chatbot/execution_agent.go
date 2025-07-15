@@ -29,9 +29,9 @@ func (ea *ExecutionAgent) ExecuteIntentStructured(intent *UserIntent, projectID 
 			Error:   fmt.Sprintf("Invalid intent: %v", err),
 		}, nil
 	}
-	
+
 	broadcaster.UpdateProgress("initializing", "Preparing structured execution...")
-	
+
 	// Get API key
 	apiKey, err := getAPIKey()
 	if err != nil || apiKey == "" {
@@ -40,7 +40,7 @@ func (ea *ExecutionAgent) ExecuteIntentStructured(intent *UserIntent, projectID 
 			Error:   "OpenRouter API key not configured",
 		}, nil
 	}
-	
+
 	// Build structured input
 	structuredInput, err := ea.buildStructuredInput(intent, projectID, chatService)
 	if err != nil {
@@ -50,9 +50,9 @@ func (ea *ExecutionAgent) ExecuteIntentStructured(intent *UserIntent, projectID 
 			Error:   fmt.Sprintf("Failed to build structured input: %v", err),
 		}, nil
 	}
-	
+
 	broadcaster.UpdateProgress("analyzing", "Processing your request with structured approach...")
-	
+
 	// Build execution prompt using structured templates
 	executionPrompt, err := BuildStructuredExecutionPrompt(structuredInput)
 	if err != nil {
@@ -62,7 +62,7 @@ func (ea *ExecutionAgent) ExecuteIntentStructured(intent *UserIntent, projectID 
 			Error:   fmt.Sprintf("Failed to build prompt: %v", err),
 		}, nil
 	}
-	
+
 	// Create OpenRouter request WITHOUT tools - just pure text response
 	openRouterReq := map[string]interface{}{
 		"model": "anthropic/claude-sonnet-4",
@@ -75,9 +75,9 @@ func (ea *ExecutionAgent) ExecuteIntentStructured(intent *UserIntent, projectID 
 		"temperature": 0.3, // Lower temperature for precise, structured output
 		"max_tokens":  4000,
 	}
-	
+
 	broadcaster.UpdateProgress("processing", ea.getProgressMessageForAction(intent.Action))
-	
+
 	// Call OpenRouter API
 	aiResponse, err := chatService.callOpenRouterAPI(apiKey, openRouterReq)
 	if err != nil {
@@ -87,7 +87,7 @@ func (ea *ExecutionAgent) ExecuteIntentStructured(intent *UserIntent, projectID 
 			Error:   fmt.Sprintf("AI API call failed: %v", err),
 		}, nil
 	}
-	
+
 	// Extract content from response
 	content, ok := aiResponse["content"].(string)
 	if !ok {
@@ -97,9 +97,9 @@ func (ea *ExecutionAgent) ExecuteIntentStructured(intent *UserIntent, projectID 
 			Error:   "AI response missing content",
 		}, nil
 	}
-	
+
 	broadcaster.UpdateProgress("parsing", "Parsing structured response...")
-	
+
 	// Parse structured output
 	structuredOutput, err := ParseStructuredExecutionOutput(content)
 	if err != nil {
@@ -109,7 +109,7 @@ func (ea *ExecutionAgent) ExecuteIntentStructured(intent *UserIntent, projectID 
 			Error:   fmt.Sprintf("Failed to parse structured output: %v", err),
 		}, nil
 	}
-	
+
 	// Validate the output
 	originalHighlightCount := len(structuredInput.HighlightMap)
 	err = ValidateStructuredOutput(structuredOutput, originalHighlightCount)
@@ -120,9 +120,9 @@ func (ea *ExecutionAgent) ExecuteIntentStructured(intent *UserIntent, projectID 
 			Error:   fmt.Sprintf("Output validation failed: %v", err),
 		}, nil
 	}
-	
+
 	broadcaster.UpdateProgress("applying", "Applying changes to your project...")
-	
+
 	// Apply the changes using the existing update function
 	if chatService.updateOrderFunc != nil {
 		err = chatService.updateOrderFunc(projectID, structuredOutput.NewOrder)
@@ -134,9 +134,9 @@ func (ea *ExecutionAgent) ExecuteIntentStructured(intent *UserIntent, projectID 
 			}, nil
 		}
 	}
-	
+
 	broadcaster.UpdateProgress("completed", "Successfully completed your request!")
-	
+
 	// Create successful result
 	result := &ExecutionResult{
 		Success:     true,
@@ -144,7 +144,7 @@ func (ea *ExecutionAgent) ExecuteIntentStructured(intent *UserIntent, projectID 
 		Intent:      intent,
 		AIReasoning: structuredOutput.Reasoning,
 	}
-	
+
 	return result, nil
 }
 
@@ -155,7 +155,7 @@ func (ea *ExecutionAgent) buildStructuredInput(intent *UserIntent, projectID int
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Build highlight map
 	highlightMap := make(map[string]string)
 	for _, ph := range projectHighlights {
@@ -163,7 +163,7 @@ func (ea *ExecutionAgent) buildStructuredInput(intent *UserIntent, projectID int
 			highlightMap[h.ID] = h.Text
 		}
 	}
-	
+
 	// Get current order if needed
 	var currentOrder []interface{}
 	useCurrentOrder := false
@@ -176,23 +176,23 @@ func (ea *ExecutionAgent) buildStructuredInput(intent *UserIntent, projectID int
 			useCurrentOrder = false
 		}
 	}
-	
+
 	// Determine intent name for structured execution
 	intentName := intent.Action
 	if intentName == "" {
 		intentName = "reorder" // default
 	}
-	
+
 	// Build user goals
 	userGoals := []string{intent.PrimaryGoal}
 	userGoals = append(userGoals, intent.SecondaryGoals...)
-	
+
 	// Build additional context
 	additionalContext := intent.Context
 	if intent.Reasoning != "" {
 		additionalContext += ". LLM Understanding: " + intent.Reasoning
 	}
-	
+
 	structuredInput := &StructuredExecutionInput{
 		Intent:            intentName,
 		HighlightMap:      highlightMap,
@@ -201,43 +201,43 @@ func (ea *ExecutionAgent) buildStructuredInput(intent *UserIntent, projectID int
 		UserGoals:         userGoals,
 		AdditionalContext: additionalContext,
 	}
-	
+
 	return structuredInput, nil
 }
 
 // generateSuccessSummaryFromStructured creates summary from structured output
 func (ea *ExecutionAgent) generateSuccessSummaryFromStructured(intent *UserIntent, output *StructuredExecutionOutput) string {
 	var summaryBuilder strings.Builder
-	
+
 	summaryBuilder.WriteString("✅ **Success!** ")
-	
+
 	switch intent.Action {
 	case "reorder":
 		summaryBuilder.WriteString(fmt.Sprintf("Reorganized your highlights into %d sections for better engagement and flow.", output.SectionCount))
-		
+
 	case "improve_hook":
 		summaryBuilder.WriteString("Improved your opening section for stronger hook and better viewer retention.")
-		
+
 	case "improve_conclusion":
 		summaryBuilder.WriteString("Enhanced your conclusion for more powerful ending and better viewer satisfaction.")
-		
+
 	case "analyze":
 		summaryBuilder.WriteString("Completed detailed analysis of your content structure and flow.")
-		
+
 	default:
 		summaryBuilder.WriteString(fmt.Sprintf("Completed %s operation successfully.", intent.Action))
 	}
-	
+
 	// Add key changes
 	if len(output.Changes) > 0 {
 		summaryBuilder.WriteString(fmt.Sprintf("\n\n**Key Changes:** %s", strings.Join(output.Changes, ", ")))
 	}
-	
+
 	// Add reasoning if available
 	if output.Reasoning != "" {
 		summaryBuilder.WriteString(fmt.Sprintf("\n\n**Reasoning:** %s", output.Reasoning))
 	}
-	
+
 	return summaryBuilder.String()
 }
 
@@ -251,9 +251,9 @@ func (ea *ExecutionAgent) ExecuteIntent(intent *UserIntent, projectID int, chatS
 			Error:   fmt.Sprintf("Invalid intent: %v", err),
 		}, nil
 	}
-	
+
 	broadcaster.UpdateProgress("initializing", "Preparing to execute your request...")
-	
+
 	// Get API key
 	apiKey, err := getAPIKey()
 	if err != nil || apiKey == "" {
@@ -262,7 +262,7 @@ func (ea *ExecutionAgent) ExecuteIntent(intent *UserIntent, projectID int, chatS
 			Error:   "OpenRouter API key not configured",
 		}, nil
 	}
-	
+
 	// Build execution context based on user preferences
 	context, err := ea.buildExecutionContext(intent, projectID, chatService)
 	if err != nil {
@@ -272,12 +272,12 @@ func (ea *ExecutionAgent) ExecuteIntent(intent *UserIntent, projectID int, chatS
 			Error:   fmt.Sprintf("Failed to build context: %v", err),
 		}, nil
 	}
-	
+
 	broadcaster.UpdateProgress("analyzing", "Analyzing your request and available options...")
-	
+
 	// Build system prompt for execution
 	systemPrompt := ea.buildExecutionSystemPrompt(intent, context)
-	
+
 	// Get MCP functions for this endpoint
 	tools, err := ea.registry.GetFunctionsForEndpoint(ea.endpointID)
 	if err != nil {
@@ -287,10 +287,10 @@ func (ea *ExecutionAgent) ExecuteIntent(intent *UserIntent, projectID int, chatS
 			Error:   fmt.Sprintf("Failed to get functions: %v", err),
 		}, nil
 	}
-	
+
 	// Create execution prompt based on intent
 	executionPrompt := ea.buildExecutionPrompt(intent)
-	
+
 	// Create OpenRouter request with MCP functions
 	openRouterReq := map[string]interface{}{
 		"model": "anthropic/claude-sonnet-4",
@@ -309,9 +309,9 @@ func (ea *ExecutionAgent) ExecuteIntent(intent *UserIntent, projectID int, chatS
 		"temperature": 0.3,    // Lower temperature for precise execution
 		"max_tokens":  4000,
 	}
-	
+
 	broadcaster.UpdateProgress("processing", ea.getProgressMessageForAction(intent.Action))
-	
+
 	// Call OpenRouter API
 	aiResponse, err := chatService.callOpenRouterAPI(apiKey, openRouterReq)
 	if err != nil {
@@ -321,26 +321,26 @@ func (ea *ExecutionAgent) ExecuteIntent(intent *UserIntent, projectID int, chatS
 			Error:   fmt.Sprintf("AI API call failed: %v", err),
 		}, nil
 	}
-	
+
 	// Process function calls if present
 	var functionResults []FunctionExecutionResult
 	var actionsPerformed []string
-	
+
 	if toolCalls, ok := aiResponse["tool_calls"].([]interface{}); ok && len(toolCalls) > 0 {
 		broadcaster.UpdateProgress("executing", "Applying changes to your project...")
-		
+
 		for _, toolCallInterface := range toolCalls {
 			if toolCall, ok := toolCallInterface.(map[string]interface{}); ok {
 				result := chatService.executeMCPFunctionCall(toolCall, projectID, ea.endpointID)
 				functionResults = append(functionResults, result)
-				
+
 				if result.Success {
 					actionsPerformed = append(actionsPerformed, result.FunctionName)
 				}
 			}
 		}
 	}
-	
+
 	// Generate result
 	result := &ExecutionResult{
 		Success:          len(functionResults) > 0 && allSuccessful(functionResults),
@@ -348,7 +348,7 @@ func (ea *ExecutionAgent) ExecuteIntent(intent *UserIntent, projectID int, chatS
 		ActionsPerformed: actionsPerformed,
 		Intent:           intent,
 	}
-	
+
 	if result.Success {
 		broadcaster.UpdateProgress("completed", "Successfully completed your request!")
 		result.Summary = ea.generateSuccessSummary(intent, functionResults)
@@ -356,12 +356,12 @@ func (ea *ExecutionAgent) ExecuteIntent(intent *UserIntent, projectID int, chatS
 		broadcaster.UpdateProgress("error", "Some actions failed to complete")
 		result.Error = ea.generateErrorSummary(functionResults)
 	}
-	
+
 	// Extract AI reasoning if available
 	if content, ok := aiResponse["content"].(string); ok {
 		result.AIReasoning = content
 	}
-	
+
 	return result, nil
 }
 
@@ -372,18 +372,18 @@ func (ea *ExecutionAgent) buildExecutionContext(intent *UserIntent, projectID in
 	if use, ok := intent.Parameters["use_current_order"].(bool); ok {
 		useCurrentOrder = use
 	}
-	
+
 	var contextBuilder strings.Builder
-	
+
 	// Always include highlight reference
 	contextBuilder.WriteString("Available highlights for your project:\n\n")
-	
+
 	// Get project highlights
 	projectHighlights, err := chatService.highlightService.GetProjectHighlights(projectID)
 	if err != nil {
 		return "", err
 	}
-	
+
 	// Build highlight map
 	allIDs := []string{}
 	for _, ph := range projectHighlights {
@@ -396,9 +396,9 @@ func (ea *ExecutionAgent) buildExecutionContext(intent *UserIntent, projectID in
 			allIDs = append(allIDs, h.ID)
 		}
 	}
-	
+
 	contextBuilder.WriteString(fmt.Sprintf("\nTotal: %d highlights\n", len(allIDs)))
-	
+
 	// Conditionally include current order
 	if useCurrentOrder {
 		contextBuilder.WriteString("\nCurrent highlight order (to use as starting point):\n")
@@ -423,7 +423,7 @@ func (ea *ExecutionAgent) buildExecutionContext(intent *UserIntent, projectID in
 	} else {
 		contextBuilder.WriteString("\nUser prefers to start fresh (not using current order).\n")
 	}
-	
+
 	return contextBuilder.String(), nil
 }
 
@@ -500,7 +500,7 @@ REMEMBER: You MUST call the function that corresponds to Action="%s":
 - If Action="reorder" → Call reorder_highlights
 - If Action="analyze" → Call analyze_highlights
 
-Execute the user's confirmed intent now, incorporating their goals and providing reasoning when requested.`, 
+Execute the user's confirmed intent now, incorporating their goals and providing reasoning when requested.`,
 		intent.Action,
 		intent.Action,
 		intent.PrimaryGoal,
@@ -515,15 +515,15 @@ Execute the user's confirmed intent now, incorporating their goals and providing
 // buildExecutionPrompt creates the execution prompt based on intent
 func (ea *ExecutionAgent) buildExecutionPrompt(intent *UserIntent) string {
 	basePrompt := fmt.Sprintf("Execute the user's primary goal: %s", intent.PrimaryGoal)
-	
+
 	if len(intent.SecondaryGoals) > 0 {
 		basePrompt += fmt.Sprintf(". Also incorporate these secondary goals: %s", strings.Join(intent.SecondaryGoals, ", "))
 	}
-	
+
 	if intent.Context != "" {
 		basePrompt += fmt.Sprintf(". Important context: %s", intent.Context)
 	}
-	
+
 	switch intent.Action {
 	case "reorder":
 		basePrompt += ". CALL reorder_highlights function to reorganize the highlights."
@@ -531,20 +531,20 @@ func (ea *ExecutionAgent) buildExecutionPrompt(intent *UserIntent) string {
 			basePrompt += fmt.Sprintf(" Specific request: %s", specific)
 		}
 		return basePrompt
-		
+
 	case "analyze":
 		basePrompt += ". CALL analyze_highlights function to analyze the content."
 		return basePrompt
-		
+
 	case "reset":
 		return "CALL reset_to_original function to reset the highlights to their original chronological order."
-		
+
 	case "get_current_order":
 		return "CALL get_current_order function to get and display the current highlight order."
-		
+
 	case "apply_suggestion":
 		return "CALL apply_ai_suggestion function to apply the previously generated AI suggestion."
-		
+
 	default:
 		return basePrompt + fmt.Sprintf(". Action: %s", intent.Action)
 	}
@@ -571,32 +571,32 @@ func (ea *ExecutionAgent) getProgressMessageForAction(action string) string {
 // generateSuccessSummary creates a human-readable summary of successful execution
 func (ea *ExecutionAgent) generateSuccessSummary(intent *UserIntent, results []FunctionExecutionResult) string {
 	var summaryBuilder strings.Builder
-	
+
 	summaryBuilder.WriteString("✅ **Success!** ")
-	
+
 	switch intent.Action {
 	case "reorder":
 		summaryBuilder.WriteString("Your highlights have been reordered for better flow.")
 		if goal, ok := intent.UserPreferences["optimization_goal"].(string); ok {
 			summaryBuilder.WriteString(fmt.Sprintf(" Optimized for: %s.", goal))
 		}
-		
+
 	case "analyze":
 		summaryBuilder.WriteString("Content analysis completed.")
-		
+
 	case "reset":
 		summaryBuilder.WriteString("Highlights reset to original chronological order.")
-		
+
 	case "get_current_order":
 		summaryBuilder.WriteString("Current highlight order retrieved.")
-		
+
 	case "apply_suggestion":
 		summaryBuilder.WriteString("AI suggestions applied successfully.")
-		
+
 	default:
 		summaryBuilder.WriteString(fmt.Sprintf("%s action completed.", intent.Action))
 	}
-	
+
 	// Add reasoning from function results if available
 	for _, result := range results {
 		if result.Success && result.Result != nil {
@@ -608,7 +608,7 @@ func (ea *ExecutionAgent) generateSuccessSummary(intent *UserIntent, results []F
 			}
 		}
 	}
-	
+
 	return summaryBuilder.String()
 }
 
@@ -620,11 +620,11 @@ func (ea *ExecutionAgent) generateErrorSummary(results []FunctionExecutionResult
 			errors = append(errors, result.Error)
 		}
 	}
-	
+
 	if len(errors) == 0 {
 		return "Unknown error occurred during execution"
 	}
-	
+
 	return fmt.Sprintf("Execution failed: %s", strings.Join(errors, "; "))
 }
 
@@ -633,12 +633,12 @@ func formatUserPreferences(prefs map[string]interface{}) string {
 	if len(prefs) == 0 {
 		return "None specified"
 	}
-	
+
 	var parts []string
 	for key, value := range prefs {
 		parts = append(parts, fmt.Sprintf("%s: %v", key, value))
 	}
-	
+
 	return strings.Join(parts, ", ")
 }
 
@@ -647,7 +647,7 @@ func formatSecondaryGoals(goals []string) string {
 	if len(goals) == 0 {
 		return "None specified"
 	}
-	
+
 	return strings.Join(goals, ", ")
 }
 
@@ -663,11 +663,11 @@ func allSuccessful(results []FunctionExecutionResult) bool {
 
 // ExecutionResult represents the result of an execution
 type ExecutionResult struct {
-	Success          bool                       `json:"success"`
-	Summary          string                     `json:"summary,omitempty"`
-	Error            string                     `json:"error,omitempty"`
-	FunctionResults  []FunctionExecutionResult  `json:"functionResults,omitempty"`
-	ActionsPerformed []string                   `json:"actionsPerformed,omitempty"`
-	AIReasoning      string                     `json:"aiReasoning,omitempty"`
+	Success          bool                      `json:"success"`
+	Summary          string                    `json:"summary,omitempty"`
+	Error            string                    `json:"error,omitempty"`
+	FunctionResults  []FunctionExecutionResult `json:"functionResults,omitempty"`
+	ActionsPerformed []string                  `json:"actionsPerformed,omitempty"`
+	AIReasoning      string                    `json:"aiReasoning,omitempty"`
 	Intent           *UserIntent               `json:"intent,omitempty"`
 }

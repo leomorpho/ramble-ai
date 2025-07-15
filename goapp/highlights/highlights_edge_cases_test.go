@@ -27,9 +27,9 @@ func TestHighlightService_extractHighlightText_EdgeCases(t *testing.T) {
 		{
 			name: "Highlight with zero duration",
 			highlight: schema.Highlight{
-				ID:    "h1",
-				Start: 1.0,
-				End:   1.0,
+				ID:      "h1",
+				Start:   1.0,
+				End:     1.0,
 				ColorID: 3,
 			},
 			words: []schema.Word{
@@ -44,9 +44,9 @@ func TestHighlightService_extractHighlightText_EdgeCases(t *testing.T) {
 		{
 			name: "Highlight before transcript starts",
 			highlight: schema.Highlight{
-				ID:    "h2",
-				Start: -1.0,
-				End:   0.0,
+				ID:      "h2",
+				Start:   -1.0,
+				End:     0.0,
 				ColorID: 2,
 			},
 			words: []schema.Word{
@@ -60,9 +60,9 @@ func TestHighlightService_extractHighlightText_EdgeCases(t *testing.T) {
 		{
 			name: "Highlight after transcript ends",
 			highlight: schema.Highlight{
-				ID:    "h3",
-				Start: 10.0,
-				End:   11.0,
+				ID:      "h3",
+				Start:   10.0,
+				End:     11.0,
 				ColorID: 3,
 			},
 			words: []schema.Word{
@@ -76,9 +76,9 @@ func TestHighlightService_extractHighlightText_EdgeCases(t *testing.T) {
 		{
 			name: "Highlight with fractional word overlap",
 			highlight: schema.Highlight{
-				ID:    "h4",
-				Start: 0.25,
-				End:   0.75,
+				ID:      "h4",
+				Start:   0.25,
+				End:     0.75,
 				ColorID: 1,
 			},
 			words: []schema.Word{
@@ -93,9 +93,9 @@ func TestHighlightService_extractHighlightText_EdgeCases(t *testing.T) {
 		{
 			name: "Words with identical timestamps",
 			highlight: schema.Highlight{
-				ID:    "h5",
-				Start: 1.0,
-				End:   1.0,
+				ID:      "h5",
+				Start:   1.0,
+				End:     1.0,
 				ColorID: 3,
 			},
 			words: []schema.Word{
@@ -110,9 +110,9 @@ func TestHighlightService_extractHighlightText_EdgeCases(t *testing.T) {
 		{
 			name: "Empty words with non-empty full text",
 			highlight: schema.Highlight{
-				ID:    "h6",
-				Start: 0.0,
-				End:   1.0,
+				ID:      "h6",
+				Start:   0.0,
+				End:     1.0,
 				ColorID: 5,
 			},
 			words:        []schema.Word{},
@@ -123,9 +123,9 @@ func TestHighlightService_extractHighlightText_EdgeCases(t *testing.T) {
 		{
 			name: "Single character words",
 			highlight: schema.Highlight{
-				ID:    "h7",
-				Start: 0.0,
-				End:   1.0,
+				ID:      "h7",
+				Start:   0.0,
+				End:     1.0,
 				ColorID: 2,
 			},
 			words: []schema.Word{
@@ -141,9 +141,9 @@ func TestHighlightService_extractHighlightText_EdgeCases(t *testing.T) {
 		{
 			name: "Words with special characters",
 			highlight: schema.Highlight{
-				ID:    "h8",
-				Start: 0.0,
-				End:   2.0,
+				ID:      "h8",
+				Start:   0.0,
+				End:     2.0,
 				ColorID: 4,
 			},
 			words: []schema.Word{
@@ -159,9 +159,9 @@ func TestHighlightService_extractHighlightText_EdgeCases(t *testing.T) {
 		{
 			name: "Highlight with microsecond precision",
 			highlight: schema.Highlight{
-				ID:    "h9",
-				Start: 0.001,
-				End:   0.999,
+				ID:      "h9",
+				Start:   0.001,
+				End:     0.999,
 				ColorID: 2,
 			},
 			words: []schema.Word{
@@ -175,9 +175,9 @@ func TestHighlightService_extractHighlightText_EdgeCases(t *testing.T) {
 		{
 			name: "Overlapping word timestamps",
 			highlight: schema.Highlight{
-				ID:    "h10",
-				Start: 0.0,
-				End:   1.0,
+				ID:      "h10",
+				Start:   0.0,
+				End:     1.0,
 				ColorID: 4,
 			},
 			words: []schema.Word{
@@ -209,11 +209,11 @@ func TestHighlightService_timeToWordIndex_BoundaryConditions(t *testing.T) {
 		description   string
 	}{
 		{
-			name:        "Empty words array",
-			timeSeconds: 1.0,
-			words:       []schema.Word{},
+			name:          "Empty words array",
+			timeSeconds:   1.0,
+			words:         []schema.Word{},
 			expectedIndex: -1,
-			description: "Should return -1 for empty words array",
+			description:   "Should return -1 for empty words array",
 		},
 		{
 			name:        "Time exactly at word boundary",
@@ -349,14 +349,14 @@ func TestHighlightService_ApplyHighlightOrder_EdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := service.ApplyHighlightOrder(tt.segments, tt.order)
-			
+
 			var resultIDs []string
 			if len(result) > 0 {
 				for _, segment := range result {
 					resultIDs = append(resultIDs, segment.ID)
 				}
 			}
-			
+
 			assert.Equal(t, tt.expectedOrder, resultIDs, tt.description)
 		})
 	}
@@ -433,9 +433,9 @@ func TestHighlightService_StructCreation_EdgeCases(t *testing.T) {
 	// Test struct creation with nil/empty values
 	t.Run("Highlight with empty values", func(t *testing.T) {
 		highlight := Highlight{
-			ID:    "",
-			Start: 0.0,
-			End:   0.0,
+			ID:      "",
+			Start:   0.0,
+			End:     0.0,
 			ColorID: 0,
 		}
 		assert.Equal(t, "", highlight.ID)
@@ -446,11 +446,11 @@ func TestHighlightService_StructCreation_EdgeCases(t *testing.T) {
 
 	t.Run("HighlightWithText with empty text", func(t *testing.T) {
 		highlight := HighlightWithText{
-			ID:    "h1",
-			Start: 1.0,
-			End:   2.0,
+			ID:      "h1",
+			Start:   1.0,
+			End:     2.0,
 			ColorID: 3,
-			Text:  "",
+			Text:    "",
 		}
 		assert.Equal(t, "", highlight.Text)
 	})
@@ -485,10 +485,10 @@ func TestHighlightService_StructCreation_EdgeCases(t *testing.T) {
 
 	t.Run("HighlightSuggestion with negative indices", func(t *testing.T) {
 		suggestion := HighlightSuggestion{
-			ID:    "s1",
-			Start: -1,
-			End:   -1,
-			Text:  "Test",
+			ID:      "s1",
+			Start:   -1,
+			End:     -1,
+			Text:    "Test",
 			ColorID: 3,
 		}
 		assert.Equal(t, -1, suggestion.Start)
@@ -499,7 +499,7 @@ func TestHighlightService_StructCreation_EdgeCases(t *testing.T) {
 func TestHighlightService_NilContext(t *testing.T) {
 	client := &ent.Client{}
 	service := NewHighlightService(client, nil)
-	
+
 	assert.NotNil(t, service)
 	assert.Equal(t, client, service.client)
 	assert.Nil(t, service.ctx)
@@ -508,7 +508,7 @@ func TestHighlightService_NilContext(t *testing.T) {
 func TestHighlightService_NilClient(t *testing.T) {
 	ctx := context.Background()
 	service := NewHighlightService(nil, ctx)
-	
+
 	assert.NotNil(t, service)
 	assert.Nil(t, service.client)
 	assert.Equal(t, ctx, service.ctx)

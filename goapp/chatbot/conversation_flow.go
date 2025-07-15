@@ -29,15 +29,15 @@ type ConversationSummary struct {
 
 // UserIntent represents what the user wants to do (LEGACY - keeping for backward compatibility)
 type UserIntent struct {
-	Action          string                 `json:"action"`           // "reorder", "analyze", "reset", etc.
-	Confirmed       bool                   `json:"confirmed"`        // Has user confirmed this action?
-	Parameters      map[string]interface{} `json:"parameters"`       // Action-specific parameters
-	UserPreferences map[string]interface{} `json:"userPreferences"`  // User choices (e.g., use current order)
-	Description     string                 `json:"description"`      // Human description of what will happen
-	PrimaryGoal     string                 `json:"primaryGoal"`      // What user mainly wants
-	SecondaryGoals  []string               `json:"secondaryGoals"`   // Additional things they mentioned
-	Reasoning       string                 `json:"reasoning"`        // LLM's understanding of why user wants this
-	Context         string                 `json:"context"`          // Important context from user message
+	Action          string                 `json:"action"`          // "reorder", "analyze", "reset", etc.
+	Confirmed       bool                   `json:"confirmed"`       // Has user confirmed this action?
+	Parameters      map[string]interface{} `json:"parameters"`      // Action-specific parameters
+	UserPreferences map[string]interface{} `json:"userPreferences"` // User choices (e.g., use current order)
+	Description     string                 `json:"description"`     // Human description of what will happen
+	PrimaryGoal     string                 `json:"primaryGoal"`     // What user mainly wants
+	SecondaryGoals  []string               `json:"secondaryGoals"`  // Additional things they mentioned
+	Reasoning       string                 `json:"reasoning"`       // LLM's understanding of why user wants this
+	Context         string                 `json:"context"`         // Important context from user message
 }
 
 // ConversationFlow manages the state of a conversation
@@ -97,13 +97,13 @@ func (cfm *ConversationFlowManager) GetOrCreateFlow(sessionID string) *Conversat
 	if flow, exists := cfm.flows[sessionID]; exists {
 		return flow
 	}
-	
+
 	flow := &ConversationFlow{
 		Phase:     PhaseConversation,
 		Context:   make(map[string]interface{}),
 		SessionID: sessionID,
 	}
-	
+
 	cfm.flows[sessionID] = flow
 	return flow
 }
@@ -186,14 +186,14 @@ func ValidateUserIntent(intent *UserIntent) error {
 	if intent == nil {
 		return fmt.Errorf("intent cannot be nil")
 	}
-	
+
 	if intent.Action == "" {
 		return fmt.Errorf("intent action cannot be empty")
 	}
-	
+
 	if !intent.Confirmed {
 		return fmt.Errorf("intent must be confirmed before execution")
 	}
-	
+
 	return nil
 }

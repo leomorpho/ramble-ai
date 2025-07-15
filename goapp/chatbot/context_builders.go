@@ -15,16 +15,16 @@ func (h *HighlightOrderingContextBuilder) BuildContext(projectID int, service *C
 	if err != nil {
 		return "", err
 	}
-	
+
 	// Get highlight summaries
 	projectHighlights, err := service.highlightService.GetProjectHighlights(projectID)
 	if err != nil {
 		return "", err
 	}
-	
+
 	// Build optimized context string for faster processing
 	var contextBuilder strings.Builder
-	
+
 	// Create highlight ID to text map for efficient lookup
 	highlightMap := make(map[string]string)
 	allIDs := []string{}
@@ -39,7 +39,7 @@ func (h *HighlightOrderingContextBuilder) BuildContext(projectID int, service *C
 			allIDs = append(allIDs, h.ID)
 		}
 	}
-	
+
 	// Provide all highlight references with ID to text mapping
 	contextBuilder.WriteString("Available highlights for reordering:\n")
 	for _, ph := range projectHighlights {
@@ -47,9 +47,9 @@ func (h *HighlightOrderingContextBuilder) BuildContext(projectID int, service *C
 			contextBuilder.WriteString(fmt.Sprintf("- %s: \"%s\"\n", h.ID, highlightMap[h.ID]))
 		}
 	}
-	
+
 	contextBuilder.WriteString(fmt.Sprintf("\nTotal: %d highlights - ALL highlight IDs must be included in your new_order array.\n", len(allIDs)))
-	
+
 	// Ask if user wants to see current order or start fresh
 	contextBuilder.WriteString("\nCurrent highlight order (for reference - ask user if they want to use this as starting point):\n")
 	for i, item := range currentOrder {
@@ -64,7 +64,7 @@ func (h *HighlightOrderingContextBuilder) BuildContext(projectID int, service *C
 			}
 		}
 	}
-	
+
 	return contextBuilder.String(), nil
 }
 
@@ -83,17 +83,17 @@ func (g *GenericContextBuilder) BuildContext(projectID int, service *ChatbotServ
 	if err != nil {
 		return "", err
 	}
-	
+
 	var contextBuilder strings.Builder
 	contextBuilder.WriteString(fmt.Sprintf("Project ID: %d\n", projectID))
 	contextBuilder.WriteString(fmt.Sprintf("Total highlights: %d\n\n", len(projectHighlights)))
-	
+
 	// Add basic highlight information
 	for _, ph := range projectHighlights {
 		if len(ph.Highlights) == 0 {
 			continue
 		}
-		
+
 		contextBuilder.WriteString(fmt.Sprintf("Video: %s (%d highlights)\n", ph.VideoClipName, len(ph.Highlights)))
 		for i, h := range ph.Highlights {
 			text := h.Text
@@ -104,7 +104,7 @@ func (g *GenericContextBuilder) BuildContext(projectID int, service *ChatbotServ
 		}
 		contextBuilder.WriteString("\n")
 	}
-	
+
 	return contextBuilder.String(), nil
 }
 
@@ -123,23 +123,23 @@ func (c *ContentAnalysisContextBuilder) BuildContext(projectID int, service *Cha
 	if err != nil {
 		return "", err
 	}
-	
+
 	var contextBuilder strings.Builder
 	contextBuilder.WriteString(fmt.Sprintf("Content Analysis Context for Project %d\n\n", projectID))
-	
+
 	totalHighlights := 0
 	totalTextLength := 0
-	
+
 	// Build detailed content overview
 	for _, ph := range projectHighlights {
 		if len(ph.Highlights) == 0 {
 			continue
 		}
-		
+
 		contextBuilder.WriteString(fmt.Sprintf("=== Video: %s ===\n", ph.VideoClipName))
 		contextBuilder.WriteString(fmt.Sprintf("Duration: %.1f seconds\n", ph.Duration))
 		contextBuilder.WriteString(fmt.Sprintf("Highlights: %d\n\n", len(ph.Highlights)))
-		
+
 		for i, h := range ph.Highlights {
 			contextBuilder.WriteString(fmt.Sprintf("%d. [%s] %s\n\n", i+1, h.ID, h.Text))
 			totalTextLength += len(h.Text)
@@ -147,7 +147,7 @@ func (c *ContentAnalysisContextBuilder) BuildContext(projectID int, service *Cha
 		}
 		contextBuilder.WriteString("\n")
 	}
-	
+
 	// Add summary statistics
 	contextBuilder.WriteString("=== Content Summary ===\n")
 	contextBuilder.WriteString(fmt.Sprintf("Total highlights: %d\n", totalHighlights))
@@ -156,7 +156,7 @@ func (c *ContentAnalysisContextBuilder) BuildContext(projectID int, service *Cha
 		avgLength := totalTextLength / totalHighlights
 		contextBuilder.WriteString(fmt.Sprintf("Average highlight length: %d characters\n", avgLength))
 	}
-	
+
 	return contextBuilder.String(), nil
 }
 
@@ -175,21 +175,21 @@ func (e *ExportOptimizationContextBuilder) BuildContext(projectID int, service *
 	if err != nil {
 		return "", err
 	}
-	
+
 	// Get current order for duration calculations
 	currentOrder, err := service.highlightService.GetProjectHighlightOrderWithTitles(projectID)
 	if err != nil {
 		return "", err
 	}
-	
+
 	var contextBuilder strings.Builder
 	contextBuilder.WriteString(fmt.Sprintf("Export Optimization Context for Project %d\n\n", projectID))
-	
+
 	// Calculate total durations and highlight distribution
 	totalDuration := 0.0
 	videoCount := 0
 	highlightCount := 0
-	
+
 	for _, ph := range projectHighlights {
 		if len(ph.Highlights) > 0 {
 			totalDuration += ph.Duration
@@ -197,26 +197,26 @@ func (e *ExportOptimizationContextBuilder) BuildContext(projectID int, service *
 			highlightCount += len(ph.Highlights)
 		}
 	}
-	
+
 	contextBuilder.WriteString("=== Project Overview ===\n")
 	contextBuilder.WriteString(fmt.Sprintf("Total videos: %d\n", videoCount))
 	contextBuilder.WriteString(fmt.Sprintf("Total highlights: %d\n", highlightCount))
 	contextBuilder.WriteString(fmt.Sprintf("Combined video duration: %.1f seconds\n", totalDuration))
 	contextBuilder.WriteString(fmt.Sprintf("Current highlight order: %d items\n\n", len(currentOrder)))
-	
+
 	// Add video breakdown for export planning
 	contextBuilder.WriteString("=== Video Breakdown ===\n")
 	for _, ph := range projectHighlights {
 		if len(ph.Highlights) == 0 {
 			continue
 		}
-		
+
 		contextBuilder.WriteString(fmt.Sprintf("Video: %s\n", ph.VideoClipName))
 		contextBuilder.WriteString(fmt.Sprintf("  Duration: %.1f seconds\n", ph.Duration))
 		contextBuilder.WriteString(fmt.Sprintf("  Highlights: %d\n", len(ph.Highlights)))
 		contextBuilder.WriteString(fmt.Sprintf("  File: %s\n\n", ph.FilePath))
 	}
-	
+
 	return contextBuilder.String(), nil
 }
 

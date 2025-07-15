@@ -29,7 +29,7 @@ func (ca *ConversationAgent) GetCapabilitiesDescription(endpointID string) strin
 	}
 
 	capabilities := []string{}
-	
+
 	// Translate MCP functions to human-friendly descriptions
 	for _, function := range config.Functions {
 		switch function.Name {
@@ -50,18 +50,18 @@ func (ca *ConversationAgent) GetCapabilitiesDescription(endpointID string) strin
 			capabilities = append(capabilities, fmt.Sprintf("⚡ **%s** - %s", function.Name, function.Description))
 		}
 	}
-	
+
 	if len(capabilities) == 0 {
 		return "I can help you with your video editing needs. What would you like to work on?"
 	}
-	
+
 	return fmt.Sprintf("Here's what I can help you with:\n\n%s\n\nWhat would you like to do?", strings.Join(capabilities, "\n"))
 }
 
 // BuildConversationSystemPrompt creates a system prompt for conversation-first interaction
 func (ca *ConversationAgent) BuildConversationSystemPrompt(endpointID string) string {
 	capabilities := ca.GetCapabilitiesDescription(endpointID)
-	
+
 	return fmt.Sprintf(`You are an expert YouTube creator and video editing assistant. You work with HIGHLIGHTS which are selected text excerpts from scripts, not video clips.
 
 CONTEXT ABOUT HIGHLIGHTS:
@@ -133,7 +133,7 @@ FINAL CONFIRMATION FORMAT:
 "I'll [specific plan based on gathered context]. This will modify your highlight order in the database. Should I proceed?"
 
 ONLY AFTER USER CONFIRMS, respond with JSON:
-` + "`" + `json
+`+"`"+`json
 {
   "conversation_summary": {
     "intent": "reorder|improve_hook|improve_conclusion|analyze|improve_silences",
@@ -144,7 +144,7 @@ ONLY AFTER USER CONFIRMS, respond with JSON:
     "confirmed": true
   }
 }
-` + "`" + `
+`+"`"+`
 
 EXAMPLES:
 
@@ -158,7 +158,7 @@ User: "Balance them equally"
 You: "Perfect! I'll create a fresh organization that balances engagement and narrative flow. I'll reorganize your highlights into logical sections with engaging titles like 'Hook', 'The Problem', 'The Solution', etc., optimizing for YouTube retention and story progression. This will reorder your highlights in the database. Should I proceed?"
 
 User: "Yes, go ahead"
-You: ` + "`" + `json
+You: `+"`"+`json
 {
   "conversation_summary": {
     "intent": "reorder",
@@ -169,10 +169,10 @@ You: ` + "`" + `json
     "confirmed": true
   }
 }
-` + "`" + `
+`+"`"+`
 
 User: "Just analyze my content structure and themes - no reordering needed, only provide insights"
-You: ` + "`" + `json
+You: `+"`"+`json
 {
   "conversation_summary": {
     "intent": "analyze",
@@ -183,13 +183,13 @@ You: ` + "`" + `json
     "confirmed": true
   }
 }
-` + "`" + `
+`+"`"+`
 
 User: "Can you improve the timing of my highlights?"
 You: "I can help you improve highlight timing! The best way to do this is using AI-powered silence improvements that add natural buffers around words. Would you like me to guide you to use the 'Improve Silences' feature?"
 
 User: "Yes, please"
-You: ` + "`" + `json
+You: `+"`"+`json
 {
   "conversation_summary": {
     "intent": "improve_silences",
@@ -200,13 +200,13 @@ You: ` + "`" + `json
     "confirmed": true
   }
 }
-` + "`" + `
+`+"`"+`
 
 User: "Can you improve my current highlight order for better flow?"
 You: "I'll improve your current highlight order by reorganizing it for better narrative flow while keeping your existing structure as the foundation. I'll move highlights around and add section titles to create smoother transitions and better storytelling progression. This will modify your highlight order in the database. Should I proceed?"
 
 User: "Yes"
-You: ` + "`" + `json
+You: `+"`"+`json
 {
   "conversation_summary": {
     "intent": "reorder",
@@ -217,7 +217,7 @@ You: ` + "`" + `json
     "confirmed": true
   }
 }
-` + "`" + `
+`+"`"+`
 
 REMEMBER: Be conversational and ask clarifying questions when needed. Only output JSON after the user has confirmed they want to proceed with DB changes!`, capabilities)
 }
@@ -228,27 +228,27 @@ func (ca *ConversationAgent) ProcessConversation(userMessage string, flow *Conve
 	apiKey, err := getAPIKey()
 	if err != nil || apiKey == "" {
 		return &ConversationResult{
-			Response: "I'm sorry, but I'm having trouble connecting to my AI assistant. Please check your API configuration.",
+			Response:               "I'm sorry, but I'm having trouble connecting to my AI assistant. Please check your API configuration.",
 			HasConversationSummary: false,
 		}, nil
 	}
-	
+
 	// Build conversation system prompt
 	systemPrompt := ca.BuildConversationSystemPrompt(ca.endpointID)
-	
+
 	// Use context manager to determine optimal history retrieval
 	contextManager := NewContextManager()
 	model := "anthropic/claude-sonnet-4"
 	systemPromptTokens := contextManager.tokenCounter.EstimateTokens(systemPrompt)
 	historyLimit := contextManager.GetOptimalHistoryLimit(model, systemPromptTokens)
-	
+
 	// Get chat history with intelligent limit
 	chatHistory, err := chatService.GetChatHistoryWithLimit(projectID, ca.endpointID, historyLimit)
 	if err != nil {
 		log.Printf("Failed to get chat history: %v", err)
 		// Continue without history if we can't retrieve it
 	}
-	
+
 	// Build optimized context window with the same context manager
 	// Reserve tokens for response (2000) and some buffer (500)
 	contextWindow, err := contextManager.BuildContextWindow(
@@ -268,10 +268,10 @@ func (ca *ConversationAgent) ProcessConversation(userMessage string, flow *Conve
 			},
 		}
 	}
-	
+
 	// Log context usage for monitoring
 	contextManager.LogContextUsage(model, contextWindow)
-	
+
 	// Create OpenRouter request without any tools/functions
 	openRouterReq := map[string]interface{}{
 		"model":       model,
@@ -279,34 +279,34 @@ func (ca *ConversationAgent) ProcessConversation(userMessage string, flow *Conve
 		"temperature": 0.7, // Slightly higher temperature for more natural conversation
 		"max_tokens":  2000,
 	}
-	
+
 	// Call OpenRouter API
 	aiResponse, err := chatService.callOpenRouterAPI(apiKey, openRouterReq)
 	if err != nil {
 		return &ConversationResult{
-			Response: fmt.Sprintf("I'm having trouble processing your request: %v", err),
+			Response:               fmt.Sprintf("I'm having trouble processing your request: %v", err),
 			HasConversationSummary: false,
 		}, nil
 	}
-	
+
 	// Extract response content
 	content, ok := aiResponse["content"].(string)
 	if !ok {
 		return &ConversationResult{
-			Response: "I'm sorry, I couldn't generate a proper response. Please try again.",
+			Response:               "I'm sorry, I couldn't generate a proper response. Please try again.",
 			HasConversationSummary: false,
 		}, nil
 	}
-	
+
 	// Try to parse conversation summary from response
 	summary, hasSummary := ca.extractConversationSummaryFromResponse(content)
-	
+
 	result := &ConversationResult{
-		Response:             content,
+		Response:               content,
 		HasConversationSummary: hasSummary,
-		ConversationSummary:  summary,
+		ConversationSummary:    summary,
 	}
-	
+
 	return result, nil
 }
 
@@ -316,7 +316,7 @@ func (ca *ConversationAgent) extractConversationSummaryFromResponse(response str
 	lines := strings.Split(response, "\n")
 	var jsonLines []string
 	inCodeBlock := false
-	
+
 	for _, line := range lines {
 		if strings.Contains(line, "```json") {
 			inCodeBlock = true
@@ -329,13 +329,13 @@ func (ca *ConversationAgent) extractConversationSummaryFromResponse(response str
 			jsonLines = append(jsonLines, line)
 		}
 	}
-	
+
 	if len(jsonLines) == 0 {
 		return nil, false
 	}
-	
+
 	jsonStr := strings.Join(jsonLines, "\n")
-	
+
 	// Try to parse the JSON
 	var responseData map[string]interface{}
 	err := json.Unmarshal([]byte(jsonStr), &responseData)
@@ -343,24 +343,24 @@ func (ca *ConversationAgent) extractConversationSummaryFromResponse(response str
 		log.Printf("Failed to parse conversation JSON: %v", err)
 		return nil, false
 	}
-	
+
 	// Check if this contains a conversation summary
 	summaryData, ok := responseData["conversation_summary"].(map[string]interface{})
 	if !ok {
 		return nil, false
 	}
-	
+
 	// Check if confirmed
 	confirmed, ok := summaryData["confirmed"].(bool)
 	if !ok || !confirmed {
 		return nil, false
 	}
-	
+
 	// Extract conversation summary fields
 	intent, _ := summaryData["intent"].(string)
 	userWantsCurrentOrder, _ := summaryData["userWantsCurrentOrder"].(bool)
 	userContext, _ := summaryData["userContext"].(string)
-	
+
 	var optimizationGoals []string
 	if goals, ok := summaryData["optimizationGoals"].([]interface{}); ok {
 		for _, goal := range goals {
@@ -369,7 +369,7 @@ func (ca *ConversationAgent) extractConversationSummaryFromResponse(response str
 			}
 		}
 	}
-	
+
 	var specificRequests []string
 	if requests, ok := summaryData["specificRequests"].([]interface{}); ok {
 		for _, request := range requests {
@@ -378,7 +378,7 @@ func (ca *ConversationAgent) extractConversationSummaryFromResponse(response str
 			}
 		}
 	}
-	
+
 	summary := &ConversationSummary{
 		Intent:                intent,
 		UserWantsCurrentOrder: userWantsCurrentOrder,
@@ -387,7 +387,7 @@ func (ca *ConversationAgent) extractConversationSummaryFromResponse(response str
 		UserContext:           userContext,
 		Confirmed:             confirmed,
 	}
-	
+
 	return summary, true
 }
 

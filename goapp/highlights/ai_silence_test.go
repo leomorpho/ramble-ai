@@ -64,8 +64,8 @@ func TestImproveHighlightSilences(t *testing.T) {
 		// Highlighting "this is a test" (words index 2-5)
 		highlight := schema.Highlight{
 			ID:      "highlight_1",
-			Start:   1.5,  // Start of "this"
-			End:     2.6,  // End of "test"
+			Start:   1.5, // Start of "this"
+			End:     2.6, // End of "test"
 			ColorID: 1,
 		}
 
@@ -81,19 +81,19 @@ func TestImproveHighlightSilences(t *testing.T) {
 				End   float64
 			}{
 				"highlight_1": {
-					Start: 1.2,  // 300ms before "this" (in the silence gap)
-					End:   2.9,  // 300ms after "test" (in the silence gap)
+					Start: 1.2, // 300ms before "this" (in the silence gap)
+					End:   2.9, // 300ms after "test" (in the silence gap)
 				},
 			},
 		}
 
 		// Test the improvement logic
 		improved := mockImprover.ImproveHighlight(highlight, words)
-		
+
 		// Verify padding was added
 		assert.Equal(t, 1.2, improved.Start, "Should add padding before highlight")
 		assert.Equal(t, 2.9, improved.End, "Should add padding after highlight")
-		
+
 		// Verify it doesn't cut into words
 		assert.Less(t, improved.Start, 1.5, "Padded start should be before word start")
 		assert.Greater(t, improved.Start, 1.0, "Padded start should be after previous word end")
@@ -121,7 +121,7 @@ func TestImproveHighlightSilences(t *testing.T) {
 			Save(ctx)
 		require.NoError(t, err)
 
-		// Highlight "brown fox" 
+		// Highlight "brown fox"
 		highlight := schema.Highlight{
 			ID:      "highlight_2",
 			Start:   0.45, // Start of "brown"
@@ -141,18 +141,18 @@ func TestImproveHighlightSilences(t *testing.T) {
 				End   float64
 			}{
 				"highlight_2": {
-					Start: 0.42,  // Only 30ms before (limited by previous word)
-					End:   1.13,  // Only 30ms after (limited by next word)
+					Start: 0.42, // Only 30ms before (limited by previous word)
+					End:   1.13, // Only 30ms after (limited by next word)
 				},
 			},
 		}
 
 		improved := mockImprover.ImproveHighlight(highlight, words)
-		
+
 		// Verify limited padding was added
 		assert.Equal(t, 0.42, improved.Start, "Should add limited padding before")
 		assert.Equal(t, 1.13, improved.End, "Should add limited padding after")
-		
+
 		// Verify it respects word boundaries
 		assert.Greater(t, improved.Start, 0.4, "Should not overlap previous word")
 		assert.Less(t, improved.End, 1.15, "Should not overlap next word")
@@ -204,19 +204,19 @@ func TestImproveHighlightSilences(t *testing.T) {
 				End   float64
 			}{
 				"highlight_3": {
-					Start: 0.0,  // Can't go before video start
-					End:   1.0,  // Add padding after
+					Start: 0.0, // Can't go before video start
+					End:   1.0, // Add padding after
 				},
 				"highlight_4": {
-					Start: 4.3,  // Add padding before
-					End:   5.0,  // Can't go beyond video duration
+					Start: 4.3, // Add padding before
+					End:   5.0, // Can't go beyond video duration
 				},
 			},
 		}
 
 		improvedStart := mockImprover.ImproveHighlight(highlightStart, words)
 		improvedEnd := mockImprover.ImproveHighlight(highlightEnd, words)
-		
+
 		// Verify video boundaries are respected
 		assert.GreaterOrEqual(t, improvedStart.Start, 0.0, "Should not go before video start")
 		assert.LessOrEqual(t, improvedEnd.End, 5.0, "Should not go beyond video duration")
@@ -245,13 +245,13 @@ func TestImproveHighlightSilences(t *testing.T) {
 		// Two highlights close to each other
 		highlight1 := schema.Highlight{
 			ID:      "highlight_5",
-			Start:   0.5,  // "two"
+			Start:   0.5, // "two"
 			End:     0.8,
 			ColorID: 1,
 		}
 		highlight2 := schema.Highlight{
-			ID:      "highlight_6", 
-			Start:   1.0,  // "three"
+			ID:      "highlight_6",
+			Start:   1.0, // "three"
 			End:     1.3,
 			ColorID: 2,
 		}
@@ -268,19 +268,19 @@ func TestImproveHighlightSilences(t *testing.T) {
 				End   float64
 			}{
 				"highlight_5": {
-					Start: 0.35,  // Add padding before
-					End:   0.9,   // Limited padding after to avoid overlap
+					Start: 0.35, // Add padding before
+					End:   0.9,  // Limited padding after to avoid overlap
 				},
 				"highlight_6": {
-					Start: 0.95,  // Limited padding before to avoid overlap  
-					End:   1.45,  // Add padding after
+					Start: 0.95, // Limited padding before to avoid overlap
+					End:   1.45, // Add padding after
 				},
 			},
 		}
 
 		improved1 := mockImprover.ImproveHighlight(highlight1, words)
 		improved2 := mockImprover.ImproveHighlight(highlight2, words)
-		
+
 		// Verify no overlap between padded highlights
 		assert.Less(t, improved1.End, improved2.Start, "Padded highlights should not overlap")
 		assert.GreaterOrEqual(t, improved2.Start-improved1.End, 0.04, "Should maintain minimum gap")
@@ -321,20 +321,20 @@ func TestCalculatePaddingBoundaries(t *testing.T) {
 		startIdx := 1
 		endIdx := 2
 
-		prevEnd := words[startIdx-1].End  // End of "Hello" = 0.5
-		nextStart := words[endIdx].Start   // Start of "test" = 2.0
+		prevEnd := words[startIdx-1].End // End of "Hello" = 0.5
+		nextStart := words[endIdx].Start // Start of "test" = 2.0
 
 		// Available padding space
 		assert.Equal(t, 0.5, prevEnd)
 		assert.Equal(t, 2.0, nextStart)
-		
+
 		// Current highlight bounds
 		currentStart := words[startIdx].Start // 1.0
 		currentEnd := words[endIdx-1].End     // 1.5
 
 		// Maximum padding available
-		maxPaddingBefore := currentStart - prevEnd  // 1.0 - 0.5 = 0.5
-		maxPaddingAfter := nextStart - currentEnd   // 2.0 - 1.5 = 0.5
+		maxPaddingBefore := currentStart - prevEnd // 1.0 - 0.5 = 0.5
+		maxPaddingAfter := nextStart - currentEnd  // 2.0 - 1.5 = 0.5
 
 		assert.Equal(t, 0.5, maxPaddingBefore)
 		assert.Equal(t, 0.5, maxPaddingAfter)
@@ -352,8 +352,8 @@ func TestCalculatePaddingBoundaries(t *testing.T) {
 		currentStart := words[startIdx].Start // 0.0
 		currentEnd := words[endIdx-1].End     // 0.5
 
-		maxPaddingBefore := currentStart - prevEnd  // 0.0 - 0.0 = 0.0
-		maxPaddingAfter := nextStart - currentEnd   // 1.0 - 0.5 = 0.5
+		maxPaddingBefore := currentStart - prevEnd // 0.0 - 0.0 = 0.0
+		maxPaddingAfter := nextStart - currentEnd  // 1.0 - 0.5 = 0.5
 
 		assert.Equal(t, 0.0, maxPaddingBefore)
 		assert.Equal(t, 0.5, maxPaddingAfter)
@@ -407,14 +407,14 @@ func TestPaddingExampleDemo(t *testing.T) {
 	highlights := []schema.Highlight{
 		{
 			ID:      "highlight_opening",
-			Start:   1.45,  // Start of "today's"
-			End:     2.6,   // End of "presentation"
+			Start:   1.45, // Start of "today's"
+			End:     2.6,  // End of "presentation"
 			ColorID: 1,
 		},
 		{
 			ID:      "highlight_features",
-			Start:   4.3,   // Start of "amazing"
-			End:     5.2,   // End of "features"
+			Start:   4.3, // Start of "amazing"
+			End:     5.2, // End of "features"
 			ColorID: 2,
 		},
 	}
@@ -493,7 +493,7 @@ func min(a, b float64) float64 {
 // TestImproveHighlightWithRealLogic tests with actual improvement logic
 func TestImproveHighlightWithRealLogic(t *testing.T) {
 	// This test demonstrates how the real improvement would work
-	
+
 	t.Run("NaturalSilencePadding", func(t *testing.T) {
 		words := []schema.Word{
 			{Word: "So", Start: 1.0, End: 1.2},
@@ -509,26 +509,26 @@ func TestImproveHighlightWithRealLogic(t *testing.T) {
 		// Original highlight covers "the key insight here" tightly
 		highlight := schema.Highlight{
 			ID:      "highlight_natural",
-			Start:   1.25,  // Start of "the"
-			End:     2.35,  // End of "here"
+			Start:   1.25, // Start of "the"
+			End:     2.35, // End of "here"
 			ColorID: 1,
 		}
 
 		// Calculate ideal padding boundaries
-		prevWordEnd := words[0].End      // "So" ends at 1.2
-		nextWordStart := words[5].Start  // "is" starts at 2.8
+		prevWordEnd := words[0].End     // "So" ends at 1.2
+		nextWordStart := words[5].Start // "is" starts at 2.8
 
 		// With natural silence detection, we might want:
 		// - Small padding before (100-200ms): include slight pause after "So"
 		// - Larger padding after (300-400ms): include natural pause before "is"
-		
-		idealStart := 1.22  // 20ms after "So" ends, before "the"
-		idealEnd := 2.65    // 300ms after "here", in natural pause
+
+		idealStart := 1.22 // 20ms after "So" ends, before "the"
+		idealEnd := 2.65   // 300ms after "here", in natural pause
 
 		// Verify these are valid
 		assert.GreaterOrEqual(t, idealStart, prevWordEnd, "Padding should not overlap previous word")
 		assert.LessOrEqual(t, idealEnd, nextWordStart, "Padding should not overlap next word")
-		
+
 		// The improvement captures natural speech rhythm
 		improvedHighlight := schema.Highlight{
 			ID:      highlight.ID,

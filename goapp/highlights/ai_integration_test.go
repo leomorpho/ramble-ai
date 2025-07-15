@@ -78,9 +78,9 @@ func TestAIHighlightSuggestionsEndToEnd(t *testing.T) {
 			}
 
 			highlight := schema.Highlight{
-				ID:    suggestion.ID,
-				Start: startTime,
-				End:   endTime,
+				ID:      suggestion.ID,
+				Start:   startTime,
+				End:     endTime,
 				ColorID: suggestion.ColorID,
 			}
 			savedHighlights = append(savedHighlights, highlight)
@@ -103,10 +103,10 @@ func TestAIHighlightSuggestionsEndToEnd(t *testing.T) {
 			text := service.extractTextFromWordRange(transcriptWords, startIndex, endIndex)
 
 			suggestion := HighlightSuggestion{
-				ID:    h.ID,
-				Start: startIndex,
-				End:   endIndex,
-				Text:  text,
+				ID:      h.ID,
+				Start:   startIndex,
+				End:     endIndex,
+				Text:    text,
 				ColorID: h.ColorID,
 			}
 			loadedSuggestions = append(loadedSuggestions, suggestion)
@@ -279,7 +279,7 @@ func TestRealWorldScenario(t *testing.T) {
 	suggestion := suggestions[0]
 	assert.Equal(t, 415, suggestion.Start)
 	assert.Equal(t, 445, suggestion.End)
-	
+
 	// The text should NOT include the word at index 445
 	expectedText := "I can see enormous changes in my behavior and in what I do now and how I react to things simply because I've become aware of the shame which is"
 	assert.Equal(t, expectedText, suggestion.Text)
@@ -287,7 +287,7 @@ func TestRealWorldScenario(t *testing.T) {
 
 	// Simulate save/load cycle
 	service := &HighlightService{}
-	
+
 	// Save
 	startTime := service.wordIndexToTime(suggestion.Start, adjustedWords)
 	endTime := service.wordIndexToTime(suggestion.End, adjustedWords)

@@ -8,39 +8,39 @@ import (
 
 // StructuredExecutionInput defines the standardized input for execution agent
 type StructuredExecutionInput struct {
-	Intent               string                 `json:"intent"`               // "reorder", "improve_hook", "improve_conclusion", "analyze"
-	HighlightMap         map[string]string      `json:"highlightMap"`         // highlight_id -> text
-	CurrentOrder         []interface{}          `json:"currentOrder"`         // current order (if needed)
-	UseCurrentOrder      bool                   `json:"useCurrentOrder"`      // whether to use current order as starting point
-	UserGoals           []string               `json:"userGoals"`            // user's specific goals
-	AdditionalContext   string                 `json:"additionalContext"`    // any additional context
+	Intent            string            `json:"intent"`            // "reorder", "improve_hook", "improve_conclusion", "analyze"
+	HighlightMap      map[string]string `json:"highlightMap"`      // highlight_id -> text
+	CurrentOrder      []interface{}     `json:"currentOrder"`      // current order (if needed)
+	UseCurrentOrder   bool              `json:"useCurrentOrder"`   // whether to use current order as starting point
+	UserGoals         []string          `json:"userGoals"`         // user's specific goals
+	AdditionalContext string            `json:"additionalContext"` // any additional context
 }
 
 // StructuredExecutionOutput defines the standardized output from execution agent
 type StructuredExecutionOutput struct {
-	Success       bool          `json:"success"`
-	NewOrder      []interface{} `json:"newOrder"`      // array of highlight IDs and section objects
-	Reasoning     string        `json:"reasoning"`     // explanation of decisions
-	SectionCount  int           `json:"sectionCount"`  // number of sections created
-	Changes       []string      `json:"changes"`       // list of key changes made
-	Error         string        `json:"error,omitempty"` // error message if failed
+	Success      bool          `json:"success"`
+	NewOrder     []interface{} `json:"newOrder"`        // array of highlight IDs and section objects
+	Reasoning    string        `json:"reasoning"`       // explanation of decisions
+	SectionCount int           `json:"sectionCount"`    // number of sections created
+	Changes      []string      `json:"changes"`         // list of key changes made
+	Error        string        `json:"error,omitempty"` // error message if failed
 }
 
 // IntentTemplate defines the template for a specific intent
 type IntentTemplate struct {
-	IntentName    string
-	Description   string
-	Instructions  string
-	OutputFormat  string
-	Examples      string
+	IntentName   string
+	Description  string
+	Instructions string
+	OutputFormat string
+	Examples     string
 }
 
 // GetIntentTemplate returns the template for a specific intent
 func GetIntentTemplate(intent string) *IntentTemplate {
 	templates := map[string]*IntentTemplate{
 		"reorder": {
-			IntentName:   "reorder",
-			Description:  "Reorder highlights for optimal engagement and narrative flow",
+			IntentName:  "reorder",
+			Description: "Reorder highlights for optimal engagement and narrative flow",
 			Instructions: `REORDER INSTRUCTIONS:
 - You can move ANY highlight to ANY position - complete freedom
 - Organize into logical sections with engaging titles  
@@ -81,10 +81,10 @@ EXAMPLE OUTPUT:
   "changes": ["Problem-solution structure", "Logical flow", "Strong hook and conclusion"]
 }`,
 		},
-		
+
 		"improve_hook": {
-			IntentName:   "improve_hook",
-			Description:  "Improve the opening section to create a stronger hook",
+			IntentName:  "improve_hook",
+			Description: "Improve the opening section to create a stronger hook",
 			Instructions: `HOOK IMPROVEMENT INSTRUCTIONS:
 - Focus on the first 1-3 highlights to create maximum impact
 - Use the most attention-grabbing content first
@@ -102,10 +102,10 @@ EXAMPLE OUTPUT:
 }`,
 			Examples: `Focus on creating the strongest possible opening while maintaining overall flow.`,
 		},
-		
+
 		"improve_conclusion": {
-			IntentName:   "improve_conclusion",
-			Description:  "Improve the ending section for stronger finish",
+			IntentName:  "improve_conclusion",
+			Description: "Improve the ending section for stronger finish",
 			Instructions: `CONCLUSION IMPROVEMENT INSTRUCTIONS:
 - Focus on the last 1-3 highlights for maximum impact ending
 - Use the most powerful, memorable content for the finish
@@ -123,10 +123,10 @@ EXAMPLE OUTPUT:
 }`,
 			Examples: `Focus on creating the strongest possible ending while maintaining overall flow.`,
 		},
-		
+
 		"analyze": {
-			IntentName:   "analyze",
-			Description:  "Analyze content structure and provide insights without reordering",
+			IntentName:  "analyze",
+			Description: "Analyze content structure and provide insights without reordering",
 			Instructions: `ANALYSIS INSTRUCTIONS:
 - Analyze the current structure and content themes
 - Identify strengths and weaknesses in current flow
@@ -144,7 +144,7 @@ EXAMPLE OUTPUT:
 			Examples: `Provide insights and suggestions while keeping everything in the same order.`,
 		},
 	}
-	
+
 	return templates[intent]
 }
 
@@ -154,13 +154,13 @@ func BuildStructuredExecutionPrompt(input *StructuredExecutionInput) (string, er
 	if template == nil {
 		return "", fmt.Errorf("unknown intent: %s", input.Intent)
 	}
-	
+
 	// Convert input to JSON for display
 	inputJSON, err := json.MarshalIndent(input, "", "  ")
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal input: %w", err)
 	}
-	
+
 	// Build the complete prompt
 	prompt := fmt.Sprintf(`You are a YouTube content optimization specialist. You will receive structured input and must return structured JSON output.
 
@@ -185,14 +185,14 @@ CRITICAL REQUIREMENTS:
 3. Ensure the JSON is valid and parseable
 4. Follow the exact output format specified above
 
-EXECUTE THE TASK NOW:`, 
+EXECUTE THE TASK NOW:`,
 		template.Description,
 		template.IntentName,
 		string(inputJSON),
 		template.Instructions,
 		template.OutputFormat,
 		template.Examples)
-	
+
 	return prompt, nil
 }
 
@@ -200,23 +200,23 @@ EXECUTE THE TASK NOW:`,
 func ParseStructuredExecutionOutput(response string) (*StructuredExecutionOutput, error) {
 	// Clean the response to extract JSON
 	response = strings.TrimSpace(response)
-	
+
 	// Look for JSON object in the response
 	startIdx := strings.Index(response, "{")
 	endIdx := strings.LastIndex(response, "}")
-	
+
 	if startIdx == -1 || endIdx == -1 {
 		return nil, fmt.Errorf("no JSON object found in response")
 	}
-	
+
 	jsonStr := response[startIdx : endIdx+1]
-	
+
 	var output StructuredExecutionOutput
 	err := json.Unmarshal([]byte(jsonStr), &output)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse JSON response: %w", err)
 	}
-	
+
 	return &output, nil
 }
 
@@ -228,11 +228,11 @@ func ValidateStructuredOutput(output *StructuredExecutionOutput, originalHighlig
 		}
 		return fmt.Errorf("execution failed with no error message")
 	}
-	
+
 	if len(output.NewOrder) == 0 {
 		return fmt.Errorf("new order is empty")
 	}
-	
+
 	// Count highlight IDs in the new order
 	highlightCount := 0
 	for _, item := range output.NewOrder {
@@ -240,10 +240,10 @@ func ValidateStructuredOutput(output *StructuredExecutionOutput, originalHighlig
 			highlightCount++
 		}
 	}
-	
+
 	if highlightCount != originalHighlightCount {
 		return fmt.Errorf("expected %d highlights, got %d", originalHighlightCount, highlightCount)
 	}
-	
+
 	return nil
 }

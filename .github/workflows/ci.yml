@@ -73,7 +73,7 @@ jobs:
     - name: Install dependencies
       run: |
         go mod download
-        cd frontend && pnpm install --frozen-lockfile
+        cd frontend && pnpm install --no-frozen-lockfile
         
     - name: Run Go tests
       run: go test ./... -v -short

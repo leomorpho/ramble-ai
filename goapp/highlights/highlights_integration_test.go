@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"MYAPP/ent"
-	"MYAPP/ent/schema"
 	"MYAPP/ent/enttest"
+	"MYAPP/ent/schema"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -45,24 +45,24 @@ func createTestVideoClipWithHighlights(t *testing.T, client *ent.Client, ctx con
 
 	highlights := []schema.Highlight{
 		{
-			ID:    "h1",
-			Start: 0.0,
-			End:   1.0,
+			ID:      "h1",
+			Start:   0.0,
+			End:     1.0,
 			ColorID: 3,
 		},
 		{
-			ID:    "h2",
-			Start: 2.0,
-			End:   3.0,
+			ID:      "h2",
+			Start:   2.0,
+			End:     3.0,
 			ColorID: 2,
 		},
 	}
 
 	suggestedHighlights := []schema.Highlight{
 		{
-			ID:    "s1",
-			Start: 1.0,
-			End:   2.0,
+			ID:      "s1",
+			Start:   1.0,
+			End:     2.0,
 			ColorID: 1,
 		},
 	}
@@ -97,7 +97,7 @@ func TestHighlightService_GetSuggestedHighlights_Integration(t *testing.T) {
 	suggestions, err := service.GetSuggestedHighlights(clip.ID)
 	require.NoError(t, err)
 	assert.Len(t, suggestions, 1)
-	
+
 	suggestion := suggestions[0]
 	assert.Equal(t, "s1", suggestion.ID)
 	assert.Equal(t, 1, suggestion.ColorID)
@@ -169,7 +169,7 @@ func TestHighlightService_GetProjectHighlights_Integration(t *testing.T) {
 	// Create test data
 	project := createTestProject(t, client, ctx)
 	clip1 := createTestVideoClipWithHighlights(t, client, ctx, project)
-	
+
 	// Create second clip with different highlights
 	clip2, err := client.VideoClip.
 		Create().
@@ -184,9 +184,9 @@ func TestHighlightService_GetProjectHighlights_Integration(t *testing.T) {
 		}).
 		SetHighlights([]schema.Highlight{
 			{
-				ID:    "h3",
-				Start: 0.0,
-				End:   1.0,
+				ID:      "h3",
+				Start:   0.0,
+				End:     1.0,
 				ColorID: 3,
 			},
 		}).
@@ -202,7 +202,7 @@ func TestHighlightService_GetProjectHighlights_Integration(t *testing.T) {
 	// Verify first clip highlights
 	var clip1Highlights *ProjectHighlight
 	var clip2Highlights *ProjectHighlight
-	
+
 	for _, ph := range projectHighlights {
 		if ph.VideoClipID == clip1.ID {
 			clip1Highlights = &ph
@@ -290,7 +290,7 @@ func TestHighlightService_AI_Settings_Integration(t *testing.T) {
 		AIModel:  "anthropic/claude-3-haiku",
 		AIPrompt: "Custom prompt for highlight suggestions",
 	}
-	
+
 	err = service.SaveProjectHighlightAISettings(project.ID, newSettings)
 	require.NoError(t, err)
 
@@ -448,9 +448,9 @@ func TestHighlightService_ComplexScenario_Integration(t *testing.T) {
 		}).
 		SetHighlights([]schema.Highlight{
 			{
-				ID:    "p2h1",
-				Start: 0.0,
-				End:   1.0,
+				ID:      "p2h1",
+				Start:   0.0,
+				End:     1.0,
 				ColorID: 5,
 			},
 		}).

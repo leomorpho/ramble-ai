@@ -68,21 +68,21 @@ func createTestWords() []schema.Word {
 func createTestHighlights() []schema.Highlight {
 	return []schema.Highlight{
 		{
-			ID:    "h1",
-			Start: 0.0,
-			End:   1.0,
+			ID:      "h1",
+			Start:   0.0,
+			End:     1.0,
 			ColorID: 3,
 		},
 		{
-			ID:    "h2",
-			Start: 2.0,
-			End:   3.0,
+			ID:      "h2",
+			Start:   2.0,
+			End:     3.0,
 			ColorID: 2,
 		},
 		{
-			ID:    "h3",
-			Start: 4.0,
-			End:   5.0,
+			ID:      "h3",
+			Start:   4.0,
+			End:     5.0,
 			ColorID: 3,
 		},
 	}
@@ -90,14 +90,14 @@ func createTestHighlights() []schema.Highlight {
 
 func createTestVideoClip() *ent.VideoClip {
 	return &ent.VideoClip{
-		ID:                   1,
-		Name:                 "Test Video",
-		FilePath:             "/test/video.mp4",
-		Duration:             10.0,
-		Transcription:        "Hello world this is a test transcript with multiple words",
-		TranscriptionWords:   createTestWords(),
-		Highlights:           createTestHighlights(),
-		SuggestedHighlights:  []schema.Highlight{},
+		ID:                  1,
+		Name:                "Test Video",
+		FilePath:            "/test/video.mp4",
+		Duration:            10.0,
+		Transcription:       "Hello world this is a test transcript with multiple words",
+		TranscriptionWords:  createTestWords(),
+		Highlights:          createTestHighlights(),
+		SuggestedHighlights: []schema.Highlight{},
 	}
 }
 
@@ -117,40 +117,40 @@ func TestHighlightService_TimeToWordIndex(t *testing.T) {
 	words := createTestWords()
 
 	tests := []struct {
-		name           string
-		timeSeconds    float64
-		expectedIndex  int
-		description    string
+		name          string
+		timeSeconds   float64
+		expectedIndex int
+		description   string
 	}{
 		{
-			name:           "Start of transcript",
-			timeSeconds:    0.0,
-			expectedIndex:  0,
-			description:    "Should return first word index",
+			name:          "Start of transcript",
+			timeSeconds:   0.0,
+			expectedIndex: 0,
+			description:   "Should return first word index",
 		},
 		{
-			name:           "Middle of transcript",
-			timeSeconds:    2.5,
-			expectedIndex:  5,
-			description:    "Should return index of word at that time",
+			name:          "Middle of transcript",
+			timeSeconds:   2.5,
+			expectedIndex: 5,
+			description:   "Should return index of word at that time",
 		},
 		{
-			name:           "End of transcript",
-			timeSeconds:    5.0,
-			expectedIndex:  9,
-			description:    "Should return last word index",
+			name:          "End of transcript",
+			timeSeconds:   5.0,
+			expectedIndex: 9,
+			description:   "Should return last word index",
 		},
 		{
-			name:           "Beyond transcript end",
-			timeSeconds:    10.0,
-			expectedIndex:  9,
-			description:    "Should return last word index for time beyond transcript",
+			name:          "Beyond transcript end",
+			timeSeconds:   10.0,
+			expectedIndex: 9,
+			description:   "Should return last word index for time beyond transcript",
 		},
 		{
-			name:           "Between words",
-			timeSeconds:    1.25,
-			expectedIndex:  2,
-			description:    "Should return word index that contains the time",
+			name:          "Between words",
+			timeSeconds:   1.25,
+			expectedIndex: 2,
+			description:   "Should return word index that contains the time",
 		},
 	}
 
@@ -167,40 +167,40 @@ func TestHighlightService_WordIndexToTime(t *testing.T) {
 	words := createTestWords()
 
 	tests := []struct {
-		name           string
-		wordIndex      int
-		expectedTime   float64
-		description    string
+		name         string
+		wordIndex    int
+		expectedTime float64
+		description  string
 	}{
 		{
-			name:           "First word",
-			wordIndex:      0,
-			expectedTime:   0.0,
-			description:    "Should return start time of first word",
+			name:         "First word",
+			wordIndex:    0,
+			expectedTime: 0.0,
+			description:  "Should return start time of first word",
 		},
 		{
-			name:           "Middle word",
-			wordIndex:      5,
-			expectedTime:   2.5,
-			description:    "Should return start time of middle word",
+			name:         "Middle word",
+			wordIndex:    5,
+			expectedTime: 2.5,
+			description:  "Should return start time of middle word",
 		},
 		{
-			name:           "Last word",
-			wordIndex:      9,
-			expectedTime:   4.5,
-			description:    "Should return start time of last word",
+			name:         "Last word",
+			wordIndex:    9,
+			expectedTime: 4.5,
+			description:  "Should return start time of last word",
 		},
 		{
-			name:           "Invalid index - negative",
-			wordIndex:      -1,
-			expectedTime:   0.0,
-			description:    "Should return 0 for negative index",
+			name:         "Invalid index - negative",
+			wordIndex:    -1,
+			expectedTime: 0.0,
+			description:  "Should return 0 for negative index",
 		},
 		{
-			name:           "Invalid index - beyond range",
-			wordIndex:      20,
-			expectedTime:   0.0,
-			description:    "Should return 0 for index beyond range",
+			name:         "Invalid index - beyond range",
+			wordIndex:    20,
+			expectedTime: 0.0,
+			description:  "Should return 0 for index beyond range",
 		},
 	}
 
@@ -289,9 +289,9 @@ func TestHighlightService_extractHighlightText(t *testing.T) {
 		{
 			name: "Exact word boundaries",
 			highlight: schema.Highlight{
-				ID:    "h1",
-				Start: 0.0,
-				End:   1.0,
+				ID:      "h1",
+				Start:   0.0,
+				End:     1.0,
 				ColorID: 3,
 			},
 			expectedText: "Hello world",
@@ -300,9 +300,9 @@ func TestHighlightService_extractHighlightText(t *testing.T) {
 		{
 			name: "Partial word overlap",
 			highlight: schema.Highlight{
-				ID:    "h2",
-				Start: 1.25,
-				End:   2.75,
+				ID:      "h2",
+				Start:   1.25,
+				End:     2.75,
 				ColorID: 2,
 			},
 			expectedText: "is a",
@@ -311,9 +311,9 @@ func TestHighlightService_extractHighlightText(t *testing.T) {
 		{
 			name: "No matching words",
 			highlight: schema.Highlight{
-				ID:    "h3",
-				Start: 10.0,
-				End:   11.0,
+				ID:      "h3",
+				Start:   10.0,
+				End:     11.0,
 				ColorID: 3,
 			},
 			expectedText: "",
@@ -322,9 +322,9 @@ func TestHighlightService_extractHighlightText(t *testing.T) {
 		{
 			name: "Single word highlight",
 			highlight: schema.Highlight{
-				ID:    "h4",
-				Start: 2.0,
-				End:   2.5,
+				ID:      "h4",
+				Start:   2.0,
+				End:     2.5,
 				ColorID: 1,
 			},
 			expectedText: "a",
@@ -347,9 +347,9 @@ func TestHighlightService_extractHighlightText_FallbackToFullText(t *testing.T) 
 	fullText := "Hello world this is a test transcript with multiple words"
 
 	highlight := schema.Highlight{
-		ID:    "h1",
-		Start: 0.0,
-		End:   1.0,
+		ID:      "h1",
+		Start:   0.0,
+		End:     1.0,
 		ColorID: 3,
 	}
 
@@ -380,53 +380,53 @@ func TestHighlightService_ApplyHighlightOrder(t *testing.T) {
 	}
 
 	tests := []struct {
-		name            string
-		order           []string
-		expectedOrder   []string
-		description     string
+		name          string
+		order         []string
+		expectedOrder []string
+		description   string
 	}{
 		{
-			name:            "Empty order",
-			order:           []string{},
-			expectedOrder:   []string{"h1", "h2", "h3", "h4"},
-			description:     "Should maintain original order when no custom order provided",
+			name:          "Empty order",
+			order:         []string{},
+			expectedOrder: []string{"h1", "h2", "h3", "h4"},
+			description:   "Should maintain original order when no custom order provided",
 		},
 		{
-			name:            "Reverse order",
-			order:           []string{"h4", "h3", "h2", "h1"},
-			expectedOrder:   []string{"h4", "h3", "h2", "h1"},
-			description:     "Should apply reverse order",
+			name:          "Reverse order",
+			order:         []string{"h4", "h3", "h2", "h1"},
+			expectedOrder: []string{"h4", "h3", "h2", "h1"},
+			description:   "Should apply reverse order",
 		},
 		{
-			name:            "Partial order",
-			order:           []string{"h3", "h1"},
-			expectedOrder:   []string{"h3", "h1", "h4", "h2"},
-			description:     "Should place ordered items first, then unordered items",
+			name:          "Partial order",
+			order:         []string{"h3", "h1"},
+			expectedOrder: []string{"h3", "h1", "h4", "h2"},
+			description:   "Should place ordered items first, then unordered items",
 		},
 		{
-			name:            "Order with non-existent IDs",
-			order:           []string{"h5", "h2", "h6", "h4"},
-			expectedOrder:   []string{"h2", "h4", "h3", "h1"},
-			description:     "Should ignore non-existent IDs and order remaining items",
+			name:          "Order with non-existent IDs",
+			order:         []string{"h5", "h2", "h6", "h4"},
+			expectedOrder: []string{"h2", "h4", "h3", "h1"},
+			description:   "Should ignore non-existent IDs and order remaining items",
 		},
 		{
-			name:            "Duplicate IDs in order",
-			order:           []string{"h2", "h2", "h1", "h3"},
-			expectedOrder:   []string{"h2", "h1", "h3", "h4"},
-			description:     "Should handle duplicate IDs in order",
+			name:          "Duplicate IDs in order",
+			order:         []string{"h2", "h2", "h1", "h3"},
+			expectedOrder: []string{"h2", "h1", "h3", "h4"},
+			description:   "Should handle duplicate IDs in order",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := service.ApplyHighlightOrder(segments, tt.order)
-			
+
 			// Extract IDs from result for comparison
 			var resultIDs []string
 			for _, segment := range result {
 				resultIDs = append(resultIDs, segment.ID)
 			}
-			
+
 			assert.Equal(t, tt.expectedOrder, resultIDs, tt.description)
 		})
 	}
@@ -436,7 +436,7 @@ func TestHighlightService_GetProjectHighlightAISettings_DefaultValues(t *testing
 	// Since we can't easily mock the database calls without significant refactoring,
 	// we'll test the logic by creating structs and checking default values
 	// This test would need a proper mock setup or test database in a real scenario
-	
+
 	// For now, we'll create a simple test to verify the struct creation
 	settings := &ProjectHighlightAISettings{
 		AIModel:  "openai/gpt-4o-mini",
@@ -451,18 +451,18 @@ func TestHighlightService_ProjectHighlight_Creation(t *testing.T) {
 	// Test creating ProjectHighlight struct
 	highlights := []HighlightWithText{
 		{
-			ID:    "h1",
-			Start: 0.0,
-			End:   1.0,
+			ID:      "h1",
+			Start:   0.0,
+			End:     1.0,
 			ColorID: 3,
-			Text:  "Hello world",
+			Text:    "Hello world",
 		},
 		{
-			ID:    "h2",
-			Start: 2.0,
-			End:   3.0,
+			ID:      "h2",
+			Start:   2.0,
+			End:     3.0,
 			ColorID: 2,
-			Text:  "test transcript",
+			Text:    "test transcript",
 		},
 	}
 
@@ -509,10 +509,10 @@ func TestHighlightService_HighlightSegment_Creation(t *testing.T) {
 func TestHighlightService_HighlightSuggestion_Creation(t *testing.T) {
 	// Test creating HighlightSuggestion struct
 	suggestion := HighlightSuggestion{
-		ID:    "s1",
-		Start: 0,
-		End:   5,
-		Text:  "Hello world this is a test",
+		ID:      "s1",
+		Start:   0,
+		End:     5,
+		Text:    "Hello world this is a test",
 		ColorID: 3,
 	}
 
@@ -526,7 +526,7 @@ func TestHighlightService_HighlightSuggestion_Creation(t *testing.T) {
 // Edge case tests
 func TestHighlightService_extractTextFromWordRange_EdgeCases(t *testing.T) {
 	service := &HighlightService{}
-	
+
 	// Test with empty words array
 	emptyWords := []schema.Word{}
 	result := service.extractTextFromWordRange(emptyWords, 0, 0)
@@ -552,7 +552,7 @@ func TestHighlightService_extractTextFromWordRange_EdgeCases(t *testing.T) {
 
 func TestHighlightService_timeToWordIndex_EdgeCases(t *testing.T) {
 	service := &HighlightService{}
-	
+
 	// Test with empty words array
 	emptyWords := []schema.Word{}
 	result := service.timeToWordIndex(1.0, emptyWords)
@@ -573,7 +573,7 @@ func TestHighlightService_timeToWordIndex_EdgeCases(t *testing.T) {
 
 func TestHighlightService_wordIndexToTime_EdgeCases(t *testing.T) {
 	service := &HighlightService{}
-	
+
 	// Test with empty words array
 	emptyWords := []schema.Word{}
 	result := service.wordIndexToTime(0, emptyWords)
@@ -591,7 +591,7 @@ func TestHighlightService_wordIndexToTime_EdgeCases(t *testing.T) {
 func BenchmarkHighlightService_extractTextFromWordRange(b *testing.B) {
 	service := &HighlightService{}
 	words := createTestWords()
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		service.extractTextFromWordRange(words, 0, len(words)-1)
@@ -601,7 +601,7 @@ func BenchmarkHighlightService_extractTextFromWordRange(b *testing.B) {
 func BenchmarkHighlightService_timeToWordIndex(b *testing.B) {
 	service := &HighlightService{}
 	words := createTestWords()
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		service.timeToWordIndex(2.5, words)
@@ -618,7 +618,7 @@ func BenchmarkHighlightService_ApplyHighlightOrder(b *testing.B) {
 		{ID: "h5", VideoClipName: "Video5", Start: 8.0, End: 9.0},
 	}
 	order := []string{"h3", "h1", "h5", "h2", "h4"}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		service.ApplyHighlightOrder(segments, order)

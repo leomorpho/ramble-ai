@@ -26,9 +26,10 @@ go-deps:
 # Install and cache frontend dependencies  
 frontend-deps:
     FROM +deps
-    COPY frontend/package.json frontend/pnpm-lock.yaml ./frontend/
+    COPY frontend/package.json ./frontend/
+    COPY frontend/pnpm-lock.yaml ./frontend/ 2>/dev/null || true
     WORKDIR /app/frontend
-    RUN pnpm install --frozen-lockfile
+    RUN pnpm install --no-frozen-lockfile
     SAVE ARTIFACT node_modules AS LOCAL frontend/node_modules.cached
 
 # Copy all source code

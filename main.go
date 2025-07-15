@@ -36,7 +36,7 @@ func main() {
 		OnStartup:        app.startup,
 		OnShutdown:       app.shutdown,
 		DragAndDrop: &options.DragAndDrop{
-			EnableFileDrop: true,
+			EnableFileDrop:     true,
 			DisableWebViewDrop: false,
 		},
 		Bind: []interface{}{

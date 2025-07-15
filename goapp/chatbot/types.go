@@ -1,10 +1,10 @@
 package chatbot
 
 import (
-	"context"
-	"time"
 	"MYAPP/ent"
 	"MYAPP/goapp/highlights"
+	"context"
+	"time"
 )
 
 // ChatMessage represents a single message in a conversation
@@ -18,41 +18,41 @@ type ChatMessage struct {
 
 // ChatSession represents a conversation session
 type ChatSession struct {
-	ID        string        `json:"id"`
-	SessionID string        `json:"sessionId"`
-	ProjectID int           `json:"projectId"`
-	EndpointID string       `json:"endpointId"`
-	Messages  []ChatMessage `json:"messages"`
-	CreatedAt time.Time     `json:"createdAt"`
-	UpdatedAt time.Time     `json:"updatedAt"`
+	ID         string        `json:"id"`
+	SessionID  string        `json:"sessionId"`
+	ProjectID  int           `json:"projectId"`
+	EndpointID string        `json:"endpointId"`
+	Messages   []ChatMessage `json:"messages"`
+	CreatedAt  time.Time     `json:"createdAt"`
+	UpdatedAt  time.Time     `json:"updatedAt"`
 }
 
 // ChatRequest represents a request to send a message
 type ChatRequest struct {
-	ProjectID          int                    `json:"projectId"`
-	EndpointID         string                 `json:"endpointId"`
-	Message            string                 `json:"message"`
-	SessionID          string                 `json:"sessionId,omitempty"`
-	ContextData        map[string]interface{} `json:"contextData"`
-	Model              string                 `json:"model"`
+	ProjectID           int                    `json:"projectId"`
+	EndpointID          string                 `json:"endpointId"`
+	Message             string                 `json:"message"`
+	SessionID           string                 `json:"sessionId,omitempty"`
+	ContextData         map[string]interface{} `json:"contextData"`
+	Model               string                 `json:"model"`
 	EnableFunctionCalls bool                   `json:"enableFunctionCalls,omitempty"`
-	Mode               string                 `json:"mode,omitempty"` // "chat" or "reorder"
+	Mode                string                 `json:"mode,omitempty"` // "chat" or "reorder"
 }
 
 // ChatResponse represents the response from sending a message
 type ChatResponse struct {
-	SessionID         string                   `json:"sessionId"`
-	MessageID         string                   `json:"messageId"`
-	Message           string                   `json:"message"`
-	Model             string                   `json:"model,omitempty"`
-	Success           bool                     `json:"success"`
-	Error             string                   `json:"error,omitempty"`
-	FunctionResults   []FunctionExecutionResult `json:"functionResults,omitempty"`
-	ActionsAvailable  []string                 `json:"actionsAvailable,omitempty"`
+	SessionID        string                    `json:"sessionId"`
+	MessageID        string                    `json:"messageId"`
+	Message          string                    `json:"message"`
+	Model            string                    `json:"model,omitempty"`
+	Success          bool                      `json:"success"`
+	Error            string                    `json:"error,omitempty"`
+	FunctionResults  []FunctionExecutionResult `json:"functionResults,omitempty"`
+	ActionsAvailable []string                  `json:"actionsAvailable,omitempty"`
 	// New fields for MCP action summaries
-	ActionsPerformed  []string                 `json:"actionsPerformed,omitempty"`
-	ActionSummary     string                   `json:"actionSummary,omitempty"`
-	HasActions        bool                     `json:"hasActions,omitempty"`
+	ActionsPerformed []string `json:"actionsPerformed,omitempty"`
+	ActionSummary    string   `json:"actionSummary,omitempty"`
+	HasActions       bool     `json:"hasActions,omitempty"`
 }
 
 // FunctionExecutionResult represents the result of executing a function
@@ -86,13 +86,13 @@ type UpdateOrderFunc func(projectID int, order []interface{}) error
 
 // ChatbotService provides chatbot functionality
 type ChatbotService struct {
-	client           *ent.Client
-	ctx              context.Context
-	functionRegistry map[string]FunctionExecutor
-	functionDefs     []FunctionDefinition
-	highlightService *highlights.HighlightService
-	aiService        *highlights.AIService
-	updateOrderFunc  UpdateOrderFunc
-	mcpRegistry      *MCPRegistry
+	client                  *ent.Client
+	ctx                     context.Context
+	functionRegistry        map[string]FunctionExecutor
+	functionDefs            []FunctionDefinition
+	highlightService        *highlights.HighlightService
+	aiService               *highlights.AIService
+	updateOrderFunc         UpdateOrderFunc
+	mcpRegistry             *MCPRegistry
 	conversationFlowManager *ConversationFlowManager
 }
