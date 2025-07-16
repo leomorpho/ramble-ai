@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import ThemeToggle from './ThemeToggle.svelte';
-	import ProjectIntakeForm from './ProjectIntakeForm.svelte';
 
 	let isMenuOpen = $state(false);
 
@@ -38,39 +37,30 @@
 				href="/"
 				class="flex items-center space-x-3 hover:opacity-80 transition-opacity cursor-pointer"
 			>
-				<div class="w-8 h-8 rounded-full overflow-hidden ring-2 ring-primary/20">
-					<img 
-						src="/logo-128.png" 
-						alt="GooseBytes Logo" 
-						class="w-full h-full object-cover"
-					/>
+				<div class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
+					<span class="text-primary-foreground font-bold text-sm">VK</span>
 				</div>
 				<span class="font-bold tracking-tight">
-					<span class="text-foreground">GOOSE</span><span class="gradient-text">BYTES</span>
+					<span class="text-foreground">VID</span><span class="gradient-text">KING</span>
 				</span>
 			</a>
 
 			<!-- Desktop Menu -->
 			<div class="hidden md:flex items-center space-x-8">
 				<a
-					href="#services"
+					href="#features"
 					class="text-muted-foreground hover:text-foreground text-sm uppercase tracking-wider transition-colors"
-					>Services</a
+					>Features</a
 				>
 				<a
-					href="#work"
+					href="#feature-gallery"
 					class="text-muted-foreground hover:text-foreground text-sm uppercase tracking-wider transition-colors"
-					>Work</a
+					>Gallery</a
 				>
 				<a
-					href="#team"
+					href="#workflow"
 					class="text-muted-foreground hover:text-foreground text-sm uppercase tracking-wider transition-colors"
-					>Team</a
-				>
-				<a
-					href="#process"
-					class="text-muted-foreground hover:text-foreground text-sm uppercase tracking-wider transition-colors"
-					>Process</a
+					>Workflow</a
 				>
 				<a
 					href="#faq"
@@ -78,7 +68,9 @@
 					>FAQ</a
 				>
 				<ThemeToggle />
-				<ProjectIntakeForm triggerText="Start Project" size="sm" />
+				<button class="bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors">
+					Download Free
+				</button>
 			</div>
 
 			<!-- Mobile Menu Controls -->
@@ -111,28 +103,22 @@
 		>
 			<div class="px-6 py-4 space-y-4 transform transition-transform duration-300 ease-out {isMenuOpen ? 'translate-y-0' : '-translate-y-4'}">
 				<a
-					href="#services"
+					href="#features"
 					onclick={closeMenu}
 					class="block text-muted-foreground hover:text-foreground text-sm uppercase tracking-wider transition-colors py-2"
-					>Services</a
+					>Features</a
 				>
 				<a
-					href="#work"
+					href="#feature-gallery"
 					onclick={closeMenu}
 					class="block text-muted-foreground hover:text-foreground text-sm uppercase tracking-wider transition-colors py-2"
-					>Work</a
+					>Gallery</a
 				>
 				<a
-					href="#team"
+					href="#workflow"
 					onclick={closeMenu}
 					class="block text-muted-foreground hover:text-foreground text-sm uppercase tracking-wider transition-colors py-2"
-					>Team</a
-				>
-				<a
-					href="#process"
-					onclick={closeMenu}
-					class="block text-muted-foreground hover:text-foreground text-sm uppercase tracking-wider transition-colors py-2"
-					>Process</a
+					>Workflow</a
 				>
 				<a
 					href="#faq"
@@ -141,7 +127,9 @@
 					>FAQ</a
 				>
 				<div class="pt-4 border-t border-border">
-					<ProjectIntakeForm triggerText="Start Project" size="sm" />
+					<button class="w-full bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors">
+						Download Free
+					</button>
 				</div>
 			</div>
 		</div>
