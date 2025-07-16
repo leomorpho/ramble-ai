@@ -5,25 +5,38 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
+  --radius: 0.75rem;
+  /* Video Editor Theme - Light Mode */
+  --background: oklch(0.99 0.005 240);
+  --foreground: oklch(0.15 0.02 240);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
+  --card-foreground: oklch(0.15 0.02 240);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
+  --popover-foreground: oklch(0.15 0.02 240);
+  
+  /* Primary: Electric Blue for video/tech feeling */
+  --primary: oklch(0.55 0.25 240);
+  --primary-foreground: oklch(0.98 0.02 240);
+  
+  /* Secondary: Deep Purple for sophistication */
+  --secondary: oklch(0.92 0.02 270);
+  --secondary-foreground: oklch(0.25 0.03 270);
+  
+  --muted: oklch(0.95 0.01 240);
+  --muted-foreground: oklch(0.45 0.03 240);
+  --accent: oklch(0.96 0.01 180);
+  --accent-foreground: oklch(0.15 0.02 240);
+  --destructive: oklch(0.6 0.25 15);
+  --border: oklch(0.88 0.02 240);
+  --input: oklch(0.88 0.02 240);
+  --ring: oklch(0.55 0.25 240);
+  
+  /* Video Editor specific colors */
+  --video-accent: oklch(0.65 0.2 320); /* Magenta for highlights */
+  --video-success: oklch(0.6 0.15 140); /* Green for success states */
+  --video-warning: oklch(0.7 0.2 60); /* Orange for warnings */
+  --video-timeline: oklch(0.25 0.05 240); /* Dark blue for timeline */
+  
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -40,24 +53,37 @@
 }
 
 .dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.208 0.042 265.755);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.208 0.042 265.755);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.929 0.013 255.508);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
+  /* Video Editor Theme - Dark Mode */
+  --background: oklch(0.12 0.02 240);
+  --foreground: oklch(0.95 0.01 240);
+  --card: oklch(0.18 0.03 240);
+  --card-foreground: oklch(0.95 0.01 240);
+  --popover: oklch(0.18 0.03 240);
+  --popover-foreground: oklch(0.95 0.01 240);
+  
+  /* Primary: Bright Blue for video/tech feeling in dark mode */
+  --primary: oklch(0.65 0.25 240);
+  --primary-foreground: oklch(0.12 0.02 240);
+  
+  /* Secondary: Dark Purple tones */
+  --secondary: oklch(0.22 0.05 270);
+  --secondary-foreground: oklch(0.9 0.02 240);
+  
+  --muted: oklch(0.22 0.03 240);
+  --muted-foreground: oklch(0.6 0.02 240);
+  --accent: oklch(0.25 0.03 240);
+  --accent-foreground: oklch(0.95 0.01 240);
+  --destructive: oklch(0.65 0.25 15);
+  --border: oklch(0.25 0.03 240);
+  --input: oklch(0.25 0.03 240);
+  --ring: oklch(0.65 0.25 240);
+  
+  /* Video Editor specific colors - Dark mode */
+  --video-accent: oklch(0.7 0.25 320); /* Brighter magenta for dark mode */
+  --video-success: oklch(0.65 0.2 140); /* Brighter green */
+  --video-warning: oklch(0.75 0.25 60); /* Brighter orange */
+  --video-timeline: oklch(0.15 0.03 240); /* Very dark blue for timeline */
+  
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -116,88 +142,197 @@
     @apply border-border outline-ring/50;
   }
   html {
-    font-family: "Recursive", sans-serif;
+    font-family: "Inter", "Recursive", sans-serif;
     font-optical-sizing: auto;
     font-variation-settings:
       "slnt" 0,
       "CASL" 0,
-      "CRSV" 0.5,
+      "CRSV" 0.3,
       "MONO" 0;
+    scroll-behavior: smooth;
   }
   body {
     @apply bg-background text-foreground;
-    font-family: "Recursive", sans-serif;
+    font-family: "Inter", "Recursive", sans-serif;
     font-optical-sizing: auto;
     font-variation-settings:
       "slnt" 0,
       "CASL" 0,
-      "CRSV" 0.5,
+      "CRSV" 0.3,
+      "MONO" 0;
+    background: radial-gradient(ellipse at top, 
+      oklch(from var(--primary) l c h / 0.05) 0%, 
+      var(--background) 50%);
+  }
+  
+  /* Typography hierarchy */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: "Inter", "Recursive", sans-serif;
+    font-optical-sizing: auto;
+    font-variation-settings:
+      "slnt" 0,
+      "CASL" 0,
+      "CRSV" 0.2,
       "MONO" 0;
   }
   
-  /* Ensure all elements use Recursive font with proper variation settings */
-  h1, h2, h3, h4, h5, h6, p, span, div, a, button, input, textarea, select {
-    font-family: "Recursive", sans-serif;
+  p, span, div, a, button, input, textarea, select {
+    font-family: "Inter", "Recursive", sans-serif;
     font-optical-sizing: auto;
     font-variation-settings:
       "slnt" 0,
       "CASL" 0,
-      "CRSV" 0.5,
+      "CRSV" 0.3,
       "MONO" 0;
+  }
+  
+  .font-mono {
+    font-variation-settings:
+      "slnt" 0,
+      "CASL" 0,
+      "CRSV" 0,
+      "MONO" 1;
   }
 }
 
 @layer utilities {
-  /* Custom gradients - work for both light and dark themes */
+  /* Video Editor Custom Gradients */
   .gradient-primary {
-    background: linear-gradient(135deg, #00ff88 0%, #00ccff 100%);
+    background: linear-gradient(135deg, 
+      oklch(0.55 0.25 240) 0%, 
+      oklch(0.65 0.25 320) 100%);
   }
   
   .gradient-secondary {
-    background: linear-gradient(135deg, #ff0080 0%, #ff8c00 100%);
+    background: linear-gradient(135deg, 
+      oklch(0.65 0.2 320) 0%, 
+      oklch(0.6 0.15 140) 100%);
   }
   
-  .gradient-pink {
-    background: linear-gradient(135deg, #ff0080 0%, #ff4da6 100%);
+  .gradient-video {
+    background: linear-gradient(135deg, 
+      oklch(0.55 0.25 240) 0%, 
+      oklch(0.65 0.25 320) 50%, 
+      oklch(0.6 0.15 140) 100%);
   }
 
-  .gradient-cyan {
-    background: linear-gradient(135deg, #00ccff 0%, #0099cc 100%);
+  .gradient-timeline {
+    background: linear-gradient(90deg, 
+      oklch(0.25 0.05 240) 0%, 
+      oklch(0.55 0.25 240) 100%);
   }
 
-  .gradient-green {
-    background: linear-gradient(135deg, #00ff88 0%, #00cc66 100%);
+  .gradient-accent {
+    background: linear-gradient(135deg, 
+      oklch(0.7 0.25 60) 0%, 
+      oklch(0.65 0.2 320) 100%);
   }
   
   .gradient-text {
-    background: linear-gradient(135deg, #00ff88, #ff0080, #00ccff);
+    background: linear-gradient(135deg, 
+      oklch(0.55 0.25 240), 
+      oklch(0.65 0.25 320), 
+      oklch(0.6 0.15 140));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
-
-  /* Card styles for dark theme */
-  .card {
-    @apply bg-card border border-border;
+  /* Video Editor Cards */
+  .video-card {
+    @apply bg-card border border-border backdrop-blur-sm;
+    background: oklch(from var(--card) l c h / 0.8);
   }
 
-  /* Typography */
+  .video-card-hover {
+    @apply transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl;
+    box-shadow: 0 25px 50px -12px oklch(from var(--primary) l c h / 0.25);
+  }
+
+  /* Typography - Video Editor Specific */
   .text-display {
     font-weight: 900;
-    letter-spacing: -0.05em;
-    line-height: 0.9;
+    letter-spacing: -0.06em;
+    line-height: 0.85;
+    font-variation-settings: "MONO" 0.2;
   }
 
   .text-headline {
     font-weight: 800;
-    letter-spacing: -0.03em;
-    line-height: 1.1;
+    letter-spacing: -0.04em;
+    line-height: 1.0;
+    font-variation-settings: "MONO" 0.1;
   }
 
-  /* Vertical text */
-  .text-vertical {
-    writing-mode: vertical-rl;
-    text-orientation: mixed;
+  .text-tech {
+    font-variation-settings: "MONO" 0.8;
+    letter-spacing: 0.02em;
+  }
+
+  /* Video Editor Specific Elements */
+  .timeline-track {
+    @apply relative rounded-md overflow-hidden;
+    background: linear-gradient(90deg, 
+      oklch(from var(--video-timeline) l c h / 0.3) 0%, 
+      oklch(from var(--primary) l c h / 0.6) 100%);
+  }
+
+  .video-preview {
+    @apply bg-black rounded-lg border border-border relative overflow-hidden;
+    background: linear-gradient(135deg, #000 0%, #1a1a1a 100%);
+  }
+
+  .feature-icon {
+    @apply w-12 h-12 rounded-xl flex items-center justify-center text-2xl;
+    background: linear-gradient(135deg, 
+      oklch(from var(--primary) l c h / 0.1) 0%, 
+      oklch(from var(--video-accent) l c h / 0.1) 100%);
+    border: 1px solid oklch(from var(--primary) l c h / 0.2);
+  }
+
+  .glow-effect {
+    box-shadow: 
+      0 0 20px oklch(from var(--primary) l c h / 0.3),
+      0 0 40px oklch(from var(--primary) l c h / 0.1);
+  }
+
+  .pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite alternate;
+  }
+
+  @keyframes pulse-glow {
+    from {
+      box-shadow: 0 0 20px oklch(from var(--primary) l c h / 0.3);
+    }
+    to {
+      box-shadow: 0 0 30px oklch(from var(--primary) l c h / 0.5),
+                  0 0 60px oklch(from var(--primary) l c h / 0.2);
+    }
+  }
+
+  .screenshot-shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .screenshot-shimmer::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      oklch(from var(--primary) l c h / 0.3),
+      transparent
+    );
+    animation: shimmer 2s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { left: -100%; }
+    100% { left: 100%; }
   }
 }
