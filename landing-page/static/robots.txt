@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://goosebytes.dev/sitemap.xml
+
+# Block access to internal files
+Disallow: /_app/
+Disallow: /.svelte-kit/
