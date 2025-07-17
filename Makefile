@@ -33,12 +33,29 @@ build-all-platforms: ffmpeg-binaries ## Build for all platforms with embedded FF
 	wails build -tags production -platform=windows/amd64,darwin/amd64,linux/amd64
 	@echo "✅ Multi-platform build complete!"
 
-.PHONY: build-all-platforms-obfuscated
-build-all-platforms-obfuscated: ffmpeg-binaries ## Build obfuscated binaries for all platforms
-	@echo "🔒🚀 Building obfuscated binaries for all platforms..."
+.PHONY: build-darwin-obfuscated
+build-darwin-obfuscated: ffmpeg-binaries ## Build obfuscated binary for Darwin (macOS) amd64
+	@echo "🔒🍎 Building obfuscated binary for Darwin (macOS) amd64..."
 	@echo "Excluding Atlas SQL packages from obfuscation..."
-	GOGARBLE="*,!ariga.io/atlas/..." wails build -tags production -obfuscated -garbleargs "-literals -tiny -seed=random" -platform=windows/amd64,darwin/amd64,linux/amd64
-	@echo "✅ Obfuscated multi-platform build complete!"
+	GOGARBLE="*,!ariga.io/atlas/..." wails build -tags production -obfuscated -garbleargs "-literals -tiny -seed=random" -platform=darwin/amd64
+	@echo "✅ Darwin obfuscated build complete!"
+
+.PHONY: build-windows-obfuscated
+build-windows-obfuscated: ## Build obfuscated binary for Windows amd64 (REQUIRES WINDOWS HOST)
+	@echo "❌ Windows obfuscated builds are not supported on macOS due to cross-compilation limitations."
+	@echo "   This requires building on a Windows machine or using CI/CD with Windows runners."
+	@echo "   Use 'make build-darwin-obfuscated' for macOS builds instead."
+
+.PHONY: build-linux-obfuscated
+build-linux-obfuscated: ## Build obfuscated binary for Linux amd64 (REQUIRES LINUX HOST)
+	@echo "❌ Linux obfuscated builds are not supported on macOS due to cross-compilation limitations."
+	@echo "   This requires building on a Linux machine or using CI/CD with Linux runners."
+	@echo "   Use 'make build-darwin-obfuscated' for macOS builds instead."
+
+.PHONY: build-all-platforms-obfuscated
+build-all-platforms-obfuscated: build-darwin-obfuscated ## Build obfuscated binaries for all supported platforms (macOS only on this host)
+	@echo "✅ macOS obfuscated build complete!"
+	@echo "ℹ️  Note: Windows and Linux obfuscated builds require their respective host platforms."
 
 .PHONY: clean
 clean: ## Clean build artifacts
