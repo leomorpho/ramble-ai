@@ -14,6 +14,7 @@
     DeleteVideoClip,
     SelectVideoFiles,
     TranscribeVideoClip,
+    BatchTranscribeUntranscribedClips,
     GetOpenAIApiKey,
   } from "$lib/wailsjs/go/main/App";
   import {
@@ -43,6 +44,7 @@
   let loadingClips = $state(false);
   let addingClip = $state(false);
   let clipError = $state("");
+  let batchTranscribing = $state(false);
 
 
   // Delete confirmation dialog state
@@ -612,6 +614,116 @@
     }
   }
 
+  async function batchTranscribeUntranscribedClips() {
+    try {
+      batchTranscribing = true;
+      clipError = "";
+
+      // Check if OpenAI API key is configured
+      const apiKey = await GetOpenAIApiKey();
+      if (!apiKey || apiKey.trim() === "") {
+        toast.error("OpenAI API Key Required", {
+          description: "Please configure your OpenAI API key in settings to use transcription.",
+        });
+        setTimeout(() => {
+          goto("/settings");
+        }, 2000);
+        return;
+      }
+
+      // Count untranscribed clips
+      const untranscribedClips = videoClips.filter(clip => 
+        !clip.transcription || 
+        clip.transcription.trim() === "" || 
+        clip.transcriptionState === 'error'
+      );
+
+      if (untranscribedClips.length === 0) {
+        toast.info("No untranscribed clips found", {
+          description: "All video clips in this project have already been transcribed.",
+        });
+        return;
+      }
+
+      // Show starting toast
+      toast.info(`Starting batch transcription for ${untranscribedClips.length} video clips`, {
+        description: "This may take a while...",
+      });
+
+      // Update states of clips that will be transcribed
+      for (const clip of untranscribedClips) {
+        const clipIndex = videoClips.findIndex(c => c.id === clip.id);
+        if (clipIndex !== -1) {
+          videoClips[clipIndex] = {
+            ...videoClips[clipIndex],
+            transcriptionState: 'transcribing'
+          };
+        }
+      }
+      videoClips = [...videoClips]; // Trigger reactivity
+
+      // Call backend batch transcription
+      const result = await BatchTranscribeUntranscribedClips(projectId);
+
+      if (result.success) {
+        // Reload video clips to get updated transcription data
+        await loadVideoClips();
+
+        // Show success toast
+        toast.success("Batch transcription completed", {
+          description: `${result.transcribedCount} clips transcribed successfully${result.failedCount > 0 ? `, ${result.failedCount} failed` : ''}`,
+        });
+
+        // Refresh highlights since new transcriptions might have highlights
+        if (onHighlightsChange) {
+          onHighlightsChange();
+        }
+      } else {
+        // Show error toast
+        toast.error("Batch transcription failed", {
+          description: result.message,
+        });
+        
+        // Reset transcription states on error
+        for (const clip of untranscribedClips) {
+          const clipIndex = videoClips.findIndex(c => c.id === clip.id);
+          if (clipIndex !== -1) {
+            videoClips[clipIndex] = {
+              ...videoClips[clipIndex],
+              transcriptionState: 'error'
+            };
+          }
+        }
+        videoClips = [...videoClips]; // Trigger reactivity
+      }
+    } catch (err) {
+      console.error("Batch transcription error:", err);
+      toast.error("Batch transcription failed", {
+        description: "An unexpected error occurred",
+      });
+      
+      // Reset transcription states on error
+      const untranscribedClips = videoClips.filter(clip => 
+        !clip.transcription || 
+        clip.transcription.trim() === "" || 
+        clip.transcriptionState === 'error'
+      );
+      
+      for (const clip of untranscribedClips) {
+        const clipIndex = videoClips.findIndex(c => c.id === clip.id);
+        if (clipIndex !== -1) {
+          videoClips[clipIndex] = {
+            ...videoClips[clipIndex],
+            transcriptionState: 'error'
+          };
+        }
+      }
+      videoClips = [...videoClips]; // Trigger reactivity
+    } finally {
+      batchTranscribing = false;
+    }
+  }
+
   // Expose videoClips for parent component
   $effect(() => {
     exposedVideoClips = videoClips;
@@ -621,13 +733,23 @@
 <div class="space-y-4">
   <div class="flex justify-between items-center">
     <h3 class="text-lg font-semibold">Video Clips</h3>
-    <Button
-      onclick={selectVideoFiles}
-      disabled={addingClip}
-      size="sm"
-    >
-      {addingClip ? "Adding..." : "Add Video Files"}
-    </Button>
+    <div class="flex gap-2">
+      <Button
+        onclick={batchTranscribeUntranscribedClips}
+        disabled={batchTranscribing || loadingClips}
+        variant="outline"
+        size="sm"
+      >
+        {batchTranscribing ? "Transcribing..." : "Transcribe All"}
+      </Button>
+      <Button
+        onclick={selectVideoFiles}
+        disabled={addingClip}
+        size="sm"
+      >
+        {addingClip ? "Adding..." : "Add Video Files"}
+      </Button>
+    </div>
   </div>
 
   <!-- Video clip error display -->

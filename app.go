@@ -330,6 +330,12 @@ func (a *App) TranscribeVideoClip(clipID int) (*projects.TranscriptionResponse, 
 	return projectService.TranscribeVideoClip(clipID)
 }
 
+// BatchTranscribeUntranscribedClips transcribes all untranscribed video clips in a project
+func (a *App) BatchTranscribeUntranscribedClips(projectID int) (*projects.BatchTranscribeResponse, error) {
+	projectService := projects.NewProjectService(a.client, a.ctx)
+	return projectService.BatchTranscribeUntranscribedClips(projectID)
+}
+
 // UpdateVideoClipHighlights updates the highlights for a video clip
 func (a *App) UpdateVideoClipHighlights(clipID int, highlights []projects.Highlight) error {
 	service := projects.NewProjectService(a.client, a.ctx)

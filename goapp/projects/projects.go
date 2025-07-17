@@ -1528,6 +1528,110 @@ func (s *ProjectService) TranscribeVideoClip(clipID int) (*TranscriptionResponse
 	}, nil
 }
 
+// BatchTranscribeResponse represents the response from batch transcription
+type BatchTranscribeResponse struct {
+	Success           bool     `json:"success"`
+	Message           string   `json:"message"`
+	TranscribedCount  int      `json:"transcribedCount"`
+	SkippedCount      int      `json:"skippedCount"`
+	FailedCount       int      `json:"failedCount"`
+	FailedClips       []string `json:"failedClips"`
+}
+
+// BatchTranscribeUntranscribedClips transcribes all video clips in a project that haven't been transcribed yet
+func (s *ProjectService) BatchTranscribeUntranscribedClips(projectID int) (*BatchTranscribeResponse, error) {
+	// Get all video clips for the project that haven't been transcribed
+	clips, err := s.client.VideoClip.
+		Query().
+		Where(
+			videoclip.HasProjectWith(project.ID(projectID)),
+			videoclip.Or(
+				videoclip.TranscriptionIsNil(),
+				videoclip.TranscriptionEQ(""),
+				videoclip.TranscriptionStateEQ(TranscriptionStateError),
+			),
+		).
+		All(s.ctx)
+	
+	if err != nil {
+		return &BatchTranscribeResponse{
+			Success: false,
+			Message: "Failed to get video clips",
+		}, err
+	}
+
+	if len(clips) == 0 {
+		return &BatchTranscribeResponse{
+			Success: true,
+			Message: "No untranscribed video clips found",
+			TranscribedCount: 0,
+			SkippedCount: 0,
+			FailedCount: 0,
+		}, nil
+	}
+
+	log.Printf("[BATCH_TRANSCRIPTION] Starting batch transcription for project %d with %d clips", projectID, len(clips))
+
+	// Check if OpenAI API key is configured once
+	apiKey, err := s.getOpenAIApiKey()
+	if err != nil || apiKey == "" {
+		return &BatchTranscribeResponse{
+			Success: false,
+			Message: "OpenAI API key not configured",
+		}, nil
+	}
+
+	var transcribedCount, skippedCount, failedCount int
+	var failedClips []string
+
+	// Process each clip
+	for _, clip := range clips {
+		log.Printf("[BATCH_TRANSCRIPTION] Processing clip: %s (ID: %d)", clip.Name, clip.ID)
+
+		// Check if file exists
+		if _, err := os.Stat(clip.FilePath); os.IsNotExist(err) {
+			log.Printf("[BATCH_TRANSCRIPTION] File not found for clip %s: %s", clip.Name, clip.FilePath)
+			failedCount++
+			failedClips = append(failedClips, fmt.Sprintf("%s (file not found)", clip.Name))
+			continue
+		}
+
+		// Start transcription for this clip
+		result, err := s.TranscribeVideoClip(clip.ID)
+		if err != nil {
+			log.Printf("[BATCH_TRANSCRIPTION] Error transcribing clip %s: %v", clip.Name, err)
+			failedCount++
+			failedClips = append(failedClips, fmt.Sprintf("%s (error: %v)", clip.Name, err))
+			continue
+		}
+
+		if result.Success {
+			log.Printf("[BATCH_TRANSCRIPTION] Successfully transcribed clip: %s", clip.Name)
+			transcribedCount++
+		} else {
+			log.Printf("[BATCH_TRANSCRIPTION] Failed to transcribe clip %s: %s", clip.Name, result.Message)
+			failedCount++
+			failedClips = append(failedClips, fmt.Sprintf("%s (%s)", clip.Name, result.Message))
+		}
+	}
+
+	message := fmt.Sprintf("Batch transcription completed: %d transcribed, %d failed", transcribedCount, failedCount)
+	if len(failedClips) > 0 {
+		message = fmt.Sprintf("%s. Failed clips: %s", message, strings.Join(failedClips, ", "))
+	}
+
+	log.Printf("[BATCH_TRANSCRIPTION] Completed batch transcription for project %d: %s", projectID, message)
+
+	return &BatchTranscribeResponse{
+		Success:          transcribedCount > 0 || failedCount == 0,
+		Message:          message,
+		TranscribedCount: transcribedCount,
+		SkippedCount:     skippedCount,
+		FailedCount:      failedCount,
+		FailedClips:      failedClips,
+	}, nil
+}
+
 // extractAudio extracts audio from a video file using ffmpeg
 func (s *ProjectService) extractAudio(videoPath string) (string, error) {
 	// Create temp directory for audio files
