@@ -46,6 +46,73 @@ build-windows-obfuscated: ## Build obfuscated binary for Windows amd64 (REQUIRES
 	@echo "   This requires building on a Windows machine or using CI/CD with Windows runners."
 	@echo "   Use 'make build-darwin-obfuscated' for macOS builds instead."
 
+# Windows-specific build commands (to be run on Windows)
+.PHONY: build-windows-on-windows
+build-windows-on-windows: ffmpeg-binaries ## Build Windows binary on Windows host
+	@echo "🪟 Building Windows binary..."
+	wails build -tags production -platform=windows/amd64
+	@echo "✅ Windows build complete!"
+
+.PHONY: build-windows-installer
+build-windows-installer: ## Build Windows NSIS installer (REQUIRES WINDOWS HOST)
+	@echo "📦 Building Windows installer..."
+	wails build -tags production -platform=windows/amd64 -nsis
+	@echo "✅ Windows installer created!"
+
+.PHONY: build-windows-obfuscated-on-windows
+build-windows-obfuscated-on-windows: ffmpeg-binaries ## Build obfuscated Windows binary on Windows host
+	@echo "🔒🪟 Building obfuscated Windows binary..."
+	@echo "Excluding Atlas SQL packages from obfuscation..."
+	set GOGARBLE=*,!ariga.io/atlas/... && wails build -tags production -obfuscated -garbleargs "-literals -tiny -seed=random" -platform=windows/amd64
+	@echo "✅ Windows obfuscated build complete!"
+
+.PHONY: sign-windows-exe
+sign-windows-exe: ## Sign Windows executable (requires code signing certificate)
+	@echo "🔏 Signing Windows executable..."
+	@echo "Note: Requires Windows SDK signtool and a code signing certificate"
+	@if [ -z "$(CERT_THUMBPRINT)" ]; then \
+		echo "Error: CERT_THUMBPRINT not set"; \
+		echo "Usage: make sign-windows-exe CERT_THUMBPRINT=your-cert-thumbprint"; \
+		echo "Or with PFX: make sign-windows-exe PFX_FILE=cert.pfx PFX_PASSWORD=password"; \
+		exit 1; \
+	fi
+	@if [ -n "$(PFX_FILE)" ]; then \
+		signtool sign /f "$(PFX_FILE)" /p "$(PFX_PASSWORD)" /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 build/bin/MYAPP.exe; \
+	else \
+		signtool sign /sha1 "$(CERT_THUMBPRINT)" /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 build/bin/MYAPP.exe; \
+	fi
+	@echo "✅ Windows executable signed!"
+
+.PHONY: sign-windows-installer
+sign-windows-installer: ## Sign Windows installer (requires code signing certificate)
+	@echo "🔏 Signing Windows installer..."
+	@if [ -z "$(CERT_THUMBPRINT)" ] && [ -z "$(PFX_FILE)" ]; then \
+		echo "Error: Certificate not specified"; \
+		echo "Usage: make sign-windows-installer CERT_THUMBPRINT=your-cert-thumbprint"; \
+		echo "Or: make sign-windows-installer PFX_FILE=cert.pfx PFX_PASSWORD=password"; \
+		exit 1; \
+	fi
+	@if [ -n "$(PFX_FILE)" ]; then \
+		signtool sign /f "$(PFX_FILE)" /p "$(PFX_PASSWORD)" /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 build/bin/*-installer.exe; \
+	else \
+		signtool sign /sha1 "$(CERT_THUMBPRINT)" /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 build/bin/*-installer.exe; \
+	fi
+	@echo "✅ Windows installer signed!"
+
+.PHONY: release-windows
+release-windows: ## Complete Windows release build with installer (REQUIRES WINDOWS HOST)
+	@echo "🚀 Building Windows release..."
+	@echo "Note: This command must be run on a Windows machine"
+	$(MAKE) build-windows-obfuscated-on-windows
+	$(MAKE) build-windows-installer
+	@if [ -n "$(CERT_THUMBPRINT)" ] || [ -n "$(PFX_FILE)" ]; then \
+		$(MAKE) sign-windows-exe; \
+		$(MAKE) sign-windows-installer; \
+	else \
+		echo "⚠️  Warning: No certificate provided, skipping signing"; \
+	fi
+	@echo "✅ Windows release build complete!"
+
 .PHONY: build-linux-obfuscated
 build-linux-obfuscated: ## Build obfuscated binary for Linux amd64 (REQUIRES LINUX HOST)
 	@echo "❌ Linux obfuscated builds are not supported on macOS due to cross-compilation limitations."
@@ -214,6 +281,83 @@ setup: deps frontend-install generate ## Set up the project for development
 
 .PHONY: full-build
 full-build: clean frontend-install frontend-build build ## Clean build from scratch
+
+# Code signing and distribution
+.PHONY: sign-app
+sign-app: ## Sign the macOS app (requires Apple Developer Certificate)
+	@echo "🔏 Signing macOS app..."
+	@if [ -z "$(CERT_NAME)" ]; then \
+		echo "Error: CERT_NAME environment variable not set"; \
+		echo "Usage: make sign-app CERT_NAME='Developer ID Application: Your Name (TEAMID)'"; \
+		exit 1; \
+	fi
+	@if [ ! -d "build/bin/MYAPP.app" ]; then \
+		echo "Error: App bundle not found. Run 'make build-darwin-obfuscated' first"; \
+		exit 1; \
+	fi
+	codesign --force --options runtime --sign "$(CERT_NAME)" build/bin/MYAPP.app/Contents/MacOS/MYAPP
+	codesign --force --options runtime --sign "$(CERT_NAME)" build/bin/MYAPP.app
+	@echo "✅ App signed successfully"
+
+.PHONY: verify-signature
+verify-signature: ## Verify the app signature
+	@echo "🔍 Verifying app signature..."
+	codesign --verify --verbose build/bin/MYAPP.app
+	spctl --assess --verbose build/bin/MYAPP.app
+	@echo "✅ Signature verification complete"
+
+.PHONY: create-dmg
+create-dmg: ## Create a DMG installer
+	@echo "📦 Creating DMG installer..."
+	@if [ ! -d "build/bin/MYAPP.app" ]; then \
+		echo "Error: App bundle not found. Run 'make build-darwin-obfuscated' first"; \
+		exit 1; \
+	fi
+	@mkdir -p build/dmg
+	@cp -R build/bin/MYAPP.app build/dmg/
+	@ln -sf /Applications build/dmg/Applications
+	hdiutil create -volname "MYAPP" -srcfolder build/dmg -ov -format UDZO build/MYAPP.dmg
+	@rm -rf build/dmg
+	@echo "✅ DMG created: build/MYAPP.dmg"
+
+.PHONY: sign-dmg
+sign-dmg: ## Sign the DMG (requires Apple Developer Certificate)
+	@echo "🔏 Signing DMG..."
+	@if [ -z "$(CERT_NAME)" ]; then \
+		echo "Error: CERT_NAME environment variable not set"; \
+		echo "Usage: make sign-dmg CERT_NAME='Developer ID Application: Your Name (TEAMID)'"; \
+		exit 1; \
+	fi
+	@if [ ! -f "build/MYAPP.dmg" ]; then \
+		echo "Error: DMG not found. Run 'make create-dmg' first"; \
+		exit 1; \
+	fi
+	codesign --force --sign "$(CERT_NAME)" build/MYAPP.dmg
+	@echo "✅ DMG signed successfully"
+
+.PHONY: notarize-app
+notarize-app: ## Notarize the app with Apple (requires Apple ID credentials)
+	@echo "🍎 Notarizing app with Apple..."
+	@if [ -z "$(APPLE_ID)" ] || [ -z "$(APPLE_ID_PASSWORD)" ] || [ -z "$(TEAM_ID)" ]; then \
+		echo "Error: Apple ID credentials not set"; \
+		echo "Required environment variables:"; \
+		echo "  APPLE_ID=your-apple-id@email.com"; \
+		echo "  APPLE_ID_PASSWORD=your-app-specific-password"; \
+		echo "  TEAM_ID=your-team-id"; \
+		exit 1; \
+	fi
+	@if [ ! -f "build/MYAPP.dmg" ]; then \
+		echo "Error: DMG not found. Run 'make create-dmg' and 'make sign-dmg' first"; \
+		exit 1; \
+	fi
+	xcrun notarytool submit build/MYAPP.dmg --apple-id "$(APPLE_ID)" --password "$(APPLE_ID_PASSWORD)" --team-id "$(TEAM_ID)" --wait
+	xcrun stapler staple build/MYAPP.dmg
+	@echo "✅ App notarized and stapled successfully"
+
+.PHONY: release-darwin
+release-darwin: build-darwin-obfuscated sign-app create-dmg sign-dmg notarize-app ## Complete macOS release build with signing and notarization
+	@echo "🚀 macOS release build complete!"
+	@echo "📦 Signed and notarized DMG: build/MYAPP.dmg"
 
 # FFmpeg binaries
 .PHONY: ffmpeg-binaries
