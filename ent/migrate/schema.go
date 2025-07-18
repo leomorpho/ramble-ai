@@ -157,6 +157,7 @@ var (
 		{Name: "highlight_order", Type: field.TypeJSON, Nullable: true},
 		{Name: "order_history", Type: field.TypeJSON, Nullable: true},
 		{Name: "order_history_index", Type: field.TypeInt, Nullable: true, Default: -1},
+		{Name: "hidden_highlights", Type: field.TypeJSON, Nullable: true},
 	}
 	// ProjectsTable holds the schema information for the "projects" table.
 	ProjectsTable = &schema.Table{

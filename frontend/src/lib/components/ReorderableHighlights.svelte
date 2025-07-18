@@ -12,6 +12,7 @@
     onSelect = (event, highlight) => {},
     onEdit = (event, highlight) => {},
     onDelete = (event, highlight) => {},
+    onHide = (event, highlight) => {},
     onPopoverOpenChange = (highlightId, isOpen) => {},
     getHighlightWords = (highlight) => [],
     isPopoverOpen = (highlightId) => false,
@@ -304,6 +305,13 @@
       onDelete(event, highlight);
     }
   }
+  
+  // Handle hide
+  function handleHideHighlight(event, highlight) {
+    if (onHide) {
+      onHide(event, highlight);
+    }
+  }
 
   // Handle popover state change
   function handlePopoverStateChange(highlightId, isOpen) {
@@ -443,6 +451,7 @@
           onDrop={handleSpanDrop}
           onEdit={handleEditHighlight}
           onDelete={handleDeleteHighlight}
+          onHide={handleHideHighlight}
           popoverOpen={isPopoverOpen(item.id)}
           onPopoverOpenChange={(open) =>
             handlePopoverStateChange(item.id, open)}

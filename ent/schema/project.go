@@ -78,6 +78,9 @@ func (Project) Fields() []ent.Field {
 			Optional().
 			Default(-1).
 			Comment("Current position in order history (-1 = no history)"),
+		field.JSON("hidden_highlights", []string{}).
+			Optional().
+			Comment("Array of hidden highlight IDs that should not appear in the final video"),
 	}
 }
 

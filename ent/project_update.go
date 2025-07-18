@@ -379,6 +379,24 @@ func (pu *ProjectUpdate) ClearOrderHistoryIndex() *ProjectUpdate {
 	return pu
 }
 
+// SetHiddenHighlights sets the "hidden_highlights" field.
+func (pu *ProjectUpdate) SetHiddenHighlights(s []string) *ProjectUpdate {
+	pu.mutation.SetHiddenHighlights(s)
+	return pu
+}
+
+// AppendHiddenHighlights appends s to the "hidden_highlights" field.
+func (pu *ProjectUpdate) AppendHiddenHighlights(s []string) *ProjectUpdate {
+	pu.mutation.AppendHiddenHighlights(s)
+	return pu
+}
+
+// ClearHiddenHighlights clears the value of the "hidden_highlights" field.
+func (pu *ProjectUpdate) ClearHiddenHighlights() *ProjectUpdate {
+	pu.mutation.ClearHiddenHighlights()
+	return pu
+}
+
 // AddVideoClipIDs adds the "video_clips" edge to the VideoClip entity by IDs.
 func (pu *ProjectUpdate) AddVideoClipIDs(ids ...int) *ProjectUpdate {
 	pu.mutation.AddVideoClipIDs(ids...)
@@ -679,6 +697,17 @@ func (pu *ProjectUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if pu.mutation.OrderHistoryIndexCleared() {
 		_spec.ClearField(project.FieldOrderHistoryIndex, field.TypeInt)
+	}
+	if value, ok := pu.mutation.HiddenHighlights(); ok {
+		_spec.SetField(project.FieldHiddenHighlights, field.TypeJSON, value)
+	}
+	if value, ok := pu.mutation.AppendedHiddenHighlights(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, project.FieldHiddenHighlights, value)
+		})
+	}
+	if pu.mutation.HiddenHighlightsCleared() {
+		_spec.ClearField(project.FieldHiddenHighlights, field.TypeJSON)
 	}
 	if pu.mutation.VideoClipsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1182,6 +1211,24 @@ func (puo *ProjectUpdateOne) ClearOrderHistoryIndex() *ProjectUpdateOne {
 	return puo
 }
 
+// SetHiddenHighlights sets the "hidden_highlights" field.
+func (puo *ProjectUpdateOne) SetHiddenHighlights(s []string) *ProjectUpdateOne {
+	puo.mutation.SetHiddenHighlights(s)
+	return puo
+}
+
+// AppendHiddenHighlights appends s to the "hidden_highlights" field.
+func (puo *ProjectUpdateOne) AppendHiddenHighlights(s []string) *ProjectUpdateOne {
+	puo.mutation.AppendHiddenHighlights(s)
+	return puo
+}
+
+// ClearHiddenHighlights clears the value of the "hidden_highlights" field.
+func (puo *ProjectUpdateOne) ClearHiddenHighlights() *ProjectUpdateOne {
+	puo.mutation.ClearHiddenHighlights()
+	return puo
+}
+
 // AddVideoClipIDs adds the "video_clips" edge to the VideoClip entity by IDs.
 func (puo *ProjectUpdateOne) AddVideoClipIDs(ids ...int) *ProjectUpdateOne {
 	puo.mutation.AddVideoClipIDs(ids...)
@@ -1512,6 +1559,17 @@ func (puo *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err e
 	}
 	if puo.mutation.OrderHistoryIndexCleared() {
 		_spec.ClearField(project.FieldOrderHistoryIndex, field.TypeInt)
+	}
+	if value, ok := puo.mutation.HiddenHighlights(); ok {
+		_spec.SetField(project.FieldHiddenHighlights, field.TypeJSON, value)
+	}
+	if value, ok := puo.mutation.AppendedHiddenHighlights(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, project.FieldHiddenHighlights, value)
+		})
+	}
+	if puo.mutation.HiddenHighlightsCleared() {
+		_spec.ClearField(project.FieldHiddenHighlights, field.TypeJSON)
 	}
 	if puo.mutation.VideoClipsCleared() {
 		edge := &sqlgraph.EdgeSpec{

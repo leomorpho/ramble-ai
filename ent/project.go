@@ -56,6 +56,8 @@ type Project struct {
 	OrderHistory [][]interface{} `json:"order_history,omitempty"`
 	// Current position in order history (-1 = no history)
 	OrderHistoryIndex int `json:"order_history_index,omitempty"`
+	// Array of hidden highlight IDs that should not appear in the final video
+	HiddenHighlights []string `json:"hidden_highlights,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ProjectQuery when eager-loading is set.
 	Edges        ProjectEdges `json:"edges"`
@@ -107,7 +109,7 @@ func (*Project) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case project.FieldAiSuggestionOrder, project.FieldAiSilenceImprovements, project.FieldHighlightOrder, project.FieldOrderHistory:
+		case project.FieldAiSuggestionOrder, project.FieldAiSilenceImprovements, project.FieldHighlightOrder, project.FieldOrderHistory, project.FieldHiddenHighlights:
 			values[i] = new([]byte)
 		case project.FieldID, project.FieldOrderHistoryIndex:
 			values[i] = new(sql.NullInt64)
@@ -258,6 +260,14 @@ func (pr *Project) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				pr.OrderHistoryIndex = int(value.Int64)
 			}
+		case project.FieldHiddenHighlights:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field hidden_highlights", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &pr.HiddenHighlights); err != nil {
+					return fmt.Errorf("unmarshal field hidden_highlights: %w", err)
+				}
+			}
 		default:
 			pr.selectValues.Set(columns[i], values[i])
 		}
@@ -365,6 +375,9 @@ func (pr *Project) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("order_history_index=")
 	builder.WriteString(fmt.Sprintf("%v", pr.OrderHistoryIndex))
+	builder.WriteString(", ")
+	builder.WriteString("hidden_highlights=")
+	builder.WriteString(fmt.Sprintf("%v", pr.HiddenHighlights))
 	builder.WriteByte(')')
 	return builder.String()
 }

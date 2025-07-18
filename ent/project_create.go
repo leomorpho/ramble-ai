@@ -241,6 +241,12 @@ func (pc *ProjectCreate) SetNillableOrderHistoryIndex(i *int) *ProjectCreate {
 	return pc
 }
 
+// SetHiddenHighlights sets the "hidden_highlights" field.
+func (pc *ProjectCreate) SetHiddenHighlights(s []string) *ProjectCreate {
+	pc.mutation.SetHiddenHighlights(s)
+	return pc
+}
+
 // AddVideoClipIDs adds the "video_clips" edge to the VideoClip entity by IDs.
 func (pc *ProjectCreate) AddVideoClipIDs(ids ...int) *ProjectCreate {
 	pc.mutation.AddVideoClipIDs(ids...)
@@ -472,6 +478,10 @@ func (pc *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 	if value, ok := pc.mutation.OrderHistoryIndex(); ok {
 		_spec.SetField(project.FieldOrderHistoryIndex, field.TypeInt, value)
 		_node.OrderHistoryIndex = value
+	}
+	if value, ok := pc.mutation.HiddenHighlights(); ok {
+		_spec.SetField(project.FieldHiddenHighlights, field.TypeJSON, value)
+		_node.HiddenHighlights = value
 	}
 	if nodes := pc.mutation.VideoClipsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

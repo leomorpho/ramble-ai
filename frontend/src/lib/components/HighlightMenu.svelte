@@ -1,11 +1,12 @@
 <script>
-  import { Edit3, Trash2, Pen } from '@lucide/svelte';
+  import { Edit3, Trash2, Pen, EyeOff } from '@lucide/svelte';
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
 
   let { 
     highlight,
     onEdit = () => {},
     onDelete = () => {},
+    onHide = () => {},
     popoverOpen = false,
     onPopoverOpenChange = () => {},
     iconSize = "w-4 h-4",
@@ -27,6 +28,13 @@
     >
       <Edit3 class="w-4 h-4" />
       Edit Times
+    </DropdownMenu.Item>
+    <DropdownMenu.Item 
+      class="flex items-center gap-2"
+      onclick={() => onHide(null, highlight)}
+    >
+      <EyeOff class="w-4 h-4" />
+      Hide from Timeline
     </DropdownMenu.Item>
     <DropdownMenu.Item 
       class="flex items-center gap-2 text-destructive"

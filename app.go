@@ -420,6 +420,21 @@ func (a *App) GetProjectHighlightOrderWithTitles(projectID int) ([]interface{}, 
 	service := projects.NewProjectService(a.client, a.ctx)
 	return service.GetProjectHighlightOrderWithTitles(projectID)
 }
+// HideHighlight adds a highlight to the hidden highlights list
+func (a *App) HideHighlight(projectID int, highlightID string) error {
+	service := projects.NewProjectService(a.client, a.ctx)
+	return service.HideHighlight(projectID, highlightID)
+}
+// UnhideHighlight removes a highlight from the hidden highlights list
+func (a *App) UnhideHighlight(projectID int, highlightID string) error {
+	service := projects.NewProjectService(a.client, a.ctx)
+	return service.UnhideHighlight(projectID, highlightID)
+}
+// GetHiddenHighlights retrieves the list of hidden highlight IDs for a project
+func (a *App) GetHiddenHighlights(projectID int) ([]string, error) {
+	service := projects.NewProjectService(a.client, a.ctx)
+	return service.GetHiddenHighlights(projectID)
+}
 
 // ReorderHighlightsWithAI uses OpenRouter API to intelligently reorder highlights
 func (a *App) ReorderHighlightsWithAI(projectID int, customPrompt string) ([]interface{}, error) {

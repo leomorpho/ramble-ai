@@ -19,6 +19,7 @@
     onDrop = () => {},
     onEdit = () => {},
     onDelete = () => {},
+    onHide = () => {},
     popoverOpen = false,
     onPopoverOpenChange = () => {},
     words = [], // Transcription words for this highlight
@@ -99,6 +100,7 @@
         {highlight}
         {onEdit}
         {onDelete}
+        {onHide}
         {popoverOpen}
         {onPopoverOpenChange}
         iconSize="w-3 h-3"

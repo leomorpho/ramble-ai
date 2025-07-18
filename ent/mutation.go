@@ -2887,6 +2887,8 @@ type ProjectMutation struct {
 	appendorder_history           [][]interface{}
 	order_history_index           *int
 	addorder_history_index        *int
+	hidden_highlights             *[]string
+	appendhidden_highlights       []string
 	clearedFields                 map[string]struct{}
 	video_clips                   map[int]struct{}
 	removedvideo_clips            map[int]struct{}
@@ -3964,6 +3966,71 @@ func (m *ProjectMutation) ResetOrderHistoryIndex() {
 	delete(m.clearedFields, project.FieldOrderHistoryIndex)
 }
 
+// SetHiddenHighlights sets the "hidden_highlights" field.
+func (m *ProjectMutation) SetHiddenHighlights(s []string) {
+	m.hidden_highlights = &s
+	m.appendhidden_highlights = nil
+}
+
+// HiddenHighlights returns the value of the "hidden_highlights" field in the mutation.
+func (m *ProjectMutation) HiddenHighlights() (r []string, exists bool) {
+	v := m.hidden_highlights
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldHiddenHighlights returns the old "hidden_highlights" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldHiddenHighlights(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldHiddenHighlights is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldHiddenHighlights requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldHiddenHighlights: %w", err)
+	}
+	return oldValue.HiddenHighlights, nil
+}
+
+// AppendHiddenHighlights adds s to the "hidden_highlights" field.
+func (m *ProjectMutation) AppendHiddenHighlights(s []string) {
+	m.appendhidden_highlights = append(m.appendhidden_highlights, s...)
+}
+
+// AppendedHiddenHighlights returns the list of values that were appended to the "hidden_highlights" field in this mutation.
+func (m *ProjectMutation) AppendedHiddenHighlights() ([]string, bool) {
+	if len(m.appendhidden_highlights) == 0 {
+		return nil, false
+	}
+	return m.appendhidden_highlights, true
+}
+
+// ClearHiddenHighlights clears the value of the "hidden_highlights" field.
+func (m *ProjectMutation) ClearHiddenHighlights() {
+	m.hidden_highlights = nil
+	m.appendhidden_highlights = nil
+	m.clearedFields[project.FieldHiddenHighlights] = struct{}{}
+}
+
+// HiddenHighlightsCleared returns if the "hidden_highlights" field was cleared in this mutation.
+func (m *ProjectMutation) HiddenHighlightsCleared() bool {
+	_, ok := m.clearedFields[project.FieldHiddenHighlights]
+	return ok
+}
+
+// ResetHiddenHighlights resets all changes to the "hidden_highlights" field.
+func (m *ProjectMutation) ResetHiddenHighlights() {
+	m.hidden_highlights = nil
+	m.appendhidden_highlights = nil
+	delete(m.clearedFields, project.FieldHiddenHighlights)
+}
+
 // AddVideoClipIDs adds the "video_clips" edge to the VideoClip entity by ids.
 func (m *ProjectMutation) AddVideoClipIDs(ids ...int) {
 	if m.video_clips == nil {
@@ -4160,7 +4227,7 @@ func (m *ProjectMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProjectMutation) Fields() []string {
-	fields := make([]string, 0, 19)
+	fields := make([]string, 0, 20)
 	if m.name != nil {
 		fields = append(fields, project.FieldName)
 	}
@@ -4218,6 +4285,9 @@ func (m *ProjectMutation) Fields() []string {
 	if m.order_history_index != nil {
 		fields = append(fields, project.FieldOrderHistoryIndex)
 	}
+	if m.hidden_highlights != nil {
+		fields = append(fields, project.FieldHiddenHighlights)
+	}
 	return fields
 }
 
@@ -4264,6 +4334,8 @@ func (m *ProjectMutation) Field(name string) (ent.Value, bool) {
 		return m.OrderHistory()
 	case project.FieldOrderHistoryIndex:
 		return m.OrderHistoryIndex()
+	case project.FieldHiddenHighlights:
+		return m.HiddenHighlights()
 	}
 	return nil, false
 }
@@ -4311,6 +4383,8 @@ func (m *ProjectMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldOrderHistory(ctx)
 	case project.FieldOrderHistoryIndex:
 		return m.OldOrderHistoryIndex(ctx)
+	case project.FieldHiddenHighlights:
+		return m.OldHiddenHighlights(ctx)
 	}
 	return nil, fmt.Errorf("unknown Project field %s", name)
 }
@@ -4453,6 +4527,13 @@ func (m *ProjectMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetOrderHistoryIndex(v)
 		return nil
+	case project.FieldHiddenHighlights:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetHiddenHighlights(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Project field %s", name)
 }
@@ -4543,6 +4624,9 @@ func (m *ProjectMutation) ClearedFields() []string {
 	if m.FieldCleared(project.FieldOrderHistoryIndex) {
 		fields = append(fields, project.FieldOrderHistoryIndex)
 	}
+	if m.FieldCleared(project.FieldHiddenHighlights) {
+		fields = append(fields, project.FieldHiddenHighlights)
+	}
 	return fields
 }
 
@@ -4601,6 +4685,9 @@ func (m *ProjectMutation) ClearField(name string) error {
 		return nil
 	case project.FieldOrderHistoryIndex:
 		m.ClearOrderHistoryIndex()
+		return nil
+	case project.FieldHiddenHighlights:
+		m.ClearHiddenHighlights()
 		return nil
 	}
 	return fmt.Errorf("unknown Project nullable field %s", name)
@@ -4666,6 +4753,9 @@ func (m *ProjectMutation) ResetField(name string) error {
 		return nil
 	case project.FieldOrderHistoryIndex:
 		m.ResetOrderHistoryIndex()
+		return nil
+	case project.FieldHiddenHighlights:
+		m.ResetHiddenHighlights()
 		return nil
 	}
 	return fmt.Errorf("unknown Project field %s", name)

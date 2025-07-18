@@ -1400,6 +1400,124 @@ func (s *ProjectService) UpdateProjectHighlightOrderWithTitles(projectID int, hi
 func (s *ProjectService) GetProjectHighlightOrderWithTitles(projectID int) ([]interface{}, error) {
 	return s.getProjectHighlightOrderWithTitles(projectID)
 }
+// HideHighlight adds a highlight to the hidden highlights list
+func (s *ProjectService) HideHighlight(projectID int, highlightID string) error {
+	proj, err := s.client.Project.
+		Query().
+		Where(project.ID(projectID)).
+		Only(s.ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get project: %w", err)
+	}
+	
+	// Get current hidden highlights
+	hiddenHighlights := proj.HiddenHighlights
+	if hiddenHighlights == nil {
+		hiddenHighlights = []string{}
+	}
+	
+	// Check if already hidden
+	for _, id := range hiddenHighlights {
+		if id == highlightID {
+			return nil // Already hidden
+		}
+	}
+	
+	// Add to hidden highlights
+	hiddenHighlights = append(hiddenHighlights, highlightID)
+	
+	// Update database
+	_, err = s.client.Project.
+		UpdateOneID(projectID).
+		SetHiddenHighlights(hiddenHighlights).
+		Save(s.ctx)
+	if err != nil {
+		return fmt.Errorf("failed to hide highlight: %w", err)
+	}
+	
+	// Remove from highlight order if present
+	highlightOrder := proj.HighlightOrder
+	if highlightOrder != nil {
+		updatedOrder := make([]interface{}, 0, len(highlightOrder))
+		for _, item := range highlightOrder {
+			if str, ok := item.(string); !ok || str != highlightID {
+				updatedOrder = append(updatedOrder, item)
+			}
+		}
+		if len(updatedOrder) != len(highlightOrder) {
+			_, err = s.client.Project.
+				UpdateOneID(projectID).
+				SetHighlightOrder(updatedOrder).
+				Save(s.ctx)
+			if err != nil {
+				return fmt.Errorf("failed to update highlight order: %w", err)
+			}
+		}
+	}
+	
+	// Broadcast real-time update
+	projectIDStr := strconv.Itoa(projectID)
+	manager := realtime.GetManager()
+	manager.BroadcastHighlightsReorder(projectIDStr, proj.HighlightOrder)
+	
+	return nil
+}
+// UnhideHighlight removes a highlight from the hidden highlights list
+func (s *ProjectService) UnhideHighlight(projectID int, highlightID string) error {
+	proj, err := s.client.Project.
+		Query().
+		Where(project.ID(projectID)).
+		Only(s.ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get project: %w", err)
+	}
+	
+	// Get current hidden highlights
+	hiddenHighlights := proj.HiddenHighlights
+	if hiddenHighlights == nil {
+		return nil // Nothing to unhide
+	}
+	
+	// Remove from hidden highlights
+	updatedHidden := make([]string, 0, len(hiddenHighlights))
+	for _, id := range hiddenHighlights {
+		if id != highlightID {
+			updatedHidden = append(updatedHidden, id)
+		}
+	}
+	
+	// Update database
+	_, err = s.client.Project.
+		UpdateOneID(projectID).
+		SetHiddenHighlights(updatedHidden).
+		Save(s.ctx)
+	if err != nil {
+		return fmt.Errorf("failed to unhide highlight: %w", err)
+	}
+	
+	// Broadcast real-time update
+	projectIDStr := strconv.Itoa(projectID)
+	manager := realtime.GetManager()
+	manager.BroadcastHighlightsReorder(projectIDStr, proj.HighlightOrder)
+	
+	return nil
+}
+// GetHiddenHighlights retrieves the list of hidden highlight IDs for a project
+func (s *ProjectService) GetHiddenHighlights(projectID int) ([]string, error) {
+	proj, err := s.client.Project.
+		Query().
+		Where(project.ID(projectID)).
+		Only(s.ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project: %w", err)
+	}
+	
+	if proj.HiddenHighlights == nil {
+		return []string{}, nil
+	}
+	
+	return proj.HiddenHighlights, nil
+}
 
 // getProjectHighlightOrderWithTitles is a helper that gets the raw highlight order
 func (s *ProjectService) getProjectHighlightOrderWithTitles(projectID int) ([]interface{}, error) {

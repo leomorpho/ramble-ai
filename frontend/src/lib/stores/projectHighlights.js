@@ -1,5 +1,5 @@
 import { writable, derived, get } from 'svelte/store';
-import { GetProjectHighlights, GetProjectHighlightOrder, UpdateProjectHighlightOrder, UpdateProjectHighlightOrderWithTitles, DeleteHighlight, UpdateVideoClipHighlights, UndoOrderChange, RedoOrderChange, GetOrderHistoryStatus, UndoHighlightsChange, RedoHighlightsChange, GetHighlightsHistoryStatus, SaveSectionTitle, GetProjectHighlightOrderWithTitles } from '$lib/wailsjs/go/main/App';
+import { GetProjectHighlights, GetProjectHighlightOrder, UpdateProjectHighlightOrder, UpdateProjectHighlightOrderWithTitles, DeleteHighlight, UpdateVideoClipHighlights, UndoOrderChange, RedoOrderChange, GetOrderHistoryStatus, UndoHighlightsChange, RedoHighlightsChange, GetHighlightsHistoryStatus, SaveSectionTitle, GetProjectHighlightOrderWithTitles, HideHighlight, UnhideHighlight, GetHiddenHighlights } from '$lib/wailsjs/go/main/App';
 import { toast } from 'svelte-sonner';
 import { connectToProject, disconnect, onRealtimeEvent, EVENT_TYPES } from './realtime.js';
 
@@ -8,6 +8,9 @@ export const rawHighlights = writable([]);
 
 // Store for the custom highlight order
 export const highlightOrder = writable([]);
+
+// Store for hidden highlights
+export const hiddenHighlights = writable([]);
 
 // Store for the current project ID
 export const currentProjectId = writable(null);
@@ -54,13 +57,16 @@ function createNewlineFromDb(dbItem) {
 
 // Derived store that combines highlights with their custom order and new line indicators
 export const orderedHighlights = derived(
-  [rawHighlights, highlightOrder],
-  ([$rawHighlights, $highlightOrder]) => {
+  [rawHighlights, highlightOrder, hiddenHighlights],
+  ([$rawHighlights, $highlightOrder, $hiddenHighlights]) => {
     if ($rawHighlights.length === 0) return [];
+    
+    // Filter out hidden highlights
+    const visibleHighlights = $rawHighlights.filter(h => !$hiddenHighlights.includes(h.id));
     
     if ($highlightOrder.length === 0) {
       // No custom order, sort by video clip ID then by start time
-      return [...$rawHighlights].sort((a, b) => {
+      return [...visibleHighlights].sort((a, b) => {
         if (a.videoClipId !== b.videoClipId) {
           return a.videoClipId - b.videoClipId;
         }
@@ -70,7 +76,7 @@ export const orderedHighlights = derived(
     
     // Apply custom ordering including new line indicators
     const orderedList = [];
-    const highlightMap = new Map($rawHighlights.map(h => [h.id, h]));
+    const highlightMap = new Map(visibleHighlights.map(h => [h.id, h]));
     
     // Add highlights and new lines in custom order
     for (const item of $highlightOrder) {
@@ -100,6 +106,25 @@ export const orderedHighlights = derived(
   }
 );
 
+// Derived store for hidden highlights that should be shown separately
+export const hiddenHighlightsList = derived(
+  [rawHighlights, hiddenHighlights],
+  ([$rawHighlights, $hiddenHighlights]) => {
+    if ($rawHighlights.length === 0 || $hiddenHighlights.length === 0) return [];
+    
+    // Filter to get only hidden highlights
+    const hiddenList = $rawHighlights.filter(h => $hiddenHighlights.includes(h.id));
+    
+    // Sort by video clip ID then by start time
+    return hiddenList.sort((a, b) => {
+      if (a.videoClipId !== b.videoClipId) {
+        return a.videoClipId - b.videoClipId;
+      }
+      return a.start - b.start;
+    });
+  }
+);
+
 // Function to load highlights and order for a project
 export async function loadProjectHighlights(projectId) {
   if (!projectId) {
@@ -111,14 +136,16 @@ export async function loadProjectHighlights(projectId) {
   currentProjectId.set(projectId);
   
   try {
-    // Load both highlights and order in parallel
-    const [highlightsData, order] = await Promise.all([
+    // Load highlights, order, and hidden highlights in parallel
+    const [highlightsData, order, hiddenHighlightIds] = await Promise.all([
       GetProjectHighlights(projectId),
-      GetProjectHighlightOrderWithTitles(projectId)
+      GetProjectHighlightOrderWithTitles(projectId),
+      GetHiddenHighlights(projectId)
     ]);
     
     console.log('Loaded highlights data:', highlightsData?.length || 0, 'videos');
     console.log('Loaded highlight order:', order?.length || 0);
+    console.log('Loaded hidden highlights:', hiddenHighlightIds?.length || 0);
     
     // Flatten highlights from all videos into individual highlight objects
     const flattenedHighlights = [];
@@ -141,6 +168,7 @@ export async function loadProjectHighlights(projectId) {
     // Update stores with flattened data
     rawHighlights.set(flattenedHighlights);
     highlightOrder.set(order || []);
+    hiddenHighlights.set(hiddenHighlightIds || []);
     
     // Initialize history status
     await updateOrderHistoryStatus();
@@ -153,6 +181,7 @@ export async function loadProjectHighlights(projectId) {
     toast.error('Failed to load project highlights');
     rawHighlights.set([]);
     highlightOrder.set([]);
+    hiddenHighlights.set([]);
   } finally {
     highlightsLoading.set(false);
   }
@@ -692,5 +721,63 @@ function flattenConsecutiveNewlines(ids) {
   }
 
   return result;
+}
+
+// Function to hide a highlight
+export async function hideHighlight(highlightId) {
+  const projectId = get(currentProjectId);
+  
+  if (!projectId) {
+    console.warn('No project ID available for hiding highlight');
+    return false;
+  }
+  
+  try {
+    // Update backend
+    await HideHighlight(projectId, highlightId);
+    
+    // Update local state
+    const currentHidden = get(hiddenHighlights);
+    if (!currentHidden.includes(highlightId)) {
+      hiddenHighlights.set([...currentHidden, highlightId]);
+    }
+    
+    console.log('Hidden highlight:', highlightId);
+    toast.success('Highlight hidden successfully');
+    
+    return true;
+  } catch (error) {
+    console.error('Failed to hide highlight:', error);
+    toast.error('Failed to hide highlight');
+    return false;
+  }
+}
+
+// Function to unhide a highlight
+export async function unhideHighlight(highlightId) {
+  const projectId = get(currentProjectId);
+  
+  if (!projectId) {
+    console.warn('No project ID available for unhiding highlight');
+    return false;
+  }
+  
+  try {
+    // Update backend
+    await UnhideHighlight(projectId, highlightId);
+    
+    // Update local state
+    const currentHidden = get(hiddenHighlights);
+    hiddenHighlights.set(currentHidden.filter(id => id !== highlightId));
+    
+    console.log('Unhidden highlight:', highlightId);
+    toast.success('Highlight restored successfully');
+    
+    return true;
+  } catch (error) {
+    console.error('Failed to unhide highlight:', error);
+    toast.error('Failed to restore highlight');
+    return false;
+  }
 }
 

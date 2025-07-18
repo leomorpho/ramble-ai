@@ -31,6 +31,9 @@
     updateNewLineTitle,
     updateVideoHighlights,
     refreshHighlights,
+    hiddenHighlightsList,
+    hideHighlight,
+    unhideHighlight,
   } from "$lib/stores/projectHighlights.js";
   import { ImproveHighlightSilencesWithAI } from "$lib/wailsjs/go/main/App";
 
@@ -242,6 +245,15 @@
     highlightToDelete = highlight;
     deleteDialogOpen = true;
   }
+  
+  // Handle hide highlight
+  async function handleHideHighlight(event, highlight) {
+    if (event) {
+      event.stopPropagation();
+    }
+    closePopover(highlight.id);
+    await hideHighlight(highlight.id);
+  }
 
   // Handle delete highlight
   async function handleDeleteHighlight() {
@@ -444,6 +456,7 @@
         onSelect={null}
         onEdit={handleEditHighlight}
         onDelete={handleDeleteConfirm}
+        onHide={handleHideHighlight}
         onPopoverOpenChange={(highlightId, isOpen) => {
           if (isOpen) {
             openPopover(highlightId);
@@ -463,6 +476,45 @@
         showAddNewLineButtons={true}
       />
     </div>
+    
+    <!-- Hidden Highlights Section -->
+    {#if $hiddenHighlightsList.length > 0}
+      <div class="mt-8 pt-6 border-t border-border">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="w-2 h-2 bg-muted-foreground rounded-full opacity-50"></div>
+          <h3 class="text-sm font-medium text-muted-foreground">Hidden Highlights</h3>
+          <div class="text-xs text-muted-foreground">
+            {$hiddenHighlightsList.length} hidden
+          </div>
+        </div>
+        <div class="space-y-2">
+          {#each $hiddenHighlightsList as highlight}
+            <div class="flex items-center gap-2 p-2 bg-muted/30 rounded border border-dashed opacity-60 hover:opacity-100 transition-opacity">
+              <div 
+                class="w-3 h-3 rounded-sm border border-muted-foreground/30" 
+                style="background-color: {getColorFromId(highlight.colorId)}"
+              ></div>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm truncate text-muted-foreground">
+                  {highlight.text || 'Highlight'}
+                </div>
+                <div class="text-xs text-muted-foreground/70">
+                  {highlight.videoClipName} • {Math.round(highlight.start)}s-{Math.round(highlight.end)}s
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                class="text-xs h-auto py-1 px-2"
+                onclick={() => unhideHighlight(highlight.id)}
+              >
+                Restore
+              </Button>
+            </div>
+          {/each}
+        </div>
+      </div>
+    {/if}
   {/if}
 
   <!-- Etro Video Player with Keyboard Handler -->

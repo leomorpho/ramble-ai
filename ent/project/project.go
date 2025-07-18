@@ -52,6 +52,8 @@ const (
 	FieldOrderHistory = "order_history"
 	// FieldOrderHistoryIndex holds the string denoting the order_history_index field in the database.
 	FieldOrderHistoryIndex = "order_history_index"
+	// FieldHiddenHighlights holds the string denoting the hidden_highlights field in the database.
+	FieldHiddenHighlights = "hidden_highlights"
 	// EdgeVideoClips holds the string denoting the video_clips edge name in mutations.
 	EdgeVideoClips = "video_clips"
 	// EdgeExportJobs holds the string denoting the export_jobs edge name in mutations.
@@ -105,6 +107,7 @@ var Columns = []string{
 	FieldHighlightOrder,
 	FieldOrderHistory,
 	FieldOrderHistoryIndex,
+	FieldHiddenHighlights,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).

@@ -1130,6 +1130,16 @@ func OrderHistoryIndexNotNil() predicate.Project {
 	return predicate.Project(sql.FieldNotNull(FieldOrderHistoryIndex))
 }
 
+// HiddenHighlightsIsNil applies the IsNil predicate on the "hidden_highlights" field.
+func HiddenHighlightsIsNil() predicate.Project {
+	return predicate.Project(sql.FieldIsNull(FieldHiddenHighlights))
+}
+
+// HiddenHighlightsNotNil applies the NotNil predicate on the "hidden_highlights" field.
+func HiddenHighlightsNotNil() predicate.Project {
+	return predicate.Project(sql.FieldNotNull(FieldHiddenHighlights))
+}
+
 // HasVideoClips applies the HasEdge predicate on the "video_clips" edge.
 func HasVideoClips() predicate.Project {
 	return predicate.Project(func(s *sql.Selector) {
