@@ -28,6 +28,7 @@
     redoHighlightsChange,
     highlightsHistoryStatus,
     updateHighlightsHistoryStatus,
+    rawHighlights,
   } from "$lib/stores/projectHighlights.js";
   import {
     getNextColorId,
@@ -106,34 +107,39 @@ Return segments that would work well as standalone content pieces.`;
 
   // When video changes or highlights update, update the transcript player highlights
   $effect(() => {
-    if (video && highlights) {
-      // Get highlights for this specific video clip from props
-      // Filter by both videoClipId and filePath for extra safety
-      const videoHighlights = highlights.filter(
-        (h) => h.videoClipId === video.id && h.filePath === video.filePath
-      );
+    if (video) {
+      // Get highlights for this specific video clip from either props or global store
+      // Prefer global store (rawHighlights) for latest data, fallback to props
+      const sourceHighlights = $rawHighlights.length > 0 ? $rawHighlights : highlights;
       
-      // Ensure all highlights have valid colorIds, assign them if missing
-      const processedHighlights = videoHighlights.map((h, index) => {
-        let validColorId = h.colorId;
+      if (sourceHighlights) {
+        // Filter by both videoClipId and filePath for extra safety
+        const videoHighlights = sourceHighlights.filter(
+          (h) => h.videoClipId === video.id && h.filePath === video.filePath
+        );
         
-        // If colorId is invalid (0, null, undefined, out of range), assign a new one
-        if (!validColorId || validColorId < 1 || validColorId > 20) {
-          console.warn('🎨 Found highlight with invalid colorId:', h.colorId, 'for highlight:', h.id);
-          validColorId = getNextColorId(videoHighlights.slice(0, index).filter(vh => vh.colorId >= 1 && vh.colorId <= 20));
-          console.log('🎨 Assigned new colorId:', validColorId);
-        }
+        // Ensure all highlights have valid colorIds, assign them if missing
+        const processedHighlights = videoHighlights.map((h, index) => {
+          let validColorId = h.colorId;
+          
+          // If colorId is invalid (0, null, undefined, out of range), assign a new one
+          if (!validColorId || validColorId < 1 || validColorId > 20) {
+            console.warn('🎨 Found highlight with invalid colorId:', h.colorId, 'for highlight:', h.id);
+            validColorId = getNextColorId(videoHighlights.slice(0, index).filter(vh => vh.colorId >= 1 && vh.colorId <= 20));
+            console.log('🎨 Assigned new colorId:', validColorId);
+          }
+          
+          return {
+            id: h.id,
+            start: h.start,
+            end: h.end,
+            colorId: validColorId,
+            text: h.text,
+          };
+        });
         
-        return {
-          id: h.id,
-          start: h.start,
-          end: h.end,
-          colorId: validColorId,
-          text: h.text,
-        };
-      });
-      
-      transcriptPlayerHighlights = processedHighlights;
+        transcriptPlayerHighlights = processedHighlights;
+      }
     }
   });
 
@@ -420,7 +426,42 @@ Return segments that would work well as standalone content pieces.`;
 
     try {
       await undoHighlightsChange(video.id);
-      // The store will handle reloading data and updating transcriptPlayerHighlights
+      
+      // Wait a moment for the store to be fully updated
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Get the current highlights from the global store after undo
+      const currentHighlights = $rawHighlights.filter(
+        (h) => h.videoClipId === video.id && h.filePath === video.filePath
+      );
+      
+      // Convert to the format expected by the component
+      const processedHighlights = currentHighlights.map((h, index) => {
+        let validColorId = h.colorId;
+        
+        // If colorId is invalid (0, null, undefined, out of range), assign a new one
+        if (!validColorId || validColorId < 1 || validColorId > 20) {
+          console.warn('🎨 Found highlight with invalid colorId:', h.colorId, 'for highlight:', h.id);
+          validColorId = getNextColorId(currentHighlights.slice(0, index).filter(vh => vh.colorId >= 1 && vh.colorId <= 20));
+          console.log('🎨 Assigned new colorId:', validColorId);
+        }
+        
+        return {
+          id: h.id,
+          start: h.start,
+          end: h.end,
+          colorId: validColorId,
+          text: h.text,
+        };
+      });
+      
+      // Update the local state immediately
+      transcriptPlayerHighlights = processedHighlights;
+      
+      // Also notify the parent component if available
+      if (onHighlightsChange) {
+        await onHighlightsChange(processedHighlights);
+      }
     } catch (error) {
       console.error("Failed to undo highlights:", error);
     }
@@ -431,7 +472,42 @@ Return segments that would work well as standalone content pieces.`;
 
     try {
       await redoHighlightsChange(video.id);
-      // The store will handle reloading data and updating transcriptPlayerHighlights
+      
+      // Wait a moment for the store to be fully updated
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Get the current highlights from the global store after redo
+      const currentHighlights = $rawHighlights.filter(
+        (h) => h.videoClipId === video.id && h.filePath === video.filePath
+      );
+      
+      // Convert to the format expected by the component
+      const processedHighlights = currentHighlights.map((h, index) => {
+        let validColorId = h.colorId;
+        
+        // If colorId is invalid (0, null, undefined, out of range), assign a new one
+        if (!validColorId || validColorId < 1 || validColorId > 20) {
+          console.warn('🎨 Found highlight with invalid colorId:', h.colorId, 'for highlight:', h.id);
+          validColorId = getNextColorId(currentHighlights.slice(0, index).filter(vh => vh.colorId >= 1 && vh.colorId <= 20));
+          console.log('🎨 Assigned new colorId:', validColorId);
+        }
+        
+        return {
+          id: h.id,
+          start: h.start,
+          end: h.end,
+          colorId: validColorId,
+          text: h.text,
+        };
+      });
+      
+      // Update the local state immediately
+      transcriptPlayerHighlights = processedHighlights;
+      
+      // Also notify the parent component if available
+      if (onHighlightsChange) {
+        await onHighlightsChange(processedHighlights);
+      }
     } catch (error) {
       console.error("Failed to redo highlights:", error);
     }
@@ -519,8 +595,8 @@ Return segments that would work well as standalone content pieces.`;
                             {formatTimestamp(video.transcriptionDuration)}
                           </span>
                         {/if}
-                        <!-- Undo/Redo buttons for highlights -->
-                        <div class="flex items-center gap-1">
+                        <!-- Undo/Redo buttons for highlights - temporarily hidden -->
+                        <!-- <div class="flex items-center gap-1">
                           <Button
                             variant="outline"
                             size="sm"
@@ -543,7 +619,7 @@ Return segments that would work well as standalone content pieces.`;
                           >
                             <Redo class="w-3 h-3" />
                           </Button>
-                        </div>
+                        </div> -->
                         <Button
                           variant="outline"
                           size="sm"
