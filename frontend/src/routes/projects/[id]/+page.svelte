@@ -411,7 +411,8 @@
                 />
                 
                 <!-- Chatbot for Timeline tab -->
-                {#if chatbotConfig.enabled && chatbotConfig.timeline}
+                <!-- TODO: Refactor this to use the new AI Actions menu instead -->
+                <!-- {#if chatbotConfig.enabled && chatbotConfig.timeline}
                   <AIChatbot 
                     endpointId={CHATBOT_ENDPOINTS.HIGHLIGHT_ORDERING}
                     {projectId}
@@ -419,7 +420,7 @@
                     position="floating"
                     size="default"
                   />
-                {/if}
+                {/if} -->
               {:else}
                 <div class="text-center py-8 text-muted-foreground">
                   <p>Timeline will appear here once highlights are loaded</p>

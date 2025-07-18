@@ -6,7 +6,7 @@
   } from "$lib/wailsjs/go/main/App";
   import { getColorFromId } from "$lib/components/texthighlighter/TextHighlighter.utils.js";
   import { toast } from "svelte-sonner";
-  import { Play, Film, Clock, Undo, Redo, Ear } from "@lucide/svelte";
+  import { Play, Film, Clock, Undo, Redo, Ear, Sparkles } from "@lucide/svelte";
   import {
     Dialog,
     DialogContent,
@@ -21,6 +21,7 @@
   import ClipEditor from "$lib/components/ClipEditor.svelte";
   import ReorderableHighlights from "$lib/components/ReorderableHighlights.svelte";
   import AIReorderSheet from "$lib/components/AIReorderSheet.svelte";
+  import AIActionsSheet from "$lib/components/AIActionsSheet.svelte";
   import {
     updateHighlightOrder,
     deleteHighlight,
@@ -64,6 +65,7 @@
   // AI silence improvement state
   let aiSilenceLoading = $state(false);
   let showAISilenceConfirmation = $state(false);
+  let showAIActionsSheet = $state(false);
 
   // Video clips with transcription words for internal pause analysis
   let videoClipsWithWords = $state(new Map());
@@ -420,6 +422,16 @@
             AI Add Silence Padding
           {/if}
         </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onclick={() => (showAIActionsSheet = true)}
+          class="flex items-center gap-2"
+          title="AI actions for highlight organization and optimization"
+        >
+          <Sparkles class="w-4 h-4" />
+          AI Actions
+        </Button>
       {/if}
       <div class="text-sm text-muted-foreground">
         {highlights.length}
@@ -774,6 +786,17 @@
     </div>
   </DialogContent>
 </Dialog>
+
+<!-- AI Actions Sheet -->
+<AIActionsSheet
+  bind:open={showAIActionsSheet}
+  {projectId}
+  {highlights}
+  onApply={() => {
+    // Refresh highlights after AI actions
+    // The updateHighlightOrder is already called in the component
+  }}
+/>
 
 <style>
   /* Paragraph layout container */

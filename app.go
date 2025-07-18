@@ -359,6 +359,7 @@ type HighlightWithText = highlights.HighlightWithText
 type ProjectHighlight = highlights.ProjectHighlight
 type ProjectHighlightAISettings = highlights.ProjectHighlightAISettings
 type HighlightSuggestion = highlights.HighlightSuggestion
+type AIActionOptions = highlights.AIActionOptions
 
 // ProjectAISilenceResult represents AI silence improvement result for Wails compatibility
 type ProjectAISilenceResult struct {
@@ -440,6 +441,12 @@ func (a *App) GetHiddenHighlights(projectID int) ([]string, error) {
 func (a *App) ReorderHighlightsWithAI(projectID int, customPrompt string) ([]interface{}, error) {
 	service := highlights.NewAIService(a.client, a.ctx)
 	return service.ReorderHighlightsWithAI(projectID, customPrompt, a.GetOpenRouterApiKey, a.GetProjectHighlights)
+}
+
+// ReorderHighlightsWithAIOptions uses OpenRouter API to intelligently reorder highlights with specific options
+func (a *App) ReorderHighlightsWithAIOptions(projectID int, customPrompt string, options highlights.AIActionOptions) ([]interface{}, error) {
+	service := highlights.NewAIService(a.client, a.ctx)
+	return service.ReorderHighlightsWithAIOptions(projectID, customPrompt, options, a.GetOpenRouterApiKey, a.GetProjectHighlights)
 }
 
 // Export-related type aliases

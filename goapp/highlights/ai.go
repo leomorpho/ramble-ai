@@ -560,6 +560,20 @@ func (s *AIService) GetProjectAISuggestion(projectID int) (*ProjectAISuggestion,
 
 // ReorderHighlightsWithAI uses OpenRouter API to intelligently reorder highlights
 func (s *AIService) ReorderHighlightsWithAI(projectID int, customPrompt string, getAPIKey func() (string, error), getProjectHighlights func(int) ([]ProjectHighlight, error)) ([]interface{}, error) {
+	// For backward compatibility, use default options
+	defaultOptions := AIActionOptions{
+		UseCurrentOrder:      false,
+		KeepAllHighlights:    true,
+		OptimizeForEngagement: false,
+		CreateSections:       true,
+		BalanceLength:        false,
+		ImproveTransitions:   false,
+	}
+	return s.ReorderHighlightsWithAIOptions(projectID, customPrompt, defaultOptions, getAPIKey, getProjectHighlights)
+}
+
+// ReorderHighlightsWithAIOptions uses OpenRouter API to intelligently reorder highlights with specific options
+func (s *AIService) ReorderHighlightsWithAIOptions(projectID int, customPrompt string, options AIActionOptions, getAPIKey func() (string, error), getProjectHighlights func(int) ([]ProjectHighlight, error)) ([]interface{}, error) {
 	// Get OpenRouter API key
 	apiKey, err := getAPIKey()
 	if err != nil || apiKey == "" {
@@ -609,8 +623,8 @@ func (s *AIService) ReorderHighlightsWithAI(projectID int, customPrompt string, 
 		return []interface{}{}, nil
 	}
 
-	// Call OpenRouter API to get AI reordering with newline support
-	reorderedIDs, err := s.callOpenRouterForReordering(apiKey, aiSettings.AIModel, highlightMap, prompt)
+	// Call OpenRouter API to get AI reordering with specific options
+	reorderedIDs, err := s.callOpenRouterForReorderingWithOptions(apiKey, aiSettings.AIModel, highlightMap, prompt, options, highlightIDs, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get AI reordering: %w", err)
 	}
@@ -648,46 +662,48 @@ func (s *AIService) ReorderHighlightsWithAI(projectID int, customPrompt string, 
 	}
 	log.Printf("=============================")
 
-	// Validate that all highlight IDs are present in the reordered list
-	actualHighlightIDSet := make(map[string]bool)
-	for _, item := range processedIDs {
-		if id, ok := item.(string); ok && id != "N" {
-			actualHighlightIDSet[id] = true
+	// Validate that all highlight IDs are present in the reordered list (only if KeepAllHighlights is enabled)
+	if options.KeepAllHighlights {
+		actualHighlightIDSet := make(map[string]bool)
+		for _, item := range processedIDs {
+			if id, ok := item.(string); ok && id != "N" {
+				actualHighlightIDSet[id] = true
+			}
 		}
-	}
 
-	// Convert to slice for counting
-	actualHighlightIDs := make([]string, 0, len(actualHighlightIDSet))
-	for id := range actualHighlightIDSet {
-		actualHighlightIDs = append(actualHighlightIDs, id)
-	}
+		// Convert to slice for counting
+		actualHighlightIDs := make([]string, 0, len(actualHighlightIDSet))
+		for id := range actualHighlightIDSet {
+			actualHighlightIDs = append(actualHighlightIDs, id)
+		}
 
-	if len(actualHighlightIDs) != len(highlightIDs) {
-		log.Printf("AI reordering returned %d unique highlight IDs but expected %d", len(actualHighlightIDs), len(highlightIDs))
-		// Fallback to original order if counts don't match
-		return currentOrder, nil
-	}
-
-	// Validate that all original IDs are present
-	originalIDSet := make(map[string]bool)
-	for _, id := range highlightIDs {
-		originalIDSet[id] = true
-	}
-
-	for _, id := range actualHighlightIDs {
-		if !originalIDSet[id] {
-			log.Printf("AI reordering returned unknown ID: %s", id)
-			// Fallback to original order if unknown IDs are present
+		if len(actualHighlightIDs) != len(highlightIDs) {
+			log.Printf("AI reordering returned %d unique highlight IDs but expected %d", len(actualHighlightIDs), len(highlightIDs))
+			// Fallback to original order if counts don't match
 			return currentOrder, nil
 		}
-	}
 
-	// Check for missing IDs
-	for _, id := range highlightIDs {
-		if !actualHighlightIDSet[id] {
-			log.Printf("AI reordering is missing required ID: %s", id)
-			// Fallback to original order if IDs are missing
-			return currentOrder, nil
+		// Validate that all original IDs are present
+		originalIDSet := make(map[string]bool)
+		for _, id := range highlightIDs {
+			originalIDSet[id] = true
+		}
+
+		for _, id := range actualHighlightIDs {
+			if !originalIDSet[id] {
+				log.Printf("AI reordering returned unknown ID: %s", id)
+				// Fallback to original order if unknown IDs are present
+				return currentOrder, nil
+			}
+		}
+
+		// Check for missing IDs
+		for _, id := range highlightIDs {
+			if !actualHighlightIDSet[id] {
+				log.Printf("AI reordering is missing required ID: %s", id)
+				// Fallback to original order if IDs are missing
+				return currentOrder, nil
+			}
 		}
 	}
 
@@ -703,19 +719,34 @@ func (s *AIService) ReorderHighlightsWithAI(projectID int, customPrompt string, 
 
 // callOpenRouterForReordering calls the OpenRouter API to get intelligent highlight reordering
 func (s *AIService) callOpenRouterForReordering(apiKey string, model string, highlightMap map[string]string, customPrompt string) ([]interface{}, error) {
+	// For backward compatibility, use default options
+	defaultOptions := AIActionOptions{
+		UseCurrentOrder:      false,
+		KeepAllHighlights:    true,
+		OptimizeForEngagement: false,
+		CreateSections:       true,
+		BalanceLength:        false,
+		ImproveTransitions:   false,
+	}
+	return s.callOpenRouterForReorderingWithOptions(apiKey, model, highlightMap, customPrompt, defaultOptions, nil, 0)
+}
+
+// callOpenRouterForReorderingWithOptions calls the OpenRouter API to get intelligent highlight reordering with specific options
+func (s *AIService) callOpenRouterForReorderingWithOptions(apiKey string, model string, highlightMap map[string]string, customPrompt string, options AIActionOptions, originalIDs []string, projectID int) ([]interface{}, error) {
 	// Create HTTP client with timeout
 	client := &http.Client{
 		Timeout: 60 * time.Second, // AI requests can take longer
 	}
 
-	// Build the prompt for AI reordering
-	prompt := s.buildReorderingPrompt(highlightMap, customPrompt)
+	// Build the prompt for AI reordering with options
+	prompt := s.buildReorderingPromptWithOptions(highlightMap, customPrompt, options)
 
 	// Debug log prompt
 	log.Printf("=== AI REORDERING PROMPT ===")
 	log.Printf("Model: %s", model)
 	log.Printf("Highlight count: %d", len(highlightMap))
 	log.Printf("Prompt length: %d characters", len(prompt))
+	log.Printf("Options: %+v", options)
 	log.Printf("Prompt content: %s", prompt)
 	log.Printf("Contains newline instructions: %v", strings.Contains(prompt, "N\" characters"))
 	log.Printf("==============================")
@@ -789,7 +820,7 @@ func (s *AIService) callOpenRouterForReordering(apiKey string, model string, hig
 	log.Printf("Response content: %s", aiResponse)
 	log.Printf("================================")
 
-	reorderedIDs, err := s.parseAIReorderingResponse(aiResponse)
+	reorderedIDs, err := s.parseAIReorderingResponseWithMissingDetection(aiResponse, originalIDs, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse AI response: %w", err)
 	}
@@ -816,32 +847,36 @@ func (s *AIService) callOpenRouterForReordering(apiKey string, model string, hig
 	return reorderedIDs, nil
 }
 
+// AIActionOptions represents the configuration options for AI reordering
+type AIActionOptions struct {
+	UseCurrentOrder      bool `json:"useCurrentOrder"`
+	KeepAllHighlights    bool `json:"keepAllHighlights"`
+	OptimizeForEngagement bool `json:"optimizeForEngagement"`
+	CreateSections       bool `json:"createSections"`
+	BalanceLength        bool `json:"balanceLength"`
+	ImproveTransitions   bool `json:"improveTransitions"`
+}
+
 // buildReorderingPrompt creates a prompt for the AI to reorder highlights intelligently
 func (s *AIService) buildReorderingPrompt(highlightMap map[string]string, customPrompt string) string {
-	// Use default YouTube expert prompt if no custom prompt provided
-	var basePrompt string
-	if customPrompt != "" {
-		basePrompt = customPrompt
-	} else {
-		basePrompt = `You are an expert video editor focused on creating well-structured, engaging content. Your goal is to organize these highlight segments into a balanced, coherent video with natural pacing and flow.
-
-Key principles for structuring the video:
-- Create an adaptive structure that fits the specific content
-- Balance sections by total text length, not highlight count
-- Build natural rhythm with highs and lows throughout
-- Ensure smooth transitions between different topics
-- Maintain viewer engagement through variety and pacing
-
-Section balancing guidelines:
-- Analyze the cumulative text length in each section
-- No single section should contain more than 30% of total content
-- Short highlights can be grouped together, long ones may stand alone
-- Think in terms of speaking time and content weight
-
-Create sections that feel complete yet connected, with clear but simple titles that describe their purpose. The structure should emerge from the content itself, not force content into a rigid template.`
+	// For backward compatibility, use default options if called without options
+	defaultOptions := AIActionOptions{
+		UseCurrentOrder:      false,
+		KeepAllHighlights:    true,
+		OptimizeForEngagement: false,
+		CreateSections:       true,
+		BalanceLength:        false,
+		ImproveTransitions:   false,
 	}
+	return s.buildReorderingPromptWithOptions(highlightMap, customPrompt, defaultOptions)
+}
 
-	prompt := basePrompt + `
+// buildReorderingPromptWithOptions creates a prompt for the AI to reorder highlights intelligently with specific options
+func (s *AIService) buildReorderingPromptWithOptions(highlightMap map[string]string, customPrompt string, options AIActionOptions) string {
+	// The customPrompt from the frontend already includes the base prompt + additional instructions
+	// based on the selected options, so we just need to add the highlight data and technical instructions
+	
+	prompt := customPrompt + `
 
 Here are the video highlight segments:
 
@@ -867,7 +902,7 @@ Here are the video highlight segments:
 		prompt += fmt.Sprintf("   Content: %s\n\n", entry.text)
 	}
 
-	// Always append the newline instructions regardless of custom prompt
+	// Always append the analysis instructions
 	prompt += `
 
 Analyze these segments carefully, paying attention to the text length of each highlight as a proxy for content duration and weight.
@@ -891,9 +926,31 @@ IMPORTANT INSTRUCTIONS:
 2. Add section breaks using objects: {"type":"N","title":"Section Title"}
 3. Section titles should be simple, descriptive, and content-appropriate
 4. Balance sections by total text length, not number of highlights
-5. Use each highlight ID exactly once - no duplicates
-6. Include ALL provided highlight IDs in your response
-7. Do not include explanations or additional text
+5. Use each highlight ID exactly once - no duplicates`
+
+	// Conditionally add the "Include ALL provided highlight IDs" instruction
+	if options.KeepAllHighlights {
+		prompt += `
+6. Include ALL provided highlight IDs in your response`
+	} else {
+		prompt += `
+6. Focus on QUALITY over quantity - if highlights are repetitive, contradictory, or add nothing new, exclude them
+7. Remove repetitive highlights that cover the same points or topics
+8. Keep only the best version of similar highlights that make the script smoother
+9. Prioritize highlights that advance the narrative or provide unique value
+10. If multiple highlights say essentially the same thing, keep only the clearest or most impactful one`
+	}
+
+	// Conditionally add section creation instructions
+	if options.CreateSections {
+		if options.KeepAllHighlights {
+			prompt += `
+7. Do not include explanations or additional text`
+		} else {
+			prompt += `
+11. Do not include explanations or additional text`
+		}
+		prompt += `
 
 Example format: [{"type":"N","title":"Hook"}, "id1", {"type":"N","title":"Background"}, "id2", "id3", "id4", {"type":"N","title":"Main Argument"}, "id5", "id6", {"type":"N","title":"Examples"}, "id7", "id8", {"type":"N","title":"Conclusion"}, "id9"]
 
@@ -904,12 +961,32 @@ ADAPTIVE SECTION EXAMPLES:
 - For reviews: "First Impressions", "Deep Dive", "Pros & Cons", "Verdict"
 
 Let the content guide the structure. Ensure balanced distribution of text across sections.`
+	} else {
+		if options.KeepAllHighlights {
+			prompt += `
+7. Do not create sections or add section breaks - only reorder the highlight IDs
+8. Do not include explanations or additional text`
+		} else {
+			prompt += `
+11. Do not create sections or add section breaks - only reorder the highlight IDs
+12. Do not include explanations or additional text`
+		}
+		prompt += `
+
+Example format: ["id1", "id2", "id3", "id4", "id5", "id6", "id7", "id8", "id9"]`
+	}
 
 	return prompt
 }
 
 // parseAIReorderingResponse extracts the reordered highlight IDs from the AI response
 func (s *AIService) parseAIReorderingResponse(response string) ([]interface{}, error) {
+	return s.parseAIReorderingResponseWithMissingDetection(response, nil, 0)
+}
+
+// parseAIReorderingResponseWithMissingDetection extracts the reordered highlight IDs from the AI response
+// and optionally detects missing highlights to add them to the hidden list
+func (s *AIService) parseAIReorderingResponseWithMissingDetection(response string, originalIDs []string, projectID int) ([]interface{}, error) {
 	// Clean the response - remove any markdown formatting
 	cleanResponse := strings.TrimSpace(response)
 	cleanResponse = strings.Trim(cleanResponse, "`")
@@ -940,6 +1017,8 @@ func (s *AIService) parseAIReorderingResponse(response string) ([]interface{}, e
 
 	// Validate and convert items to proper format
 	var result []interface{}
+	includedHighlights := make(map[string]bool)
+	
 	for i, item := range reorderedItems {
 		switch v := item.(type) {
 		case string:
@@ -948,6 +1027,11 @@ func (s *AIService) parseAIReorderingResponse(response string) ([]interface{}, e
 				log.Printf("Warning: unexpected ID format at position %d: %s", i, v)
 			}
 			result = append(result, v)
+			
+			// Track included highlights for missing detection
+			if v != "N" {
+				includedHighlights[v] = true
+			}
 		case map[string]interface{}:
 			// Handle section objects with titles
 			if typeVal, ok := v["type"].(string); ok && typeVal == "N" {
@@ -960,7 +1044,74 @@ func (s *AIService) parseAIReorderingResponse(response string) ([]interface{}, e
 		}
 	}
 
+	// If we have original IDs and project ID, detect missing highlights and hide them
+	if originalIDs != nil && projectID > 0 {
+		var missingHighlights []string
+		for _, originalID := range originalIDs {
+			if !includedHighlights[originalID] {
+				missingHighlights = append(missingHighlights, originalID)
+			}
+		}
+
+		// Hide missing highlights
+		if len(missingHighlights) > 0 {
+			log.Printf("AI excluded %d highlights from reordering, adding them to hidden list: %v", len(missingHighlights), missingHighlights)
+			
+			// Hide the missing highlights directly
+			err := s.hideHighlights(projectID, missingHighlights)
+			if err != nil {
+				log.Printf("Failed to hide missing highlights: %v", err)
+			}
+		}
+	}
+
 	return result, nil
+}
+
+// hideHighlights adds multiple highlights to the hidden highlights list
+func (s *AIService) hideHighlights(projectID int, highlightIDs []string) error {
+	if len(highlightIDs) == 0 {
+		return nil
+	}
+
+	// Get the project
+	proj, err := s.client.Project.
+		Query().
+		Where(project.ID(projectID)).
+		Only(s.ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get project: %w", err)
+	}
+	
+	// Get current hidden highlights
+	hiddenHighlights := proj.HiddenHighlights
+	if hiddenHighlights == nil {
+		hiddenHighlights = []string{}
+	}
+	
+	// Create a set of existing hidden highlights for quick lookup
+	existingHidden := make(map[string]bool)
+	for _, id := range hiddenHighlights {
+		existingHidden[id] = true
+	}
+	
+	// Add new highlights that aren't already hidden
+	for _, highlightID := range highlightIDs {
+		if !existingHidden[highlightID] {
+			hiddenHighlights = append(hiddenHighlights, highlightID)
+		}
+	}
+	
+	// Update database
+	_, err = s.client.Project.
+		UpdateOneID(projectID).
+		SetHiddenHighlights(hiddenHighlights).
+		Save(s.ctx)
+	if err != nil {
+		return fmt.Errorf("failed to update hidden highlights: %w", err)
+	}
+	
+	return nil
 }
 
 // processReorderedItems processes the AI-reordered items, removing duplicates while preserving order and sections
