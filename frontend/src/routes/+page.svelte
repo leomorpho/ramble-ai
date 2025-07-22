@@ -223,52 +223,5 @@
       </div>
     {/if}
 
-    <!-- What's Coming Next Section -->
-    <div class="border-t pt-8 mt-12">
-      <h2 class="text-2xl font-bold text-primary mb-6">What's Coming Next</h2>
-      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <!-- AI-Powered Editing -->
-        <div class="bg-card text-card-foreground rounded-lg border p-6">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-              <Lightbulb class="w-5 h-5 text-primary" />
-            </div>
-            <h3 class="text-lg font-semibold">AI-Powered Editing</h3>
-          </div>
-          <p class="text-muted-foreground text-sm mb-3">
-            Intelligent video editing suggestions, automatic scene detection, and smart transitions powered by machine learning.
-          </p>
-          <div class="text-xs text-muted-foreground">Coming Q3 2024</div>
-        </div>
-
-        <!-- Advanced Effects -->
-        <div class="bg-card text-card-foreground rounded-lg border p-6">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-              <Video class="w-5 h-5 text-primary" />
-            </div>
-            <h3 class="text-lg font-semibold">Advanced Effects</h3>
-          </div>
-          <p class="text-muted-foreground text-sm mb-3">
-            Professional-grade color grading, motion graphics, green screen support, and custom effect presets.
-          </p>
-          <div class="text-xs text-muted-foreground">Coming Q1 2025</div>
-        </div>
-
-        <!-- AI Sound Improvement -->
-        <div class="bg-card text-card-foreground rounded-lg border p-6">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-              <Volume2 class="w-5 h-5 text-primary" />
-            </div>
-            <h3 class="text-lg font-semibold">AI Sound Improvement</h3>
-          </div>
-          <p class="text-muted-foreground text-sm mb-3">
-            Automatic noise reduction, voice enhancement, background music generation, and intelligent audio mixing.
-          </p>
-          <div class="text-xs text-muted-foreground">Coming Q4 2024</div>
-        </div>
-      </div>
-    </div>
   </div>
 </main>

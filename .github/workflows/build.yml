@@ -1,0 +1,189 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        platform: [macos-latest, windows-latest]
+        go-version: [1.22]
+    runs-on: ${{ matrix.platform }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+      
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+      
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          pnpm install
+      
+      - name: Download FFmpeg binaries
+        run: |
+          mkdir -p binaries/static
+          if [[ "${{ matrix.platform }}" == "macos-latest" ]]; then
+            curl -L -o binaries/static/ffmpeg-macos.zip https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-macos-64.zip
+            cd binaries/static && unzip -o ffmpeg-macos.zip && mv ffmpeg ffmpeg-darwin-amd64
+          else
+            curl -L -o binaries/static/ffmpeg-windows.zip https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-win-64.zip
+            cd binaries/static && unzip -o ffmpeg-windows.zip && mv ffmpeg.exe ffmpeg-windows-amd64.exe
+          fi
+          rm -f *.zip
+        shell: bash
+      
+      - name: Build Wails app
+        run: wails build -tags production
+      
+      # macOS signing (when certificates are ready)
+      - name: Import Code-Signing Certificates for macOS
+        if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
+        uses: Apple-Actions/import-codesign-certs@v2
+        with:
+          p12-file-base64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
+          p12-password: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
+        continue-on-error: true
+      
+      - name: Sign macOS app
+        if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
+        run: |
+          if [[ -n "${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}" ]]; then
+            echo "Signing macOS app..."
+            # Find the signing identity
+            IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | awk -F'"' '{print $2}')
+            if [[ -n "$IDENTITY" ]]; then
+              codesign --force --options runtime --sign "$IDENTITY" build/bin/MYAPP.app/Contents/MacOS/MYAPP
+              codesign --force --options runtime --sign "$IDENTITY" build/bin/MYAPP.app
+              echo "App signed successfully"
+            else
+              echo "No signing identity found, skipping signing"
+            fi
+          else
+            echo "No signing certificate configured, skipping signing"
+          fi
+        shell: bash
+        continue-on-error: true
+      
+      - name: Create macOS DMG
+        if: matrix.platform == 'macos-latest'
+        run: |
+          mkdir -p build/dmg
+          cp -R build/bin/MYAPP.app build/dmg/
+          ln -sf /Applications build/dmg/Applications
+          hdiutil create -volname "MYAPP" -srcfolder build/dmg -ov -format UDZO build/MYAPP.dmg
+          rm -rf build/dmg
+        shell: bash
+      
+      - name: Sign macOS DMG
+        if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
+        run: |
+          if [[ -n "${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}" ]]; then
+            IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | awk -F'"' '{print $2}')
+            if [[ -n "$IDENTITY" ]]; then
+              codesign --force --sign "$IDENTITY" build/MYAPP.dmg
+              echo "DMG signed successfully"
+            fi
+          fi
+        shell: bash
+        continue-on-error: true
+      
+      - name: Notarize macOS app
+        if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request' && startsWith(github.ref, 'refs/tags/')
+        run: |
+          if [[ -n "${{ secrets.APPLE_ID }}" ]] && [[ -n "${{ secrets.APPLE_ID_PASSWORD }}" ]] && [[ -n "${{ secrets.APPLE_TEAM_ID }}" ]]; then
+            echo "Notarizing app..."
+            xcrun notarytool submit build/MYAPP.dmg \
+              --apple-id "${{ secrets.APPLE_ID }}" \
+              --password "${{ secrets.APPLE_ID_PASSWORD }}" \
+              --team-id "${{ secrets.APPLE_TEAM_ID }}" \
+              --wait
+            xcrun stapler staple build/MYAPP.dmg
+            echo "App notarized and stapled successfully"
+          else
+            echo "Notarization credentials not configured, skipping notarization"
+          fi
+        shell: bash
+        continue-on-error: true
+      
+      # Windows signing (when certificates are ready)
+      - name: Sign Windows binaries
+        if: matrix.platform == 'windows-latest' && github.event_name != 'pull_request'
+        run: |
+          if ($env:WIN_SIGNING_CERT) {
+            echo "Creating certificate file"
+            New-Item -ItemType directory -Path certificate
+            Set-Content -Path certificate\certificate.txt -Value '${{ secrets.WIN_SIGNING_CERT }}'
+            certutil -decode certificate\certificate.txt certificate\certificate.pfx
+            
+            echo "Signing Windows binary"
+            & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.17763.0/x86/signtool.exe' sign /fd sha256 /tr http://timestamp.digicert.com /f certificate\certificate.pfx /p '${{ secrets.WIN_SIGNING_CERT_PASSWORD }}' .\build\bin\MYAPP.exe
+            
+            Remove-Item -Recurse -Force certificate
+          } else {
+            echo "No signing certificate configured, skipping signing"
+          }
+        env:
+          WIN_SIGNING_CERT: ${{ secrets.WIN_SIGNING_CERT }}
+        continue-on-error: true
+      
+      - name: Upload artifacts macOS
+        if: matrix.platform == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: MYAPP-macos
+          path: |
+            build/bin/MYAPP.app
+            build/MYAPP.dmg
+      
+      - name: Upload artifacts Windows
+        if: matrix.platform == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: MYAPP-windows
+          path: build/bin/*
+      
+      # Create release when pushing tags
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/') && matrix.platform == 'macos-latest'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            build/MYAPP.dmg
+            build/bin/MYAPP.app
+          draft: true
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Add Windows to Release
+        if: startsWith(github.ref, 'refs/tags/') && matrix.platform == 'windows-latest'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/bin/MYAPP.exe
+          draft: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
