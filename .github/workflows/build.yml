@@ -158,12 +158,20 @@ jobs:
       
       # Windows build temporarily disabled
       
+      - name: Package macOS app for upload
+        if: matrix.platform == 'macos-latest'
+        run: |
+          cd build/bin
+          zip -r MYAPP-macos.zip MYAPP.app
+          echo "✅ Created MYAPP-macos.zip"
+          ls -lh MYAPP-macos.zip
+      
       - name: Upload artifacts macOS
         if: matrix.platform == 'macos-latest'
         uses: actions/upload-artifact@v4
         with:
           name: MYAPP-macos
-          path: build/bin/MYAPP.app
+          path: build/bin/MYAPP-macos.zip
       
       # Windows artifacts disabled
       # - name: Upload artifacts Windows
@@ -173,7 +181,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/') && matrix.platform == 'macos-latest'
         uses: softprops/action-gh-release@v1
         with:
-          files: build/bin/MYAPP.app
+          files: build/bin/MYAPP-macos.zip
           draft: true
           generate_release_notes: true
         env:
