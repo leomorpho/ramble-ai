@@ -1,4 +1,7 @@
 build/
+!build/appicon.png
+!build/windows/
+!build/darwin/
 frontend/dist
 frontend/node_modules
 # Wails auto-generated bindings
