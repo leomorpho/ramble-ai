@@ -32,15 +32,17 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v2
         with:
-          version: 8
+          version: 9
       
       - name: Install Wails
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+        timeout-minutes: 10
       
       - name: Install frontend dependencies
         run: |
           cd frontend
           pnpm install --frozen-lockfile
+        timeout-minutes: 10
       
       - name: Download FFmpeg binaries
         run: |
