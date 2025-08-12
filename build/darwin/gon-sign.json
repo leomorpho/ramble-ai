@@ -1,6 +1,6 @@
 {
   "source": ["./build/bin/MYAPP.app"],
-  "bundle_id": "com.wails.MYAPP",
+  "bundle_id": "com.leoaudibert.ramble-ai",
   "apple_id": {
     "username": "@env:APPLE_ID",
     "password": "@env:APPLE_ID_PASSWORD",
