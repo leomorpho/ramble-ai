@@ -40,7 +40,7 @@ jobs:
       - name: Install frontend dependencies
         run: |
           cd frontend
-          pnpm install
+          pnpm install --frozen-lockfile
       
       - name: Download FFmpeg binaries
         run: |
@@ -77,20 +77,20 @@ jobs:
           df -h
         shell: bash
       
-      # macOS signing with gon
+      # macOS signing with gon (temporarily disabled - need Developer ID Application certificate)
       - name: Install gon for macOS signing
-        if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
+        if: false && matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
         run: brew install Bearer/tap/gon
       
       - name: Import Code-Signing Certificates for macOS
-        if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
+        if: false && matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
         uses: Apple-Actions/import-codesign-certs@v2
         with:
           p12-file-base64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
           p12-password: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
       
       - name: Sign macOS app with gon
-        if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
+        if: false && matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
@@ -127,7 +127,7 @@ jobs:
         shell: bash
       
       - name: Sign macOS DMG
-        if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
+        if: false && matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
         run: |
           IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | awk -F'"' '{print $2}')
           if [[ -z "$IDENTITY" ]]; then
@@ -141,7 +141,7 @@ jobs:
         shell: bash
       
       - name: Notarize macOS app
-        if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request' && startsWith(github.ref, 'refs/tags/')
+        if: false && matrix.platform == 'macos-latest' && github.event_name != 'pull_request' && startsWith(github.ref, 'refs/tags/')
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
@@ -162,9 +162,9 @@ jobs:
           echo "✅ App notarized and stapled successfully"
         shell: bash
       
-      # Windows signing
+      # Windows signing (temporarily disabled)
       - name: Sign Windows binaries
-        if: matrix.platform == 'windows-latest' && github.event_name != 'pull_request'
+        if: false && matrix.platform == 'windows-latest' && github.event_name != 'pull_request'
         env:
           WIN_SIGNING_CERT: ${{ secrets.WIN_SIGNING_CERT }}
           WIN_SIGNING_CERT_PASSWORD: ${{ secrets.WIN_SIGNING_CERT_PASSWORD }}
