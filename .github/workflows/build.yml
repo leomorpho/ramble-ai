@@ -47,24 +47,39 @@ jobs:
           if [[ "${{ matrix.platform }}" == "macos-latest" ]]; then
             curl -L -o binaries/static/ffmpeg-macos.zip https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-macos-64.zip
             cd binaries/static && unzip -o ffmpeg-macos.zip && mv ffmpeg ffmpeg-darwin-amd64
+            rm -f ffmpeg-macos.zip
           else
             curl -L -o binaries/static/ffmpeg-windows.zip https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-win-64.zip
             cd binaries/static && unzip -o ffmpeg-windows.zip && mv ffmpeg.exe ffmpeg-windows-amd64.exe
+            rm -f ffmpeg-windows.zip
           fi
-          rm -f *.zip
         shell: bash
       
       - name: Build Wails app
         run: wails build -tags production
       
+      - name: Clean up after build to save space
+        run: |
+          echo "Disk space before cleanup:"
+          df -h
+          
+          # Clean up build artifacts we don't need for packaging
+          rm -rf binaries/static
+          go clean -cache -modcache -testcache
+          
+          # Clean frontend caches but keep node_modules for now
+          if [[ -d "frontend/node_modules/.cache" ]]; then
+            rm -rf frontend/node_modules/.cache
+          fi
+          
+          echo "Disk space after cleanup:"
+          df -h
+        shell: bash
+      
       # macOS signing with gon
       - name: Install gon for macOS signing
         if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
-        run: |
-          if [[ -n "${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}" ]]; then
-            brew install Bearer/tap/gon
-          fi
-        continue-on-error: true
+        run: brew install Bearer/tap/gon
       
       - name: Import Code-Signing Certificates for macOS
         if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
@@ -72,7 +87,6 @@ jobs:
         with:
           p12-file-base64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
           p12-password: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
-        continue-on-error: true
       
       - name: Sign macOS app with gon
         if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
@@ -82,22 +96,28 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_DEVELOPER_NAME: ${{ vars.APPLE_DEVELOPER_NAME }}
         run: |
-          if [[ -n "${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}" ]] && [[ -n "$APPLE_DEVELOPER_NAME" ]]; then
-            echo "Signing macOS app with gon..."
-            gon -log-level=info ./build/darwin/gon-sign.json
-            echo "App signed successfully"
-          else
-            echo "No signing certificate or developer name configured, skipping signing"
+          echo "Verifying signing configuration..."
+          
+          # Fail fast if required files/vars are missing
+          if [[ ! -f "./build/darwin/gon-sign.json" ]]; then
+            echo "❌ ERROR: gon-sign.json not found at ./build/darwin/gon-sign.json"
+            exit 1
           fi
+          
+          if [[ -z "$APPLE_DEVELOPER_NAME" ]]; then
+            echo "❌ ERROR: APPLE_DEVELOPER_NAME environment variable is not set"
+            exit 1
+          fi
+          
+          echo "✅ Configuration verified. Signing macOS app with gon..."
+          gon -log-level=info ./build/darwin/gon-sign.json
+          echo "✅ App signed successfully"
         shell: bash
-        continue-on-error: true
       
       - name: Create macOS DMG
         if: matrix.platform == 'macos-latest'
         run: |
-          # Clean up to save space
-          rm -rf binaries/static
-          # Create DMG more efficiently
+          # Create DMG efficiently
           mkdir -p build/dmg
           cp -R build/bin/MYAPP.app build/dmg/
           ln -sf /Applications build/dmg/Applications
@@ -108,54 +128,66 @@ jobs:
       - name: Sign macOS DMG
         if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
         run: |
-          if [[ -n "${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}" ]]; then
-            IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | awk -F'"' '{print $2}')
-            if [[ -n "$IDENTITY" ]]; then
-              codesign --force --sign "$IDENTITY" build/MYAPP.dmg
-              echo "DMG signed successfully"
-            fi
+          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | awk -F'"' '{print $2}')
+          if [[ -z "$IDENTITY" ]]; then
+            echo "❌ ERROR: No Developer ID Application identity found"
+            exit 1
           fi
+          
+          echo "✅ Signing DMG with identity: $IDENTITY"
+          codesign --force --sign "$IDENTITY" build/MYAPP.dmg
+          echo "✅ DMG signed successfully"
         shell: bash
-        continue-on-error: true
       
       - name: Notarize macOS app
         if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request' && startsWith(github.ref, 'refs/tags/')
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          if [[ -n "${{ secrets.APPLE_ID }}" ]] && [[ -n "${{ secrets.APPLE_ID_PASSWORD }}" ]] && [[ -n "${{ secrets.APPLE_TEAM_ID }}" ]]; then
-            echo "Notarizing app..."
-            xcrun notarytool submit build/MYAPP.dmg \
-              --apple-id "${{ secrets.APPLE_ID }}" \
-              --password "${{ secrets.APPLE_ID_PASSWORD }}" \
-              --team-id "${{ secrets.APPLE_TEAM_ID }}" \
-              --wait
-            xcrun stapler staple build/MYAPP.dmg
-            echo "App notarized and stapled successfully"
-          else
-            echo "Notarization credentials not configured, skipping notarization"
+          if [[ -z "$APPLE_ID" ]] || [[ -z "$APPLE_ID_PASSWORD" ]] || [[ -z "$APPLE_TEAM_ID" ]]; then
+            echo "❌ ERROR: Missing notarization credentials (APPLE_ID, APPLE_ID_PASSWORD, or APPLE_TEAM_ID)"
+            exit 1
           fi
+          
+          echo "✅ Notarizing app..."
+          xcrun notarytool submit build/MYAPP.dmg \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_ID_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          xcrun stapler staple build/MYAPP.dmg
+          echo "✅ App notarized and stapled successfully"
         shell: bash
-        continue-on-error: true
       
-      # Windows signing (when certificates are ready)
+      # Windows signing
       - name: Sign Windows binaries
         if: matrix.platform == 'windows-latest' && github.event_name != 'pull_request'
-        run: |
-          if ($env:WIN_SIGNING_CERT) {
-            echo "Creating certificate file"
-            New-Item -ItemType directory -Path certificate
-            Set-Content -Path certificate\certificate.txt -Value '${{ secrets.WIN_SIGNING_CERT }}'
-            certutil -decode certificate\certificate.txt certificate\certificate.pfx
-            
-            echo "Signing Windows binary"
-            & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.17763.0/x86/signtool.exe' sign /fd sha256 /tr http://timestamp.digicert.com /f certificate\certificate.pfx /p '${{ secrets.WIN_SIGNING_CERT_PASSWORD }}' .\build\bin\MYAPP.exe
-            
-            Remove-Item -Recurse -Force certificate
-          } else {
-            echo "No signing certificate configured, skipping signing"
-          }
         env:
           WIN_SIGNING_CERT: ${{ secrets.WIN_SIGNING_CERT }}
-        continue-on-error: true
+          WIN_SIGNING_CERT_PASSWORD: ${{ secrets.WIN_SIGNING_CERT_PASSWORD }}
+        run: |
+          if (-not $env:WIN_SIGNING_CERT) {
+            Write-Error "❌ ERROR: WIN_SIGNING_CERT secret is not set"
+            exit 1
+          }
+          
+          if (-not $env:WIN_SIGNING_CERT_PASSWORD) {
+            Write-Error "❌ ERROR: WIN_SIGNING_CERT_PASSWORD secret is not set"
+            exit 1
+          }
+          
+          echo "✅ Creating certificate file"
+          New-Item -ItemType directory -Path certificate
+          Set-Content -Path certificate\certificate.txt -Value $env:WIN_SIGNING_CERT
+          certutil -decode certificate\certificate.txt certificate\certificate.pfx
+          
+          echo "✅ Signing Windows binary"
+          & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.17763.0/x86/signtool.exe' sign /fd sha256 /tr http://timestamp.digicert.com /f certificate\certificate.pfx /p $env:WIN_SIGNING_CERT_PASSWORD .\build\bin\MYAPP.exe
+          
+          Remove-Item -Recurse -Force certificate
+          echo "✅ Windows binary signed successfully"
       
       - name: Upload artifacts macOS
         if: matrix.platform == 'macos-latest'
