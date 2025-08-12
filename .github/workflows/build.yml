@@ -91,9 +91,28 @@ jobs:
           p12-file-base64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
           p12-password: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
       
+      - name: List available signing identities
+        if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
+        run: |
+          echo "Available signing identities:"
+          security find-identity -v -p codesigning
+          echo ""
+          echo "Looking for Developer ID Application:"
+          security find-identity -v -p codesigning | grep "Developer ID Application" || echo "No Developer ID Application found"
+      
       - name: Create gon configuration with actual values
         if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
         run: |
+          # Get the actual Developer ID Application identity
+          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | awk -F'"' '{print $2}')
+          
+          if [[ -z "$IDENTITY" ]]; then
+            echo "❌ No Developer ID Application identity found after importing certificate"
+            exit 1
+          fi
+          
+          echo "✅ Found identity: $IDENTITY"
+          
           cat > ./build/darwin/gon-sign-runtime.json << EOF
           {
             "source": ["./build/bin/MYAPP.app"],
@@ -104,11 +123,11 @@ jobs:
               "provider": "${{ secrets.APPLE_TEAM_ID }}"
             },
             "sign": {
-              "application_identity": "${{ vars.APPLE_DEVELOPER_NAME }}"
+              "application_identity": "$IDENTITY"
             }
           }
           EOF
-          echo "✅ Created runtime gon configuration"
+          echo "✅ Created runtime gon configuration with identity: $IDENTITY"
         shell: bash
       
       - name: Sign macOS app with gon
