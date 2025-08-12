@@ -66,14 +66,24 @@ jobs:
           echo "Disk space before cleanup:"
           df -h
           
-          # Aggressive cleanup to free maximum space
+          # Extremely aggressive cleanup to free maximum space
           rm -rf binaries/static
           rm -rf frontend/node_modules
+          rm -rf frontend/.svelte-kit
+          rm -rf frontend/build
           go clean -cache -modcache -testcache
+          
+          # Clean Go workspace
+          rm -rf ~/go/pkg/mod
+          rm -rf ~/.cache/go-build
           
           # Clean any temporary build files
           find . -name "*.tmp" -delete 2>/dev/null || true
           find . -name "*.temp" -delete 2>/dev/null || true
+          find . -name "*.log" -delete 2>/dev/null || true
+          
+          # Clean homebrew cache
+          brew cleanup --prune=all 2>/dev/null || true
           
           echo "Disk space after cleanup:"
           df -h
@@ -138,16 +148,9 @@ jobs:
           echo "✅ App signed successfully"
         shell: bash
       
-      - name: Create macOS DMG
-        if: matrix.platform == 'macos-latest'
-        run: |
-          # Create DMG efficiently
-          mkdir -p build/dmg
-          cp -R build/bin/MYAPP.app build/dmg/
-          ln -sf /Applications build/dmg/Applications
-          hdiutil create -volname "MYAPP" -srcfolder build/dmg -ov -format UDBZ -imagekey zlib-level=9 build/MYAPP.dmg
-          rm -rf build/dmg
-        shell: bash
+      # Skip DMG creation for now - just upload the .app bundle
+      # DMG creation is failing due to disk space constraints
+      # - name: Create macOS DMG
       
       # DMG and notarization disabled for now - focusing on basic signing first
       # - name: Sign macOS DMG
@@ -160,9 +163,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: MYAPP-macos
-          path: |
-            build/bin/MYAPP.app
-            build/MYAPP.dmg
+          path: build/bin/MYAPP.app
       
       # Windows artifacts disabled
       # - name: Upload artifacts Windows
@@ -172,9 +173,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/') && matrix.platform == 'macos-latest'
         uses: softprops/action-gh-release@v1
         with:
-          files: |
-            build/MYAPP.dmg
-            build/bin/MYAPP.app
+          files: build/bin/MYAPP.app
           draft: true
           generate_release_notes: true
         env:
