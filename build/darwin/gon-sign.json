@@ -1,0 +1,12 @@
+{
+  "source": ["./build/bin/MYAPP.app"],
+  "bundle_id": "com.wails.MYAPP",
+  "apple_id": {
+    "username": "@env:APPLE_ID",
+    "password": "@env:APPLE_ID_PASSWORD",
+    "provider": "@env:APPLE_TEAM_ID"
+  },
+  "sign": {
+    "application_identity": "Developer ID Application: @env:APPLE_DEVELOPER_NAME"
+  }
+}
