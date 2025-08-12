@@ -1,5 +1,9 @@
 # Makefile for MYAPP - Video Editor with Ent ORM
 
+# Load environment variables from .env file if it exists
+-include .env
+export
+
 # Variables
 APP_NAME = MYAPP
 ENT_DIR = ./ent
@@ -9,7 +13,7 @@ DB_FILE = ~/Library/Application\ Support/MYAPP/database.db
 .PHONY: help
 help: ## Show this help message
 	@echo "Available commands:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@grep -h -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk -F':.*?## ' '{printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 # Development
 .PHONY: dev
@@ -286,18 +290,44 @@ full-build: clean frontend-install frontend-build build ## Clean build from scra
 .PHONY: sign-app
 sign-app: ## Sign the macOS app (requires Apple Developer Certificate)
 	@echo "🔏 Signing macOS app..."
-	@if [ -z "$(CERT_NAME)" ]; then \
-		echo "Error: CERT_NAME environment variable not set"; \
-		echo "Usage: make sign-app CERT_NAME='Developer ID Application: Your Name (TEAMID)'"; \
-		exit 1; \
-	fi
 	@if [ ! -d "build/bin/MYAPP.app" ]; then \
 		echo "Error: App bundle not found. Run 'make build-darwin-obfuscated' first"; \
 		exit 1; \
 	fi
-	codesign --force --options runtime --sign "$(CERT_NAME)" build/bin/MYAPP.app/Contents/MacOS/MYAPP
-	codesign --force --options runtime --sign "$(CERT_NAME)" build/bin/MYAPP.app
-	@echo "✅ App signed successfully"
+	@if [ -n "$(APPLE_DEVELOPER_CERTIFICATE_P12_PATH)" ] && [ -f "$(APPLE_DEVELOPER_CERTIFICATE_P12_PATH)" ]; then \
+		echo "Using certificate file: $(APPLE_DEVELOPER_CERTIFICATE_P12_PATH)"; \
+		if [ -z "$(APPLE_DEVELOPER_CERTIFICATE_PASSWORD)" ]; then \
+			echo "Error: APPLE_DEVELOPER_CERTIFICATE_PASSWORD required for P12 file"; \
+			exit 1; \
+		fi; \
+		security import "$(APPLE_DEVELOPER_CERTIFICATE_P12_PATH)" -P "$(APPLE_DEVELOPER_CERTIFICATE_PASSWORD)" -T /usr/bin/codesign -T /usr/bin/security 2>/dev/null || true; \
+	elif [ -n "$(APPLE_DEVELOPER_CERTIFICATE_P12_BASE64)" ]; then \
+		echo "Using base64 encoded certificate..."; \
+		if [ -z "$(APPLE_DEVELOPER_CERTIFICATE_PASSWORD)" ]; then \
+			echo "Error: APPLE_DEVELOPER_CERTIFICATE_PASSWORD required"; \
+			exit 1; \
+		fi; \
+		mkdir -p /tmp/cert; \
+		echo "$(APPLE_DEVELOPER_CERTIFICATE_P12_BASE64)" | base64 --decode > /tmp/cert/cert.p12; \
+		security import /tmp/cert/cert.p12 -P "$(APPLE_DEVELOPER_CERTIFICATE_PASSWORD)" -T /usr/bin/codesign -T /usr/bin/security 2>/dev/null || true; \
+		rm -rf /tmp/cert; \
+	else \
+		echo "Error: No certificate provided. Set either:"; \
+		echo "  APPLE_DEVELOPER_CERTIFICATE_P12_PATH (path to .p12 file)"; \
+		echo "  or APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 (base64 encoded)"; \
+		exit 1; \
+	fi
+	@echo "Finding signing identity..."
+	@IDENTITY=$$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | awk -F'"' '{print $$2}'); \
+	if [ -n "$$IDENTITY" ]; then \
+		echo "Signing with identity: $$IDENTITY"; \
+		codesign --force --options runtime --sign "$$IDENTITY" build/bin/MYAPP.app/Contents/MacOS/MYAPP; \
+		codesign --force --options runtime --sign "$$IDENTITY" build/bin/MYAPP.app; \
+		echo "✅ App signed successfully"; \
+	else \
+		echo "❌ No Developer ID Application certificate found"; \
+		exit 1; \
+	fi
 
 .PHONY: verify-signature
 verify-signature: ## Verify the app signature
@@ -323,17 +353,19 @@ create-dmg: ## Create a DMG installer
 .PHONY: sign-dmg
 sign-dmg: ## Sign the DMG (requires Apple Developer Certificate)
 	@echo "🔏 Signing DMG..."
-	@if [ -z "$(CERT_NAME)" ]; then \
-		echo "Error: CERT_NAME environment variable not set"; \
-		echo "Usage: make sign-dmg CERT_NAME='Developer ID Application: Your Name (TEAMID)'"; \
-		exit 1; \
-	fi
 	@if [ ! -f "build/MYAPP.dmg" ]; then \
 		echo "Error: DMG not found. Run 'make create-dmg' first"; \
 		exit 1; \
 	fi
-	codesign --force --sign "$(CERT_NAME)" build/MYAPP.dmg
-	@echo "✅ DMG signed successfully"
+	@IDENTITY=$$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | awk -F'"' '{print $$2}'); \
+	if [ -n "$$IDENTITY" ]; then \
+		echo "Signing DMG with identity: $$IDENTITY"; \
+		codesign --force --sign "$$IDENTITY" build/MYAPP.dmg; \
+		echo "✅ DMG signed successfully"; \
+	else \
+		echo "❌ No Developer ID Application certificate found"; \
+		exit 1; \
+	fi
 
 .PHONY: notarize-app
 notarize-app: ## Notarize the app with Apple (requires Apple ID credentials)
@@ -358,6 +390,21 @@ notarize-app: ## Notarize the app with Apple (requires Apple ID credentials)
 release-darwin: build-darwin-obfuscated sign-app create-dmg sign-dmg notarize-app ## Complete macOS release build with signing and notarization
 	@echo "🚀 macOS release build complete!"
 	@echo "📦 Signed and notarized DMG: build/MYAPP.dmg"
+	@echo ""
+	@echo "Required environment variables for signing and notarization:"
+	@echo "  APPLE_DEVELOPER_CERTIFICATE_P12_BASE64='base64-encoded-p12-cert'"
+	@echo "  APPLE_DEVELOPER_CERTIFICATE_PASSWORD='p12-password'"
+	@echo "  APPLE_ID='your-apple-id@email.com'"
+	@echo "  APPLE_ID_PASSWORD='your-app-specific-password'"
+	@echo "  TEAM_ID='your-team-id'"
+	@echo ""
+	@echo "💡 Tip: These are automatically loaded from .env file if it exists"
+
+.PHONY: release-local
+release-local: ffmpeg-binaries build-darwin-obfuscated create-dmg ## Local build without signing (for testing)
+	@echo "🚀 Local macOS build complete!"
+	@echo "📦 Unsigned DMG: build/MYAPP.dmg"
+	@echo "⚠️  DMG is unsigned - use 'make release-darwin' for signed version"
 
 # FFmpeg binaries
 .PHONY: ffmpeg-binaries

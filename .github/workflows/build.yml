@@ -13,6 +13,7 @@ jobs:
         platform: [macos-latest, windows-latest]
         go-version: [1.22]
     runs-on: ${{ matrix.platform }}
+    environment: Official Build
     
     steps:
       - uses: actions/checkout@v4
@@ -56,7 +57,15 @@ jobs:
       - name: Build Wails app
         run: wails build -tags production
       
-      # macOS signing (when certificates are ready)
+      # macOS signing with gon
+      - name: Install gon for macOS signing
+        if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
+        run: |
+          if [[ -n "${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}" ]]; then
+            brew install Bearer/tap/gon
+          fi
+        continue-on-error: true
+      
       - name: Import Code-Signing Certificates for macOS
         if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
         uses: Apple-Actions/import-codesign-certs@v2
@@ -65,22 +74,20 @@ jobs:
           p12-password: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
         continue-on-error: true
       
-      - name: Sign macOS app
+      - name: Sign macOS app with gon
         if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_DEVELOPER_NAME: ${{ vars.APPLE_DEVELOPER_NAME }}
         run: |
-          if [[ -n "${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}" ]]; then
-            echo "Signing macOS app..."
-            # Find the signing identity
-            IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | awk -F'"' '{print $2}')
-            if [[ -n "$IDENTITY" ]]; then
-              codesign --force --options runtime --sign "$IDENTITY" build/bin/MYAPP.app/Contents/MacOS/MYAPP
-              codesign --force --options runtime --sign "$IDENTITY" build/bin/MYAPP.app
-              echo "App signed successfully"
-            else
-              echo "No signing identity found, skipping signing"
-            fi
+          if [[ -n "${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}" ]] && [[ -n "$APPLE_DEVELOPER_NAME" ]]; then
+            echo "Signing macOS app with gon..."
+            gon -log-level=info ./build/darwin/gon-sign.json
+            echo "App signed successfully"
           else
-            echo "No signing certificate configured, skipping signing"
+            echo "No signing certificate or developer name configured, skipping signing"
           fi
         shell: bash
         continue-on-error: true
@@ -88,10 +95,13 @@ jobs:
       - name: Create macOS DMG
         if: matrix.platform == 'macos-latest'
         run: |
+          # Clean up to save space
+          rm -rf binaries/static
+          # Create DMG more efficiently
           mkdir -p build/dmg
           cp -R build/bin/MYAPP.app build/dmg/
           ln -sf /Applications build/dmg/Applications
-          hdiutil create -volname "MYAPP" -srcfolder build/dmg -ov -format UDZO build/MYAPP.dmg
+          hdiutil create -volname "MYAPP" -srcfolder build/dmg -ov -format UDBZ -imagekey zlib-level=9 build/MYAPP.dmg
           rm -rf build/dmg
         shell: bash
       
