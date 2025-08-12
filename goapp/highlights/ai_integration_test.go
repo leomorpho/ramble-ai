@@ -3,7 +3,7 @@ package highlights
 import (
 	"testing"
 
-	"MYAPP/ent/schema"
+	"ramble-ai/ent/schema"
 	"github.com/stretchr/testify/assert"
 )
 

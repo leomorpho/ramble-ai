@@ -1,8 +1,8 @@
 package chatbot
 
 import (
-	"MYAPP/ent"
-	"MYAPP/goapp/highlights"
+	"ramble-ai/ent"
+	"ramble-ai/goapp/highlights"
 	"context"
 	"time"
 )

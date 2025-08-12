@@ -3,8 +3,8 @@
 package ent
 
 import (
-	"MYAPP/ent/predicate"
-	"MYAPP/ent/videoclip"
+	"ramble-ai/ent/predicate"
+	"ramble-ai/ent/videoclip"
 	"context"
 
 	"entgo.io/ent/dialect/sql"

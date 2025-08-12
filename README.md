@@ -1,4 +1,4 @@
-# MYAPP - Video Editor
+# RambleAI - Video Editor
 
 [![CI](https://github.com/leomorpho/vidking-wails/actions/workflows/ci.yml/badge.svg)](https://github.com/leomorpho/vidking-wails/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/leomorpho/vidking-wails)](https://goreportcard.com/report/github.com/leomorpho/vidking-wails)
@@ -34,7 +34,7 @@ go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
 # Clone the repository
 git clone https://github.com/leomorpho/vidking-wails.git
-cd vidking-wails/MYAPP
+cd vidking-wails/RambleAI
 
 # Install dependencies
 make setup
@@ -77,7 +77,7 @@ For detailed testing documentation, see [docs/TESTING.md](docs/TESTING.md).
 ### Project Structure
 
 ```
-MYAPP/
+RambleAI/
 ├── app.go              # Main application logic
 ├── goapp/              # Go backend modules
 │   ├── exports/        # Video export functionality

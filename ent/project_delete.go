@@ -3,8 +3,8 @@
 package ent
 
 import (
-	"MYAPP/ent/predicate"
-	"MYAPP/ent/project"
+	"ramble-ai/ent/predicate"
+	"ramble-ai/ent/project"
 	"context"
 
 	"entgo.io/ent/dialect/sql"

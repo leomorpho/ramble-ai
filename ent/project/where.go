@@ -3,7 +3,7 @@
 package project
 
 import (
-	"MYAPP/ent/predicate"
+	"ramble-ai/ent/predicate"
 	"time"
 
 	"entgo.io/ent/dialect/sql"

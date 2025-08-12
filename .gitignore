@@ -41,7 +41,7 @@ temp*
 gahara/
 coverage.out
 coverage.html
-MYAPP
+RambleAI
 
 # FFmpeg binaries (downloaded with make ffmpeg-binaries)
 binaries/static/

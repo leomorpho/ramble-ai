@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"MYAPP/ent"
-	"MYAPP/ent/settings"
+	"ramble-ai/ent"
+	"ramble-ai/ent/settings"
 )
 
 // SettingsService provides settings management functionality

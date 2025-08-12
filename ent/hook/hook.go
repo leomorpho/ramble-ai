@@ -3,7 +3,7 @@
 package hook
 
 import (
-	"MYAPP/ent"
+	"ramble-ai/ent"
 	"context"
 	"fmt"
 )

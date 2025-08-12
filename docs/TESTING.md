@@ -1,6 +1,6 @@
 # Testing Guide
 
-This document describes the testing infrastructure for MYAPP.
+This document describes the testing infrastructure for RambleAI.
 
 ## Table of Contents
 - [Running Tests Locally](#running-tests-locally)

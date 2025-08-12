@@ -3,7 +3,7 @@
 package ent
 
 import (
-	"MYAPP/ent/project"
+	"ramble-ai/ent/project"
 	"encoding/json"
 	"fmt"
 	"strings"

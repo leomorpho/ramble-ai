@@ -12,10 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"MYAPP/ent"
-	"MYAPP/ent/project"
-	"MYAPP/ent/schema"
-	"MYAPP/ent/videoclip"
+	"ramble-ai/ent"
+	"ramble-ai/ent/project"
+	"ramble-ai/ent/schema"
+	"ramble-ai/ent/videoclip"
 )
 
 // OpenRouterRequest represents the request format for OpenRouter API

@@ -6,7 +6,7 @@ import (
 	"log"
 	"strconv"
 
-	"MYAPP/goapp/realtime"
+	"ramble-ai/goapp/realtime"
 )
 
 // ConversationPhase represents the current phase of conversation

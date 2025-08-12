@@ -12,16 +12,16 @@ import (
 	"strconv"
 	"strings"
 
-	"MYAPP/binaries"
-	"MYAPP/ent"
-	"MYAPP/ent/schema"
-	"MYAPP/goapp/assetshandler"
-	"MYAPP/goapp/chatbot"
-	"MYAPP/goapp/exports"
-	"MYAPP/goapp/highlights"
-	"MYAPP/goapp/projects"
-	"MYAPP/goapp/realtime"
-	"MYAPP/goapp/settings"
+	"ramble-ai/binaries"
+	"ramble-ai/ent"
+	"ramble-ai/ent/schema"
+	"ramble-ai/goapp/assetshandler"
+	"ramble-ai/goapp/chatbot"
+	"ramble-ai/goapp/exports"
+	"ramble-ai/goapp/highlights"
+	"ramble-ai/goapp/projects"
+	"ramble-ai/goapp/realtime"
+	"ramble-ai/goapp/settings"
 
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
@@ -53,7 +53,7 @@ func getUserDataDir() (string, error) {
 		return "", fmt.Errorf("failed to get user config directory: %w", err)
 	}
 
-	appDataDir := filepath.Join(userConfigDir, "MYAPP")
+	appDataDir := filepath.Join(userConfigDir, "RambleAI")
 	
 	// Create directory if it doesn't exist
 	if err := os.MkdirAll(appDataDir, 0755); err != nil {

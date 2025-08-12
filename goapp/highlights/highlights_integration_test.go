@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"MYAPP/ent"
-	"MYAPP/ent/enttest"
-	"MYAPP/ent/schema"
+	"ramble-ai/ent"
+	"ramble-ai/ent/enttest"
+	"ramble-ai/ent/schema"
 	_ "github.com/mattn/go-sqlite3"
 )
 

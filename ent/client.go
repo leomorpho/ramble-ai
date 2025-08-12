@@ -9,14 +9,14 @@ import (
 	"log"
 	"reflect"
 
-	"MYAPP/ent/migrate"
+	"ramble-ai/ent/migrate"
 
-	"MYAPP/ent/chatmessage"
-	"MYAPP/ent/chatsession"
-	"MYAPP/ent/exportjob"
-	"MYAPP/ent/project"
-	"MYAPP/ent/settings"
-	"MYAPP/ent/videoclip"
+	"ramble-ai/ent/chatmessage"
+	"ramble-ai/ent/chatsession"
+	"ramble-ai/ent/exportjob"
+	"ramble-ai/ent/project"
+	"ramble-ai/ent/settings"
+	"ramble-ai/ent/videoclip"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"

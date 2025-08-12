@@ -15,11 +15,11 @@ import (
 	"sync"
 	"time"
 
-	"MYAPP/ent"
-	"MYAPP/ent/exportjob"
-	"MYAPP/ent/project"
-	"MYAPP/goapp"
-	"MYAPP/goapp/highlights"
+	"ramble-ai/ent"
+	"ramble-ai/ent/exportjob"
+	"ramble-ai/ent/project"
+	"ramble-ai/goapp"
+	"ramble-ai/goapp/highlights"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 

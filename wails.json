@@ -1,6 +1,6 @@
 {
-  "name": "MYAPP",
-  "outputfilename": "MYAPP",
+  "name": "RambleAI",
+  "outputfilename": "RambleAI",
   "frontend:install": "pnpm install",
   "frontend:build": "pnpm run build --base=./",
   "frontend:dev:watcher": "pnpm run dev",

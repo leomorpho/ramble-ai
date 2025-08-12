@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"MYAPP/goapp"
+	"ramble-ai/goapp"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 )
 

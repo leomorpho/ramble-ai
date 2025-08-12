@@ -5,11 +5,11 @@ package enttest
 import (
 	"context"
 
-	"MYAPP/ent"
+	"ramble-ai/ent"
 	// required by schema hooks.
-	_ "MYAPP/ent/runtime"
+	_ "ramble-ai/ent/runtime"
 
-	"MYAPP/ent/migrate"
+	"ramble-ai/ent/migrate"
 
 	"entgo.io/ent/dialect/sql/schema"
 )

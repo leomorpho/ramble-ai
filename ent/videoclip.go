@@ -3,9 +3,9 @@
 package ent
 
 import (
-	"MYAPP/ent/project"
-	"MYAPP/ent/schema"
-	"MYAPP/ent/videoclip"
+	"ramble-ai/ent/project"
+	"ramble-ai/ent/schema"
+	"ramble-ai/ent/videoclip"
 	"encoding/json"
 	"fmt"
 	"strings"

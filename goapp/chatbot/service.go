@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"MYAPP/ent"
-	"MYAPP/ent/chatmessage"
-	"MYAPP/ent/chatsession"
-	"MYAPP/goapp/highlights"
-	"MYAPP/goapp/realtime"
+	"ramble-ai/ent"
+	"ramble-ai/ent/chatmessage"
+	"ramble-ai/ent/chatsession"
+	"ramble-ai/goapp/highlights"
+	"ramble-ai/goapp/realtime"
 )
 
 // NewChatbotService creates a new chatbot service

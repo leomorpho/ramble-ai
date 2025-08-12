@@ -3,10 +3,10 @@
 package ent
 
 import (
-	"MYAPP/ent/chatsession"
-	"MYAPP/ent/exportjob"
-	"MYAPP/ent/project"
-	"MYAPP/ent/videoclip"
+	"ramble-ai/ent/chatsession"
+	"ramble-ai/ent/exportjob"
+	"ramble-ai/ent/project"
+	"ramble-ai/ent/videoclip"
 	"context"
 	"errors"
 	"fmt"

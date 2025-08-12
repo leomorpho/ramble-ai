@@ -18,15 +18,15 @@ import (
 	"strings"
 	"time"
 
-	"MYAPP/goapp"
+	"ramble-ai/goapp"
 
-	"MYAPP/ent"
-	"MYAPP/ent/project"
-	"MYAPP/ent/schema"
-	"MYAPP/ent/settings"
-	"MYAPP/ent/videoclip"
-	highlightsservice "MYAPP/goapp/highlights"
-	"MYAPP/goapp/realtime"
+	"ramble-ai/ent"
+	"ramble-ai/ent/project"
+	"ramble-ai/ent/schema"
+	"ramble-ai/ent/settings"
+	"ramble-ai/ent/videoclip"
+	highlightsservice "ramble-ai/goapp/highlights"
+	"ramble-ai/goapp/realtime"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 

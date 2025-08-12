@@ -8,12 +8,12 @@ import (
 	"strconv"
 	"strings"
 
-	"MYAPP/ent"
-	"MYAPP/ent/project"
-	"MYAPP/ent/schema"
-	"MYAPP/ent/settings"
-	"MYAPP/ent/videoclip"
-	"MYAPP/goapp/realtime"
+	"ramble-ai/ent"
+	"ramble-ai/ent/project"
+	"ramble-ai/ent/schema"
+	"ramble-ai/ent/settings"
+	"ramble-ai/ent/videoclip"
+	"ramble-ai/goapp/realtime"
 )
 
 // Highlight represents a highlighted text region with timestamps

@@ -1,13 +1,13 @@
-# Makefile for MYAPP - Video Editor with Ent ORM
+# Makefile for RambleAI - Video Editor with Ent ORM
 
 # Load environment variables from .env file if it exists
 -include .env
 export
 
 # Variables
-APP_NAME = MYAPP
+APP_NAME = RambleAI
 ENT_DIR = ./ent
-DB_FILE = ~/Library/Application\ Support/MYAPP/database.db
+DB_FILE = ~/Library/Application\ Support/RambleAI/database.db
 
 # Default target
 .PHONY: help
@@ -81,9 +81,9 @@ sign-windows-exe: ## Sign Windows executable (requires code signing certificate)
 		exit 1; \
 	fi
 	@if [ -n "$(PFX_FILE)" ]; then \
-		signtool sign /f "$(PFX_FILE)" /p "$(PFX_PASSWORD)" /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 build/bin/MYAPP.exe; \
+		signtool sign /f "$(PFX_FILE)" /p "$(PFX_PASSWORD)" /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 build/bin/RambleAI.exe; \
 	else \
-		signtool sign /sha1 "$(CERT_THUMBPRINT)" /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 build/bin/MYAPP.exe; \
+		signtool sign /sha1 "$(CERT_THUMBPRINT)" /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 build/bin/RambleAI.exe; \
 	fi
 	@echo "✅ Windows executable signed!"
 
@@ -290,7 +290,7 @@ full-build: clean frontend-install frontend-build build ## Clean build from scra
 .PHONY: sign-app
 sign-app: ## Sign the macOS app (requires Apple Developer Certificate)
 	@echo "🔏 Signing macOS app..."
-	@if [ ! -d "build/bin/MYAPP.app" ]; then \
+	@if [ ! -d "build/bin/RambleAI.app" ]; then \
 		echo "Error: App bundle not found. Run 'make build-darwin-obfuscated' first"; \
 		exit 1; \
 	fi
@@ -321,8 +321,8 @@ sign-app: ## Sign the macOS app (requires Apple Developer Certificate)
 	@IDENTITY=$$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | awk -F'"' '{print $$2}'); \
 	if [ -n "$$IDENTITY" ]; then \
 		echo "Signing with identity: $$IDENTITY"; \
-		codesign --force --options runtime --sign "$$IDENTITY" build/bin/MYAPP.app/Contents/MacOS/MYAPP; \
-		codesign --force --options runtime --sign "$$IDENTITY" build/bin/MYAPP.app; \
+		codesign --force --options runtime --sign "$$IDENTITY" build/bin/RambleAI.app/Contents/MacOS/RambleAI; \
+		codesign --force --options runtime --sign "$$IDENTITY" build/bin/RambleAI.app; \
 		echo "✅ App signed successfully"; \
 	else \
 		echo "❌ No Developer ID Application certificate found"; \
@@ -332,35 +332,35 @@ sign-app: ## Sign the macOS app (requires Apple Developer Certificate)
 .PHONY: verify-signature
 verify-signature: ## Verify the app signature
 	@echo "🔍 Verifying app signature..."
-	codesign --verify --verbose build/bin/MYAPP.app
-	spctl --assess --verbose build/bin/MYAPP.app
+	codesign --verify --verbose build/bin/RambleAI.app
+	spctl --assess --verbose build/bin/RambleAI.app
 	@echo "✅ Signature verification complete"
 
 .PHONY: create-dmg
 create-dmg: ## Create a DMG installer
 	@echo "📦 Creating DMG installer..."
-	@if [ ! -d "build/bin/MYAPP.app" ]; then \
+	@if [ ! -d "build/bin/RambleAI.app" ]; then \
 		echo "Error: App bundle not found. Run 'make build-darwin-obfuscated' first"; \
 		exit 1; \
 	fi
 	@mkdir -p build/dmg
-	@cp -R build/bin/MYAPP.app build/dmg/
+	@cp -R build/bin/RambleAI.app build/dmg/
 	@ln -sf /Applications build/dmg/Applications
-	hdiutil create -volname "MYAPP" -srcfolder build/dmg -ov -format UDZO build/MYAPP.dmg
+	hdiutil create -volname "RambleAI" -srcfolder build/dmg -ov -format UDZO build/RambleAI.dmg
 	@rm -rf build/dmg
-	@echo "✅ DMG created: build/MYAPP.dmg"
+	@echo "✅ DMG created: build/RambleAI.dmg"
 
 .PHONY: sign-dmg
 sign-dmg: ## Sign the DMG (requires Apple Developer Certificate)
 	@echo "🔏 Signing DMG..."
-	@if [ ! -f "build/MYAPP.dmg" ]; then \
+	@if [ ! -f "build/RambleAI.dmg" ]; then \
 		echo "Error: DMG not found. Run 'make create-dmg' first"; \
 		exit 1; \
 	fi
 	@IDENTITY=$$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | awk -F'"' '{print $$2}'); \
 	if [ -n "$$IDENTITY" ]; then \
 		echo "Signing DMG with identity: $$IDENTITY"; \
-		codesign --force --sign "$$IDENTITY" build/MYAPP.dmg; \
+		codesign --force --sign "$$IDENTITY" build/RambleAI.dmg; \
 		echo "✅ DMG signed successfully"; \
 	else \
 		echo "❌ No Developer ID Application certificate found"; \
@@ -378,18 +378,18 @@ notarize-app: ## Notarize the app with Apple (requires Apple ID credentials)
 		echo "  TEAM_ID=your-team-id"; \
 		exit 1; \
 	fi
-	@if [ ! -f "build/MYAPP.dmg" ]; then \
+	@if [ ! -f "build/RambleAI.dmg" ]; then \
 		echo "Error: DMG not found. Run 'make create-dmg' and 'make sign-dmg' first"; \
 		exit 1; \
 	fi
-	xcrun notarytool submit build/MYAPP.dmg --apple-id "$(APPLE_ID)" --password "$(APPLE_ID_PASSWORD)" --team-id "$(TEAM_ID)" --wait
-	xcrun stapler staple build/MYAPP.dmg
+	xcrun notarytool submit build/RambleAI.dmg --apple-id "$(APPLE_ID)" --password "$(APPLE_ID_PASSWORD)" --team-id "$(TEAM_ID)" --wait
+	xcrun stapler staple build/RambleAI.dmg
 	@echo "✅ App notarized and stapled successfully"
 
 .PHONY: release-darwin
 release-darwin: build-darwin-obfuscated sign-app create-dmg sign-dmg notarize-app ## Complete macOS release build with signing and notarization
 	@echo "🚀 macOS release build complete!"
-	@echo "📦 Signed and notarized DMG: build/MYAPP.dmg"
+	@echo "📦 Signed and notarized DMG: build/RambleAI.dmg"
 	@echo ""
 	@echo "Required environment variables for signing and notarization:"
 	@echo "  APPLE_DEVELOPER_CERTIFICATE_P12_BASE64='base64-encoded-p12-cert'"
@@ -403,7 +403,7 @@ release-darwin: build-darwin-obfuscated sign-app create-dmg sign-dmg notarize-ap
 .PHONY: release-local
 release-local: ffmpeg-binaries build-darwin-obfuscated create-dmg ## Local build without signing (for testing)
 	@echo "🚀 Local macOS build complete!"
-	@echo "📦 Unsigned DMG: build/MYAPP.dmg"
+	@echo "📦 Unsigned DMG: build/RambleAI.dmg"
 	@echo "⚠️  DMG is unsigned - use 'make release-darwin' for signed version"
 
 # FFmpeg binaries

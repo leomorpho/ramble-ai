@@ -1,5 +1,5 @@
 {
-  "source": ["./build/bin/MYAPP.app"],
+  "source": ["./build/bin/RambleAI.app"],
   "bundle_id": "com.leoaudibert.ramble-ai",
   "apple_id": {
     "username": "@env:APPLE_ID",

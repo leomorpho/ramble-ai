@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"MYAPP/ent"
-	"MYAPP/ent/schema"
+	"ramble-ai/ent"
+	"ramble-ai/ent/schema"
 )
 
 // Test file focusing on edge cases, error conditions, and boundary scenarios

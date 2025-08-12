@@ -3,8 +3,8 @@
 package ent
 
 import (
-	"MYAPP/ent/chatmessage"
-	"MYAPP/ent/chatsession"
+	"ramble-ai/ent/chatmessage"
+	"ramble-ai/ent/chatsession"
 	"fmt"
 	"strings"
 	"time"

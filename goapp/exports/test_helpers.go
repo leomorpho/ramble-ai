@@ -8,10 +8,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"MYAPP/ent"
-	"MYAPP/ent/enttest"
-	"MYAPP/ent/migrate"
-	"MYAPP/ent/schema"
+	"ramble-ai/ent"
+	"ramble-ai/ent/enttest"
+	"ramble-ai/ent/migrate"
+	"ramble-ai/ent/schema"
 	_ "github.com/mattn/go-sqlite3"
 )
 

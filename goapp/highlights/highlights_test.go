@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"MYAPP/ent"
-	"MYAPP/ent/schema"
+	"ramble-ai/ent"
+	"ramble-ai/ent/schema"
 )
 
 // MockEntClient is a mock implementation of ent.Client for testing

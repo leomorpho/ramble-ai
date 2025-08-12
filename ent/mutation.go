@@ -3,14 +3,14 @@
 package ent
 
 import (
-	"MYAPP/ent/chatmessage"
-	"MYAPP/ent/chatsession"
-	"MYAPP/ent/exportjob"
-	"MYAPP/ent/predicate"
-	"MYAPP/ent/project"
-	"MYAPP/ent/schema"
-	"MYAPP/ent/settings"
-	"MYAPP/ent/videoclip"
+	"ramble-ai/ent/chatmessage"
+	"ramble-ai/ent/chatsession"
+	"ramble-ai/ent/exportjob"
+	"ramble-ai/ent/predicate"
+	"ramble-ai/ent/project"
+	"ramble-ai/ent/schema"
+	"ramble-ai/ent/settings"
+	"ramble-ai/ent/videoclip"
 	"context"
 	"errors"
 	"fmt"

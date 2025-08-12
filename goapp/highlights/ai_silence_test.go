@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"MYAPP/ent/enttest"
-	"MYAPP/ent/schema"
+	"ramble-ai/ent/enttest"
+	"ramble-ai/ent/schema"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

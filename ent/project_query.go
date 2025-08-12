@@ -3,11 +3,11 @@
 package ent
 
 import (
-	"MYAPP/ent/chatsession"
-	"MYAPP/ent/exportjob"
-	"MYAPP/ent/predicate"
-	"MYAPP/ent/project"
-	"MYAPP/ent/videoclip"
+	"ramble-ai/ent/chatsession"
+	"ramble-ai/ent/exportjob"
+	"ramble-ai/ent/predicate"
+	"ramble-ai/ent/project"
+	"ramble-ai/ent/videoclip"
 	"context"
 	"database/sql/driver"
 	"fmt"

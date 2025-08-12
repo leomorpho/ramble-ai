@@ -3,9 +3,9 @@
 package ent
 
 import (
-	"MYAPP/ent/predicate"
-	"MYAPP/ent/project"
-	"MYAPP/ent/videoclip"
+	"ramble-ai/ent/predicate"
+	"ramble-ai/ent/project"
+	"ramble-ai/ent/videoclip"
 	"context"
 	"fmt"
 	"math"

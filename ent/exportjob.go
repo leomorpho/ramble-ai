@@ -3,8 +3,8 @@
 package ent
 
 import (
-	"MYAPP/ent/exportjob"
-	"MYAPP/ent/project"
+	"ramble-ai/ent/exportjob"
+	"ramble-ai/ent/project"
 	"fmt"
 	"strings"
 	"time"

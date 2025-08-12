@@ -1,4 +1,4 @@
-module MYAPP
+module ramble-ai
 
 go 1.23
 

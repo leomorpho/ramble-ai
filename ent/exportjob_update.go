@@ -3,9 +3,9 @@
 package ent
 
 import (
-	"MYAPP/ent/exportjob"
-	"MYAPP/ent/predicate"
-	"MYAPP/ent/project"
+	"ramble-ai/ent/exportjob"
+	"ramble-ai/ent/predicate"
+	"ramble-ai/ent/project"
 	"context"
 	"errors"
 	"fmt"

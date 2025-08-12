@@ -3,7 +3,7 @@
 package ent
 
 import (
-	"MYAPP/ent/settings"
+	"ramble-ai/ent/settings"
 	"fmt"
 	"strings"
 	"time"
