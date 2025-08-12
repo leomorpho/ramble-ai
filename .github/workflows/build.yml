@@ -94,6 +94,16 @@ jobs:
         if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
         run: brew install Bearer/tap/gon
       
+      - name: Debug - Check required secrets
+        if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
+        run: |
+          echo "Checking required secrets (showing presence, not values):"
+          [ -n "${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}" ] && echo "✅ APPLE_DEVELOPER_CERTIFICATE_P12_BASE64: present" || echo "❌ APPLE_DEVELOPER_CERTIFICATE_P12_BASE64: missing"
+          [ -n "${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}" ] && echo "✅ APPLE_DEVELOPER_CERTIFICATE_PASSWORD: present" || echo "❌ APPLE_DEVELOPER_CERTIFICATE_PASSWORD: missing"
+          [ -n "${{ secrets.APPLE_ID }}" ] && echo "✅ APPLE_ID: present" || echo "❌ APPLE_ID: missing"
+          [ -n "${{ secrets.APPLE_ID_PASSWORD }}" ] && echo "✅ APPLE_ID_PASSWORD: present" || echo "❌ APPLE_ID_PASSWORD: missing"
+          [ -n "${{ secrets.APPLE_TEAM_ID }}" ] && echo "✅ APPLE_TEAM_ID: present" || echo "❌ APPLE_TEAM_ID: missing"
+      
       - name: Import Code-Signing Certificates for macOS
         if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
         uses: Apple-Actions/import-codesign-certs@v1
