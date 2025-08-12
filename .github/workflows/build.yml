@@ -10,7 +10,7 @@ jobs:
   build:
     strategy:
       matrix:
-        platform: [macos-latest, windows-latest]
+        platform: [macos-latest] # windows-latest temporarily disabled
         go-version: [1.22]
     runs-on: ${{ matrix.platform }}
     environment: Official Build
@@ -66,54 +66,56 @@ jobs:
           echo "Disk space before cleanup:"
           df -h
           
-          # Clean up build artifacts we don't need for packaging
+          # Aggressive cleanup to free maximum space
           rm -rf binaries/static
+          rm -rf frontend/node_modules
           go clean -cache -modcache -testcache
           
-          # Clean frontend caches but keep node_modules for now
-          if [[ -d "frontend/node_modules/.cache" ]]; then
-            rm -rf frontend/node_modules/.cache
-          fi
+          # Clean any temporary build files
+          find . -name "*.tmp" -delete 2>/dev/null || true
+          find . -name "*.temp" -delete 2>/dev/null || true
           
           echo "Disk space after cleanup:"
           df -h
         shell: bash
       
-      # macOS signing with gon (temporarily disabled - need Developer ID Application certificate)
+      # macOS signing with gon - following Wails documentation approach
       - name: Install gon for macOS signing
-        if: false && matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
+        if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
         run: brew install Bearer/tap/gon
       
       - name: Import Code-Signing Certificates for macOS
-        if: false && matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
-        uses: Apple-Actions/import-codesign-certs@v2
+        if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
+        uses: Apple-Actions/import-codesign-certs@v1
         with:
           p12-file-base64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
           p12-password: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
       
-      - name: Sign macOS app with gon
-        if: false && matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_DEVELOPER_NAME: ${{ vars.APPLE_DEVELOPER_NAME }}
+      - name: Create gon configuration with actual values
+        if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
         run: |
-          echo "Verifying signing configuration..."
-          
-          # Fail fast if required files/vars are missing
-          if [[ ! -f "./build/darwin/gon-sign.json" ]]; then
-            echo "❌ ERROR: gon-sign.json not found at ./build/darwin/gon-sign.json"
-            exit 1
-          fi
-          
-          if [[ -z "$APPLE_DEVELOPER_NAME" ]]; then
-            echo "❌ ERROR: APPLE_DEVELOPER_NAME environment variable is not set"
-            exit 1
-          fi
-          
-          echo "✅ Configuration verified. Signing macOS app with gon..."
-          gon -log-level=info ./build/darwin/gon-sign.json
+          cat > ./build/darwin/gon-sign-runtime.json << EOF
+          {
+            "source": ["./build/bin/MYAPP.app"],
+            "bundle_id": "com.leoaudibert.ramble-ai",
+            "apple_id": {
+              "username": "${{ secrets.APPLE_ID }}",
+              "password": "${{ secrets.APPLE_ID_PASSWORD }}",
+              "provider": "${{ secrets.APPLE_TEAM_ID }}"
+            },
+            "sign": {
+              "application_identity": "${{ vars.APPLE_DEVELOPER_NAME }}"
+            }
+          }
+          EOF
+          echo "✅ Created runtime gon configuration"
+        shell: bash
+      
+      - name: Sign macOS app with gon
+        if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
+        run: |
+          echo "✅ Signing macOS app with gon..."
+          gon -log-level=info ./build/darwin/gon-sign-runtime.json
           echo "✅ App signed successfully"
         shell: bash
       
@@ -128,69 +130,11 @@ jobs:
           rm -rf build/dmg
         shell: bash
       
-      - name: Sign macOS DMG
-        if: false && matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
-        run: |
-          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | awk -F'"' '{print $2}')
-          if [[ -z "$IDENTITY" ]]; then
-            echo "❌ ERROR: No Developer ID Application identity found"
-            exit 1
-          fi
-          
-          echo "✅ Signing DMG with identity: $IDENTITY"
-          codesign --force --sign "$IDENTITY" build/MYAPP.dmg
-          echo "✅ DMG signed successfully"
-        shell: bash
+      # DMG and notarization disabled for now - focusing on basic signing first
+      # - name: Sign macOS DMG
+      # - name: Notarize macOS app
       
-      - name: Notarize macOS app
-        if: false && matrix.platform == 'macos-latest' && github.event_name != 'pull_request' && startsWith(github.ref, 'refs/tags/')
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          if [[ -z "$APPLE_ID" ]] || [[ -z "$APPLE_ID_PASSWORD" ]] || [[ -z "$APPLE_TEAM_ID" ]]; then
-            echo "❌ ERROR: Missing notarization credentials (APPLE_ID, APPLE_ID_PASSWORD, or APPLE_TEAM_ID)"
-            exit 1
-          fi
-          
-          echo "✅ Notarizing app..."
-          xcrun notarytool submit build/MYAPP.dmg \
-            --apple-id "$APPLE_ID" \
-            --password "$APPLE_ID_PASSWORD" \
-            --team-id "$APPLE_TEAM_ID" \
-            --wait
-          xcrun stapler staple build/MYAPP.dmg
-          echo "✅ App notarized and stapled successfully"
-        shell: bash
-      
-      # Windows signing (temporarily disabled)
-      - name: Sign Windows binaries
-        if: false && matrix.platform == 'windows-latest' && github.event_name != 'pull_request'
-        env:
-          WIN_SIGNING_CERT: ${{ secrets.WIN_SIGNING_CERT }}
-          WIN_SIGNING_CERT_PASSWORD: ${{ secrets.WIN_SIGNING_CERT_PASSWORD }}
-        run: |
-          if (-not $env:WIN_SIGNING_CERT) {
-            Write-Error "❌ ERROR: WIN_SIGNING_CERT secret is not set"
-            exit 1
-          }
-          
-          if (-not $env:WIN_SIGNING_CERT_PASSWORD) {
-            Write-Error "❌ ERROR: WIN_SIGNING_CERT_PASSWORD secret is not set"
-            exit 1
-          }
-          
-          echo "✅ Creating certificate file"
-          New-Item -ItemType directory -Path certificate
-          Set-Content -Path certificate\certificate.txt -Value $env:WIN_SIGNING_CERT
-          certutil -decode certificate\certificate.txt certificate\certificate.pfx
-          
-          echo "✅ Signing Windows binary"
-          & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.17763.0/x86/signtool.exe' sign /fd sha256 /tr http://timestamp.digicert.com /f certificate\certificate.pfx /p $env:WIN_SIGNING_CERT_PASSWORD .\build\bin\MYAPP.exe
-          
-          Remove-Item -Recurse -Force certificate
-          echo "✅ Windows binary signed successfully"
+      # Windows build temporarily disabled
       
       - name: Upload artifacts macOS
         if: matrix.platform == 'macos-latest'
@@ -201,12 +145,8 @@ jobs:
             build/bin/MYAPP.app
             build/MYAPP.dmg
       
-      - name: Upload artifacts Windows
-        if: matrix.platform == 'windows-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: MYAPP-windows
-          path: build/bin/*
+      # Windows artifacts disabled
+      # - name: Upload artifacts Windows
       
       # Create release when pushing tags
       - name: Create Release
@@ -221,11 +161,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Add Windows to Release
-        if: startsWith(github.ref, 'refs/tags/') && matrix.platform == 'windows-latest'
-        uses: softprops/action-gh-release@v1
-        with:
-          files: build/bin/MYAPP.exe
-          draft: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Windows release disabled
+      # - name: Add Windows to Release
