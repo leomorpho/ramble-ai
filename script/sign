@@ -1,0 +1,91 @@
+#!/bin/bash
+# usage: script/sign <file>
+#
+# Signs macOS binaries using codesign, notarizes macOS zip archives using notarytool
+# Based on Microsoft's approach for local signing
+#
+set -e
+
+sign_macos() {
+  if [[ -z "$APPLE_DEVELOPER_ID" ]]; then
+    echo "skipping macOS code-signing; APPLE_DEVELOPER_ID not set" >&2
+    echo "To set up signing, export your Developer ID Application identity:" >&2
+    echo "  export APPLE_DEVELOPER_ID=\"Developer ID Application: Your Name (TEAM123456)\"" >&2
+    return 0
+  fi
+
+  echo "Signing with identity: $APPLE_DEVELOPER_ID"
+
+  if [[ $1 == *.zip ]]; then
+    echo "Notarizing zip archive: $1"
+    if [[ -z "$APPLE_ID" || -z "$APPLE_ID_PASSWORD" || -z "$APPLE_TEAM_ID" ]]; then
+      echo "skipping notarization; APPLE_ID, APPLE_ID_PASSWORD, or APPLE_TEAM_ID not set" >&2
+      return 0
+    fi
+    xcrun notarytool submit "$1" --apple-id "${APPLE_ID}" --team-id "${APPLE_TEAM_ID}" --password "${APPLE_ID_PASSWORD}" --wait
+    echo "Stapling notarization to zip..."
+    xcrun stapler staple "$1"
+  elif [[ $1 == *.app ]]; then
+    echo "Code signing app bundle: $1"
+    
+    # Check if already signed with the correct identity
+    CURRENT_IDENTITY=$(codesign -dvv "$1" 2>&1 | grep "Authority=" | head -1 | cut -d'=' -f2)
+    if [[ "$CURRENT_IDENTITY" == "$APPLE_DEVELOPER_ID" ]]; then
+      echo "✅ App already signed with correct identity: $CURRENT_IDENTITY"
+      echo "Verifying existing signature..."
+      codesign --verify --verbose "$1"
+      echo "Checking Gatekeeper status..."
+      if spctl --assess --verbose "$1" 2>&1 | grep -q "rejected"; then
+        echo "⚠️  App is signed but not notarized - will show security warning on first run"
+        echo "💡 To notarize: set APPLE_ID credentials and run 'make sign-zip'"
+      else
+        echo "✅ App passes Gatekeeper assessment"
+      fi
+      return 0
+    fi
+    
+    echo "Re-signing with identity: $APPLE_DEVELOPER_ID"
+    # Sign the executable first with --force to overwrite existing signature
+    if [[ -f "$1/Contents/MacOS/RambleAI" ]]; then
+      codesign --force --timestamp --options=runtime --entitlements "./build/darwin/entitlements.plist" -s "${APPLE_DEVELOPER_ID}" -v "$1/Contents/MacOS/RambleAI"
+    fi
+    # Then sign the app bundle with --force
+    codesign --force --timestamp --options=runtime --entitlements "./build/darwin/entitlements.plist" -s "${APPLE_DEVELOPER_ID}" -v "$1"
+    echo "Verifying signature..."
+    codesign --verify --verbose "$1"
+    echo "Checking Gatekeeper status..."
+    if spctl --assess --verbose "$1" 2>&1 | grep -q "rejected"; then
+      echo "⚠️  App is signed but not notarized - will show security warning on first run"
+      echo "💡 To notarize: set APPLE_ID credentials and run 'make sign-zip'"
+    else
+      echo "✅ App passes Gatekeeper assessment"
+    fi
+  else
+    echo "Code signing binary: $1"
+    codesign --timestamp --options=runtime -s "${APPLE_DEVELOPER_ID}" -v "$1"
+  fi
+}
+
+if [[ $# -eq 0 ]]; then
+  echo "usage: script/sign <file>" >&2
+  echo "examples:" >&2
+  echo "  script/sign build/bin/RambleAI.app" >&2
+  echo "  script/sign build/RambleAI-macos.zip" >&2
+  exit 1
+fi
+
+platform="$(uname -s)"
+if [[ $platform != "Darwin" ]]; then
+  echo "error: must run on macOS; skipping codesigning/notarization" >&2
+  exit 1
+fi
+
+for input_file; do
+  if [[ ! -e "$input_file" ]]; then
+    echo "error: file not found: $input_file" >&2
+    exit 1
+  fi
+  sign_macos "$input_file"
+done
+
+echo "✅ Signing complete!"

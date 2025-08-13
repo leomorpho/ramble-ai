@@ -70,6 +70,73 @@ build-windows-obfuscated-on-windows: ffmpeg-binaries ## Build obfuscated Windows
 	set GOGARBLE=*,!ariga.io/atlas/... && wails build -tags production -obfuscated -garbleargs "-literals -tiny -seed=random" -platform=windows/amd64
 	@echo "✅ Windows obfuscated build complete!"
 
+# Helper function to detect and set APPLE_DEVELOPER_ID
+define detect_developer_id
+	@if [ -z "$$APPLE_DEVELOPER_ID" ]; then \
+		echo "🔍 Auto-detecting Developer ID..."; \
+		DEVELOPER_ID=$$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | awk -F'"' '{print $$2}'); \
+		if [ -n "$$DEVELOPER_ID" ]; then \
+			echo "✅ Found: $$DEVELOPER_ID"; \
+			export APPLE_DEVELOPER_ID="$$DEVELOPER_ID"; \
+		else \
+			echo "❌ No Developer ID Application certificate found."; \
+			echo "💡 Install a Developer ID certificate or set APPLE_DEVELOPER_ID manually."; \
+			exit 1; \
+		fi; \
+	else \
+		echo "✅ Using: $$APPLE_DEVELOPER_ID"; \
+	fi
+endef
+
+# Simple local signing using script/sign (recommended)
+.PHONY: sign
+sign: ## Sign the RambleAI.app locally (requires Developer ID Application certificate)
+	@echo "🔐 Signing RambleAI.app locally..."
+	@if [ ! -f build/bin/RambleAI.app/Contents/MacOS/RambleAI ]; then \
+		echo "❌ RambleAI.app not found. Run 'make build' first."; \
+		exit 1; \
+	fi
+	$(call detect_developer_id)
+	@APPLE_DEVELOPER_ID="$${APPLE_DEVELOPER_ID:-$$(security find-identity -v -p codesigning | grep 'Developer ID Application' | head -1 | awk -F'\"' '{print $$2}')}" ./script/sign build/bin/RambleAI.app
+
+.PHONY: sign-zip
+sign-zip: ## Create and sign a zip archive for distribution  
+	@echo "📦 Creating signed zip archive..."
+	@if [ ! -d build/bin/RambleAI.app ]; then \
+		echo "❌ RambleAI.app not found. Run 'make build' first."; \
+		exit 1; \
+	fi
+	$(call detect_developer_id)
+	@cd build/bin && zip -r ../RambleAI-macos.zip RambleAI.app
+	@APPLE_DEVELOPER_ID="$${APPLE_DEVELOPER_ID:-$$(security find-identity -v -p codesigning | grep 'Developer ID Application' | head -1 | awk -F'\"' '{print $$2}')}" ./script/sign build/RambleAI-macos.zip
+
+.PHONY: build-and-sign
+build-and-sign: ## Build and sign in one command (auto-detects certificate)
+	@echo "🚀 Building and signing RambleAI..."
+	$(call detect_developer_id)
+	@$(MAKE) build
+	@APPLE_DEVELOPER_ID="$${APPLE_DEVELOPER_ID:-$$(security find-identity -v -p codesigning | grep 'Developer ID Application' | head -1 | awk -F'\"' '{print $$2}')}" $(MAKE) sign
+
+.PHONY: check-signing
+check-signing: ## Check available Developer ID certificates
+	@echo "🔍 Checking for Developer ID Application certificates..."
+	@CERTS=$$(security find-identity -v -p codesigning | grep "Developer ID Application" || echo ""); \
+	if [ -n "$$CERTS" ]; then \
+		echo "✅ Found Developer ID certificates:"; \
+		echo "$$CERTS"; \
+		FIRST_CERT=$$(echo "$$CERTS" | head -1 | awk -F'"' '{print $$2}'); \
+		echo ""; \
+		echo "🎯 Will use: $$FIRST_CERT"; \
+		echo "💡 To override, set: export APPLE_DEVELOPER_ID=\"Your Certificate Name\""; \
+	else \
+		echo "❌ No Developer ID Application certificates found."; \
+		echo ""; \
+		echo "To fix this:"; \
+		echo "1. Get a Developer ID certificate from Apple Developer Portal"; \
+		echo "2. Download and install it in Keychain Access"; \
+		echo "3. Run 'make check-signing' again"; \
+	fi
+
 .PHONY: sign-windows-exe
 sign-windows-exe: ## Sign Windows executable (requires code signing certificate)
 	@echo "🔏 Signing Windows executable..."

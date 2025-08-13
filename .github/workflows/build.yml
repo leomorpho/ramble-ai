@@ -97,12 +97,42 @@ jobs:
       - name: Debug - Check required secrets
         if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
         run: |
-          echo "Checking required secrets (showing presence, not values):"
-          [ -n "${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}" ] && echo "✅ APPLE_DEVELOPER_CERTIFICATE_P12_BASE64: present" || echo "❌ APPLE_DEVELOPER_CERTIFICATE_P12_BASE64: missing"
-          [ -n "${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}" ] && echo "✅ APPLE_DEVELOPER_CERTIFICATE_PASSWORD: present" || echo "❌ APPLE_DEVELOPER_CERTIFICATE_PASSWORD: missing"
-          [ -n "${{ secrets.APPLE_ID }}" ] && echo "✅ APPLE_ID: present" || echo "❌ APPLE_ID: missing"
-          [ -n "${{ secrets.APPLE_ID_PASSWORD }}" ] && echo "✅ APPLE_ID_PASSWORD: present" || echo "❌ APPLE_ID_PASSWORD: missing"
-          [ -n "${{ secrets.APPLE_TEAM_ID }}" ] && echo "✅ APPLE_TEAM_ID: present" || echo "❌ APPLE_TEAM_ID: missing"
+          echo "Checking required configuration (secrets or vars):"
+          
+          # Check certificate (usually a secret)
+          if [ -n "${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}" ] || [ -n "${{ vars.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}" ]; then
+            echo "✅ APPLE_DEVELOPER_CERTIFICATE_P12_BASE64: found"
+          else
+            echo "❌ APPLE_DEVELOPER_CERTIFICATE_P12_BASE64: missing from both secrets and vars"
+          fi
+          
+          # Check certificate password (usually a secret)
+          if [ -n "${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}" ] || [ -n "${{ vars.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}" ]; then
+            echo "✅ APPLE_DEVELOPER_CERTIFICATE_PASSWORD: found"
+          else
+            echo "❌ APPLE_DEVELOPER_CERTIFICATE_PASSWORD: missing from both secrets and vars"
+          fi
+          
+          # Check Apple ID (can be either)
+          if [ -n "${{ secrets.APPLE_ID }}" ] || [ -n "${{ vars.APPLE_ID }}" ]; then
+            echo "✅ APPLE_ID: found"
+          else
+            echo "❌ APPLE_ID: missing from both secrets and vars"
+          fi
+          
+          # Check Apple ID password (usually a secret)
+          if [ -n "${{ secrets.APPLE_ID_PASSWORD }}" ] || [ -n "${{ vars.APPLE_ID_PASSWORD }}" ]; then
+            echo "✅ APPLE_ID_PASSWORD: found"
+          else
+            echo "❌ APPLE_ID_PASSWORD: missing from both secrets and vars"
+          fi
+          
+          # Check Team ID (can be either)
+          if [ -n "${{ secrets.APPLE_TEAM_ID }}" ] || [ -n "${{ vars.APPLE_TEAM_ID }}" ]; then
+            echo "✅ APPLE_TEAM_ID: found"
+          else
+            echo "❌ APPLE_TEAM_ID: missing from both secrets and vars"
+          fi
       
       - name: Import Code-Signing Certificates for macOS
         if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
@@ -138,9 +168,9 @@ jobs:
             "source": ["./build/bin/RambleAI.app"],
             "bundle_id": "com.leoaudibert.ramble-ai",
             "apple_id": {
-              "username": "${{ secrets.APPLE_ID }}",
+              "username": "${{ vars.APPLE_ID || secrets.APPLE_ID }}",
               "password": "${{ secrets.APPLE_ID_PASSWORD }}",
-              "provider": "${{ secrets.APPLE_TEAM_ID }}"
+              "provider": "${{ vars.APPLE_TEAM_ID || secrets.APPLE_TEAM_ID }}"
             },
             "sign": {
               "application_identity": "$IDENTITY"
