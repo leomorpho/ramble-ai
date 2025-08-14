@@ -150,7 +150,7 @@ jobs:
           echo "Looking for Developer ID Application:"
           security find-identity -v -p codesigning | grep "Developer ID Application" || echo "No Developer ID Application found"
       
-      - name: Prepare environment for gon signing
+      - name: Create gon configuration with actual values
         if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
         run: |
           # Get the actual Developer ID Application identity
@@ -163,26 +163,36 @@ jobs:
           
           echo "✅ Found identity: $IDENTITY"
           
-          # Set environment variables for gon
-          echo "APPLE_ID=${{ vars.APPLE_ID || secrets.APPLE_ID }}" >> $GITHUB_ENV
-          echo "APPLE_ID_PASSWORD=${{ secrets.APPLE_ID_PASSWORD }}" >> $GITHUB_ENV
-          echo "APPLE_TEAM_ID=${{ vars.APPLE_TEAM_ID || secrets.APPLE_TEAM_ID }}" >> $GITHUB_ENV
-          echo "APPLE_DEVELOPER_NAME=$IDENTITY" >> $GITHUB_ENV
-          
-          echo "✅ Environment variables set for gon"
+          # Create gon configuration with actual values (not env variables)
+          cat > ./build/darwin/gon-sign-runtime.json << EOF
+          {
+            "source": ["./build/bin/RambleAI.app"],
+            "bundle_id": "com.leoaudibert.ramble-ai",
+            "apple_id": {
+              "username": "${{ vars.APPLE_ID || secrets.APPLE_ID }}",
+              "password": "${{ secrets.APPLE_ID_PASSWORD }}",
+              "provider": "${{ vars.APPLE_TEAM_ID || secrets.APPLE_TEAM_ID }}"
+            },
+            "sign": {
+              "application_identity": "$IDENTITY",
+              "entitlements_file": "./build/darwin/entitlements.plist"
+            }
+          }
+          EOF
+          echo "✅ Created gon configuration with identity: $IDENTITY"
         shell: bash
       
       - name: Sign and notarize macOS app with gon
         if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
         run: |
           echo "✅ Signing and notarizing macOS app with gon..."
-          echo "Using configuration: ./build/darwin/gon-sign.json"
-          echo "Environment variables set:"
-          echo "- APPLE_ID: ${APPLE_ID}"
-          echo "- APPLE_TEAM_ID: ${APPLE_TEAM_ID}"
-          echo "- APPLE_DEVELOPER_NAME: ${APPLE_DEVELOPER_NAME}"
+          echo "Using runtime configuration: ./build/darwin/gon-sign-runtime.json"
           
-          gon -log-level=info ./build/darwin/gon-sign.json
+          # Show the configuration being used (without sensitive data)
+          echo "Configuration contents:"
+          cat ./build/darwin/gon-sign-runtime.json | jq -r 'del(.apple_id.password)'
+          
+          gon -log-level=info ./build/darwin/gon-sign-runtime.json
           echo "✅ App signed and notarized successfully"
         shell: bash
       
