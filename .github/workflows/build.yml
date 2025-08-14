@@ -225,18 +225,18 @@ jobs:
             
             # Copy the notarized app from the mounted DMG
             echo "📦 Copying notarized app from DMG..."
-            cp -R /tmp/ramble-dmg/RambleAI.app ./RambleAI-notarized.app
+            cp -R /tmp/ramble-dmg/RambleAI.app ./RambleAI.app
             
             # Unmount the DMG
             hdiutil detach /tmp/ramble-dmg
             
             # Verify the notarized app
             echo "🔍 Verifying notarized app signature:"
-            codesign -vvv --deep --strict RambleAI-notarized.app
-            spctl -a -vvv RambleAI-notarized.app
+            codesign -vvv --deep --strict RambleAI.app
+            spctl -a -vvv RambleAI.app
             
             # Create zip with the notarized app
-            zip -r RambleAI-macos.zip RambleAI-notarized.app
+            zip -r RambleAI-macos.zip RambleAI.app
             echo "✅ Created RambleAI-macos.zip with extracted notarized app"
             
           elif [ -f "RambleAI-signed.zip" ]; then
