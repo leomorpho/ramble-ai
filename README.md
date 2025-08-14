@@ -121,6 +121,7 @@ The project uses GitHub Actions with Earthly for continuous integration:
 - 🔍 Code linting and formatting checks
 - 📊 Test coverage reporting
 - 🏗️ Multi-platform builds (Linux, macOS, Windows)
+- 🔐 Automated macOS code signing and notarization
 
 ### Running CI Locally with Earthly
 
@@ -136,6 +137,36 @@ earthly +test
 earthly +lint
 earthly +build-frontend
 ```
+
+### macOS Code Signing and Notarization
+
+The project automatically signs and notarizes macOS builds using GitHub Actions. This requires the following GitHub secrets/variables:
+
+#### Required Secrets
+Set these in your GitHub repository settings under Settings → Secrets and variables → Actions:
+
+- `APPLE_DEVELOPER_CERTIFICATE_P12_BASE64`: Your Apple Developer certificate exported as .p12 and base64 encoded
+- `APPLE_DEVELOPER_CERTIFICATE_PASSWORD`: Password for your .p12 certificate  
+- `APPLE_ID_PASSWORD`: App-specific password for your Apple ID (generate at [appleid.apple.com](https://appleid.apple.com))
+
+#### Required Variables (or Secrets)
+Set these as either repository variables or secrets:
+
+- `APPLE_ID`: Your Apple ID email address
+- `APPLE_TEAM_ID`: Your Apple Developer Team ID (10-character string like `ABCDE12345`)
+
+#### Creating the Certificate File
+1. Export your Apple Developer certificate from Keychain Access as a .p12 file
+2. Convert to base64: `base64 YourCertificate.p12 | pbcopy`
+3. Paste the result into the `APPLE_DEVELOPER_CERTIFICATE_P12_BASE64` secret
+
+#### Finding Your Team ID
+Run this command on macOS to find your Team ID:
+```bash
+security find-identity -v -p codesigning
+```
+
+The signed and notarized app will be available for download as a build artifact and included in GitHub releases.
 
 ## Contributing
 
