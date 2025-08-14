@@ -177,8 +177,9 @@ jobs:
               "application_identity": "$IDENTITY",
               "entitlements_file": "./build/darwin/entitlements.plist"
             },
-            "zip": {
-              "output_path": "./build/bin/RambleAI-signed.zip"
+            "dmg": {
+              "output_path": "./build/bin/RambleAI-signed.dmg",
+              "volume_name": "RambleAI"
             }
           }
           EOF
@@ -213,14 +214,28 @@ jobs:
         if: matrix.platform == 'macos-latest'
         run: |
           cd build/bin
-          # Use the notarized zip if it exists, otherwise create a regular zip
-          if [ -f "RambleAI-signed.zip" ]; then
-            mv RambleAI-signed.zip RambleAI-macos.zip
+          # Check for notarized DMG first, then zip, then create regular zip
+          if [ -f "RambleAI-signed.dmg" ]; then
+            echo "✅ Found notarized DMG file"
+            ls -lh RambleAI-signed.dmg
+            # Create a zip containing the DMG for upload
+            zip RambleAI-macos.zip RambleAI-signed.dmg
+            echo "✅ Created RambleAI-macos.zip containing notarized DMG"
+          elif [ -f "RambleAI-signed.zip" ]; then
+            echo "✅ Found notarized zip file"
+            # Verify the notarized zip contains the app bundle
+            echo "Contents of notarized zip:"
+            unzip -l RambleAI-signed.zip
+            # Copy the notarized zip for upload
+            cp RambleAI-signed.zip RambleAI-macos.zip
             echo "✅ Using notarized RambleAI-macos.zip"
           else
+            echo "⚠️ No notarized files found, creating regular zip"
             zip -r RambleAI-macos.zip RambleAI.app
             echo "✅ Created regular RambleAI-macos.zip"
           fi
+          
+          echo "Final artifact details:"
           ls -lh RambleAI-macos.zip
       
       - name: Upload artifacts macOS
@@ -229,6 +244,7 @@ jobs:
         with:
           name: RambleAI-macos
           path: build/bin/RambleAI-macos.zip
+          compression-level: 0  # Don't compress again since it's already a zip
       
       # Windows artifacts disabled
       # - name: Upload artifacts Windows
