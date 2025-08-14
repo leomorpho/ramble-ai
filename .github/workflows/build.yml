@@ -176,6 +176,9 @@ jobs:
             "sign": {
               "application_identity": "$IDENTITY",
               "entitlements_file": "./build/darwin/entitlements.plist"
+            },
+            "zip": {
+              "output_path": "./build/bin/RambleAI-signed.zip"
             }
           }
           EOF
@@ -210,8 +213,14 @@ jobs:
         if: matrix.platform == 'macos-latest'
         run: |
           cd build/bin
-          zip -r RambleAI-macos.zip RambleAI.app
-          echo "✅ Created RambleAI-macos.zip"
+          # Use the notarized zip if it exists, otherwise create a regular zip
+          if [ -f "RambleAI-signed.zip" ]; then
+            mv RambleAI-signed.zip RambleAI-macos.zip
+            echo "✅ Using notarized RambleAI-macos.zip"
+          else
+            zip -r RambleAI-macos.zip RambleAI.app
+            echo "✅ Created regular RambleAI-macos.zip"
+          fi
           ls -lh RambleAI-macos.zip
       
       - name: Upload artifacts macOS
