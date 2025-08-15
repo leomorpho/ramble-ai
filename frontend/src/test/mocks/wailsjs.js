@@ -42,7 +42,6 @@ export const GetVideoFileInfo = vi.fn().mockResolvedValue({});
 export const GetVideoURL = vi.fn().mockResolvedValue('');
 export const Greet = vi.fn().mockResolvedValue('Hello');
 export const ImproveHighlightSilencesWithAI = vi.fn().mockResolvedValue(undefined);
-export const MigrateHighlightColors = vi.fn().mockResolvedValue(undefined);
 export const RecoverActiveExportJobs = vi.fn().mockResolvedValue(undefined);
 export const RedoHighlightsChange = vi.fn().mockResolvedValue(undefined);
 export const RedoOrderChange = vi.fn().mockResolvedValue([]);

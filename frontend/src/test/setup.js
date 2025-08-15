@@ -62,7 +62,6 @@ vi.mock('$lib/wailsjs/go/main/App', () => ({
   GetVideoURL: vi.fn().mockResolvedValue(''),
   Greet: vi.fn().mockResolvedValue('Hello'),
   ImproveHighlightSilencesWithAI: vi.fn().mockResolvedValue(undefined),
-  MigrateHighlightColors: vi.fn().mockResolvedValue(undefined),
   RecoverActiveExportJobs: vi.fn().mockResolvedValue(undefined),
   RedoHighlightsChange: vi.fn().mockResolvedValue(undefined),
   RedoOrderChange: vi.fn().mockResolvedValue([]),
