@@ -10,6 +10,15 @@ const config = {
       //
       // allow: ['.'],
     },
+    hmr: {
+      // Better hot-reload
+      overlay: true,
+    },
+    watch: {
+      // Poll for file changes (useful for some systems)
+      usePolling: false,
+      interval: 100,
+    },
   },
 	plugins: [sveltekit(), tailwindcss()],
   resolve: {

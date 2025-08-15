@@ -5,6 +5,7 @@
   "frontend:build": "pnpm run build --base=./",
   "frontend:dev:watcher": "pnpm run dev",
   "frontend:dev:serverUrl": "auto",
+  "frontend:dev:reload": true,
   "wailsjsdir": "./frontend/src/lib",
   "author": {
     "name": "Leo Audibert",
