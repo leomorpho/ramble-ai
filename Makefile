@@ -271,6 +271,11 @@ frontend-check: ## Type check frontend code
 frontend-check-watch: ## Type check frontend code in watch mode
 	cd frontend && pnpm check:watch
 
+# Landing Page
+.PHONY: landing-dev
+landing-dev: ## Start landing page development server
+	cd landing-page && pnpm dev
+
 # Testing
 .PHONY: test
 test: ## Run all tests (Go + Frontend)
