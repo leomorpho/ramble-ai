@@ -177,9 +177,8 @@ jobs:
               "application_identity": "$IDENTITY",
               "entitlements_file": "./build/darwin/entitlements.plist"
             },
-            "dmg": {
-              "output_path": "./build/bin/RambleAI-signed.dmg",
-              "volume_name": "RambleAI"
+            "zip": {
+              "output_path": "./build/bin/RambleAI-signed.zip"
             }
           }
           EOF
@@ -214,41 +213,20 @@ jobs:
         if: matrix.platform == 'macos-latest'
         run: |
           cd build/bin
-          # Check for notarized DMG first, then zip, then create regular zip
-          if [ -f "RambleAI-signed.dmg" ]; then
-            echo "✅ Found notarized DMG file"
-            ls -lh RambleAI-signed.dmg
-            
-            # Mount the DMG and extract the notarized app
-            echo "🔧 Mounting DMG to extract notarized app..."
-            hdiutil attach RambleAI-signed.dmg -mountpoint /tmp/ramble-dmg
-            
-            # Copy the notarized app from the mounted DMG
-            echo "📦 Copying notarized app from DMG..."
-            cp -R /tmp/ramble-dmg/RambleAI.app ./RambleAI.app
-            
-            # Unmount the DMG
-            hdiutil detach /tmp/ramble-dmg
-            
-            # Verify the notarized app
-            echo "🔍 Verifying notarized app signature:"
-            codesign -vvv --deep --strict RambleAI.app
-            spctl -a -vvv RambleAI.app
-            
-            # Create zip with the notarized app
-            zip -r RambleAI-macos.zip RambleAI.app
-            echo "✅ Created RambleAI-macos.zip with extracted notarized app"
-            
-          elif [ -f "RambleAI-signed.zip" ]; then
+          # Check for notarized zip file
+          if [ -f "RambleAI-signed.zip" ]; then
             echo "✅ Found notarized zip file"
+            ls -lh RambleAI-signed.zip
+            
             # Verify the notarized zip contains the app bundle
-            echo "Contents of notarized zip:"
+            echo "📦 Contents of notarized zip:"
             unzip -l RambleAI-signed.zip
+            
             # Copy the notarized zip for upload
             cp RambleAI-signed.zip RambleAI-macos.zip
             echo "✅ Using notarized RambleAI-macos.zip"
           else
-            echo "⚠️ No notarized files found, creating regular zip"
+            echo "⚠️ No notarized file found, creating regular zip"
             zip -r RambleAI-macos.zip RambleAI.app
             echo "✅ Created regular RambleAI-macos.zip"
           fi
