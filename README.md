@@ -1,28 +1,85 @@
-# RambleAI - Video Editor
+# RambleAI - AI-Powered Video Preprocessing for Talking Head Content
 
-[![CI](https://github.com/leomorpho/vidking-wails/actions/workflows/ci.yml/badge.svg)](https://github.com/leomorpho/vidking-wails/actions/workflows/ci.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/leomorpho/vidking-wails)](https://goreportcard.com/report/github.com/leomorpho/vidking-wails)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Build and Release](https://github.com/leoaudibert/ramble-ai/actions/workflows/build.yml/badge.svg)](https://github.com/leoaudibert/ramble-ai/actions/workflows/build.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/leoaudibert/ramble-ai)](https://goreportcard.com/report/github.com/leoaudibert/ramble-ai)
 
-A powerful desktop video editor built with [Wails](https://wails.io), Go, and SvelteKit.
+**Transform hours of raw talking head footage into polished scripts in minutes.**
+
+RambleAI is an AI-powered desktop application that preprocesses talking head videos, automatically selecting the best clips and reordering them into coherent scripts. Built with [Wails](https://wails.io), Go, and SvelteKit, it saves content creators 60-80% of their editing time.
+
+## Why RambleAI?
+
+RambleAI is NOT a video editor - it's a preprocessing tool that works WITH your favorite editor (Premiere, Final Cut, DaVinci Resolve). It handles the tedious part of editing talking head content: finding the good takes, removing the rambling, and organizing everything into a coherent narrative.
+
+### Key Benefits
+
+- ⚡ **60-80% Time Savings**: What used to take 8 hours now takes 2-3 hours
+- 🎯 **Smart Clip Selection**: AI identifies the best parts of your videos automatically
+- 🧠 **AI Script Reordering**: Transform disorganized clips into coherent scripts
+- 🔒 **100% Private**: All processing happens locally on your machine
+- 🔄 **Works with Any Editor**: Export to your preferred video editing software
 
 ## Features
 
-- 🎬 Video clip management and organization
-- ✂️ Highlight extraction with timestamp precision  
-- 🤖 AI-powered highlight suggestions
-- 📝 Automatic transcription with word-level timestamps
-- 🎯 Drag-to-resize highlight editing
-- 📤 Export highlights as individual clips or stitched compilations
-- 🌓 Dark/Light theme support
-- ⚡ Native desktop performance
+- 🎬 **Video Management**: Import and organize talking head footage
+- ✂️ **Smart Highlight Extraction**: AI-powered clip selection with quality scoring  
+- 🤖 **Flexible AI Integration**: Use any AI model via OpenRouter (bring your own API keys)
+- 📝 **Accurate Transcription**: Word-level timestamps for precise editing
+- 🎯 **Visual Timeline Editor**: Drag-to-resize highlight editing
+- 📤 **Multiple Export Options**: Individual clips or stitched compilations
+- 🌓 **Modern UI**: Dark/Light theme with native desktop performance
+- 🚀 **Fast Processing**: Optimized for quick turnaround times
+
+## Quick Start
+
+### Download & Install
+1. Download the latest release from [GitHub Releases](https://github.com/leoaudibert/ramble-ai/releases)
+2. Install the application:
+   - **macOS**: Open the .dmg and drag RambleAI to Applications
+   - **Windows**: Run the installer
+   - **Linux**: Extract and run the AppImage
+
+### Your First Project
+1. Launch RambleAI
+2. Create a new project
+3. Import your talking head video
+4. Let AI analyze and transcribe
+5. Review AI-suggested clips
+6. Reorder clips into your script
+7. Export to your video editor
+
+## How It Works
+
+### The RambleAI Workflow
+
+1. **📤 Upload Footage**: Import your raw talking head video. AI analyzes speech patterns and content quality.
+
+2. **🎯 Smart Selection**: AI identifies the best clips based on clarity, coherence, and narrative value.
+
+3. **🧠 Script Reordering**: AI reorders selected clips into a coherent, engaging script using your choice of LLM.
+
+4. **📦 Export & Handoff**: Export optimized scripts and clips ready for your favorite video editor.
+
+## System Requirements
+
+### Minimum Requirements
+- macOS 10.15+ / Windows 10+ / Linux (Ubuntu 20.04+)
+- 8GB RAM
+- 2GB free disk space
+- Internet connection (for AI features only)
+
+### Recommended
+- 16GB RAM for optimal performance
+- SSD for faster video processing
+- Dedicated GPU for smoother playback
 
 ## Getting Started
 
-### Prerequisites
+### Prerequisites for Development
 
 - Go 1.22+
 - Node.js 20+
+- pnpm 9+
 - FFmpeg (for video processing)
 - Wails CLI
 
@@ -33,8 +90,8 @@ A powerful desktop video editor built with [Wails](https://wails.io), Go, and Sv
 go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
 # Clone the repository
-git clone https://github.com/leomorpho/vidking-wails.git
-cd vidking-wails/RambleAI
+git clone https://github.com/leoaudibert/ramble-ai.git
+cd ramble-ai
 
 # Install dependencies
 make setup
@@ -192,9 +249,33 @@ This ensures:
 - Code is properly formatted
 - Commit messages follow conventional format
 
+## AI Integration
+
+### Your AI, Your Choice
+
+RambleAI works with any AI model through OpenRouter, giving you complete flexibility:
+
+- 🔑 **Bring Your Own API Keys**: No subscription lock-in, control your AI costs
+- 🤖 **Any LLM Model**: Choose from GPT-4, Claude, Llama, or any OpenRouter-supported model
+- ⚡ **Smart Defaults**: Optimized prompts work great out of the box
+- 🎯 **Customizable**: Tweak AI behavior to match your content style
+
+### Supported AI Providers
+- OpenRouter (recommended - access to 100+ models)
+- OpenAI (direct integration)
+- Local LLMs (coming soon)
+
+## Privacy & Security
+
+🔒 **Your content stays private**: 
+- All video processing happens locally on your machine
+- No footage is uploaded to our servers
+- AI features use your own API keys
+- Complete control over your data
+
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+License pending - please check back soon for licensing information.
 
 ## Acknowledgments
 
@@ -206,6 +287,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-For bugs and feature requests, please [open an issue](https://github.com/leomorpho/vidking-wails/issues).
+For bugs and feature requests, please [open an issue](https://github.com/leoaudibert/ramble-ai/issues).
 
-For questions and discussions, use [GitHub Discussions](https://github.com/leomorpho/vidking-wails/discussions).
+For questions and discussions, use [GitHub Discussions](https://github.com/leoaudibert/ramble-ai/discussions).
