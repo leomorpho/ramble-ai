@@ -164,6 +164,7 @@ jobs:
           echo "✅ Found identity: $IDENTITY"
           
           # Create gon configuration with actual values (not env variables)
+          # Note: We don't use gon's zip feature - we'll use ditto after signing for proper .app bundle structure
           cat > ./build/darwin/gon-sign-runtime.json << EOF
           {
             "source": ["./build/bin/RambleAI.app"],
@@ -176,9 +177,6 @@ jobs:
             "sign": {
               "application_identity": "$IDENTITY",
               "entitlements_file": "./build/darwin/entitlements.plist"
-            },
-            "zip": {
-              "output_path": "./build/bin/RambleAI-signed.zip"
             }
           }
           EOF
@@ -197,6 +195,11 @@ jobs:
           
           gon -log-level=info ./build/darwin/gon-sign-runtime.json
           echo "✅ App signed and notarized successfully"
+          
+          # Create a properly structured zip using ditto (preserves .app bundle structure)
+          echo "📦 Creating properly structured zip with ditto..."
+          ditto -ck --keepParent ./build/bin/RambleAI.app ./build/bin/RambleAI-signed.zip
+          echo "✅ Created RambleAI-signed.zip with proper .app bundle structure"
         shell: bash
       
       # Skip DMG creation for now - just upload the .app bundle
@@ -218,23 +221,24 @@ jobs:
             echo "✅ Found notarized zip file"
             ls -lh RambleAI-signed.zip
             
-            # Verify the notarized zip contains the app bundle
-            echo "📦 Contents of notarized zip:"
-            unzip -l RambleAI-signed.zip
+            # Verify the notarized zip contains the app bundle properly
+            echo "📦 Contents of notarized zip (should show RambleAI.app at root):"
+            unzip -l RambleAI-signed.zip | head -20
             
             # Copy the notarized zip for upload
             cp RambleAI-signed.zip RambleAI-macos.zip
             echo "✅ Using notarized RambleAI-macos.zip"
           else
-            echo "⚠️ No notarized file found, creating regular zip"
-            zip -r RambleAI-macos.zip RambleAI.app
-            echo "✅ Created regular RambleAI-macos.zip"
+            echo "⚠️ No notarized file found, creating regular zip with ditto"
+            # Use ditto to preserve .app bundle structure
+            ditto -ck --keepParent RambleAI.app RambleAI-macos.zip
+            echo "✅ Created regular RambleAI-macos.zip with proper structure"
           fi
           
           echo "Final artifact details:"
           ls -lh RambleAI-macos.zip
-          echo "Final artifact contents:"
-          unzip -l RambleAI-macos.zip
+          echo "Final artifact contents (first 20 lines):"
+          unzip -l RambleAI-macos.zip | head -20
       
       - name: Upload artifacts macOS
         if: matrix.platform == 'macos-latest'
