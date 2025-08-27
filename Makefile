@@ -278,23 +278,23 @@ landing-dev: ## Start landing page development server
 
 # Testing
 .PHONY: test
-test: ## Run all tests (Go + Frontend)
-	@echo "🧪 Running Go tests..."
-	go test ./... -short
+test: ## Run all tests (Go + Frontend, excluding ent package)
+	@echo "🧪 Running Go tests (excluding ent package)..."
+	go test $$(go list ./... | grep -v "/ent") -short
 	@echo "🧪 Running Frontend tests..."
 	cd frontend && npm test
 
 .PHONY: test-go
-test-go: ## Run Go tests only
-	go test ./...
+test-go: ## Run Go tests only (excluding ent package)
+	go test $$(go list ./... | grep -v "/ent")
 
 .PHONY: test-go-short
-test-go-short: ## Run Go tests in short mode
-	go test ./... -short
+test-go-short: ## Run Go tests in short mode (excluding ent package)
+	go test $$(go list ./... | grep -v "/ent") -short
 
 .PHONY: test-go-verbose
-test-go-verbose: ## Run Go tests with verbose output
-	go test -v ./...
+test-go-verbose: ## Run Go tests with verbose output (excluding ent package)
+	go test -v $$(go list ./... | grep -v "/ent")
 
 .PHONY: test-frontend
 test-frontend: ## Run Frontend tests only
@@ -309,19 +309,22 @@ test-frontend-run: ## Run Frontend tests once (CI mode)
 	cd frontend && npm run test:run
 
 .PHONY: test-verbose
-test-verbose: ## Run all tests with verbose output
-	@echo "🧪 Running Go tests (verbose)..."
-	go test -v ./...
+test-verbose: ## Run all tests with verbose output (excluding ent package)
+	@echo "🧪 Running Go tests (verbose, excluding ent package)..."
+	go test -v $$(go list ./... | grep -v "/ent")
 	@echo "🧪 Running Frontend tests..."
 	cd frontend && npm test
 
 .PHONY: test-coverage
-test-coverage: ## Run tests with coverage report
-	@echo "🧪 Running Go tests with coverage..."
-	go test ./... -short -coverprofile=coverage.out
+test-coverage: ## Run tests with coverage report (excluding ent package)
+	@echo "🧪 Running Go tests with coverage (excluding ent package)..."
+	@go test -short -coverprofile=coverage.out $$(go list ./... | grep -v "/ent")
 	@if [ -f coverage.out ]; then \
 		go tool cover -html=coverage.out -o coverage.html; \
 		echo "📊 Coverage report generated: coverage.html"; \
+		echo ""; \
+		echo "📈 Coverage summary (excluding ent):"; \
+		go tool cover -func=coverage.out | grep -E "total:" | awk '{print "Total coverage: " $$3}'; \
 	fi
 	@echo "🧪 Running Frontend tests..."
 	cd frontend && npm test
