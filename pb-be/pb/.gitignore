@@ -1,0 +1,10 @@
+/.cache
+/.config
+/pocketbase
+/*.zip
+/pb_data
+/tmp
+/pocketbase.exe
+
+# Environment variables (contains secrets)
+.env

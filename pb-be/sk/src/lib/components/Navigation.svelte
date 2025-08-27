@@ -1,0 +1,105 @@
+<script lang="ts">
+	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
+	import { Home, Info, LogIn, LogOut, User, CreditCard, Crown } from 'lucide-svelte';
+	import type { AuthModel } from 'pocketbase';
+	import { config } from '$lib/config.js';
+	import { getAvatarUrl } from '$lib/files.js';
+
+	let {
+		isLoggedIn = false,
+		user = null,
+		isSubscribed = false,
+		onLogout
+	}: {
+		isLoggedIn?: boolean;
+		user?: AuthModel | null;
+		isSubscribed?: boolean;
+		onLogout?: () => void;
+	} = $props();
+
+	function handleLogout() {
+		onLogout?.();
+	}
+</script>
+
+<header class="border-b">
+	<div class="container mx-auto px-4 py-4">
+		<nav class="flex items-center justify-between">
+			<div class="flex items-center space-x-4">
+				<h1 class="text-xl font-semibold">
+					<a href="/" class="hover:text-primary transition-colors">{config.app.name}</a>
+				</h1>
+			</div>
+
+			<div class="flex items-center space-x-2">
+				<a
+					href="/"
+					class="hover:bg-accent hover:text-accent-foreground inline-flex h-9 w-9 items-center justify-center rounded-md text-sm font-medium whitespace-nowrap transition-colors"
+					title="Home"
+				>
+					<Home class="h-4 w-4" />
+				</a>
+				<a
+					href="/about"
+					class="hover:bg-accent hover:text-accent-foreground inline-flex h-9 w-9 items-center justify-center rounded-md text-sm font-medium whitespace-nowrap transition-colors"
+					title="About"
+				>
+					<Info class="h-4 w-4" />
+				</a>
+				<a
+					href="/pricing"
+					class="hover:bg-accent hover:text-accent-foreground inline-flex h-9 w-9 items-center justify-center rounded-md text-sm font-medium whitespace-nowrap transition-colors"
+					title="Pricing"
+				>
+					<CreditCard class="h-4 w-4" />
+				</a>
+
+				{#if isLoggedIn}
+					{#if isSubscribed}
+						<a
+							href="/premium"
+							class="hover:bg-accent hover:text-accent-foreground inline-flex h-9 w-9 items-center justify-center rounded-md text-sm font-medium whitespace-nowrap transition-colors"
+							title="Premium Features"
+						>
+							<Crown class="h-4 w-4 text-yellow-600" />
+						</a>
+					{/if}
+					<a
+						href="/dashboard"
+						class="flex items-center space-x-2 text-sm hover:bg-accent hover:text-accent-foreground px-2 py-1 rounded-md transition-colors"
+					>
+						{#if getAvatarUrl(user, 'small')}
+							<img
+								src={getAvatarUrl(user, 'small')}
+								alt="Profile"
+								class="w-6 h-6 rounded-full object-cover border border-border"
+							/>
+						{:else}
+							<div class="w-6 h-6 rounded-full bg-muted border border-border flex items-center justify-center">
+								<User class="h-3 w-3 text-muted-foreground" />
+							</div>
+						{/if}
+						<span class="hidden sm:inline">{user?.name || user?.email}</span>
+					</a>
+					<button
+						onclick={handleLogout}
+						class="hover:bg-accent hover:text-accent-foreground inline-flex h-9 w-9 items-center justify-center rounded-md text-sm font-medium whitespace-nowrap transition-colors"
+						title="Sign Out"
+					>
+						<LogOut class="h-4 w-4" />
+					</button>
+				{:else}
+					<a
+						href="/login"
+						class="hover:bg-accent hover:text-accent-foreground inline-flex h-9 w-9 items-center justify-center rounded-md text-sm font-medium whitespace-nowrap transition-colors"
+						title="Sign In"
+					>
+						<LogIn class="h-4 w-4" />
+					</a>
+				{/if}
+
+				<ThemeToggle />
+			</div>
+		</nav>
+	</div>
+</header>
