@@ -317,6 +317,12 @@ func (a *App) SaveUseRemoteAIBackend(useRemote bool) error {
 
 // GetUseRemoteAIBackend retrieves the remote AI backend toggle setting
 func (a *App) GetUseRemoteAIBackend() (bool, error) {
+	// Check environment variable first
+	if envValue := os.Getenv("USE_REMOTE_AI_BACKEND"); envValue != "" {
+		return envValue == "true", nil
+	}
+	
+	// Fallback to database setting
 	value, err := a.GetSetting("use_remote_ai_backend")
 	if err != nil {
 		return false, err
@@ -335,6 +341,18 @@ func (a *App) SaveRemoteAIBackendURL(url string) error {
 // GetRemoteAIBackendURL retrieves the remote AI backend URL setting
 func (a *App) GetRemoteAIBackendURL() (string, error) {
 	return a.GetSetting("remote_ai_backend_url")
+}
+
+// IsDevMode checks if the application is running in development mode
+func (a *App) IsDevMode() bool {
+	// Check if we're in development mode by looking for go.mod file
+	_, err := os.Stat("go.mod")
+	return err == nil
+}
+
+// IsRemoteBackendOverriddenByEnv checks if the remote backend setting is overridden by environment variables
+func (a *App) IsRemoteBackendOverriddenByEnv() bool {
+	return os.Getenv("USE_REMOTE_AI_BACKEND") != ""
 }
 
 // SaveRambleAIApiKey saves the Ramble AI API key securely
