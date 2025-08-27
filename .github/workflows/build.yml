@@ -164,7 +164,7 @@ jobs:
           echo "✅ Found identity: $IDENTITY"
           
           # Create gon configuration with actual values (not env variables)
-          # Gon needs the zip section for notarization - Apple requires a zip file for the notarization process
+          # We need gon to create a zip for notarization, then we'll fix the structure afterward
           cat > ./build/darwin/gon-sign-runtime.json << EOF
           {
             "source": ["./build/bin/RambleAI.app"],
@@ -179,7 +179,7 @@ jobs:
               "entitlements_file": "./build/darwin/entitlements.plist"
             },
             "zip": {
-              "output_path": "./build/bin/RambleAI-notarized-temp.zip"
+              "output_path": "./build/bin/RambleAI-notarized.zip"
             }
           }
           EOF
@@ -199,43 +199,43 @@ jobs:
           gon -log-level=info ./build/darwin/gon-sign-runtime.json
           echo "✅ App signed and notarized successfully"
           
-          # Now we need to fix the zip structure - gon creates a zip but it may not have proper .app structure
+          # Fix the zip structure - gon creates a notarized zip but structure may not be ideal for end users
           cd build/bin
-          if [ -f "RambleAI-notarized-temp.zip" ]; then
-            echo "📦 Restructuring notarized zip to have proper .app bundle at root..."
+          if [ -f "RambleAI-notarized.zip" ]; then
+            echo "📦 Fixing zip structure for better user experience..."
             
-            # Create temp directory for extraction
-            mkdir -p temp_extract
-            cd temp_extract
+            # Check what's in the gon-created zip
+            echo "Original zip contents:"
+            unzip -l RambleAI-notarized.zip | head -10
             
-            # Extract the gon-created zip
-            unzip -q ../RambleAI-notarized-temp.zip
+            # Extract to temp directory
+            mkdir -p temp_fix
+            cd temp_fix
+            unzip -q ../RambleAI-notarized.zip
             
-            # Check if we have the .app directly or need to find it
+            # Find the .app bundle and create a properly structured zip
             if [ -d "RambleAI.app" ]; then
-              echo "✅ Found RambleAI.app at root level"
-              # Re-zip with proper structure using ditto
+              echo "✅ Found RambleAI.app at root - creating proper zip"
               ditto -ck --keepParent RambleAI.app ../RambleAI-signed.zip
             else
-              echo "🔍 Looking for RambleAI.app in subdirectories..."
-              APP_PATH=$(find . -name "RambleAI.app" -type d | head -1)
-              if [ -n "$APP_PATH" ]; then
-                echo "✅ Found RambleAI.app at: $APP_PATH"
-                # Move to root and re-zip
-                mv "$APP_PATH" ./RambleAI.app
+              # Look for Contents directory and reconstruct the .app
+              if [ -d "Contents" ]; then
+                echo "🔧 Found Contents directory - reconstructing RambleAI.app bundle"
+                mkdir -p RambleAI.app
+                mv Contents RambleAI.app/
                 ditto -ck --keepParent RambleAI.app ../RambleAI-signed.zip
               else
-                echo "❌ Could not find RambleAI.app in notarized zip"
+                echo "❌ Could not find .app or Contents directory"
+                ls -la
                 exit 1
               fi
             fi
             
-            # Clean up
             cd ..
-            rm -rf temp_extract RambleAI-notarized-temp.zip
-            echo "✅ Created properly structured RambleAI-signed.zip with notarization"
+            rm -rf temp_fix
+            echo "✅ Created properly structured RambleAI-signed.zip"
           else
-            echo "❌ No notarized zip found from gon"
+            echo "❌ No notarized zip found"
             exit 1
           fi
         shell: bash
@@ -254,25 +254,18 @@ jobs:
         if: matrix.platform == 'macos-latest'
         run: |
           cd build/bin
-          # Check for properly structured notarized zip file
+          # Check for notarized zip file
           if [ -f "RambleAI-signed.zip" ]; then
-            echo "✅ Found properly structured notarized zip file"
+            echo "✅ Found notarized zip file"
             ls -lh RambleAI-signed.zip
             
-            # Verify the zip contains the app bundle at root level
-            echo "📦 Contents of notarized zip (should show RambleAI.app/ at root):"
-            unzip -l RambleAI-signed.zip | head -10
-            
-            # Verify RambleAI.app is at the root of the zip
-            if unzip -l RambleAI-signed.zip | grep -q "RambleAI.app/$"; then
-              echo "✅ Verified: RambleAI.app is at root level of zip"
-            else
-              echo "⚠️ Warning: RambleAI.app may not be at root level"
-            fi
+            # Verify the notarized zip contains the app bundle properly
+            echo "📦 Contents of notarized zip (should show RambleAI.app at root):"
+            unzip -l RambleAI-signed.zip | head -20
             
             # Copy the notarized zip for upload
             cp RambleAI-signed.zip RambleAI-macos.zip
-            echo "✅ Using notarized and properly structured RambleAI-macos.zip"
+            echo "✅ Using notarized RambleAI-macos.zip"
           else
             echo "⚠️ No notarized file found, creating regular zip with ditto"
             # Use ditto to preserve .app bundle structure
@@ -282,8 +275,8 @@ jobs:
           
           echo "Final artifact details:"
           ls -lh RambleAI-macos.zip
-          echo "Final artifact structure verification:"
-          unzip -l RambleAI-macos.zip | head -10
+          echo "Final artifact contents (first 20 lines):"
+          unzip -l RambleAI-macos.zip | head -20
       
       - name: Upload artifacts macOS
         if: matrix.platform == 'macos-latest'
