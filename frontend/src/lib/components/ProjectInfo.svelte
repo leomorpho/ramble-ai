@@ -37,25 +37,25 @@
     </div>
 
     <!-- Statistics Grid -->
-    <div class="grid gap-6 md:grid-cols-3">
-      <div class="text-center p-4 bg-background rounded-lg border">
-        <div class="text-2xl font-bold text-primary mb-1">
+    <div class="grid gap-4 md:grid-cols-3">
+      <div class="text-center p-4 border rounded">
+        <div class="text-xl font-semibold mb-1">
           {videoClips.length}
         </div>
         <div class="text-sm text-muted-foreground">
           Video Clips
         </div>
       </div>
-      <div class="text-center p-4 bg-background rounded-lg border">
-        <div class="text-2xl font-bold text-primary mb-1">
+      <div class="text-center p-4 border rounded">
+        <div class="text-xl font-semibold mb-1">
           {highlights.length}
         </div>
         <div class="text-sm text-muted-foreground">
           Highlights
         </div>
       </div>
-      <div class="text-center p-4 bg-background rounded-lg border">
-        <div class="text-2xl font-bold text-primary mb-1">
+      <div class="text-center p-4 border rounded">
+        <div class="text-xl font-semibold mb-1">
           {calculateHighlightsDuration()}
         </div>
         <div class="text-sm text-muted-foreground">

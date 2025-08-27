@@ -550,21 +550,21 @@
 
 <!-- AI Add Silence Padding Confirmation Dialog -->
 <Dialog bind:open={showAISilenceConfirmation}>
-  <DialogContent class="z-[100] sm:max-w-lg">
+  <DialogContent>
     <DialogHeader>
       <DialogTitle>Add Silence Padding with AI?</DialogTitle>
       <DialogDescription>
         <div class="space-y-3 pt-2">
-          <div class="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-            <p class="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">
+          <div class="border rounded p-3">
+            <p class="text-sm font-medium mb-2">
               Why is this needed?
             </p>
-            <p class="text-sm text-blue-800 dark:text-blue-200">
+            <p class="text-sm text-muted-foreground">
               Transcription-based highlights cut off abruptly without breathing room, creating jarring transitions between clips.
             </p>
           </div>
           
-          <div class="bg-secondary/50 rounded-lg p-3">
+          <div class="border rounded p-3">
             <p class="text-sm font-medium mb-2">
               AI will extend {highlights.length} highlight{highlights.length === 1 ? "" : "s"} to include natural silence padding before and after speech.
             </p>
@@ -635,7 +635,7 @@
         </div>
 
         <!-- Video player -->
-        <div class="bg-background border rounded-lg overflow-hidden">
+        <div class="border rounded overflow-hidden">
           {#if videoLoading}
             <div class="p-8 text-center text-muted-foreground">
               <div
@@ -692,7 +692,7 @@
 
         <!-- Video controls info -->
         {#if videoURL && !videoLoading}
-          <div class="p-3 bg-secondary/30 rounded-lg">
+          <div class="p-3 border rounded">
             <div class="flex items-center gap-4 text-sm">
               <div class="flex items-center gap-2">
                 <Play class="w-4 h-4" />

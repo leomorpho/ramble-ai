@@ -196,20 +196,18 @@
   <div class="h-full overflow-y-auto">
     <div class="p-6 pb-8 space-y-6">
     <!-- AI Actions Header -->
-    <div class="flex items-center gap-2">
-      <Sparkles class="w-5 h-5 text-primary" />
+    <div>
       <h2 class="text-lg font-semibold">AI Highlight Actions</h2>
+      <p class="text-sm text-muted-foreground">
+        Configure AI actions to organize and optimize your highlights.
+      </p>
     </div>
-    
-    <p class="text-sm text-muted-foreground">
-      Configure AI actions to organize and optimize your highlights. Select the options that best fit your content goals.
-    </p>
 
     <!-- Action Options -->
-    <div class="border rounded-lg p-4 space-y-4">
+    <div class="border rounded p-4 space-y-4">
       <div>
-        <h3 class="text-base font-semibold">Action Options</h3>
-        <p class="text-sm text-muted-foreground">Choose what the AI should focus on when processing your highlights.</p>
+        <h3 class="font-medium">Action Options</h3>
+        <p class="text-sm text-muted-foreground">Choose what the AI should focus on.</p>
       </div>
       
       <!-- Use Current Order -->
@@ -328,10 +326,10 @@
     </div>
 
     <!-- AI Model Selection -->
-    <div class="border rounded-lg p-4 space-y-3">
+    <div class="border rounded p-4 space-y-3">
       <div>
-        <h3 class="text-base font-semibold">AI Model</h3>
-        <p class="text-sm text-muted-foreground">Choose the AI model to use for processing.</p>
+        <h3 class="font-medium">AI Model</h3>
+        <p class="text-sm text-muted-foreground">Choose the AI model to use.</p>
       </div>
       <Select.Root type="single" name="aiModel" bind:value={selectedModel}>
         <Select.Trigger class="w-full">
@@ -351,10 +349,10 @@
     </div>
 
     <!-- Custom Prompt -->
-    <div class="border rounded-lg p-4 space-y-3">
+    <div class="border rounded p-4 space-y-3">
       <div>
-        <h3 class="text-base font-semibold">Custom Instructions</h3>
-        <p class="text-sm text-muted-foreground">Provide additional context or specific requirements for the AI.</p>
+        <h3 class="font-medium">Custom Instructions</h3>
+        <p class="text-sm text-muted-foreground">Provide additional context for the AI.</p>
       </div>
       <Textarea
         bind:value={customPrompt}
@@ -364,20 +362,20 @@
     </div>
 
     <!-- Prompt Preview -->
-    <div class="border rounded-lg p-4 space-y-3">
+    <div class="border rounded p-4 space-y-3">
       <div>
-        <h3 class="text-base font-semibold">Generated Prompt Preview</h3>
-        <p class="text-sm text-muted-foreground">This is the prompt that will be sent to the AI based on your selected options.</p>
+        <h3 class="font-medium">Generated Prompt Preview</h3>
+        <p class="text-sm text-muted-foreground">The prompt that will be sent to the AI.</p>
       </div>
-      <div class="bg-muted rounded-lg p-3 text-sm font-mono text-muted-foreground max-h-[200px] overflow-y-auto whitespace-pre-wrap">
+      <div class="border rounded p-3 text-sm font-mono text-muted-foreground max-h-[200px] overflow-y-auto whitespace-pre-wrap">
         {buildPromptPreview()}
       </div>
     </div>
 
     <!-- Error Display -->
     {#if aiActionError}
-      <div class="bg-destructive/10 text-destructive border border-destructive/20 rounded-lg p-3">
-        <p class="text-sm font-medium">Error</p>
+      <div class="border border-destructive rounded p-3 text-destructive">
+        <p class="font-medium">Error</p>
         <p class="text-sm">{aiActionError}</p>
       </div>
     {/if}

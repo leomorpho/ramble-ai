@@ -45,6 +45,8 @@
     Film,
     Clock,
     Upload,
+    ArrowLeft,
+    RefreshCw,
   } from "@lucide/svelte";
 
   let project = $state(null);
@@ -300,36 +302,24 @@
     <!-- Header with back button and theme switcher -->
     <div class="flex items-center justify-between">
       <Button
-        variant="outline"
+        variant="ghost"
+        size="sm"
         onclick={goBack}
         class="flex items-center gap-2"
       >
-        <svg
-          class="w-4 h-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M15 19l-7-7 7-7"
-          />
-        </svg>
-        Back to Projects
+        <ArrowLeft class="w-4 h-4" />
+        Projects
       </Button>
       <ThemeSwitcher />
     </div>
 
     <!-- Error display -->
     {#if error}
-      <div
-        class="bg-destructive/10 text-destructive border border-destructive/20 rounded-lg p-4"
-      >
+      <div class="border border-destructive rounded p-4 text-destructive">
         <p class="font-medium">Error</p>
         <p class="text-sm">{error}</p>
-        <Button variant="outline" size="sm" class="mt-2" onclick={loadProject}>
+        <Button variant="outline" size="sm" class="mt-2 flex items-center gap-2" onclick={loadProject}>
+          <RefreshCw class="w-4 h-4" />
           Try Again
         </Button>
       </div>
@@ -337,17 +327,17 @@
 
     <!-- Loading state -->
     {#if loading && !project}
-      <div class="text-center py-12 text-muted-foreground">
-        <p class="text-lg">Loading project...</p>
+      <div class="text-center py-12">
+        <p>Loading project...</p>
       </div>
     {:else if project}
       <!-- Project title only -->
       <div class="mb-6">
         <div class="flex items-center justify-between">
           <div>
-            <h1 class="text-3xl font-bold text-primary">{project.name}</h1>
+            <h1 class="text-2xl font-semibold">{project.name}</h1>
             {#if project.description}
-              <p class="text-muted-foreground text-lg mt-1">
+              <p class="text-muted-foreground mt-1">
                 {project.description}
               </p>
             {/if}
@@ -356,7 +346,7 @@
       </div>
 
       <!-- Main content with tabs -->
-      <div class="bg-card text-card-foreground rounded-lg border shadow-sm">
+      <div class="border rounded">
         <div class="p-6">
           <Tabs bind:value={activeTab} class="w-full">
             <TabsList class="grid w-full grid-cols-4">
@@ -437,10 +427,10 @@
       </div>
     {:else if !loading}
       <!-- Project not found -->
-      <div class="text-center py-12 text-muted-foreground">
-        <p class="text-lg">Project not found</p>
-        <p class="text-sm">The project you're looking for doesn't exist</p>
-        <Button class="mt-4" onclick={goBack}>Go Back</Button>
+      <div class="text-center py-12">
+        <p>Project not found</p>
+        <p class="text-sm text-muted-foreground">The project you're looking for doesn't exist</p>
+        <Button size="sm" class="mt-4" onclick={goBack}>Go Back</Button>
       </div>
     {/if}
   </div>

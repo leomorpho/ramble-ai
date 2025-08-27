@@ -10,7 +10,7 @@
     DialogTrigger 
   } from "$lib/components/ui/dialog";
   import { ThemeSwitcher } from "$lib/components/ui/theme-switcher";
-  import { Settings, Lightbulb, Video, Volume2, HelpCircle, Target, FileText, Brain, RotateCcw, Upload, Zap } from "@lucide/svelte";
+  import { Settings, Lightbulb, Video, Volume2, HelpCircle, Target, FileText, Brain, RotateCcw, Upload, Zap, Plus, RefreshCw } from "@lucide/svelte";
   import { CreateProject, GetProjects, GetVideoClipsByProject } from "$lib/wailsjs/go/main/App";
   import OnboardingDialog from "$lib/components/OnboardingDialog.svelte";
   import { onMount } from "svelte";
@@ -113,7 +113,10 @@
         
         <Dialog bind:open={dialogOpen}>
           <DialogTrigger>
-            <Button size="sm">New Project</Button>
+            <Button size="sm" class="flex items-center gap-2">
+              <Plus class="w-4 h-4" />
+              New Project
+            </Button>
           </DialogTrigger>
         <DialogContent>
           <DialogHeader>
@@ -154,7 +157,8 @@
       <div class="border border-destructive rounded p-4 text-destructive">
         <p class="font-medium">Error</p>
         <p class="text-sm">{error}</p>
-        <Button variant="outline" size="sm" class="mt-2" onclick={loadProjects}>
+        <Button variant="outline" size="sm" class="mt-2 flex items-center gap-2" onclick={loadProjects}>
+          <RefreshCw class="w-4 h-4" />
           Try Again
         </Button>
       </div>

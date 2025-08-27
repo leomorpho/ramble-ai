@@ -1,6 +1,6 @@
 <script>
   import { Button } from "$lib/components/ui/button";
-  import { Captions, Mic, Video } from "@lucide/svelte";
+  import { Captions, Mic, Video, Trash2 } from "@lucide/svelte";
   import VideoPreviewDialog from "./VideoPreviewDialog.svelte";
   import VideoTranscriptViewer from "./VideoTranscriptViewer.svelte";
   import { 
@@ -43,7 +43,7 @@
   }
 </script>
 
-<div class="bg-secondary/30 rounded-lg overflow-hidden border">
+<div class="border rounded overflow-hidden">
   <!-- Video thumbnail -->
   {#if clip.exists && clip.thumbnailUrl}
     <div 
@@ -57,7 +57,7 @@
       <img 
         src={clip.thumbnailUrl} 
         alt="Video thumbnail for {clip.name}"
-        class="w-full h-32 object-cover bg-muted"
+        class="w-full h-24 object-cover bg-muted"
         loading="lazy"
       />
       <!-- Play overlay -->
@@ -70,7 +70,7 @@
       </div>
     </div>
   {:else}
-    <div class="w-full h-32 bg-muted flex items-center justify-center">
+    <div class="w-full h-24 bg-muted flex items-center justify-center">
       <div class="text-center text-muted-foreground">
         <svg class="w-8 h-8 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -96,14 +96,12 @@
         onclick={() => onDelete(clip.id)}
         class="ml-2 text-destructive hover:text-destructive h-6 w-6 p-0"
       >
-        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-        </svg>
+        <Trash2 class="w-3 h-3" />
       </Button>
     </div>
 
 {#snippet infoCard(label, value, valueClass = "")}
-  <div class="bg-background border rounded p-1.5 text-center">
+  <div class="border rounded p-1.5 text-center">
     <div class="text-xs text-muted-foreground">{label}</div>
     <div class="text-xs font-medium {valueClass}">{value}</div>
   </div>

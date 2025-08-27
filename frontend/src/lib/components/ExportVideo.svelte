@@ -227,21 +227,16 @@
 
 {#if project && videoClips.length > 0}
   <div class="space-y-6">
-    <div class="flex items-center gap-3">
-      <Download class="w-5 h-5 text-primary" />
-      <div>
-        <h3 class="text-lg font-semibold">Export Highlights</h3>
-        <p class="text-sm text-muted-foreground">
-          Export your highlighted video segments
-        </p>
-      </div>
+    <div>
+      <h3 class="text-lg font-semibold">Export Highlights</h3>
+      <p class="text-sm text-muted-foreground">
+        Export your highlighted video segments
+      </p>
     </div>
 
     <!-- Export error display -->
     {#if exportError}
-      <div
-        class="bg-destructive/10 text-destructive border border-destructive/20 rounded-lg p-4"
-      >
+      <div class="border border-destructive rounded p-4 text-destructive">
         <p class="font-medium">Export Error</p>
         <p class="text-sm">{exportError}</p>
         <Button
@@ -256,31 +251,29 @@
     {/if}
 
     <!-- Padding Settings -->
-    <div class="border rounded-lg p-4 space-y-3">
+    <div class="border rounded p-4 space-y-3">
       <div 
         class="flex items-center justify-between cursor-pointer"
         onclick={() => showPaddingOptions = !showPaddingOptions}
       >
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-            <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
           <div>
             <h4 class="font-medium">Clip Padding</h4>
             <p class="text-sm text-muted-foreground">
-              {paddingValue[0] === 0 ? 'No padding' : `${(paddingValue[0] / 10).toFixed(1)}s padding`} - Click to configure
+              {paddingValue[0] === 0 ? 'No padding' : `${(paddingValue[0] / 10).toFixed(1)}s padding`}
             </p>
           </div>
         </div>
         
         <div class="flex items-center gap-2">
-          <span class="text-sm font-medium text-muted-foreground">
+          <span class="text-sm text-muted-foreground">
             {(paddingValue[0] / 10).toFixed(1)}s
           </span>
           <svg 
-            class="w-4 h-4 text-muted-foreground transition-transform duration-200 {showPaddingOptions ? 'rotate-180' : ''}"
+            class="w-4 h-4 text-muted-foreground {showPaddingOptions ? 'rotate-180' : ''}"
             fill="none" 
             stroke="currentColor" 
             viewBox="0 0 24 24"
@@ -291,7 +284,7 @@
       </div>
       
       {#if showPaddingOptions}
-        <div class="space-y-3 pt-2 animate-in slide-in-from-top-2 duration-200">
+        <div class="space-y-3 pt-2">
           <div class="flex items-center justify-between">
             <label class="text-sm font-medium">Padding duration</label>
             <span class="text-sm text-muted-foreground">
@@ -306,12 +299,12 @@
             class="w-full"
           />
           
-          <div class="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <div class="p-3 border rounded">
             <div class="flex gap-2">
-              <svg class="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
               </svg>
-              <div class="text-sm text-amber-800">
+              <div class="text-sm">
                 <p class="font-medium mb-1">Padding Note:</p>
                 <p>Only available padding will be added if there's not enough content before/after the clip in the original video.</p>
               </div>
@@ -328,13 +321,9 @@
     <!-- Export options -->
     <div class="grid gap-4 md:grid-cols-2">
       <!-- Stitched video option -->
-      <div class="border rounded-lg p-4 space-y-3">
-        <div class="flex items-center gap-3">
-          <div
-            class="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center"
-          >
-            <Video class="w-5 h-5 text-primary" />
-          </div>
+      <div class="border rounded p-4 space-y-3">
+        <div class="flex items-center gap-2">
+          <Video class="w-4 h-4" />
           <div>
             <h4 class="font-medium">Single Stitched Video</h4>
             <p class="text-sm text-muted-foreground">
@@ -365,19 +354,15 @@
             Exporting...
           {:else}
             <Download class="w-4 h-4 mr-2" />
-            Export Stitched Video
+            Export Stitched
           {/if}
         </Button>
       </div>
 
       <!-- Individual clips option -->
-      <div class="border rounded-lg p-4 space-y-3">
-        <div class="flex items-center gap-3">
-          <div
-            class="w-10 h-10 bg-secondary/50 rounded-lg flex items-center justify-center"
-          >
-            <FolderOpen class="w-5 h-5 text-foreground" />
-          </div>
+      <div class="border rounded p-4 space-y-3">
+        <div class="flex items-center gap-2">
+          <FolderOpen class="w-4 h-4" />
           <div>
             <h4 class="font-medium">Individual Clip Files</h4>
             <p class="text-sm text-muted-foreground">
@@ -408,7 +393,7 @@
             Exporting...
           {:else}
             <FolderOpen class="w-4 h-4 mr-2" />
-            Export Individual Clips
+            Export Individual
           {/if}
         </Button>
       </div>
@@ -416,13 +401,11 @@
 
     <!-- Export Progress -->
     {#if exportProgress}
-      <div
-        class="p-4 bg-primary/5 border border-primary/20 rounded-lg"
-      >
+      <div class="p-4 border rounded">
         <div class="flex items-center justify-between mb-3">
           <div class="flex items-center gap-2">
             <svg
-              class="w-5 h-5 text-primary animate-spin"
+              class="w-4 h-4 animate-spin"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -493,7 +476,7 @@
         {#if showExportHistory}
           <div class="space-y-2 max-h-48 overflow-y-auto">
             {#each exportHistory as job (job.jobId)}
-              <div class="border rounded-lg p-3 bg-secondary/20">
+              <div class="border rounded p-3">
                 <div
                   class="flex items-center justify-between mb-2"
                 >
@@ -577,10 +560,10 @@
     {/if}
 
     <!-- Export info -->
-    <div class="p-4 bg-secondary/30 rounded-lg">
+    <div class="p-4 border rounded">
       <div class="flex items-start gap-3">
         <svg
-          class="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5"
+          class="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"

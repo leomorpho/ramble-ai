@@ -11,6 +11,7 @@
   } from "$lib/components/ui/dialog";
   import { UpdateProject, DeleteProject } from "$lib/wailsjs/go/main/App";
   import { goto } from "$app/navigation";
+  import { Edit, Trash2 } from "@lucide/svelte";
 
   let { project, onUpdate, onDelete, buttonsOnly = false } = $props();
 
@@ -72,50 +73,32 @@
     <!-- Edit button -->
     <Dialog bind:open={editDialogOpen}>
       <DialogTrigger>
-        <Button variant="outline" class="flex items-center gap-2">
-          <svg
-            class="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-            />
-          </svg>
-          Edit Project
+        <Button variant="outline" size="sm">
+          <Edit class="w-4 h-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent class="sm:max-w-[425px]">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Edit Project</DialogTitle>
-          <DialogDescription>
-            Update the project details below.
-          </DialogDescription>
         </DialogHeader>
-        <div class="grid gap-4 py-4">
-          <div class="grid grid-cols-4 items-center gap-4">
-            <label for="edit-name" class="text-right">Name</label>
+        <div class="space-y-4">
+          <div>
+            <label for="edit-name" class="block text-sm mb-1">Name</label>
             <input
               id="edit-name"
               bind:value={editName}
-              class="col-span-3 px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              placeholder="Enter project name"
+              class="w-full px-3 py-2 border border-input rounded bg-background"
+              placeholder="Project name"
             />
           </div>
-          <div class="grid grid-cols-4 items-center gap-4">
-            <label for="edit-description" class="text-right"
-              >Description</label
-            >
+          <div>
+            <label for="edit-description" class="block text-sm mb-1">Description</label>
             <textarea
               id="edit-description"
               bind:value={editDescription}
-              class="col-span-3 px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
-              rows="3"
-              placeholder="Enter project description"
+              class="w-full px-3 py-2 border border-input rounded bg-background resize-none"
+              rows="2"
+              placeholder="Project description"
             ></textarea>
           </div>
         </div>
@@ -124,7 +107,7 @@
             onclick={handleUpdateProject}
             disabled={!editName.trim() || loading}
           >
-            {loading ? "Saving..." : "Save Changes"}
+            {loading ? "Saving..." : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -133,31 +116,17 @@
     <!-- Delete button -->
     <Dialog bind:open={deleteDialogOpen}>
       <DialogTrigger>
-        <Button variant="destructive" class="flex items-center gap-2">
-          <svg
-            class="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-            />
-          </svg>
-          Delete Project
+        <Button variant="destructive" size="sm">
+          <Trash2 class="w-4 h-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent class="sm:max-w-[425px]">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Delete Project</DialogTitle>
-          <DialogDescription>
-            Are you sure you want to delete "{project.name}"? This action
-            cannot be undone.
-          </DialogDescription>
         </DialogHeader>
+        <p class="text-sm text-muted-foreground">
+          Are you sure you want to delete "{project.name}"? This action cannot be undone.
+        </p>
         <DialogFooter>
           <Button
             variant="outline"

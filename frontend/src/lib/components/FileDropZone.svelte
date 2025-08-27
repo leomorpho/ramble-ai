@@ -35,7 +35,7 @@
     onclick={openFileDialog}
     onkeydown={handleKeyDown}
     style="--wails-drop-target: drop"
-    class="border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 cursor-pointer
+    class="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer
            {dragActive
       ? 'border-primary bg-primary/5'
       : 'border-border hover:border-primary'}
@@ -43,7 +43,7 @@
   >
     <div class="flex flex-col items-center gap-4">
       <svg
-        class="w-12 h-12 text-muted-foreground/50"
+        class="w-8 h-8 text-muted-foreground"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
@@ -56,7 +56,7 @@
         />
       </svg>
       <div>
-        <p class="text-lg font-medium">
+        <p class="font-medium">
           {#if addingClip}
             Adding video clips...
           {:else if dragActive}

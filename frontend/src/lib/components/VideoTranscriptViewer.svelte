@@ -536,7 +536,7 @@ Return segments that would work well as standalone content pieces.`;
 </script>
 
 <Dialog bind:open>
-  <DialogContent class="!w-screen !h-screen !max-w-none !max-h-none !m-0 !p-6 !rounded-none !left-0 !top-0 !translate-x-0 !translate-y-0 flex flex-col">
+  <DialogContent class="!w-screen !h-screen !max-w-none !max-h-none !m-0 !p-4 !rounded-none !left-0 !top-0 !translate-x-0 !translate-y-0 flex flex-col">
     <DialogHeader>
       <DialogTitle>Video Transcript</DialogTitle>
       <DialogDescription>
@@ -549,7 +549,7 @@ Return segments that would work well as standalone content pieces.`;
     <ScrollArea class="flex-1 lg:h-[calc(95vh-10rem)] h-[60vh]">
       {#snippet children()}
         <div class="p-4">
-          <Resizable.PaneGroup direction="horizontal" class="h-[calc(100vh-12rem)] rounded-lg border">
+          <Resizable.PaneGroup direction="horizontal" class="h-[calc(100vh-12rem)] border rounded">
         <!-- Video Player Pane -->
         <Resizable.Pane defaultSize={50}>
           <div class="h-full p-4">
@@ -582,16 +582,12 @@ Return segments that would work well as standalone content pieces.`;
                       <h3 class="font-medium">Transcript</h3>
                       <div class="flex flex-wrap gap-2 items-center">
                         {#if video.transcriptionLanguage}
-                          <span
-                            class="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-md"
-                          >
+                          <span class="text-xs border rounded px-2 py-1">
                             {video.transcriptionLanguage.toUpperCase()}
                           </span>
                         {/if}
                         {#if video.transcriptionDuration}
-                          <span
-                            class="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-md"
-                          >
+                          <span class="text-xs border rounded px-2 py-1">
                             {formatTimestamp(video.transcriptionDuration)}
                           </span>
                         {/if}
@@ -660,9 +656,7 @@ Return segments that would work well as standalone content pieces.`;
                   <!-- Bulk suggestion actions -->
                   {#if suggestedHighlights.length > 0}
                     <div class="flex-shrink-0">
-                      <div
-                        class="flex flex-wrap items-center justify-between gap-2 p-3 bg-secondary/30 rounded-lg"
-                      >
+                      <div class="flex flex-wrap items-center justify-between gap-2 p-3 border rounded">
                         <span class="text-sm text-muted-foreground">
                           {suggestedHighlights.length} AI suggestion{suggestedHighlights.length ===
                           1
@@ -778,7 +772,7 @@ Return segments that would work well as standalone content pieces.`;
 
 <!-- AI Suggest Confirmation Dialog -->
 <Dialog bind:open={showAISuggestConfirmation}>
-  <DialogContent class="z-[100] sm:max-w-md">
+  <DialogContent>
     <DialogHeader>
       <DialogTitle>Generate AI Highlight Suggestions?</DialogTitle>
       <DialogDescription>
@@ -786,7 +780,7 @@ Return segments that would work well as standalone content pieces.`;
           <p>
             The AI will analyze your transcript to identify the most compelling moments for highlights.
           </p>
-          <div class="bg-secondary/50 rounded-lg p-3 space-y-2">
+          <div class="border rounded p-3 space-y-2">
             <p class="text-sm">
               <strong>Model:</strong> {selectedModel === "custom" ? customModelValue : availableModels.find(m => m.value === selectedModel)?.label || selectedModel}
             </p>
