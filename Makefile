@@ -20,6 +20,69 @@ help: ## Show this help message
 dev: ## Start development server with hot reload
 	wails dev
 
+.PHONY: dev-with-backend
+dev-with-backend: ## Start both PocketBase backend and Wails app with remote AI enabled
+	@echo "🚀 Starting PocketBase backend and Wails app with remote AI integration..."
+	@echo ""
+	@echo "⚠️  Make sure you have set your API keys in pb-be/pb/.env:"
+	@echo "   OPENROUTER_API_KEY=your-openrouter-key"
+	@echo "   OPENAI_API_KEY=your-openai-key"
+	@echo ""
+	@if [ ! -f pb-be/pb/.env ]; then \
+		echo "❌ Error: pb-be/pb/.env file not found!"; \
+		echo "   Please create it with your API keys first."; \
+		echo "   You can copy from pb-be/pb/.env.example"; \
+		exit 1; \
+	fi
+	@echo "Starting PocketBase backend in background..."
+	@cd pb-be/pb && go run main.go serve --dev --http 0.0.0.0:8090 > /dev/null 2>&1 & echo $$! > ../../pb-backend.pid
+	@echo "✅ PocketBase backend started (PID: $$(cat pb-backend.pid))"
+	@echo "   Admin UI: http://localhost:8090/_/"
+	@echo "   API Endpoints: http://localhost:8090/api/"
+	@echo ""
+	@sleep 2
+	@echo "🎯 Starting Wails app with remote AI backend enabled..."
+	@USE_REMOTE_AI_BACKEND=true REMOTE_AI_BACKEND_URL=http://localhost:8090 wails dev; \
+	echo ""; \
+	echo "🛑 Shutting down PocketBase backend..."; \
+	if [ -f pb-backend.pid ]; then \
+		kill $$(cat pb-backend.pid) 2>/dev/null || true; \
+		rm -f pb-backend.pid; \
+		echo "✅ PocketBase backend stopped"; \
+	fi
+
+.PHONY: dev-backend-only
+dev-backend-only: ## Start only the PocketBase backend server
+	@echo "🚀 Starting PocketBase backend server..."
+	@echo ""
+	@echo "⚠️  Make sure you have set your API keys in pb-be/pb/.env:"
+	@echo "   OPENROUTER_API_KEY=your-openrouter-key"
+	@echo "   OPENAI_API_KEY=your-openai-key"
+	@echo ""
+	@if [ ! -f pb-be/pb/.env ]; then \
+		echo "❌ Error: pb-be/pb/.env file not found!"; \
+		echo "   Please create it with your API keys first."; \
+		exit 1; \
+	fi
+	@echo "🎯 Starting PocketBase backend..."
+	@echo "   Admin UI: http://localhost:8090/_/"
+	@echo "   API Endpoints:"
+	@echo "     POST /api/ai/process-text"
+	@echo "     POST /api/ai/process-audio" 
+	@echo "     POST /api/generate-api-key"
+	@echo ""
+	cd pb-be/pb && go run main.go serve --dev --http 0.0.0.0:8090
+
+.PHONY: stop-backend
+stop-backend: ## Stop the PocketBase backend if running in background
+	@if [ -f pb-backend.pid ]; then \
+		echo "🛑 Stopping PocketBase backend..."; \
+		kill $$(cat pb-backend.pid) 2>/dev/null && echo "✅ PocketBase backend stopped" || echo "⚠️  Backend process not found"; \
+		rm -f pb-backend.pid; \
+	else \
+		echo "ℹ️  No background PocketBase backend running"; \
+	fi
+
 .PHONY: build
 build: ## Build the application for production
 	wails build -tags production

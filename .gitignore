@@ -45,3 +45,6 @@ RambleAI
 
 # FFmpeg binaries (downloaded with make ffmpeg-binaries)
 binaries/static/
+
+# PocketBase backend PID file (from make dev-with-backend)
+pb-backend.pid
