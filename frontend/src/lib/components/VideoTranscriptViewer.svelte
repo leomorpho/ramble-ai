@@ -124,9 +124,9 @@ Return segments that would work well as standalone content pieces.`;
           
           // If colorId is invalid (0, null, undefined, out of range), assign a new one
           if (!validColorId || validColorId < 1 || validColorId > 20) {
-            console.warn('🎨 Found highlight with invalid colorId:', h.colorId, 'for highlight:', h.id);
+            console.warn('Found highlight with invalid colorId:', h.colorId, 'for highlight:', h.id);
             validColorId = getNextColorId(videoHighlights.slice(0, index).filter(vh => vh.colorId >= 1 && vh.colorId <= 20));
-            console.log('🎨 Assigned new colorId:', validColorId);
+            console.log('Assigned new colorId:', validColorId);
           }
           
           return {
@@ -212,7 +212,7 @@ Return segments that would work well as standalone content pieces.`;
     if (!video) return;
 
     console.log(
-      "🔄 handleHighlightsChangeInternal called with",
+      "handleHighlightsChangeInternal called with",
       highlights.length,
       "highlights"
     );

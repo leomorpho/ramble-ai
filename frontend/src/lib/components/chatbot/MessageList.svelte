@@ -33,7 +33,7 @@
       id: "reorder",
       title: "Smart Reorder",
       description: "Let AI reorganize highlights for better flow",
-      icon: "🔄",
+      icon: "⟲",
       message: "Please analyze my highlights and reorder them for maximum engagement and narrative flow."
     },
     {
@@ -47,7 +47,7 @@
     //   id: "hook",
     //   title: "Create Hook",
     //   description: "Optimize opening for maximum engagement",
-    //   icon: "🎯",
+    //   icon: "→",
     //   message: "Help me reorder these highlights to create a compelling hook that grabs viewers' attention from the start."
     // },
     // {
@@ -61,7 +61,7 @@
     //   id: "conclusion",
     //   title: "Create Conclusion",
     //   description: "Structure highlights with a strong ending",
-    //   icon: "🎬",
+    //   icon: "▶",
     //   message: "Help me reorder these highlights to create a strong conclusion section that leaves viewers satisfied and engaged."
     // },
     {

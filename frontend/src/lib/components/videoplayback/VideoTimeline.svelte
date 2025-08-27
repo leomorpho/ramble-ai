@@ -90,11 +90,11 @@
   <div class="space-y-2 max-w-full">
     {#if enableReordering}
       <div class="text-xs text-muted-foreground mb-2">
-        💡 Click segments to seek, drag handle (⚫) to reorder
+        Click segments to seek, drag handle (•) to reorder
       </div>
     {:else}
       <div class="text-xs text-muted-foreground mb-2">
-        💡 Click segments to seek{videoHighlights.length > DISABLE_REORDERING_THRESHOLD
+        Click segments to seek{videoHighlights.length > DISABLE_REORDERING_THRESHOLD
           ? ` (reordering disabled for ${videoHighlights.length} segments)`
           : ""}
       </div>

@@ -338,7 +338,7 @@
     if (dragPrepared && !isDragging && dragTarget) {
       isDragging = true;
       dragPrepared = false;
-      console.log('🎯 Starting drag on movement:', {
+      console.log('Starting drag on movement:', {
         wordIndex,
         dragTarget
       });

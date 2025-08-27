@@ -1,5 +1,6 @@
 <script>
   import { Button } from "$lib/components/ui/button";
+  import { Brain, Lightbulb } from "@lucide/svelte";
   import { GetOpenRouterApiKey, SaveOpenRouterApiKey, DeleteOpenRouterApiKey } from "$lib/wailsjs/go/main/App";
   import { onMount } from "svelte";
 
@@ -82,7 +83,10 @@
 
   {#if !openrouterApiKey.trim()}
     <div class="bg-secondary/50 border border-border rounded-lg p-4 space-y-3">
-      <h3 class="text-sm font-medium text-foreground">🧠 First time setup? Get your OpenRouter API key:</h3>
+      <h3 class="text-sm font-medium text-foreground flex items-center gap-2">
+        <Brain class="w-4 h-4 text-primary" />
+        First time setup? Get your OpenRouter API key:
+      </h3>
       <ol class="text-sm text-muted-foreground space-y-2 ml-4">
         <li class="flex items-start gap-2">
           <span class="bg-primary/10 text-primary text-xs px-1.5 py-0.5 rounded font-mono">1</span>
@@ -104,7 +108,10 @@
         </li>
         <li class="flex items-start gap-2">
           <span class="bg-primary/10 text-primary text-xs px-1.5 py-0.5 rounded font-mono">5</span>
-          <div>💡 <strong>Pro tip:</strong> Add credits to your account - you get $1 free to start!</div>
+          <div class="flex items-start gap-2">
+            <Lightbulb class="w-4 h-4 text-yellow-500 mt-0.5 shrink-0" />
+            <span><strong>Pro tip:</strong> Add credits to your account - you get $1 free to start!</span>
+          </div>
         </li>
       </ol>
       <div class="text-xs text-muted-foreground mt-3">

@@ -7,7 +7,7 @@
     DialogTitle, 
   } from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button";
-  import { ExternalLink } from "@lucide/svelte";
+  import { ExternalLink, Rocket } from "@lucide/svelte";
 
   let { open = $bindable(false) } = $props();
 </script>
@@ -15,7 +15,10 @@
 <Dialog bind:open>
   <DialogContent class="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
     <DialogHeader>
-      <DialogTitle class="text-xl">🚀 Welcome to RambleAI!</DialogTitle>
+      <DialogTitle class="text-xl flex items-center gap-2">
+        <Rocket class="w-5 h-5 text-primary" />
+        Welcome to RambleAI!
+      </DialogTitle>
       <DialogDescription>
         Get started in just a few minutes. Set up your API keys to unlock powerful AI features.
       </DialogDescription>

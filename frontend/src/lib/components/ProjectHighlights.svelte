@@ -557,7 +557,7 @@
         <div class="space-y-3 pt-2">
           <div class="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
             <p class="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">
-              💡 Why is this needed?
+              Why is this needed?
             </p>
             <p class="text-sm text-blue-800 dark:text-blue-200">
               Transcription-based highlights cut off abruptly without breathing room, creating jarring transitions between clips.
