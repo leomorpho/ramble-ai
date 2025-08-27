@@ -31,9 +31,11 @@ func setupTestDB(t testing.TB) (*ent.Client, context.Context) {
 
 	// Set up cleanup for when the test completes
 	t.Cleanup(func() {
+		// Wait for active jobs to complete before cleanup
+		waitForActiveJobsToComplete(t, 2*time.Second)
 		cleanupActiveJobs()
 		// Give more time for background goroutines to finish
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	})
 
 	return client, ctx
@@ -125,4 +127,37 @@ func cleanupActiveJobs() {
 
 	// Clear the map completely
 	activeJobs = make(map[string]*ActiveExportJob)
+}
+
+// waitForActiveJobsToComplete waits for all active jobs to complete or timeout
+func waitForActiveJobsToComplete(t testing.TB, timeout time.Duration) {
+	deadline := time.Now().Add(timeout)
+	
+	for time.Now().Before(deadline) {
+		activeJobsMutex.RLock()
+		activeCount := len(activeJobs)
+		activeJobsMutex.RUnlock()
+		
+		if activeCount == 0 {
+			return
+		}
+		
+		// Cancel all active jobs to speed up cleanup
+		activeJobsMutex.RLock()
+		for _, job := range activeJobs {
+			if job.Cancel != nil {
+				select {
+				case job.Cancel <- true:
+				default:
+					// Channel might be full or closed, continue
+				}
+			}
+		}
+		activeJobsMutex.RUnlock()
+		
+		time.Sleep(100 * time.Millisecond)
+	}
+	
+	// Force cleanup regardless of timeout
+	cleanupActiveJobs()
 }

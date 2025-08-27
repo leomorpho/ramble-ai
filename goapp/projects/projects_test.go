@@ -380,3 +380,489 @@ func TestDeleteProject_TransactionRollback_OnError(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, videoClip.ID, foundVideoClip.ID)
 }
+
+// Test CRUD operations for projects
+func TestCreateProject(t *testing.T) {
+	client := setupTestClient(t)
+	defer client.Close()
+	
+	ctx := context.Background()
+	service := NewProjectService(client, ctx)
+
+	tests := []struct {
+		name        string
+		projectName string
+		description string
+		expectError bool
+	}{
+		{"valid project", "Test Project", "A test project", false},
+		{"empty name", "", "Description", true},
+		{"long name", "A very long project name that might exceed some limits", "Description", false},
+		{"special characters", "Projet Spécial ñ 🎥", "Descripción especial", false},
+		{"empty description", "Test Project", "", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			project, err := service.CreateProject(tt.projectName, tt.description)
+			
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Nil(t, project)
+			} else {
+				require.NoError(t, err)
+				assert.NotNil(t, project)
+				assert.Equal(t, tt.projectName, project.Name)
+				assert.Equal(t, tt.description, project.Description)
+				assert.NotZero(t, project.ID)
+				assert.NotEmpty(t, project.Path) // Should set a default path
+				assert.Equal(t, "clips", project.ActiveTab) // Default active tab
+			}
+		})
+	}
+}
+
+func TestGetProjects(t *testing.T) {
+	client := setupTestClient(t)
+	defer client.Close()
+	
+	ctx := context.Background()
+	service := NewProjectService(client, ctx)
+
+	t.Run("empty database", func(t *testing.T) {
+		projects, err := service.GetProjects()
+		require.NoError(t, err)
+		// GetProjects returns nil when no projects exist
+		if projects != nil {
+			assert.Len(t, projects, 0)
+		}
+	})
+
+	t.Run("with projects", func(t *testing.T) {
+		// Create some projects
+		project1, err := service.CreateProject("Project 1", "Description 1")
+		require.NoError(t, err)
+		
+		project2, err := service.CreateProject("Project 2", "Description 2")
+		require.NoError(t, err)
+
+		// Get all projects
+		projects, err := service.GetProjects()
+		require.NoError(t, err)
+		assert.Len(t, projects, 2)
+
+		// Check that our projects are in the list
+		projectIDs := make([]int, len(projects))
+		for i, p := range projects {
+			projectIDs[i] = p.ID
+		}
+		assert.Contains(t, projectIDs, project1.ID)
+		assert.Contains(t, projectIDs, project2.ID)
+	})
+}
+
+func TestGetProjectByID(t *testing.T) {
+	client := setupTestClient(t)
+	defer client.Close()
+	
+	ctx := context.Background()
+	service := NewProjectService(client, ctx)
+
+	t.Run("valid project", func(t *testing.T) {
+		created, err := service.CreateProject("Test Project", "Test Description")
+		require.NoError(t, err)
+
+		retrieved, err := service.GetProjectByID(created.ID)
+		require.NoError(t, err)
+		assert.Equal(t, created.ID, retrieved.ID)
+		assert.Equal(t, created.Name, retrieved.Name)
+		assert.Equal(t, created.Description, retrieved.Description)
+		assert.Equal(t, created.Path, retrieved.Path)
+	})
+
+	t.Run("nonexistent project", func(t *testing.T) {
+		_, err := service.GetProjectByID(99999)
+		assert.Error(t, err)
+	})
+}
+
+func TestUpdateProject(t *testing.T) {
+	client := setupTestClient(t)
+	defer client.Close()
+	
+	ctx := context.Background()
+	service := NewProjectService(client, ctx)
+
+	t.Run("valid update", func(t *testing.T) {
+		created, err := service.CreateProject("Original Name", "Original Description")
+		require.NoError(t, err)
+
+		updated, err := service.UpdateProject(created.ID, "Updated Name", "Updated Description")
+		require.NoError(t, err)
+		assert.Equal(t, created.ID, updated.ID)
+		assert.Equal(t, "Updated Name", updated.Name)
+		assert.Equal(t, "Updated Description", updated.Description)
+
+		// Verify in database
+		retrieved, err := service.GetProjectByID(created.ID)
+		require.NoError(t, err)
+		assert.Equal(t, "Updated Name", retrieved.Name)
+		assert.Equal(t, "Updated Description", retrieved.Description)
+	})
+
+	t.Run("empty name", func(t *testing.T) {
+		created, err := service.CreateProject("Test Project", "Test Description")
+		require.NoError(t, err)
+
+		_, err = service.UpdateProject(created.ID, "", "Updated Description")
+		assert.Error(t, err)
+	})
+
+	t.Run("nonexistent project", func(t *testing.T) {
+		_, err := service.UpdateProject(99999, "Name", "Description")
+		assert.Error(t, err)
+	})
+}
+
+func TestUpdateProjectActiveTab(t *testing.T) {
+	client := setupTestClient(t)
+	defer client.Close()
+	
+	ctx := context.Background()
+	service := NewProjectService(client, ctx)
+
+	created, err := service.CreateProject("Test Project", "Test Description")
+	require.NoError(t, err)
+
+	t.Run("valid tab", func(t *testing.T) {
+		err := service.UpdateProjectActiveTab(created.ID, "timeline")
+		require.NoError(t, err)
+
+		// Verify the update
+		retrieved, err := service.GetProjectByID(created.ID)
+		require.NoError(t, err)
+		assert.Equal(t, "timeline", retrieved.ActiveTab)
+	})
+
+	t.Run("nonexistent project", func(t *testing.T) {
+		err := service.UpdateProjectActiveTab(99999, "videos")
+		assert.Error(t, err)
+	})
+}
+
+// Test video clip operations (testing logic without file system dependencies)
+func TestGetVideoClipsByProject(t *testing.T) {
+	client := setupTestClient(t)
+	defer client.Close()
+	
+	ctx := context.Background()
+	service := NewProjectService(client, ctx)
+
+	project := createTestProject(t, client, ctx, "Video Project")
+
+	t.Run("empty project", func(t *testing.T) {
+		clips, err := service.GetVideoClipsByProject(project.ID)
+		require.NoError(t, err)
+		// GetVideoClipsByProject returns nil when no clips exist
+		if clips != nil {
+			assert.Len(t, clips, 0)
+		}
+	})
+
+	t.Run("with video clips", func(t *testing.T) {
+		// Create test clips directly in database (bypassing file validation)
+		clip1 := createTestVideoClip(t, client, ctx, project, "Clip 1")
+		clip2 := createTestVideoClip(t, client, ctx, project, "Clip 2")
+
+		clips, err := service.GetVideoClipsByProject(project.ID)
+		require.NoError(t, err)
+		assert.Len(t, clips, 2)
+
+		clipIDs := make([]int, len(clips))
+		for i, c := range clips {
+			clipIDs[i] = c.ID
+		}
+		assert.Contains(t, clipIDs, clip1.ID)
+		assert.Contains(t, clipIDs, clip2.ID)
+	})
+
+	t.Run("nonexistent project", func(t *testing.T) {
+		clips, err := service.GetVideoClipsByProject(99999)
+		require.NoError(t, err)
+		// Returns nil or empty slice for nonexistent project
+		if clips != nil {
+			assert.Len(t, clips, 0)
+		}
+	})
+}
+
+func TestUpdateVideoClip(t *testing.T) {
+	client := setupTestClient(t)
+	defer client.Close()
+	
+	ctx := context.Background()
+	service := NewProjectService(client, ctx)
+
+	project := createTestProject(t, client, ctx, "Video Project")
+	clip := createTestVideoClip(t, client, ctx, project, "Original Clip")
+
+	t.Run("valid update", func(t *testing.T) {
+		updated, err := service.UpdateVideoClip(clip.ID, "Updated Name", "Updated Description")
+		require.NoError(t, err)
+		assert.Equal(t, clip.ID, updated.ID)
+		assert.Equal(t, "Updated Name", updated.Name)
+		assert.Equal(t, "Updated Description", updated.Description)
+		assert.Equal(t, clip.FilePath, updated.FilePath) // FilePath should remain unchanged
+	})
+
+	t.Run("nonexistent clip", func(t *testing.T) {
+		_, err := service.UpdateVideoClip(99999, "Name", "Description")
+		assert.Error(t, err)
+	})
+}
+
+func TestDeleteVideoClip(t *testing.T) {
+	client := setupTestClient(t)
+	defer client.Close()
+	
+	ctx := context.Background()
+	service := NewProjectService(client, ctx)
+
+	project := createTestProject(t, client, ctx, "Video Project")
+
+	t.Run("valid deletion", func(t *testing.T) {
+		clip := createTestVideoClip(t, client, ctx, project, "Clip to Delete")
+
+		err := service.DeleteVideoClip(clip.ID)
+		require.NoError(t, err)
+
+		// Verify clip is deleted
+		_, err = client.VideoClip.Get(ctx, clip.ID)
+		assert.Error(t, err)
+	})
+
+	t.Run("nonexistent clip", func(t *testing.T) {
+		err := service.DeleteVideoClip(99999)
+		assert.Error(t, err)
+	})
+}
+
+// Test file handling utilities
+func TestIsVideoFile(t *testing.T) {
+	client := setupTestClient(t)
+	defer client.Close()
+	
+	ctx := context.Background()
+	service := NewProjectService(client, ctx)
+
+	tests := []struct {
+		filePath string
+		expected bool
+	}{
+		{"/path/to/video.mp4", true},
+		{"/path/to/video.avi", true},
+		{"/path/to/video.mov", true},
+		{"/path/to/video.mkv", true},
+		{"/path/to/video.wmv", true},
+		{"/path/to/video.MP4", true}, // Should handle uppercase
+		{"/path/to/audio.mp3", false},
+		{"/path/to/image.jpg", false},
+		{"/path/to/document.pdf", false},
+		{"/path/to/file", false}, // No extension
+		{"", false}, // Empty path
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.filePath, func(t *testing.T) {
+			result := service.isVideoFile(tt.filePath)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestGetVideoFileInfo(t *testing.T) {
+	client := setupTestClient(t)
+	defer client.Close()
+	
+	ctx := context.Background()
+	service := NewProjectService(client, ctx)
+
+	t.Run("valid video file path", func(t *testing.T) {
+		info, err := service.GetVideoFileInfo("/test/path/video.mp4")
+		require.NoError(t, err)
+		assert.NotNil(t, info)
+		assert.Equal(t, "/test/path/video.mp4", info.FilePath)
+		assert.Equal(t, "video.mp4", info.FileName)
+		assert.Equal(t, "video", info.Name)
+		// File size and format will be 0 and empty since file doesn't exist
+	})
+
+	t.Run("invalid file extension", func(t *testing.T) {
+		_, err := service.GetVideoFileInfo("/test/path/document.pdf")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "not a supported video format")
+	})
+}
+
+// Test highlight operations
+func TestUpdateVideoClipHighlights(t *testing.T) {
+	client := setupTestClient(t)
+	defer client.Close()
+	
+	ctx := context.Background()
+	service := NewProjectService(client, ctx)
+
+	project := createTestProject(t, client, ctx, "Video Project")
+	clip := createTestVideoClip(t, client, ctx, project, "Test Clip")
+
+	t.Run("valid highlights update", func(t *testing.T) {
+		highlights := []Highlight{
+			{ID: "h1", Start: 0.0, End: 1.5, ColorID: 1},
+			{ID: "h2", Start: 2.0, End: 3.5, ColorID: 2},
+		}
+
+		err := service.UpdateVideoClipHighlights(clip.ID, highlights)
+		require.NoError(t, err)
+
+		// Verify highlights were updated by getting the clip
+		updatedClip, err := client.VideoClip.Get(ctx, clip.ID)
+		require.NoError(t, err)
+		assert.Len(t, updatedClip.Highlights, 2)
+	})
+
+	t.Run("empty highlights", func(t *testing.T) {
+		err := service.UpdateVideoClipHighlights(clip.ID, []Highlight{})
+		require.NoError(t, err)
+
+		// Verify highlights were cleared
+		updatedClip, err := client.VideoClip.Get(ctx, clip.ID)
+		require.NoError(t, err)
+		assert.Len(t, updatedClip.Highlights, 0)
+	})
+
+	t.Run("nonexistent clip", func(t *testing.T) {
+		highlights := []Highlight{{ID: "h1", Start: 0.0, End: 1.0, ColorID: 1}}
+		err := service.UpdateVideoClipHighlights(99999, highlights)
+		assert.Error(t, err)
+	})
+}
+
+func TestUpdateVideoClipSuggestedHighlights(t *testing.T) {
+	client := setupTestClient(t)
+	defer client.Close()
+	
+	ctx := context.Background()
+	service := NewProjectService(client, ctx)
+
+	project := createTestProject(t, client, ctx, "Video Project")
+	clip := createTestVideoClip(t, client, ctx, project, "Test Clip")
+
+	t.Run("valid suggested highlights update", func(t *testing.T) {
+		suggestedHighlights := []Highlight{
+			{ID: "sh1", Start: 0.5, End: 2.0, ColorID: 3},
+			{ID: "sh2", Start: 3.0, End: 4.0, ColorID: 1},
+		}
+
+		err := service.UpdateVideoClipSuggestedHighlights(clip.ID, suggestedHighlights)
+		require.NoError(t, err)
+
+		// Verify suggested highlights were updated
+		updatedClip, err := client.VideoClip.Get(ctx, clip.ID)
+		require.NoError(t, err)
+		assert.Len(t, updatedClip.SuggestedHighlights, 2)
+	})
+
+	t.Run("nonexistent clip", func(t *testing.T) {
+		highlights := []Highlight{{ID: "sh1", Start: 0.0, End: 1.0, ColorID: 1}}
+		err := service.UpdateVideoClipSuggestedHighlights(99999, highlights)
+		assert.Error(t, err)
+	})
+}
+
+
+// Test NewProjectService
+func TestNewProjectService(t *testing.T) {
+	client := setupTestClient(t)
+	defer client.Close()
+	
+	ctx := context.Background()
+	service := NewProjectService(client, ctx)
+
+	assert.NotNil(t, service)
+	assert.Equal(t, client, service.client)
+	assert.Equal(t, ctx, service.ctx)
+}
+
+// Integration test for project workflow
+func TestProjectWorkflow_Integration(t *testing.T) {
+	client := setupTestClient(t)
+	defer client.Close()
+	
+	ctx := context.Background()
+	service := NewProjectService(client, ctx)
+
+	// Create project
+	project, err := service.CreateProject("Integration Test Project", "Testing full workflow")
+	require.NoError(t, err)
+	assert.NotNil(t, project)
+
+	// Update project
+	updatedProject, err := service.UpdateProject(project.ID, "Updated Integration Project", "Updated description")
+	require.NoError(t, err)
+	assert.Equal(t, "Updated Integration Project", updatedProject.Name)
+
+	// Update active tab
+	err = service.UpdateProjectActiveTab(project.ID, "timeline")
+	require.NoError(t, err)
+
+	// Verify project state
+	retrievedProject, err := service.GetProjectByID(project.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "Updated Integration Project", retrievedProject.Name)
+	assert.Equal(t, "Updated description", retrievedProject.Description)
+	assert.Equal(t, "timeline", retrievedProject.ActiveTab)
+
+	// Create video clips directly in database
+	clip1 := createTestVideoClip(t, client, ctx, &ent.Project{ID: project.ID}, "Clip 1")
+	clip2 := createTestVideoClip(t, client, ctx, &ent.Project{ID: project.ID}, "Clip 2")
+
+	// Get clips
+	clips, err := service.GetVideoClipsByProject(project.ID)
+	require.NoError(t, err)
+	assert.Len(t, clips, 2)
+
+	// Update clip
+	updatedClip, err := service.UpdateVideoClip(clip1.ID, "Updated Clip 1", "New description")
+	require.NoError(t, err)
+	assert.Equal(t, "Updated Clip 1", updatedClip.Name)
+
+	// Update highlights
+	highlights := []Highlight{
+		{ID: "h1", Start: 0.0, End: 2.0, ColorID: 1},
+		{ID: "h2", Start: 3.0, End: 5.0, ColorID: 2},
+	}
+	err = service.UpdateVideoClipHighlights(clip1.ID, highlights)
+	require.NoError(t, err)
+
+	// Delete clip
+	err = service.DeleteVideoClip(clip2.ID)
+	require.NoError(t, err)
+
+	// Verify only one clip remains
+	finalClips, err := service.GetVideoClipsByProject(project.ID)
+	require.NoError(t, err)
+	assert.Len(t, finalClips, 1)
+	assert.Equal(t, clip1.ID, finalClips[0].ID)
+
+	// Delete project (should cascade delete remaining clip)
+	err = service.DeleteProject(project.ID)
+	require.NoError(t, err)
+
+	// Verify project and all clips are deleted
+	_, err = service.GetProjectByID(project.ID)
+	assert.Error(t, err)
+
+	finalClips, err = service.GetVideoClipsByProject(project.ID)
+	require.NoError(t, err)
+	assert.Len(t, finalClips, 0)
+}
