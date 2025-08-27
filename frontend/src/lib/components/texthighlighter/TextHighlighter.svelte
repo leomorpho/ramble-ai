@@ -40,6 +40,14 @@
   
   import { onMount } from "svelte";
   import { Button } from "$lib/components/ui/button";
+  import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+  } from "$lib/components/ui/dialog";
   import TimeGap from "$lib/components/TimeGap.svelte";
   import { DeleteSuggestedHighlight } from "$lib/wailsjs/go/main/App";
   import {
@@ -102,9 +110,8 @@
   let dragMode = $state(null); // 'expand' | 'contract'
 
   // === UI STATE ===
-  let showDeleteButton = $state(false);
-  let deleteButtonHighlight = $state(null);
-  let deleteButtonPosition = $state({ x: 0, y: 0 });
+  let showDeleteDialog = $state(false);
+  let deleteDialogHighlight = $state(null);
 
   // === DISPLAY WORDS ===
   let displayWords = $state([]);
@@ -301,7 +308,7 @@
       selectionStart = dragWord.start;
       selectionEnd = dragWord.end;
       selectionAnchor = dragWord.start;
-      showDeleteButton = false;
+      showDeleteDialog = false;
 
       event.preventDefault();
       event.stopPropagation();
@@ -315,7 +322,7 @@
     selectionStart = selectedWord.start;
     selectionEnd = selectedWord.end;
     selectionAnchor = selectedWord.start;
-    showDeleteButton = false;
+    showDeleteDialog = false;
   }
 
   function handleWordMouseEnter(wordIndex) {
@@ -424,13 +431,8 @@
     const highlight = findHighlightForWordByTime(wordIndex);
 
     if (highlight) {
-      const rect = event.target.getBoundingClientRect();
-      deleteButtonHighlight = highlight;
-      deleteButtonPosition = {
-        x: rect.left + rect.width / 2 - 40,
-        y: rect.top - 45,
-      };
-      showDeleteButton = true;
+      deleteDialogHighlight = highlight;
+      showDeleteDialog = true;
       event.stopPropagation();
     }
   }
@@ -523,9 +525,14 @@
 
   function handleDeleteHighlight(highlightId) {
     const updatedHighlights = removeHighlight(currentHighlights, highlightId);
-    showDeleteButton = false;
-    deleteButtonHighlight = null;
+    showDeleteDialog = false;
+    deleteDialogHighlight = null;
     emitChanges(updatedHighlights);
+  }
+
+  function handleCancelDelete() {
+    showDeleteDialog = false;
+    deleteDialogHighlight = null;
   }
 
   // === MOUNT ===
@@ -534,11 +541,7 @@
     initialize();
 
     document.addEventListener("mouseup", handleMouseUp);
-    document.addEventListener("click", (e) => {
-      if (!e.target.closest(".delete-popup")) {
-        showDeleteButton = false;
-      }
-    });
+    // No need for click listener since dialog handles its own backdrop
 
     return () => {
       document.removeEventListener("mouseup", handleMouseUp);
@@ -745,44 +748,42 @@
   {/each}
 </div>
 
-<!-- Delete button popup -->
-{#if showDeleteButton && deleteButtonHighlight}
-  <div
-    class="delete-popup"
-    style:left="{deleteButtonPosition.x}px"
-    style:top="{deleteButtonPosition.y - 50}px"
-  >
-    <Button
-      variant="destructive"
-      size="sm"
-      onclick={() => handleDeleteHighlight(deleteButtonHighlight.id)}
-      class="flex items-center gap-2"
-    >
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
+<!-- Delete confirmation dialog -->
+<Dialog bind:open={showDeleteDialog}>
+  <DialogContent class="sm:max-w-md">
+    <DialogHeader>
+      <DialogTitle>Delete Highlight</DialogTitle>
+      <DialogDescription>
+        Are you sure you want to delete this highlight? This action cannot be undone.
+      </DialogDescription>
+    </DialogHeader>
+    <DialogFooter class="flex gap-3 sm:justify-center">
+      <Button variant="outline" onclick={handleCancelDelete}>
+        Cancel
+      </Button>
+      <Button 
+        variant="destructive" 
+        onclick={() => deleteDialogHighlight && handleDeleteHighlight(deleteDialogHighlight.id)}
+        class="flex items-center gap-2"
       >
-        <path
-          d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14zM10 11v6M14 11v6"
-        />
-      </svg>
-      Delete
-    </Button>
-  </div>
-{/if}
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path
+            d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14zM10 11v6M14 11v6"
+          />
+        </svg>
+        Delete
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
 
 <style>
-  .delete-popup {
-    position: fixed;
-    z-index: 1000;
-    background: white;
-    border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    padding: 4px;
-    pointer-events: auto;
-  }
+  /* No custom styles needed - Dialog component handles theming automatically */
 </style>

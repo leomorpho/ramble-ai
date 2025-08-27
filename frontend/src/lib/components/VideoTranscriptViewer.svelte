@@ -26,7 +26,6 @@
     updateVideoHighlights,
     undoHighlightsChange,
     redoHighlightsChange,
-    highlightsHistoryStatus,
     updateHighlightsHistoryStatus,
     rawHighlights,
   } from "$lib/stores/projectHighlights.js";
