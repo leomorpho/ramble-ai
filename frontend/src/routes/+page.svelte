@@ -217,19 +217,17 @@
 
               <!-- Project details -->
               <div class="flex-1 min-w-0">
-                <div class="flex justify-between items-start">
-                  <div class="min-w-0 flex-1">
-                    <h3 class="font-medium">{project.name}</h3>
-                    {#if project.description}
-                      <p class="text-sm text-muted-foreground mt-1">{project.description}</p>
-                    {/if}
-                    <p class="text-xs text-muted-foreground mt-2">{project.createdAt}</p>
-                  </div>
-                  <svg class="w-4 h-4 text-muted-foreground flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
+                <h3 class="font-medium">{project.name}</h3>
+                {#if project.description}
+                  <p class="text-sm text-muted-foreground mt-1">{project.description}</p>
+                {/if}
+                <p class="text-xs text-muted-foreground mt-2">{project.createdAt}</p>
               </div>
+              
+              <!-- Arrow icon -->
+              <svg class="w-4 h-4 text-muted-foreground flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
             </div>
           </a>
         {/each}
