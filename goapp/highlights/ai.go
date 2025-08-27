@@ -16,6 +16,7 @@ import (
 	"ramble-ai/ent/project"
 	"ramble-ai/ent/schema"
 	"ramble-ai/ent/videoclip"
+	"ramble-ai/goapp/ai"
 )
 
 // OpenRouterRequest represents the request format for OpenRouter API
@@ -145,10 +146,40 @@ Avoid overlapping with existing highlights and ensure segments are coherent and 
 		log.Printf("  Existing highlight %d: %s (%.3f-%.3f)", i, h.ID, h.Start, h.End)
 	}
 
-	// Call AI to get suggestions
-	suggestions, err := s.callOpenRouterForHighlightSuggestions(apiKey, aiSettings.AIModel, transcriptWords, existingHighlights, prompt)
+	// Call AI to get suggestions using CoreAIService
+	coreAI := ai.NewCoreAIService(s.client, s.ctx)
+	
+	// Build the prompt for AI highlight suggestions
+	systemPrompt := s.buildHighlightSuggestionsSystemPrompt(customPrompt)
+	userPrompt := s.buildHighlightSuggestionsUserPrompt(transcriptWords, existingHighlights)
+	
+	request := &ai.TextProcessingRequest{
+		SystemPrompt: systemPrompt,
+		UserPrompt:   userPrompt,
+		Model:        aiSettings.AIModel,
+		TaskType:     "suggest_highlights",
+		Context: map[string]interface{}{
+			"projectID": projectID,
+			"videoID":   videoID,
+		},
+	}
+	
+	// Debug log request
+	log.Printf("=== AI HIGHLIGHT SUGGESTIONS REQUEST ===")
+	log.Printf("Model: %s", request.Model)
+	log.Printf("System Prompt length: %d characters", len(systemPrompt))
+	log.Printf("User Prompt length: %d characters", len(userPrompt))
+	log.Printf("============================================")
+	
+	result, err := coreAI.ProcessText(request, apiKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get AI highlight suggestions: %w", err)
+	}
+	
+	// Parse the response
+	suggestions, err := s.parseAIHighlightSuggestionsResponse(result.Content, transcriptWords)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse AI highlight suggestions: %w", err)
 	}
 
 	// Debug log raw AI suggestions
@@ -175,7 +206,62 @@ Avoid overlapping with existing highlights and ensure segments are coherent and 
 	return validSuggestions, nil
 }
 
-// callOpenRouterForHighlightSuggestions calls OpenRouter API to get highlight suggestions
+// buildHighlightSuggestionsSystemPrompt creates the system prompt for highlight suggestions
+func (s *AIService) buildHighlightSuggestionsSystemPrompt(customPrompt string) string {
+	if customPrompt != "" {
+		return customPrompt
+	}
+	
+	return `You are an expert content analyst. Analyze this transcript and suggest meaningful highlight segments that would be valuable for viewers.
+
+Consider:
+- Key quotes or important statements
+- Actionable advice or insights
+- Emotional or engaging moments
+- Clear, complete thoughts or phrases
+- Natural sentence boundaries
+
+Avoid overlapping with existing highlights and ensure segments are coherent and meaningful.`
+}
+
+// buildHighlightSuggestionsUserPrompt creates the user prompt with transcript data
+func (s *AIService) buildHighlightSuggestionsUserPrompt(transcriptWords []schema.Word, existingHighlights []schema.Highlight) string {
+	var prompt strings.Builder
+
+	// Add transcript as indexed words
+	prompt.WriteString("TRANSCRIPT (as indexed word pairs):\n")
+	for i, word := range transcriptWords {
+		prompt.WriteString(fmt.Sprintf("[%d, \"%s\"]", i, word.Word))
+		if i < len(transcriptWords)-1 {
+			prompt.WriteString(", ")
+		}
+		if (i+1)%10 == 0 {
+			prompt.WriteString("\n")
+		}
+	}
+	prompt.WriteString("\n\n")
+
+	// Add existing highlights context
+	if len(existingHighlights) > 0 {
+		prompt.WriteString("EXISTING HIGHLIGHTS (do not overlap with these):\n")
+		for _, highlight := range existingHighlights {
+			// Convert highlight times to word indices (approximate)
+			startIdx := s.highlightService.TimeToWordIndex(highlight.Start, transcriptWords)
+			endIdx := s.highlightService.TimeToWordIndex(highlight.End, transcriptWords)
+			prompt.WriteString(fmt.Sprintf("[%d, %d] ", startIdx, endIdx))
+		}
+		prompt.WriteString("\n\n")
+	}
+
+	prompt.WriteString("TASK: Return suggested highlight segments as word index ranges in JSON format.\n")
+	prompt.WriteString("Format: [{\"start\": 5, \"end\": 12}, {\"start\": 25, \"end\": 35}]\n")
+	prompt.WriteString("Only return the JSON array, no other text.")
+
+	return prompt.String()
+}
+
+
+// callOpenRouterForHighlightSuggestions calls OpenRouter API to get highlight suggestions (DEPRECATED - use ProcessText instead)
 func (s *AIService) callOpenRouterForHighlightSuggestions(apiKey string, model string, transcriptWords []schema.Word, existingHighlights []schema.Highlight, customPrompt string) ([]HighlightSuggestion, error) {
 	// Create HTTP client with timeout
 	client := &http.Client{

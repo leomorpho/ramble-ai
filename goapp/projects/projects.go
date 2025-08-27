@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"ramble-ai/goapp"
+	"ramble-ai/goapp/ai"
 
 	"ramble-ai/ent"
 	"ramble-ai/ent/chatsession"
@@ -1660,8 +1661,9 @@ func (s *ProjectService) TranscribeVideoClip(clipID int) (*TranscriptionResponse
 	}
 	defer os.Remove(audioPath) // Clean up temporary audio file
 
-	// Transcribe audio using OpenAI Whisper
-	whisperResponse, err := s.transcribeAudio(audioPath, apiKey)
+	// Transcribe audio using CoreAIService
+	coreAI := ai.NewCoreAIService(s.client, s.ctx)
+	result, err := coreAI.ProcessAudio(audioPath, apiKey)
 	if err != nil {
 		errMsg := fmt.Sprintf("Transcription failed: %v", err)
 		s.updateTranscriptionState(clipID, TranscriptionStateError, errMsg)
@@ -1669,6 +1671,50 @@ func (s *ProjectService) TranscribeVideoClip(clipID int) (*TranscriptionResponse
 			Success: false,
 			Message: errMsg,
 		}, nil
+	}
+
+	// Convert result to WhisperResponse format for compatibility
+	var convertedSegments []Segment
+	for _, seg := range result.Segments {
+		var convertedWords []Word
+		for _, w := range seg.Words {
+			convertedWords = append(convertedWords, Word{
+				Word:  w.Word,
+				Start: w.Start,
+				End:   w.End,
+			})
+		}
+		convertedSegments = append(convertedSegments, Segment{
+			ID:               seg.ID,
+			Seek:             seg.Seek,
+			Start:            seg.Start,
+			End:              seg.End,
+			Text:             seg.Text,
+			Tokens:           seg.Tokens,
+			Temperature:      seg.Temperature,
+			AvgLogprob:       seg.AvgLogprob,
+			CompressionRatio: seg.CompressionRatio,
+			NoSpeechProb:     seg.NoSpeechProb,
+			Words:            convertedWords,
+		})
+	}
+
+	var convertedWords []Word
+	for _, w := range result.Words {
+		convertedWords = append(convertedWords, Word{
+			Word:  w.Word,
+			Start: w.Start,
+			End:   w.End,
+		})
+	}
+
+	whisperResponse := &WhisperResponse{
+		Task:     "transcribe",
+		Language: result.Language,
+		Duration: result.Duration,
+		Text:     result.Transcript,
+		Segments: convertedSegments,
+		Words:    convertedWords,
 	}
 
 	// Convert Word structs for storage

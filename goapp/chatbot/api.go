@@ -1,13 +1,12 @@
 package chatbot
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
-	"net/http"
 	"time"
+	
+	"ramble-ai/goapp/ai"
 )
 
 // callOpenRouterAPI makes the actual API call to OpenRouter
@@ -67,76 +66,93 @@ func (s *ChatbotService) callOpenRouterAPI(apiKey string, request map[string]int
 		log.Printf("🤖 [LLM REQUEST] Tool choice: %v", toolChoice)
 	}
 
-	// Convert request to JSON
-	jsonData, err := json.Marshal(request)
+	// Update model for CoreAI service (model is already extracted above)
+	if model == "unknown" || model == "" {
+		model = "anthropic/claude-3.5-sonnet" // Default model
+	}
+
+	// Validate that the request can be marshaled (for compatibility with existing tests)
+	_, err := json.Marshal(request)
 	if err != nil {
 		log.Printf("🤖 [LLM ERROR] Failed to marshal request: %v", err)
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	log.Printf("🤖 [LLM REQUEST] Request size: %d bytes", len(jsonData))
-
-	// Create HTTP request
-	req, err := http.NewRequest("POST", "https://openrouter.ai/api/v1/chat/completions", bytes.NewBuffer(jsonData))
-	if err != nil {
-		log.Printf("🤖 [LLM ERROR] Failed to create HTTP request: %v", err)
-		return nil, fmt.Errorf("failed to create request: %w", err)
+	// For chatbot, we need to construct messages differently
+	// The request already contains the messages in the right format
+	messages, ok := request["messages"].([]map[string]interface{})
+	if !ok {
+		log.Printf("🤖 [LLM ERROR] Invalid messages format in request")
+		return nil, fmt.Errorf("invalid messages format in request")
 	}
 
-	// Set headers
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("HTTP-Referer", "https://github.com/yourusername/video-app")
-	req.Header.Set("X-Title", "Video Highlight Assistant")
+	// Build system and user prompts from messages
+	var systemPrompt, userPrompt string
+	for _, msg := range messages {
+		role, _ := msg["role"].(string)
+		content, _ := msg["content"].(string)
+		
+		if role == "system" {
+			if systemPrompt != "" {
+				systemPrompt += "\n\n" + content
+			} else {
+				systemPrompt = content
+			}
+		} else if role == "user" {
+			if userPrompt != "" {
+				userPrompt += "\n\nUser: " + content
+			} else {
+				userPrompt = content
+			}
+		} else if role == "assistant" {
+			userPrompt += "\n\nAssistant: " + content
+		}
+	}
 
-	// Log partial API key for debugging (first 20 chars)
+	// Use CoreAI service for the API call
+	coreAI := ai.NewCoreAIService(s.client, s.ctx)
+	
+	aiRequest := &ai.TextProcessingRequest{
+		SystemPrompt: systemPrompt,
+		UserPrompt:   userPrompt,
+		Model:        model,
+		TaskType:     "chat",
+		Context:      map[string]interface{}{"originalRequest": request},
+	}
+
+	log.Printf("🤖 [LLM REQUEST] Using CoreAI service, Model: %s", model)
+	
+	// Log partial API key for debugging
 	partialKey := apiKey
 	if len(apiKey) > 20 {
 		partialKey = apiKey[:4] + "..."
 	}
 	log.Printf("🤖 [LLM REQUEST] Using API key: %s", partialKey)
 
-	log.Println("🤖 [LLM REQUEST] Sending HTTP request to OpenRouter...")
 	startTime := time.Now()
-
-	// Make request
-	client := &http.Client{Timeout: 60 * time.Second}
-	resp, err := client.Do(req)
+	result, err := coreAI.ProcessText(aiRequest, apiKey)
 	if err != nil {
-		log.Printf("🤖 [LLM ERROR] HTTP request failed after %.2f seconds: %v", time.Since(startTime).Seconds(), err)
+		duration := time.Since(startTime)
+		log.Printf("🤖 [LLM ERROR] CoreAI request failed after %.2f seconds: %v", duration.Seconds(), err)
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
 
 	duration := time.Since(startTime)
-	log.Printf("🤖 [LLM RESPONSE] Received response in %.2f seconds, Status: %s", duration.Seconds(), resp.Status)
+	log.Printf("🤖 [LLM RESPONSE] Received response in %.2f seconds", duration.Seconds())
 
-	// Read response
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Printf("🤖 [LLM ERROR] Failed to read response body: %v", err)
-		return nil, fmt.Errorf("failed to read response: %w", err)
+	// Convert result back to OpenRouter format for compatibility
+	openRouterResp := map[string]interface{}{
+		"choices": []interface{}{
+			map[string]interface{}{
+				"message": map[string]interface{}{
+					"role":    "assistant",
+					"content": result.Content,
+				},
+			},
+		},
 	}
 
-	log.Printf("🤖 [LLM RESPONSE] Response size: %d bytes", len(body))
-
-	// Parse response
-	var openRouterResp map[string]interface{}
-	if err := json.Unmarshal(body, &openRouterResp); err != nil {
-		log.Printf("🤖 [LLM ERROR] Failed to parse JSON response: %v", err)
-		log.Printf("🤖 [LLM ERROR] Raw response: %s", string(body))
-		return nil, fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	// Log the full raw response for debugging
-	bodyStr := string(body)
-	log.Printf("\n========== 🤖 [LLM RAW RESPONSE] ==========\n%s\n========== END RAW RESPONSE ==========\n", bodyStr)
-
-	// Check for errors
-	if errorInfo, ok := openRouterResp["error"]; ok {
-		log.Printf("🤖 [LLM ERROR] OpenRouter API error: %v", errorInfo)
-		return nil, fmt.Errorf("OpenRouter API error: %v", errorInfo)
-	}
+	log.Printf("\n========== 🤖 [LLM RAW RESPONSE] ==========\n%s\n========== END RAW RESPONSE ==========\n", result.Content)
 
 	// Log usage information if available
 	if usage, ok := openRouterResp["usage"].(map[string]interface{}); ok {
