@@ -21,6 +21,9 @@ import (
 	"ramble-ai/goapp"
 
 	"ramble-ai/ent"
+	"ramble-ai/ent/chatsession"
+	"ramble-ai/ent/chatmessage"
+	"ramble-ai/ent/exportjob"
 	"ramble-ai/ent/project"
 	"ramble-ai/ent/schema"
 	"ramble-ai/ent/settings"
@@ -258,12 +261,74 @@ func (s *ProjectService) UpdateProject(id int, name, description string) (*Proje
 	}, nil
 }
 
-// DeleteProject deletes a project
+// DeleteProject deletes a project and all its related entities
 func (s *ProjectService) DeleteProject(id int) error {
-	err := s.client.Project.DeleteOneID(id).Exec(s.ctx)
+	// Start a transaction to ensure all deletions succeed or fail together
+	tx, err := s.client.Tx(s.ctx)
+	if err != nil {
+		return fmt.Errorf("failed to start transaction: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Delete in reverse dependency order to avoid foreign key constraints
+
+	// 1. Delete all chat messages for chat sessions belonging to this project
+	chatSessions, err := tx.ChatSession.Query().
+		Where(chatsession.HasProjectWith(project.ID(id))).
+		All(s.ctx)
+	if err != nil {
+		return fmt.Errorf("failed to query chat sessions: %w", err)
+	}
+
+	for _, session := range chatSessions {
+		_, err = tx.ChatMessage.Delete().
+			Where(chatmessage.SessionID(session.ID)).
+			Exec(s.ctx)
+		if err != nil {
+			return fmt.Errorf("failed to delete chat messages for session %d: %w", session.ID, err)
+		}
+	}
+
+	// 2. Delete all chat sessions belonging to this project
+	_, err = tx.ChatSession.Delete().
+		Where(chatsession.HasProjectWith(project.ID(id))).
+		Exec(s.ctx)
+	if err != nil {
+		return fmt.Errorf("failed to delete chat sessions: %w", err)
+	}
+
+	// 3. Delete all export jobs belonging to this project
+	_, err = tx.ExportJob.Delete().
+		Where(exportjob.HasProjectWith(project.ID(id))).
+		Exec(s.ctx)
+	if err != nil {
+		return fmt.Errorf("failed to delete export jobs: %w", err)
+	}
+
+	// 4. Delete all video clips belonging to this project
+	_, err = tx.VideoClip.Delete().
+		Where(videoclip.HasProjectWith(project.ID(id))).
+		Exec(s.ctx)
+	if err != nil {
+		return fmt.Errorf("failed to delete video clips: %w", err)
+	}
+
+	// 5. Finally, delete the project itself
+	err = tx.Project.DeleteOneID(id).Exec(s.ctx)
 	if err != nil {
 		return fmt.Errorf("failed to delete project: %w", err)
 	}
+
+	// Commit the transaction
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
 	return nil
 }
 
