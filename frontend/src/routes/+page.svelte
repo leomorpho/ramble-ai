@@ -192,42 +192,44 @@
         </div>
       </div>
     {:else}
-      <div class="space-y-3">
+      <div class="space-y-4">
         {#each projects as project (project.id)}
           <a 
             href="/projects/{project.id}" 
-            class="block border rounded p-4 hover:bg-card"
+            class="block border rounded overflow-hidden hover:bg-card h-32"
           >
-            <div class="flex gap-4 items-center">
+            <div class="flex h-full">
               <!-- Project thumbnail -->
               {#if projectThumbnails[project.id]}
                 <img 
                   src={projectThumbnails[project.id]} 
                   alt="Project thumbnail for {project.name}"
-                  class="w-20 h-14 object-cover bg-muted rounded flex-shrink-0"
+                  class="w-48 h-full object-cover bg-muted flex-shrink-0"
                   loading="lazy"
                 />
               {:else}
-                <div class="w-20 h-14 bg-muted rounded flex-shrink-0 flex items-center justify-center">
-                  <svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="w-48 h-full bg-muted flex-shrink-0 flex items-center justify-center">
+                  <svg class="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                   </svg>
                 </div>
               {/if}
 
               <!-- Project details -->
-              <div class="flex-1 min-w-0">
-                <h3 class="font-medium">{project.name}</h3>
-                {#if project.description}
-                  <p class="text-sm text-muted-foreground mt-1">{project.description}</p>
-                {/if}
-                <p class="text-xs text-muted-foreground mt-2">{project.createdAt}</p>
+              <div class="flex-1 min-w-0 p-4 flex items-center">
+                <div class="flex-1 min-w-0">
+                  <h3 class="font-medium text-lg">{project.name}</h3>
+                  {#if project.description}
+                    <p class="text-sm text-muted-foreground mt-1 line-clamp-2">{project.description}</p>
+                  {/if}
+                  <p class="text-xs text-muted-foreground mt-3">{project.createdAt}</p>
+                </div>
+                
+                <!-- Arrow icon -->
+                <svg class="w-5 h-5 text-muted-foreground flex-shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
               </div>
-              
-              <!-- Arrow icon -->
-              <svg class="w-4 h-4 text-muted-foreground flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-              </svg>
             </div>
           </a>
         {/each}
