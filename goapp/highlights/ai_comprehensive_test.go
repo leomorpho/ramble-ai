@@ -100,9 +100,6 @@ func TestSuggestHighlightsWithAI(t *testing.T) {
 		defer server.Close()
 		
 		// Mock API key function
-		getAPIKey := func() (string, error) {
-			return "test-api-key", nil
-		}
 		
 		// Call the function (note: this will still try to call real OpenRouter, but that's expected)
 		// In a real test environment, you would need to override the HTTP client or URL
@@ -135,9 +132,6 @@ func TestSuggestHighlightsWithAI(t *testing.T) {
 		// Create a video without transcription
 		emptyClip := helper.CreateTestVideoClip(project, "Empty Video")
 		
-		getAPIKey := func() (string, error) {
-			return "test-api-key", nil
-		}
 		
 		suggestions, err := service.SuggestHighlightsWithAI(project.ID, emptyClip.ID, "Test prompt")
 		
@@ -147,9 +141,6 @@ func TestSuggestHighlightsWithAI(t *testing.T) {
 	})
 	
 	t.Run("nonexistent video", func(t *testing.T) {
-		getAPIKey := func() (string, error) {
-			return "test-api-key", nil
-		}
 		
 		suggestions, err := service.SuggestHighlightsWithAI(project.ID, 999999, "Test prompt")
 		
