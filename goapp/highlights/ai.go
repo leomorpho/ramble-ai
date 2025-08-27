@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -906,9 +907,88 @@ func (s *AIService) callOpenRouterForReorderingWithOptions(apiKey string, model 
 	log.Printf("Response content: %s", aiResponse)
 	log.Printf("================================")
 
-	reorderedIDs, err := s.parseAIReorderingResponseWithMissingDetection(aiResponse, originalIDs, projectID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse AI response: %w", err)
+	// Try parsing with retry mechanism (max 2 retries on parsing failures)
+	var reorderedIDs []interface{}
+	var parseErr error
+	maxRetries := 2
+	
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			log.Printf("=== RETRY ATTEMPT %d/%d ===", attempt, maxRetries)
+			
+			// Slightly modify the prompt on retries to encourage different AI response
+			retryPrompt := s.buildReorderingPromptWithOptions(highlightMap, customPrompt + "\n\nIMPORTANT: Ensure valid JSON syntax with proper commas between all array elements.", options)
+			
+			// Make another API call with modified prompt
+			requestData.Messages[0].Content = retryPrompt
+			jsonData, err := json.Marshal(requestData)
+			if err != nil {
+				parseErr = fmt.Errorf("failed to marshal retry request: %w", err)
+				continue
+			}
+
+			req, err := http.NewRequest("POST", "https://openrouter.ai/api/v1/chat/completions", bytes.NewBuffer(jsonData))
+			if err != nil {
+				parseErr = fmt.Errorf("failed to create retry request: %w", err)
+				continue
+			}
+
+			req.Header.Set("Authorization", "Bearer "+apiKey)
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("HTTP-Referer", "https://github.com/yourusername/video-app")
+			req.Header.Set("X-Title", "Video Highlight Reordering")
+
+			resp, err := client.Do(req)
+			if err != nil {
+				parseErr = fmt.Errorf("failed to make retry request: %w", err)
+				continue
+			}
+			defer resp.Body.Close()
+
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				parseErr = fmt.Errorf("failed to read retry response: %w", err)
+				continue
+			}
+
+			if resp.StatusCode != http.StatusOK {
+				parseErr = fmt.Errorf("OpenRouter API error on retry (status %d): %s", resp.StatusCode, string(body))
+				continue
+			}
+
+			var retryOpenRouterResp OpenRouterResponse
+			err = json.Unmarshal(body, &retryOpenRouterResp)
+			if err != nil {
+				parseErr = fmt.Errorf("failed to parse retry response: %w", err)
+				continue
+			}
+
+			if retryOpenRouterResp.Error != nil {
+				parseErr = fmt.Errorf("OpenRouter API error on retry: %s", retryOpenRouterResp.Error.Message)
+				continue
+			}
+
+			if len(retryOpenRouterResp.Choices) == 0 {
+				parseErr = fmt.Errorf("no response choices received from AI on retry")
+				continue
+			}
+
+			aiResponse = retryOpenRouterResp.Choices[0].Message.Content
+			log.Printf("Retry response: %s", aiResponse)
+		}
+
+		// Try to parse the AI response
+		reorderedIDs, parseErr = s.parseAIReorderingResponseWithMissingDetection(aiResponse, originalIDs, projectID)
+		if parseErr == nil {
+			log.Printf("Successfully parsed AI response on attempt %d", attempt+1)
+			break
+		}
+		
+		log.Printf("Parse attempt %d failed: %v", attempt+1, parseErr)
+	}
+	
+	if parseErr != nil {
+		return nil, fmt.Errorf("failed to parse AI response after %d attempts: %w", maxRetries+1, parseErr)
 	}
 
 	// Debug log parsed reordering
@@ -1070,9 +1150,8 @@ func (s *AIService) parseAIReorderingResponse(response string) ([]interface{}, e
 	return s.parseAIReorderingResponseWithMissingDetection(response, nil, 0)
 }
 
-// parseAIReorderingResponseWithMissingDetection extracts the reordered highlight IDs from the AI response
-// and optionally detects missing highlights to add them to the hidden list
-func (s *AIService) parseAIReorderingResponseWithMissingDetection(response string, originalIDs []string, projectID int) ([]interface{}, error) {
+// sanitizeAIJSON fixes common AI JSON formatting issues
+func (s *AIService) sanitizeAIJSON(response string) string {
 	// Clean the response - remove any markdown formatting
 	cleanResponse := strings.TrimSpace(response)
 	cleanResponse = strings.Trim(cleanResponse, "`")
@@ -1081,24 +1160,55 @@ func (s *AIService) parseAIReorderingResponseWithMissingDetection(response strin
 		cleanResponse = strings.TrimSpace(cleanResponse)
 	}
 
+	// Extract JSON array from response
+	jsonStart := strings.Index(cleanResponse, "[")
+	jsonEnd := strings.LastIndex(cleanResponse, "]")
+	
+	if jsonStart == -1 || jsonEnd == -1 || jsonEnd <= jsonStart {
+		return cleanResponse // Return as-is if no array found
+	}
+	
+	jsonPart := cleanResponse[jsonStart : jsonEnd+1]
+	
+	// Fix missing commas between array elements using regex
+	// This pattern matches: "text"<whitespace>"text" and adds comma between
+	re := regexp.MustCompile(`"([^"]+)"\s*\n\s*"([^"]+)"`)
+	jsonPart = re.ReplaceAllString(jsonPart, `"$1",
+  "$2"`)
+	
+	// Fix missing commas between objects and strings
+	// Pattern: }<whitespace>"text" -> },"text"
+	re2 := regexp.MustCompile(`}\s*\n\s*"([^"]+)"`)
+	jsonPart = re2.ReplaceAllString(jsonPart, `},
+  "$1"`)
+	
+	// Pattern: "text"<whitespace>{ -> "text",{
+	re3 := regexp.MustCompile(`"([^"]+)"\s*\n\s*\{`)
+	jsonPart = re3.ReplaceAllString(jsonPart, `"$1",
+  {`)
+	
+	return jsonPart
+}
+
+// parseAIReorderingResponseWithMissingDetection extracts the reordered highlight IDs from the AI response
+// and optionally detects missing highlights to add them to the hidden list
+func (s *AIService) parseAIReorderingResponseWithMissingDetection(response string, originalIDs []string, projectID int) ([]interface{}, error) {
+	// First attempt - sanitize and parse
+	sanitizedJSON := s.sanitizeAIJSON(response)
+	
 	// Try to parse as JSON array with mixed types (strings and objects)
 	var reorderedItems []interface{}
-	err := json.Unmarshal([]byte(cleanResponse), &reorderedItems)
+	err := json.Unmarshal([]byte(sanitizedJSON), &reorderedItems)
 	if err != nil {
-		// If direct parsing fails, try to extract JSON from the response
-		// Look for JSON array pattern
-		jsonStart := strings.Index(cleanResponse, "[")
-		jsonEnd := strings.LastIndex(cleanResponse, "]")
-
-		if jsonStart >= 0 && jsonEnd > jsonStart {
-			jsonPart := cleanResponse[jsonStart : jsonEnd+1]
-			err = json.Unmarshal([]byte(jsonPart), &reorderedItems)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse JSON array from AI response: %w", err)
-			}
-		} else {
-			return nil, fmt.Errorf("no valid JSON array found in AI response")
-		}
+		// Enhanced error logging for debugging
+		log.Printf("=== JSON PARSING ERROR ===")
+		log.Printf("Original response length: %d", len(response))
+		log.Printf("Sanitized JSON length: %d", len(sanitizedJSON))
+		log.Printf("Sanitized JSON content: %s", sanitizedJSON)
+		log.Printf("Parse error: %v", err)
+		log.Printf("==========================")
+		
+		return nil, fmt.Errorf("failed to parse JSON array from AI response: %w", err)
 	}
 
 	// Validate and convert items to proper format
