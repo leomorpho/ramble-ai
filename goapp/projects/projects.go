@@ -1661,9 +1661,19 @@ func (s *ProjectService) TranscribeVideoClip(clipID int) (*TranscriptionResponse
 	}
 	defer os.Remove(audioPath) // Clean up temporary audio file
 
-	// Transcribe audio using CoreAIService
-	coreAI := ai.NewCoreAIService(s.client, s.ctx)
-	result, err := coreAI.ProcessAudio(audioPath, apiKey)
+	// Transcribe audio using AI service factory
+	factory := ai.NewAIServiceFactory(s.client, s.ctx)
+	aiService, err := factory.CreateService()
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to create AI service: %v", err)
+		s.updateTranscriptionState(clipID, TranscriptionStateError, errMsg)
+		return &TranscriptionResponse{
+			Success: false,
+			Message: errMsg,
+		}, nil
+	}
+	
+	result, err := aiService.ProcessAudio(audioPath)
 	if err != nil {
 		errMsg := fmt.Sprintf("Transcription failed: %v", err)
 		s.updateTranscriptionState(clipID, TranscriptionStateError, errMsg)

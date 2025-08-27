@@ -109,7 +109,7 @@ func (s *ChatbotService) callOpenRouterAPI(apiKey string, request map[string]int
 		}
 	}
 
-	// Use CoreAI service for the API call
+	// Use CoreAI service for the API call (keeping old implementation for chatbot)
 	coreAI := ai.NewCoreAIService(s.client, s.ctx)
 	
 	aiRequest := &ai.TextProcessingRequest{

@@ -106,7 +106,7 @@ func TestSuggestHighlightsWithAI(t *testing.T) {
 		
 		// Call the function (note: this will still try to call real OpenRouter, but that's expected)
 		// In a real test environment, you would need to override the HTTP client or URL
-		suggestions, err := service.SuggestHighlightsWithAI(project.ID, clip.ID, "Test prompt", getAPIKey)
+		suggestions, err := service.SuggestHighlightsWithAI(project.ID, clip.ID, "Test prompt")
 		
 		// The function should handle API calls gracefully, but may fail due to network
 		// We test that it doesn't crash and handles errors properly
@@ -124,7 +124,7 @@ func TestSuggestHighlightsWithAI(t *testing.T) {
 			return "", fmt.Errorf("no API key configured")
 		}
 		
-		suggestions, err := service.SuggestHighlightsWithAI(project.ID, clip.ID, "Test prompt", getAPIKey)
+		suggestions, err := service.SuggestHighlightsWithAI(project.ID, clip.ID, "Test prompt")
 		
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "OpenRouter API key not configured")
@@ -139,7 +139,7 @@ func TestSuggestHighlightsWithAI(t *testing.T) {
 			return "test-api-key", nil
 		}
 		
-		suggestions, err := service.SuggestHighlightsWithAI(project.ID, emptyClip.ID, "Test prompt", getAPIKey)
+		suggestions, err := service.SuggestHighlightsWithAI(project.ID, emptyClip.ID, "Test prompt")
 		
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "video has no transcription")
@@ -151,7 +151,7 @@ func TestSuggestHighlightsWithAI(t *testing.T) {
 			return "test-api-key", nil
 		}
 		
-		suggestions, err := service.SuggestHighlightsWithAI(project.ID, 999999, "Test prompt", getAPIKey)
+		suggestions, err := service.SuggestHighlightsWithAI(project.ID, 999999, "Test prompt")
 		
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to get video")

@@ -76,12 +76,7 @@ func NewAIService(client *ent.Client, ctx context.Context) *AIService {
 }
 
 // SuggestHighlightsWithAI generates AI-powered highlight suggestions for a video
-func (s *AIService) SuggestHighlightsWithAI(projectID int, videoID int, customPrompt string, getAPIKey func() (string, error)) ([]HighlightSuggestion, error) {
-	// Get OpenRouter API key
-	apiKey, err := getAPIKey()
-	if err != nil || apiKey == "" {
-		return nil, fmt.Errorf("OpenRouter API key not configured")
-	}
+func (s *AIService) SuggestHighlightsWithAI(projectID int, videoID int, customPrompt string) ([]HighlightSuggestion, error) {
 
 	// Get project AI settings
 	aiSettings, err := s.highlightService.GetProjectHighlightAISettings(projectID)
@@ -147,8 +142,12 @@ Avoid overlapping with existing highlights and ensure segments are coherent and 
 		log.Printf("  Existing highlight %d: %s (%.3f-%.3f)", i, h.ID, h.Start, h.End)
 	}
 
-	// Call AI to get suggestions using CoreAIService
-	coreAI := ai.NewCoreAIService(s.client, s.ctx)
+	// Call AI to get suggestions using AI service factory
+	factory := ai.NewAIServiceFactory(s.client, s.ctx)
+	aiService, err := factory.CreateService()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create AI service: %w", err)
+	}
 	
 	// Build the prompt for AI highlight suggestions
 	systemPrompt := s.buildHighlightSuggestionsSystemPrompt(customPrompt)
@@ -172,7 +171,7 @@ Avoid overlapping with existing highlights and ensure segments are coherent and 
 	log.Printf("User Prompt length: %d characters", len(userPrompt))
 	log.Printf("============================================")
 	
-	result, err := coreAI.ProcessText(request, apiKey)
+	result, err := aiService.ProcessText(request)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get AI highlight suggestions: %w", err)
 	}

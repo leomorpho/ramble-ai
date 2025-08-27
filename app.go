@@ -306,6 +306,52 @@ func (a *App) GetThemePreference() (string, error) {
 	return service.GetThemePreference()
 }
 
+// SaveUseRemoteAIBackend saves the remote AI backend toggle setting
+func (a *App) SaveUseRemoteAIBackend(useRemote bool) error {
+	value := "false"
+	if useRemote {
+		value = "true"
+	}
+	return a.SaveSetting("use_remote_ai_backend", value)
+}
+
+// GetUseRemoteAIBackend retrieves the remote AI backend toggle setting
+func (a *App) GetUseRemoteAIBackend() (bool, error) {
+	value, err := a.GetSetting("use_remote_ai_backend")
+	if err != nil {
+		return false, err
+	}
+	if value == "" {
+		return false, nil // default to false
+	}
+	return value == "true", nil
+}
+
+// SaveRemoteAIBackendURL saves the remote AI backend URL setting
+func (a *App) SaveRemoteAIBackendURL(url string) error {
+	return a.SaveSetting("remote_ai_backend_url", url)
+}
+
+// GetRemoteAIBackendURL retrieves the remote AI backend URL setting
+func (a *App) GetRemoteAIBackendURL() (string, error) {
+	return a.GetSetting("remote_ai_backend_url")
+}
+
+// SaveRambleAIApiKey saves the Ramble AI API key securely
+func (a *App) SaveRambleAIApiKey(apiKey string) error {
+	return a.SaveSetting("ramble_ai_api_key", apiKey)
+}
+
+// GetRambleAIApiKey retrieves the Ramble AI API key
+func (a *App) GetRambleAIApiKey() (string, error) {
+	return a.GetSetting("ramble_ai_api_key")
+}
+
+// DeleteRambleAIApiKey removes the Ramble AI API key
+func (a *App) DeleteRambleAIApiKey() error {
+	return a.DeleteSetting("ramble_ai_api_key")
+}
+
 // Word represents a single word with timing information
 type Word struct {
 	Word  string  `json:"word"`
@@ -525,7 +571,7 @@ func (a *App) SaveProjectHighlightAISettings(projectID int, settings ProjectHigh
 // SuggestHighlightsWithAI generates AI-powered highlight suggestions for a video
 func (a *App) SuggestHighlightsWithAI(projectID int, videoID int, customPrompt string) ([]HighlightSuggestion, error) {
 	service := highlights.NewAIService(a.client, a.ctx)
-	return service.SuggestHighlightsWithAI(projectID, videoID, customPrompt, a.GetOpenRouterApiKey)
+	return service.SuggestHighlightsWithAI(projectID, videoID, customPrompt)
 }
 
 // GetSuggestedHighlights retrieves saved suggested highlights for a video

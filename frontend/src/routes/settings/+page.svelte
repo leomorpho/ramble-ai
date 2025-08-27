@@ -1,6 +1,7 @@
 <script>
   import OpenAIConfig from "$lib/components/settings/OpenAIConfig.svelte";
   import OpenRouterConfig from "$lib/components/settings/OpenRouterConfig.svelte";
+  import RemoteAIConfig from "$lib/components/settings/RemoteAIConfig.svelte";
   import { ArrowLeft } from "@lucide/svelte";
 </script>
 
@@ -13,6 +14,7 @@
       <h1 class="text-2xl font-semibold">Settings</h1>
     </div>
 
+    <RemoteAIConfig />
     <OpenAIConfig />
     <OpenRouterConfig />
   </div>
