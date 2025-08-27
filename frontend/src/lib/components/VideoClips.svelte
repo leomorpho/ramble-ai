@@ -50,6 +50,9 @@
   // Delete confirmation dialog state
   let deleteDialogOpen = $state(false);
   let clipToDelete = $state(null);
+  
+  // Batch transcription confirmation dialog state
+  let transcribeAllDialogOpen = $state(false);
 
   onMount(async () => {
     await loadVideoClips();
@@ -410,6 +413,12 @@
       clipError = "";
       const selectedFiles = await SelectVideoFiles();
 
+      // Check if user canceled the dialog (empty array or null/undefined)
+      if (!selectedFiles || selectedFiles.length === 0) {
+        // User canceled or selected no files - this is not an error
+        return;
+      }
+
       // Add each selected file to database
       for (const file of selectedFiles) {
         try {
@@ -433,7 +442,10 @@
       }
     } catch (err) {
       console.error("Failed to select video files:", err);
-      clipError = "Failed to select video files";
+      // Only show error if it's not a user cancellation
+      if (!err.message || !err.message.toLowerCase().includes("cancel")) {
+        clipError = "Failed to select video files";
+      }
     } finally {
       addingClip = false;
     }
@@ -614,6 +626,10 @@
     }
   }
 
+  function showTranscribeAllConfirmation() {
+    transcribeAllDialogOpen = true;
+  }
+
   async function batchTranscribeUntranscribedClips() {
     try {
       batchTranscribing = true;
@@ -735,7 +751,7 @@
     <h3 class="text-lg font-semibold">Video Clips</h3>
     <div class="flex gap-2">
       <Button
-        onclick={batchTranscribeUntranscribedClips}
+        onclick={showTranscribeAllConfirmation}
         disabled={batchTranscribing || loadingClips}
         variant="outline"
         size="sm"
@@ -844,6 +860,24 @@
     <DialogFooter>
       <Button variant="outline" onclick={cancelDeleteClip}>Cancel</Button>
       <Button variant="destructive" onclick={confirmDeleteClip}>Delete Clip</Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+
+<!-- Batch Transcription Confirmation Dialog -->
+<Dialog bind:open={transcribeAllDialogOpen}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Transcribe All Video Clips?</DialogTitle>
+      <DialogDescription>
+        This will transcribe all untranscribed video clips in this project using OpenAI Whisper.
+        This process may take several minutes depending on the number and length of your videos.
+      </DialogDescription>
+    </DialogHeader>
+    
+    <DialogFooter>
+      <Button variant="outline" onclick={() => transcribeAllDialogOpen = false}>Cancel</Button>
+      <Button onclick={() => { transcribeAllDialogOpen = false; batchTranscribeUntranscribedClips(); }}>Start Transcription</Button>
     </DialogFooter>
   </DialogContent>
 </Dialog>
