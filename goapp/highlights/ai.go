@@ -171,9 +171,15 @@ Avoid overlapping with existing highlights and ensure segments are coherent and 
 	log.Printf("User Prompt length: %d characters", len(userPrompt))
 	log.Printf("============================================")
 	
-	result, err := aiService.ProcessText(request)
+	rawResult, err := aiService.ProcessText(request)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get AI highlight suggestions: %w", err)
+	}
+	
+	// Parse the raw OpenRouter response to get structured result
+	result, err := ai.ParseTextResponse(rawResult, request.TaskType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse AI response: %w", err)
 	}
 	
 	// Parse the response

@@ -20,6 +20,13 @@
     loadSettings();
   });
 
+  // Reload settings when the component becomes visible (reactive to useRemoteBackend)
+  $effect(() => {
+    if (useRemoteBackend) {
+      loadSettings();
+    }
+  });
+
   async function loadSettings() {
     try {
       loading = true;

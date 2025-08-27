@@ -130,11 +130,19 @@ func (s *ChatbotService) callOpenRouterAPI(apiKey string, request map[string]int
 	log.Printf("🤖 [LLM REQUEST] Using API key: %s", partialKey)
 
 	startTime := time.Now()
-	result, err := coreAI.ProcessText(aiRequest, apiKey)
+	rawResult, err := coreAI.ProcessText(aiRequest, apiKey)
 	if err != nil {
 		duration := time.Since(startTime)
 		log.Printf("🤖 [LLM ERROR] CoreAI request failed after %.2f seconds: %v", duration.Seconds(), err)
 		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+
+	// Parse the raw OpenRouter response to get structured result
+	result, err := ai.ParseTextResponse(rawResult, aiRequest.TaskType)
+	if err != nil {
+		duration := time.Since(startTime)
+		log.Printf("🤖 [LLM ERROR] Failed to parse AI response after %.2f seconds: %v", duration.Seconds(), err)
+		return nil, fmt.Errorf("failed to parse AI response: %w", err)
 	}
 
 	duration := time.Since(startTime)

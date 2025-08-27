@@ -13,6 +13,7 @@ import (
 	"ramble-ai/binaries"
 	"ramble-ai/ent"
 	"ramble-ai/goapp/assetshandler"
+	"ramble-ai/goapp/ai"
 	"ramble-ai/goapp/chatbot"
 	"ramble-ai/goapp/exports"
 	"ramble-ai/goapp/highlights"
@@ -100,6 +101,11 @@ func (a *App) startup(ctx context.Context) {
 	// Run database migrations
 	if err := a.client.Schema.Create(ctx); err != nil {
 		log.Printf("failed creating schema resources: %v", err)
+	}
+
+	// Seed development API key if in development mode (unconditionally)
+	if err := a.SeedDevAPIKeyOnStartup(); err != nil {
+		log.Printf("Warning: Failed to seed development API key: %v", err)
 	}
 
 	log.Println("Database initialized and migrations applied")
@@ -355,6 +361,78 @@ func (a *App) IsRemoteBackendOverriddenByEnv() bool {
 	return os.Getenv("USE_REMOTE_AI_BACKEND") != ""
 }
 
+// GetDevAPIKey returns the development API key if in development mode
+func (a *App) GetDevAPIKey() string {
+	// Only return the dev key if we're in development mode
+	if !a.IsDevMode() {
+		return ""
+	}
+	// This matches the key defined in PocketBase seed.go
+	return "ra-dev-12345678901234567890123456789012"
+}
+
+
+// SeedDevAPIKey seeds the development API key in the settings if in dev mode and remote backend is enabled
+func (a *App) SeedDevAPIKey() error {
+	// Only seed if in development mode
+	if !a.IsDevMode() {
+		return nil
+	}
+
+	// Check if remote backend is enabled
+	useRemote, err := a.GetUseRemoteAIBackend()
+	if err != nil {
+		return err
+	}
+
+	if !useRemote {
+		return nil // No need to seed if not using remote backend
+	}
+
+	// Get existing API key
+	existingKey, err := a.GetRambleAIApiKey()
+	if err != nil {
+		return err
+	}
+
+	// Only seed if no key is set or if the current key is empty
+	if existingKey == "" {
+		devKey := a.GetDevAPIKey()
+		if devKey != "" {
+			return a.SaveRambleAIApiKey(devKey)
+		}
+	}
+
+	return nil
+}
+
+// SeedDevAPIKeyOnStartup seeds the development API key unconditionally if in dev mode
+func (a *App) SeedDevAPIKeyOnStartup() error {
+	// Only seed if in development mode
+	if !a.IsDevMode() {
+		return nil
+	}
+
+	// Get existing API key
+	existingKey, err := a.GetRambleAIApiKey()
+	if err != nil {
+		return err
+	}
+
+	// Always seed the dev key if we're in development and no key exists
+	if existingKey == "" {
+		devKey := a.GetDevAPIKey()
+		if devKey != "" {
+			log.Printf("🌱 Seeding development API key: %s", devKey)
+			return a.SaveRambleAIApiKey(devKey)
+		}
+	} else {
+		log.Printf("✅ Development API key already exists: %s", existingKey[:16]+"...")
+	}
+
+	return nil
+}
+
 // SaveRambleAIApiKey saves the Ramble AI API key securely
 func (a *App) SaveRambleAIApiKey(apiKey string) error {
 	return a.SaveSetting("ramble_ai_api_key", apiKey)
@@ -500,14 +578,38 @@ func (a *App) GetHiddenHighlights(projectID int) ([]string, error) {
 
 // ReorderHighlightsWithAI uses OpenRouter API to intelligently reorder highlights
 func (a *App) ReorderHighlightsWithAI(projectID int, customPrompt string) ([]interface{}, error) {
+	// Use the specialized highlights AI service for reordering
 	service := highlights.NewAIService(a.client, a.ctx)
-	return service.ReorderHighlightsWithAI(projectID, customPrompt, a.GetOpenRouterApiKey, a.GetProjectHighlights)
+	
+	// Define callback functions required by the highlights AI service
+	getAPIKey := func() (string, error) {
+		return a.GetOpenRouterApiKey()
+	}
+	
+	getProjectHighlights := func(id int) ([]highlights.ProjectHighlight, error) {
+		return a.GetProjectHighlights(id)
+	}
+	
+	// Delegate to the specialized reordering implementation
+	return service.ReorderHighlightsWithAI(projectID, customPrompt, getAPIKey, getProjectHighlights)
 }
 
-// ReorderHighlightsWithAIOptions uses OpenRouter API to intelligently reorder highlights with specific options
+// ReorderHighlightsWithAIOptions uses AI service (local or remote) to intelligently reorder highlights with specific options
 func (a *App) ReorderHighlightsWithAIOptions(projectID int, customPrompt string, options highlights.AIActionOptions) ([]interface{}, error) {
+	// Use the specialized highlights AI service for reordering with options
 	service := highlights.NewAIService(a.client, a.ctx)
-	return service.ReorderHighlightsWithAIOptions(projectID, customPrompt, options, a.GetOpenRouterApiKey, a.GetProjectHighlights)
+	
+	// Define callback functions required by the highlights AI service
+	getAPIKey := func() (string, error) {
+		return a.GetOpenRouterApiKey()
+	}
+	
+	getProjectHighlights := func(id int) ([]highlights.ProjectHighlight, error) {
+		return a.GetProjectHighlights(id)
+	}
+	
+	// Delegate to the specialized reordering implementation with options
+	return service.ReorderHighlightsWithAIOptions(projectID, customPrompt, options, getAPIKey, getProjectHighlights)
 }
 
 // Export-related type aliases
@@ -588,8 +690,21 @@ func (a *App) SaveProjectHighlightAISettings(projectID int, settings ProjectHigh
 
 // SuggestHighlightsWithAI generates AI-powered highlight suggestions for a video
 func (a *App) SuggestHighlightsWithAI(projectID int, videoID int, customPrompt string) ([]HighlightSuggestion, error) {
-	service := highlights.NewAIService(a.client, a.ctx)
-	return service.SuggestHighlightsWithAI(projectID, videoID, customPrompt)
+	factory := ai.NewAIServiceFactory(a.client, a.ctx)
+	aiService, err := factory.CreateService()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create AI service: %w", err)
+	}
+	
+	// For local service, delegate to highlights service
+	if _, ok := aiService.(*ai.LocalAIService); ok {
+		highlightService := highlights.NewAIService(a.client, a.ctx)
+		return highlightService.SuggestHighlightsWithAI(projectID, videoID, customPrompt)
+	}
+	
+	// For remote service, we need to build the request manually
+	// This would need to be implemented in the remote service
+	return nil, fmt.Errorf("highlight suggestions not yet supported with remote AI backend")
 }
 
 // GetSuggestedHighlights retrieves saved suggested highlights for a video
@@ -612,8 +727,21 @@ func (a *App) DeleteSuggestedHighlight(videoID int, suggestionID string) error {
 
 // ImproveHighlightSilencesWithAI uses AI to suggest improved timings for highlights with natural silence buffers
 func (a *App) ImproveHighlightSilencesWithAI(projectID int) ([]ProjectHighlight, error) {
-	service := highlights.NewAIService(a.client, a.ctx)
-	return service.ImproveHighlightSilencesWithAI(projectID, a.GetOpenRouterApiKey)
+	factory := ai.NewAIServiceFactory(a.client, a.ctx)
+	aiService, err := factory.CreateService()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create AI service: %w", err)
+	}
+	
+	// For local service, delegate to highlights service
+	if _, ok := aiService.(*ai.LocalAIService); ok {
+		highlightService := highlights.NewAIService(a.client, a.ctx)
+		return highlightService.ImproveHighlightSilencesWithAI(projectID, a.GetOpenRouterApiKey)
+	}
+	
+	// For remote service, we need to build the request manually
+	// This would need to be implemented in the remote service
+	return nil, fmt.Errorf("silence improvements not yet supported with remote AI backend")
 }
 
 // GetProjectAISilenceResult retrieves cached AI silence improvements for a project

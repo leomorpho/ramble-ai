@@ -3,8 +3,11 @@ package ai
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
+	"path/filepath"
 
+	"github.com/joho/godotenv"
 	"ramble-ai/ent"
 	"ramble-ai/ent/settings"
 )
@@ -13,6 +16,46 @@ import (
 type AIServiceFactory struct {
 	client *ent.Client
 	ctx    context.Context
+}
+
+// init loads environment variables from .env files on package initialization
+func init() {
+	loadEnvFiles()
+}
+
+// loadEnvFiles loads .env files in order of priority
+func loadEnvFiles() {
+	// Try to find .env files in the current working directory and parent directories
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return
+	}
+
+	// Look for .env files in current directory and up to 3 parent directories
+	for i := 0; i < 4; i++ {
+		// Try .env.wails first (higher priority)
+		envWailsPath := filepath.Join(currentDir, ".env.wails")
+		if _, err := os.Stat(envWailsPath); err == nil {
+			if err := godotenv.Load(envWailsPath); err == nil {
+				log.Printf("Loaded environment from: %s", envWailsPath)
+			}
+		}
+
+		// Then try .env (fallback)
+		envPath := filepath.Join(currentDir, ".env")
+		if _, err := os.Stat(envPath); err == nil {
+			if err := godotenv.Load(envPath); err == nil {
+				log.Printf("Loaded environment from: %s", envPath)
+			}
+		}
+
+		// Move to parent directory
+		parentDir := filepath.Dir(currentDir)
+		if parentDir == currentDir {
+			break // Reached root directory
+		}
+		currentDir = parentDir
+	}
 }
 
 // NewAIServiceFactory creates a new AI service factory

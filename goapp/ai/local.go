@@ -23,8 +23,8 @@ func NewLocalAIService(client *ent.Client, ctx context.Context, openaiKey, openr
 }
 
 // ProcessText implements AIService interface
-func (s *LocalAIService) ProcessText(request *TextProcessingRequest) (*TextProcessingResult, error) {
-	// Use OpenRouter API key for text processing
+func (s *LocalAIService) ProcessText(request *TextProcessingRequest) (*OpenRouterResponse, error) {
+	// Use OpenRouter API key for text processing - returns raw response for local parsing
 	return s.coreService.ProcessText(request, s.openrouterKey)
 }
 

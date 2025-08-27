@@ -150,7 +150,7 @@ func ProcessTextHandler(e *core.RequestEvent, app core.App) error {
 	}
 
 	// Log usage (optional)
-	logAIUsage(app, user.Id, request.TaskType, request.Model, result.TokensUsed)
+	logAIUsage(app, user.Id, request.TaskType, request.Model, 0) // TokensUsed not available in raw response
 
 	return e.JSON(200, result)
 }
@@ -239,7 +239,7 @@ func isUserSubscribed(user *core.Record) bool {
 	return true // For now, allow all users
 }
 
-func proxyToOpenRouter(request *TextProcessingRequest) (*TextProcessingResult, error) {
+func proxyToOpenRouter(request *TextProcessingRequest) (*OpenRouterResponse, error) {
 	// Build messages array
 	messages := []Message{}
 
@@ -320,12 +320,7 @@ func proxyToOpenRouter(request *TextProcessingRequest) (*TextProcessingResult, e
 		return nil, fmt.Errorf("no response from OpenRouter API")
 	}
 
-	content := openRouterResp.Choices[0].Message.Content
-
-	return &TextProcessingResult{
-		Content:  content,
-		TaskType: request.TaskType,
-	}, nil
+	return &openRouterResp, nil
 }
 
 func getOpenRouterAPIKey() string {

@@ -5,11 +5,12 @@
     GetUseRemoteAIBackend,
     SaveUseRemoteAIBackend,
     IsDevMode,
-    IsRemoteBackendOverriddenByEnv
+    IsRemoteBackendOverriddenByEnv,
+    SeedDevAPIKey
   } from "$lib/wailsjs/go/main/App";
   import { onMount } from "svelte";
 
-  let { onToggle = () => {} } = $props();
+  let { onToggle = () => {}, onAPIKeySeeded = () => {} } = $props();
 
   let isDevMode = $state(false);
   let useRemoteBackend = $state(false);
@@ -53,6 +54,18 @@
       await SaveUseRemoteAIBackend(newValue);
       useRemoteBackend = newValue;
       
+      // If switching to remote mode, seed the development API key
+      if (newValue) {
+        try {
+          await SeedDevAPIKey();
+          // Notify parent that API key was seeded
+          onAPIKeySeeded();
+        } catch (seedErr) {
+          console.warn("Failed to seed development API key:", seedErr);
+          // Don't fail the toggle operation if seeding fails
+        }
+      }
+      
       saved = true;
       setTimeout(() => {
         saved = false;
@@ -67,6 +80,7 @@
       loading = false;
     }
   }
+
 </script>
 
 {#if isDevMode}
@@ -94,10 +108,9 @@
         
         <Button 
           onclick={toggleBackend}
-          disabled={loading || isOverriddenByEnv}
+          disabled={loading}
           variant={useRemoteBackend ? "default" : "outline"}
           class="min-w-[120px]"
-          title={isOverriddenByEnv ? "Setting controlled by environment variable USE_REMOTE_AI_BACKEND" : ""}
         >
           {#if loading}
             Switching...
@@ -111,8 +124,9 @@
 
       <div class="text-xs text-orange-600 dark:text-orange-400">
         Current mode: <strong>{useRemoteBackend ? "Remote PocketBase Backend" : "Local API Calls"}</strong>
+        <br><small>Toggle freely between modes for testing</small>
         {#if isOverriddenByEnv}
-          <br><em>(Controlled by environment variable USE_REMOTE_AI_BACKEND)</em>
+          <br><em>Note: Environment variable USE_REMOTE_AI_BACKEND is set but overridden by toggle</em>
         {/if}
       </div>
 
@@ -124,9 +138,13 @@
 
       {#if saved && !error}
         <div class="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200 rounded-md p-3 text-sm">
-          Backend mode saved successfully! Page will reload to update settings.
+          Backend mode saved successfully!
+          {#if useRemoteBackend}
+            <br><small>Development API key has been auto-populated.</small>
+          {/if}
         </div>
       {/if}
+
     </div>
   </div>
 {/if}

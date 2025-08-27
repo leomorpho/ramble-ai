@@ -117,14 +117,10 @@ func TestSuggestHighlightsWithAI(t *testing.T) {
 	})
 	
 	t.Run("missing API key", func(t *testing.T) {
-		getAPIKey := func() (string, error) {
-			return "", fmt.Errorf("no API key configured")
-		}
-		
 		suggestions, err := service.SuggestHighlightsWithAI(project.ID, clip.ID, "Test prompt")
 		
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "OpenRouter API key not configured")
+		assert.Contains(t, err.Error(), "failed to get AI highlight suggestions: OpenRouter API key not provided")
 		assert.Nil(t, suggestions)
 	})
 	

@@ -213,7 +213,7 @@ func (s *CoreAIService) ProcessAudio(audioFile string, apiKey string) (*AudioPro
 }
 
 // ProcessText handles all text-based AI processing tasks
-func (s *CoreAIService) ProcessText(request *TextProcessingRequest, apiKey string) (*TextProcessingResult, error) {
+func (s *CoreAIService) ProcessText(request *TextProcessingRequest, apiKey string) (*OpenRouterResponse, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("OpenRouter API key not provided")
 	}
@@ -294,10 +294,5 @@ func (s *CoreAIService) ProcessText(request *TextProcessingRequest, apiKey strin
 		return nil, fmt.Errorf("no response from OpenRouter API")
 	}
 
-	content := openRouterResp.Choices[0].Message.Content
-
-	return &TextProcessingResult{
-		Content:  content,
-		TaskType: request.TaskType,
-	}, nil
+	return &openRouterResp, nil
 }

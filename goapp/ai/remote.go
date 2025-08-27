@@ -38,7 +38,7 @@ func NewRemoteAIService(client *ent.Client, ctx context.Context, backendURL, api
 }
 
 // ProcessText handles text processing requests via remote backend
-func (s *RemoteAIService) ProcessText(request *TextProcessingRequest) (*TextProcessingResult, error) {
+func (s *RemoteAIService) ProcessText(request *TextProcessingRequest) (*OpenRouterResponse, error) {
 	if s.backendURL == "" {
 		return nil, fmt.Errorf("backend URL not configured")
 	}
@@ -89,8 +89,8 @@ func (s *RemoteAIService) ProcessText(request *TextProcessingRequest) (*TextProc
 		return nil, fmt.Errorf("remote AI service error (status %d): %s", resp.StatusCode, string(body))
 	}
 
-	// Parse response
-	var result TextProcessingResult
+	// Parse response - now expecting raw OpenRouter response from backend
+	var result OpenRouterResponse
 	err = json.Unmarshal(body, &result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)

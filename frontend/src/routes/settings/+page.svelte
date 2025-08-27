@@ -28,6 +28,12 @@
   function handleBackendToggle(newValue) {
     useRemoteBackend = newValue;
   }
+
+  function handleAPIKeySeeded() {
+    // Force refresh of the page to update all components
+    // This is a simple approach to ensure RemoteAIConfig reloads
+    window.location.reload();
+  }
 </script>
 
 <main class="min-h-screen bg-background text-foreground p-8">
@@ -40,7 +46,7 @@
     </div>
 
     {#if !loading}
-      <DevToggle onToggle={handleBackendToggle} />
+      <DevToggle onToggle={handleBackendToggle} onAPIKeySeeded={handleAPIKeySeeded} />
       
       {#if useRemoteBackend}
         <RemoteAIConfig />

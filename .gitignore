@@ -26,6 +26,10 @@ node_modules/
 .env
 .env.local
 .env.*.local
+.env.wails
+
+# Backend logs
+pb-backend.log
 
 # Editor directories and files
 .vscode/

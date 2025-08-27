@@ -49,6 +49,11 @@ func main() {
 	}
 
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
+		// Seed development data if in development mode
+		if err := aihandlers.SeedDevelopmentData(app); err != nil {
+			log.Printf("Warning: Failed to seed development data: %v", err)
+		}
+
 		// Initialize TUS handler
 		tusHandler, err := tushandlers.NewTUSHandler(app)
 		if err != nil {

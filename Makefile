@@ -1,7 +1,8 @@
 # Makefile for RambleAI - Video Editor with Ent ORM
 
-# Load environment variables from .env file if it exists
+# Load environment variables from .env files if they exist
 -include .env
+-include .env.wails
 export
 
 # Variables
@@ -20,9 +21,9 @@ help: ## Show this help message
 dev: ## Start development server with hot reload
 	wails dev
 
-.PHONY: dev-with-backend
-dev-with-backend: ## Start both PocketBase backend and Wails app with remote AI enabled
-	@echo "🚀 Starting PocketBase backend and Wails app with remote AI integration..."
+.PHONY: backend
+backend: ## Start PocketBase backend server
+	@echo "🚀 Starting PocketBase backend server..."
 	@echo ""
 	@echo "⚠️  Make sure you have set your API keys in pb-be/pb/.env:"
 	@echo "   OPENROUTER_API_KEY=your-openrouter-key"
@@ -34,51 +35,37 @@ dev-with-backend: ## Start both PocketBase backend and Wails app with remote AI 
 		echo "   You can copy from pb-be/pb/.env.example"; \
 		exit 1; \
 	fi
-	@echo "Starting PocketBase backend in background..."
-	@cd pb-be/pb && go run main.go serve --dev --http 0.0.0.0:8090 > /dev/null 2>&1 & echo $$! > ../../pb-backend.pid
-	@echo "✅ PocketBase backend started (PID: $$(cat pb-backend.pid))"
-	@echo "   Admin UI: http://localhost:8090/_/"
-	@echo "   API Endpoints: http://localhost:8090/api/"
-	@echo ""
-	@sleep 2
-	@echo "🎯 Starting Wails app with remote AI backend enabled..."
-	@USE_REMOTE_AI_BACKEND=true REMOTE_AI_BACKEND_URL=http://localhost:8090 wails dev; \
-	echo ""; \
-	echo "🛑 Shutting down PocketBase backend..."; \
-	if [ -f pb-backend.pid ]; then \
-		kill $$(cat pb-backend.pid) 2>/dev/null || true; \
-		rm -f pb-backend.pid; \
-		echo "✅ PocketBase backend stopped"; \
-	fi
-
-.PHONY: dev-backend-only
-dev-backend-only: ## Start only the PocketBase backend server
-	@echo "🚀 Starting PocketBase backend server..."
-	@echo ""
-	@echo "⚠️  Make sure you have set your API keys in pb-be/pb/.env:"
-	@echo "   OPENROUTER_API_KEY=your-openrouter-key"
-	@echo "   OPENAI_API_KEY=your-openai-key"
-	@echo ""
-	@if [ ! -f pb-be/pb/.env ]; then \
-		echo "❌ Error: pb-be/pb/.env file not found!"; \
-		echo "   Please create it with your API keys first."; \
-		exit 1; \
-	fi
 	@echo "🎯 Starting PocketBase backend..."
 	@echo "   Admin UI: http://localhost:8090/_/"
 	@echo "   API Endpoints:"
 	@echo "     POST /api/ai/process-text"
 	@echo "     POST /api/ai/process-audio" 
 	@echo "     POST /api/generate-api-key"
+	@echo "   Development API Key: ra-dev-12345678901234567890123456789012"
+	@echo "   (Auto-seeded for development - use in your Wails app)"
 	@echo ""
 	cd pb-be/pb && go run main.go serve --dev --http 0.0.0.0:8090
+
+.PHONY: dev-remote
+dev-remote: ## Start Wails app with remote AI backend enabled (configure .env.wails)
+	@echo "🎯 Starting Wails app with remote AI backend enabled..."
+	@echo "   Configuration loaded from .env.wails file"
+	@echo "   Connecting to PocketBase at: $${REMOTE_AI_BACKEND_URL:-http://localhost:8090}"
+	@echo "   Development API Key: ra-dev-12345678901234567890123456789012"
+	@echo ""
+	@echo "💡 Make sure:"
+	@echo "   1. PocketBase backend is running: make backend"
+	@echo "   2. .env.wails has USE_REMOTE_AI_BACKEND=true"
+	@echo ""
+	USE_REMOTE_AI_BACKEND=true wails dev
+
 
 .PHONY: stop-backend
 stop-backend: ## Stop the PocketBase backend if running in background
 	@if [ -f pb-backend.pid ]; then \
 		echo "🛑 Stopping PocketBase backend..."; \
 		kill $$(cat pb-backend.pid) 2>/dev/null && echo "✅ PocketBase backend stopped" || echo "⚠️  Backend process not found"; \
-		rm -f pb-backend.pid; \
+		rm -f pb-backend.pid pb-backend.log; \
 	else \
 		echo "ℹ️  No background PocketBase backend running"; \
 	fi

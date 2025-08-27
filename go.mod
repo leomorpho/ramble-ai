@@ -6,6 +6,7 @@ toolchain go1.23.0
 
 require (
 	entgo.io/ent v0.14.4
+	github.com/joho/godotenv v1.5.1
 	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/stretchr/testify v1.10.0
 	github.com/wailsapp/wails/v2 v2.10.1
