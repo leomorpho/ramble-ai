@@ -53,6 +53,11 @@ func (h *AssetHandler) CreateAssetMiddleware() assetserver.Middleware {
 				h.HandleThumbnailRequest(w, r)
 				return
 			}
+			// Check if this is a direct file request
+			if strings.HasPrefix(r.URL.Path, "/api/files/direct/") {
+				h.HandleDirectFileRequest(w, r)
+				return
+			}
 
 			// For all other requests (including direct file paths), use gahara's approach
 			// Serve files directly from the filesystem with security checks
@@ -361,12 +366,27 @@ func (h *AssetHandler) isDirectFileRequest(path string) bool {
 
 // HandleDirectFileRequest handles direct file serving (gahara approach)
 func (h *AssetHandler) HandleDirectFileRequest(w http.ResponseWriter, r *http.Request) {
-	// Clean the file path from URL
-	filePath, err := url.QueryUnescape(r.URL.Path)
-	if err != nil {
-		log.Printf("[DIRECT] URL decode error: %v", err)
-		http.Error(w, "Invalid file path", http.StatusBadRequest)
-		return
+	var filePath string
+	var err error
+	
+	// Check if this is an /api/files/direct/ request
+	if strings.HasPrefix(r.URL.Path, "/api/files/direct/") {
+		// Extract file path from URL after /api/files/direct/
+		filePath = r.URL.Path[18:] // Remove "/api/files/direct/"
+		filePath, err = url.QueryUnescape(filePath)
+		if err != nil {
+			log.Printf("[DIRECT] URL decode error for direct API: %v", err)
+			http.Error(w, "Invalid file path", http.StatusBadRequest)
+			return
+		}
+	} else {
+		// Clean the file path from URL (gahara approach for absolute paths)
+		filePath, err = url.QueryUnescape(r.URL.Path)
+		if err != nil {
+			log.Printf("[DIRECT] URL decode error: %v", err)
+			http.Error(w, "Invalid file path", http.StatusBadRequest)
+			return
+		}
 	}
 
 	// Clean the path for security
@@ -380,6 +400,10 @@ func (h *AssetHandler) HandleDirectFileRequest(w http.ResponseWriter, r *http.Re
 		http.NotFound(w, r)
 		return
 	}
+
+	// Set content type based on file extension
+	contentType := h.GetContentType(filePath)
+	w.Header().Set("Content-Type", contentType)
 
 	// Serve the file directly (gahara approach)
 	http.ServeFile(w, r, filePath)
