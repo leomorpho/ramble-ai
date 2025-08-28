@@ -1,8 +1,13 @@
 // Application configuration
 export const config = {
 	app: {
-		name: 'My SvelteKit App',
-		description: 'A modern full-stack application built with SvelteKit and PocketBase'
+		name: 'Ramble',
+		description: 'AI Script Optimization for Talking Head Videos'
+	},
+	
+	// Download URL for the app
+	download: {
+		url: 'https://github.com/your-username/ramble-ai/releases/latest'
 	},
 	
 	// Get current year dynamically

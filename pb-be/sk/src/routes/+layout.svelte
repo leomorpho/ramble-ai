@@ -28,7 +28,7 @@
 		onLogout={handleLogout}
 	/>
 
-	<main>
+	<main class="pt-20">
 		{@render children()}
 	</main>
 

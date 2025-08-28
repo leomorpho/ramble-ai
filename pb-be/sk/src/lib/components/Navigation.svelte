@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
+	import DownloadButton from '$lib/components/DownloadButton.svelte';
 	import { Home, Info, LogIn, LogOut, User, CreditCard, Crown, BarChart } from 'lucide-svelte';
 	import type { AuthModel } from 'pocketbase';
 	import { config } from '$lib/config.js';
@@ -22,13 +23,20 @@
 	}
 </script>
 
-<header class="border-b">
+<header class="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b">
 	<div class="container mx-auto px-4 py-4">
 		<nav class="flex items-center justify-between">
 			<div class="flex items-center space-x-4">
-				<h1 class="text-xl font-semibold">
-					<a href="/" class="hover:text-primary transition-colors">{config.app.name}</a>
-				</h1>
+				<a href="/" class="flex items-center space-x-3 hover:opacity-80 transition-opacity cursor-pointer">
+					<img 
+						src="/logo-128.png" 
+						alt="Ramble logo" 
+						class="w-8 h-8 rounded-lg"
+					/>
+					<span class="font-bold tracking-tight text-xl">
+						<span class="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">RAMBLE</span>
+					</span>
+				</a>
 			</div>
 
 			<div class="flex items-center space-x-2">
@@ -103,6 +111,7 @@
 					>
 						<LogIn class="h-4 w-4" />
 					</a>
+					<DownloadButton text="Get Started" size="sm" showIcon={false} />
 				{/if}
 
 				<ThemeToggle />
