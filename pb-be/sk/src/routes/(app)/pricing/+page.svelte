@@ -66,14 +66,19 @@
 	<meta name="description" content="Choose the perfect plan for your needs" />
 </svelte:head>
 
-<div class="container mx-auto px-4 py-8">
-	<div class="mx-auto max-w-7xl">
-		<div class="text-center mb-10">
-			<h1 class="text-3xl md:text-4xl font-bold mb-3">Choose Your Plan</h1>
-			<p class="text-lg text-muted-foreground max-w-2xl mx-auto">
-				Select the perfect plan for your needs. Cancel or change anytime.
-			</p>
-		</div>
+<!-- Hero Section -->
+<section class="py-20 px-6">
+	<div class="max-w-4xl mx-auto text-center">
+		<h1 class="text-4xl md:text-5xl font-bold mb-6">Choose Your Plan</h1>
+		<p class="text-xl text-muted-foreground">
+			Select the perfect plan for your needs. Cancel or change anytime.
+		</p>
+	</div>
+</section>
+
+<!-- Pricing Plans -->
+<section class="py-20 border-t px-6">
+	<div class="max-w-7xl mx-auto">
 
 		{#if subscriptionStore.isLoading}
 			<div class="text-center py-8">
@@ -103,29 +108,6 @@
 				{/each}
 			</div>
 
-			<!-- One-time Credits Section -->
-			{@const creditProducts = getProductsWithPrices().filter(p => p.metadata?.category === 'one_time')}
-			{#if creditProducts.length > 0}
-				<div class="border-t pt-8">
-					<div class="text-center mb-6">
-						<h2 class="text-2xl font-bold mb-2">Need More Credits?</h2>
-						<p class="text-muted-foreground">One-time credit packages for extra usage</p>
-					</div>
-					
-					<div class="grid gap-4 md:grid-cols-3 max-w-4xl mx-auto">
-						{#each creditProducts as product (product.id)}
-							{#each product.prices as price (price.id)}
-								<CreditCard
-									{price}
-									{checkoutLoading}
-									{isButtonDisabled}
-									onPurchase={handleSubscribe}
-								/>
-							{/each}
-						{/each}
-					</div>
-				</div>
-			{/if}
 
 			{#if getProductsWithPrices().length === 0}
 				<div class="text-center py-12">
@@ -137,28 +119,61 @@
 			{/if}
 		{/if}
 
-		{#if subscriptionStore.isSubscribed}
-			<div class="mt-12 text-center">
-				<div class="rounded-lg bg-green-50 border border-green-200 p-6 inline-block">
-					<h3 class="text-lg font-semibold text-green-800 mb-2">You're subscribed!</h3>
-					<p class="text-green-700 mb-4">
-						Manage your subscription, update payment methods, and view billing history.
-					</p>
-					<a 
-						href="/billing" 
-						class="inline-flex items-center rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 transition-colors"
-					>
-						Manage Subscription
-					</a>
-				</div>
-			</div>
-		{/if}
+	</div>
+</section>
 
-		<div class="mt-16 text-center">
-			<h3 class="text-lg font-semibold mb-4">Questions?</h3>
-			<p class="text-muted-foreground">
-				Need help choosing the right plan? We'll help you find the perfect fit.
-			</p>
+<!-- One-time Credits Section -->
+{#if getProductsWithPrices().filter(p => p.metadata?.category === 'one_time').length > 0}
+	{@const creditProducts = getProductsWithPrices().filter(p => p.metadata?.category === 'one_time')}
+<section class="py-20 border-t px-6">
+	<div class="max-w-4xl mx-auto">
+		<div class="text-center mb-12">
+			<h2 class="text-3xl md:text-4xl font-bold mb-6">Need More Credits?</h2>
+			<p class="text-xl text-muted-foreground">One-time credit packages for extra usage</p>
+		</div>
+		
+		<div class="grid gap-4 md:grid-cols-3">
+			{#each creditProducts as product (product.id)}
+				{#each product.prices as price (price.id)}
+					<CreditCard
+						{price}
+						{checkoutLoading}
+						{isButtonDisabled}
+						onPurchase={handleSubscribe}
+					/>
+				{/each}
+			{/each}
 		</div>
 	</div>
-</div>
+</section>
+{/if}
+
+<!-- Subscription Status -->
+{#if subscriptionStore.isSubscribed}
+<section class="py-20 border-t px-6">
+	<div class="max-w-4xl mx-auto text-center">
+		<div class="rounded-lg bg-green-50 border border-green-200 p-8 inline-block">
+			<h3 class="text-2xl font-semibold text-green-800 mb-4">You're subscribed!</h3>
+			<p class="text-green-700 mb-6 text-lg">
+				Manage your subscription, update payment methods, and view billing history.
+			</p>
+			<a 
+				href="/billing" 
+				class="inline-flex items-center rounded-md bg-green-600 px-6 py-3 text-lg font-medium text-white hover:bg-green-700 transition-colors"
+			>
+				Manage Subscription
+			</a>
+		</div>
+	</div>
+</section>
+{/if}
+
+<!-- FAQ/Questions Section -->
+<section class="py-20 border-t px-6">
+	<div class="max-w-4xl mx-auto text-center">
+		<h2 class="text-3xl md:text-4xl font-bold mb-6">Questions?</h2>
+		<p class="text-xl text-muted-foreground">
+			Need help choosing the right plan? We'll help you find the perfect fit.
+		</p>
+	</div>
+</section>

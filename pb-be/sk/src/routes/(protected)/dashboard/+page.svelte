@@ -269,22 +269,27 @@
 	<meta name="description" content="User dashboard" />
 </svelte:head>
 
-<div class="container mx-auto px-4 py-8">
-	<!-- Dashboard -->
-		<div class="mx-auto max-w-6xl">
-		<!-- Header -->
-		<div class="mb-8">
-			<h1 class="text-4xl font-bold text-foreground mb-2">Dashboard</h1>
-			<p class="text-muted-foreground">Welcome back, {authStore.user?.name || 'User'}</p>
-		</div>
+<!-- Hero Section -->
+<section class="py-20 px-6">
+	<div class="max-w-4xl mx-auto">
+		<h1 class="text-4xl md:text-5xl font-bold mb-6">Dashboard</h1>
+		<p class="text-xl text-muted-foreground">
+			Welcome back, {authStore.user?.name || 'User'}
+		</p>
+	</div>
+</section>
+
+<!-- Dashboard Content -->
+<section class="py-20 border-t px-6">
+	<div class="max-w-6xl mx-auto">
 
 		<div class="grid gap-8 lg:grid-cols-3">
 		<!-- Profile Section -->
 		<div class="lg:col-span-1">
 				<div class="bg-card rounded-xl border border-border p-6 shadow-sm">
 					<div class="text-center">
-						<!-- Avatar Section -->
-						<div class="relative mb-6">
+						<!-- Avatar Section - Hidden for now -->
+						<!-- <div class="relative mb-6">
 							<div class="relative inline-block">
 								{#if getAvatarUrl(authStore.user, 'large')}
 									<img
@@ -298,7 +303,6 @@
 									</div>
 								{/if}
 								
-								<!-- Edit Avatar Button -->
 								<button
 									onclick={() => {
 										uploadError = null;
@@ -310,7 +314,7 @@
 									<Edit3 class="w-4 h-4" />
 								</button>
 							</div>
-						</div>
+						</div> -->
 
 
 						<!-- User Name & Email -->
@@ -394,28 +398,10 @@
 			<!-- API Key Management -->
 				<APIKeyManager />
 
-			<!-- Recent Activity / Welcome Message -->
-				<div class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-xl border border-blue-200 dark:border-blue-800/50 p-6">
-					<h3 class="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-2">Welcome to your Dashboard!</h3>
-					<p class="text-blue-700 dark:text-blue-300 mb-4">
-						This is your personal space where you can manage your account, upload files, and access all premium features.
-					</p>
-					<div class="flex flex-wrap gap-2">
-						<span class="px-3 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 rounded-full text-sm">
-							✨ File Uploads
-						</span>
-						<span class="px-3 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 rounded-full text-sm">
-							🔒 Secure Storage
-						</span>
-						<span class="px-3 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 rounded-full text-sm">
-							⚡ Fast Performance
-						</span>
-					</div>
-				</div>
 			</div>
 		</div>
 	</div>
-</div>
+</section>
 
 <!-- Avatar Upload Dialog -->
 {#if showAvatarUploadDialog}

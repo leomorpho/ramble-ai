@@ -20,7 +20,8 @@
 		Calendar,
 		CheckCircle2,
 		AlertCircle,
-		Loader2
+		Loader2,
+		Shield
 	} from 'lucide-svelte';
 
 	interface ProcessedFile {
@@ -212,99 +213,108 @@
 	<meta name="description" content="View your video processing usage statistics and history" />
 </svelte:head>
 
-<div class="container mx-auto px-4 py-8 max-w-6xl">
-	<!-- Header -->
-	<div class="mb-8">
-		<div class="flex items-center gap-3 mb-2">
-			<BarChart class="h-8 w-8 text-primary" />
-			<h1 class="text-3xl font-bold text-foreground">Usage Statistics</h1>
+<!-- Hero Section -->
+<section class="py-20 px-6">
+	<div class="max-w-4xl mx-auto">
+		<div class="flex items-center gap-3 mb-6">
+			<BarChart class="h-10 w-10 text-primary" />
+			<h1 class="text-4xl md:text-5xl font-bold">Usage Statistics</h1>
 		</div>
-		<p class="text-muted-foreground">Track your video processing usage and history</p>
-		<div class="mt-3 p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
-			<p class="text-sm text-green-800 dark:text-green-200">
-				🔒 <strong>Privacy First:</strong> All audio and video processing happens locally on your machine. 
-				We never store your files on our servers - only processing metadata is tracked for usage statistics.
-			</p>
+		<p class="text-xl text-muted-foreground mb-8">
+			Track your video processing usage and history
+		</p>
+		<div class="p-4 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
+			<div class="flex items-center gap-2 text-sm text-green-800 dark:text-green-200">
+				<Shield class="h-4 w-4" />
+				<p>
+					<strong>Privacy First:</strong> All audio and video processing happens locally on your machine. 
+					We never store your files on our servers - only processing metadata is tracked for usage statistics.
+				</p>
+			</div>
 		</div>
 	</div>
+</section>
 
-	{#if isLoading}
-		<div class="flex items-center justify-center min-h-[400px]">
-			<div class="flex items-center gap-2 text-muted-foreground">
-				<Loader2 class="h-5 w-5 animate-spin" />
-				<span>Loading usage statistics...</span>
-			</div>
-		</div>
-	{:else if error}
-		<div class="rounded-md border border-red-200 bg-red-50 p-4 text-red-600 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
-			<div class="flex items-center gap-2">
-				<AlertCircle class="h-5 w-5" />
-				<span>Error loading usage data: {error}</span>
-			</div>
-			<Button onclick={loadUsageData} variant="outline" class="mt-3">
-				Retry
-			</Button>
-		</div>
-	{:else}
-		<!-- Summary Cards -->
-		<div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
-			<!-- Current Month Summary -->
-			{#if currentMonthSummary}
-				<Card class="p-6">
-					<div class="flex items-center justify-between mb-2">
-						<span class="text-sm font-medium text-muted-foreground">This Month</span>
-						<Calendar class="h-4 w-4 text-muted-foreground" />
-					</div>
-					<div class="space-y-2">
-						<div class="text-2xl font-bold">{formatDuration(currentMonthSummary.total_duration_seconds)}</div>
-						<div class="text-sm text-muted-foreground">
-							{currentMonthSummary.total_files} files processed
-						</div>
-					</div>
-				</Card>
-
-				<Card class="p-6">
-					<div class="flex items-center justify-between mb-2">
-						<span class="text-sm font-medium text-muted-foreground">Success Rate</span>
-						<TrendingUp class="h-4 w-4 text-muted-foreground" />
-					</div>
-					<div class="space-y-2">
-						<div class="text-2xl font-bold">{currentMonthSummary.success_rate.toFixed(1)}%</div>
-						<div class="text-sm text-muted-foreground">
-							{currentMonthSummary.status_breakdown.completed} completed
-						</div>
-					</div>
-				</Card>
-			{/if}
-
-			<!-- All Time Summary -->
-			{#if allTimeSummary}
-				<Card class="p-6">
-					<div class="flex items-center justify-between mb-2">
-						<span class="text-sm font-medium text-muted-foreground">Total Processing</span>
-						<Clock class="h-4 w-4 text-muted-foreground" />
-					</div>
-					<div class="space-y-2">
-						<div class="text-2xl font-bold">{formatDuration(allTimeSummary.total_duration_seconds)}</div>
-						<div class="text-sm text-muted-foreground">
-							{allTimeSummary.total_files} files all-time
-						</div>
-					</div>
-				</Card>
-
-			{/if}
-		</div>
-
-		<!-- Recent Files Table -->
-		<Card class="overflow-hidden">
-			<div class="p-6 pb-4">
-				<div class="flex items-center justify-between mb-4">
-					<h2 class="text-xl font-semibold">Recent Processing History</h2>
-					<Button variant="outline" size="sm">
-						<Download class="h-4 w-4 mr-2" />
-						Export
-					</Button>
+{#if isLoading}
+	<section class="py-20 px-6">
+		<div class="max-w-4xl mx-auto">
+			<div class="flex items-center justify-center min-h-[400px]">
+				<div class="flex items-center gap-3 text-muted-foreground">
+					<Loader2 class="h-6 w-6 animate-spin" />
+					<span class="text-lg">Loading usage statistics...</span>
 				</div>
+			</div>
+		</div>
+	</section>
+{:else if error}
+	<section class="py-20 px-6">
+		<div class="max-w-4xl mx-auto">
+			<div class="rounded-lg border border-red-200 bg-red-50 p-6 text-red-600 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
+				<div class="flex items-center gap-3 mb-4">
+					<AlertCircle class="h-6 w-6" />
+					<span class="text-lg font-semibold">Error loading usage data: {error}</span>
+				</div>
+				<Button onclick={loadUsageData} variant="outline">
+					Retry
+				</Button>
+			</div>
+		</div>
+	</section>
+{:else}
+	<!-- Summary Cards Section -->
+	<section class="py-20 border-t px-6">
+		<div class="max-w-4xl mx-auto">
+			<h2 class="text-3xl md:text-4xl font-bold mb-12">Overview</h2>
+			<div class="grid gap-2 md:gap-6 grid-cols-3">
+				<!-- This Month Card -->
+				<Card class="p-2 md:p-6">
+					<div class="flex items-center justify-between mb-0.5 md:mb-2">
+						<span class="text-xs md:text-sm font-medium text-muted-foreground">This Month</span>
+						<Calendar class="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
+					</div>
+					<div class="space-y-0.5 md:space-y-2">
+						<div class="text-lg md:text-2xl font-bold">{currentMonthSummary ? formatDuration(currentMonthSummary.total_duration_seconds) : '0s'}</div>
+					</div>
+				</Card>
+
+				<!-- Success Rate Card -->
+				<Card class="p-2 md:p-6">
+					<div class="flex items-center justify-between mb-0.5 md:mb-2">
+						<span class="text-xs md:text-sm font-medium text-muted-foreground">Success Rate</span>
+						<TrendingUp class="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
+					</div>
+					<div class="space-y-0.5 md:space-y-2">
+						<div class="text-lg md:text-2xl font-bold">{currentMonthSummary ? currentMonthSummary.success_rate.toFixed(1) : '0.0'}%</div>
+					</div>
+				</Card>
+
+				<!-- Total Processing Card -->
+				<Card class="p-2 md:p-6">
+					<div class="flex items-center justify-between mb-0.5 md:mb-2">
+						<span class="text-xs md:text-sm font-medium text-muted-foreground">Total Processing</span>
+						<Clock class="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
+					</div>
+					<div class="space-y-0.5 md:space-y-2">
+						<div class="text-lg md:text-2xl font-bold">{allTimeSummary ? formatDuration(allTimeSummary.total_duration_seconds) : '0s'}</div>
+					</div>
+				</Card>
+			</div>
+		</div>
+	</section>
+
+	<!-- Recent Files Section -->
+	<section class="py-20 border-t px-6">
+		<div class="max-w-4xl mx-auto">
+			<div class="flex items-center justify-between mb-12">
+				<h2 class="text-3xl md:text-4xl font-bold">Recent Processing History</h2>
+				<Button variant="outline" size="sm">
+					<Download class="h-4 w-4 mr-2" />
+					Export
+				</Button>
+			</div>
+			
+			<Card class="overflow-hidden">
+				<div class="p-6">
 				
 				{#if processedFiles.length === 0}
 					<div class="text-center py-12 text-muted-foreground">
@@ -360,7 +370,8 @@
 						</table>
 					</div>
 				{/if}
-			</div>
-		</Card>
-	{/if}
-</div>
+				</div>
+			</Card>
+		</div>
+	</section>
+{/if}
