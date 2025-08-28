@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import DownloadButton from '$lib/components/DownloadButton.svelte';
-	import { Home, Info, LogIn, LogOut, User, CreditCard, Crown, BarChart } from 'lucide-svelte';
+	import { Home, LogIn, LogOut, User, CreditCard, Crown, BarChart } from 'lucide-svelte';
 	import type { AuthModel } from 'pocketbase';
 	import { config } from '$lib/config.js';
 	import { getAvatarUrl } from '$lib/files.js';
@@ -46,13 +46,6 @@
 					title="Home"
 				>
 					<Home class="h-4 w-4" />
-				</a>
-				<a
-					href="/about"
-					class="hover:bg-accent hover:text-accent-foreground inline-flex h-9 w-9 items-center justify-center rounded-md text-sm font-medium whitespace-nowrap transition-colors"
-					title="About"
-				>
-					<Info class="h-4 w-4" />
 				</a>
 				<a
 					href="/pricing"

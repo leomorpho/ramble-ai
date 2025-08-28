@@ -238,20 +238,13 @@
 		<!-- Additional Actions -->
 		<div class="border-t pt-6">
 			<h3 class="text-lg font-semibold mb-4">Need Help?</h3>
-			<div class="grid gap-4 md:grid-cols-2">
+			<div class="grid gap-4 md:grid-cols-1">
 				<a 
 					href="/pricing" 
 					class="rounded-lg border p-4 hover:bg-accent transition-colors"
 				>
 					<h4 class="font-medium mb-1">Change Plan</h4>
 					<p class="text-sm text-muted-foreground">Upgrade or downgrade your subscription</p>
-				</a>
-				<a 
-					href="/about" 
-					class="rounded-lg border p-4 hover:bg-accent transition-colors"
-				>
-					<h4 class="font-medium mb-1">Contact Support</h4>
-					<p class="text-sm text-muted-foreground">Get help with your account or billing</p>
 				</a>
 			</div>
 		</div>

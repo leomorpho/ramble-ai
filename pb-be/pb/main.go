@@ -1,17 +1,16 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 	"github.com/stripe/stripe-go/v79"
 
 	aihandlers "pocketbase/internal/ai"
@@ -19,7 +18,6 @@ import (
 	otphandlers "pocketbase/internal/otp"
 	stripehandlers "pocketbase/internal/stripe"
 	"pocketbase/webauthn"
-	_ "pocketbase/migrations"
 )
 
 func main() {
@@ -30,12 +28,18 @@ func main() {
 
 	app := pocketbase.New()
 
-	// Check if we're running with `go run`
-	isGoRun := strings.HasPrefix(os.Args[0], os.TempDir())
-
-	// Register the migrate command
-	migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{
-		Automigrate: isGoRun, // Auto-migrate during development
+	// Load schema after the app is fully bootstrapped
+	app.OnBootstrap().BindFunc(func(be *core.BootstrapEvent) error {
+		// Call Next first to ensure the database is fully initialized
+		if err := be.Next(); err != nil {
+			return err
+		}
+		
+		// Now load the schema
+		if err := loadSchemaFromJSON(app); err != nil {
+			log.Printf("Warning: Failed to load schema: %v", err)
+		}
+		return nil
 	})
 
 	// Configure Stripe
@@ -152,6 +156,70 @@ func main() {
 	if err := app.Start(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// loadSchemaFromJSON loads database schema from JSON file on first run
+func loadSchemaFromJSON(app *pocketbase.PocketBase) error {
+	// Check if collections already exist (skip if database is not empty)
+	collections, err := app.FindAllCollections()
+	if err != nil {
+		return err
+	}
+	
+	// Skip loading if we already have non-system collections
+	nonSystemCount := 0
+	for _, collection := range collections {
+		if !collection.IsAuth() && !collection.System {
+			nonSystemCount++
+		}
+	}
+	
+	if nonSystemCount > 0 {
+		log.Printf("Database already contains %d collections, skipping schema import", len(collections))
+		return nil
+	}
+
+	// Try multiple possible schema file locations
+	schemaFiles := []string{
+		"./pb_bootstrap/pb_schema.json",
+		"./pb_schema.json",
+		"../pb_schema.json",
+	}
+	
+	var schemaPath string
+	for _, path := range schemaFiles {
+		if _, err := os.Stat(path); err == nil {
+			schemaPath = path
+			break
+		}
+	}
+	
+	if schemaPath == "" {
+		log.Println("No schema file found, starting with empty database")
+		return nil
+	}
+
+	log.Printf("Loading schema from: %s", schemaPath)
+	
+	// Read schema file
+	schemaData, err := os.ReadFile(schemaPath)
+	if err != nil {
+		return err
+	}
+
+	// Parse JSON to the format expected by ImportCollections
+	var collectionsData []map[string]any
+	if err := json.Unmarshal(schemaData, &collectionsData); err != nil {
+		return err
+	}
+
+	// Import collections using PocketBase's sync functionality
+	if err := app.ImportCollections(collectionsData, true); err != nil {
+		return err
+	}
+
+	log.Printf("Schema import completed from: %s", schemaPath)
+	return nil
 }
 
 // configureEmailSettings sets up SMTP configuration for email verification

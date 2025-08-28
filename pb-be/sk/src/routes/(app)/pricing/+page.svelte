@@ -157,9 +157,7 @@
 		<div class="mt-16 text-center">
 			<h3 class="text-lg font-semibold mb-4">Questions?</h3>
 			<p class="text-muted-foreground">
-				Need help choosing the right plan? 
-				<a href="/about" class="text-primary hover:underline">Contact us</a>
-				and we'll help you find the perfect fit.
+				Need help choosing the right plan? We'll help you find the perfect fit.
 			</p>
 		</div>
 	</div>
