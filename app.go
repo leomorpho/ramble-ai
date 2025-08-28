@@ -352,6 +352,15 @@ func (a *App) IsRemoteBackendOverriddenByEnv() bool {
 	return os.Getenv("USE_REMOTE_AI_BACKEND") != ""
 }
 
+// GetRambleFrontendURL returns the Ramble AI frontend URL for API key acquisition
+func (a *App) GetRambleFrontendURL() string {
+	url := os.Getenv("RAMBLE_FRONTEND_URL")
+	if url == "" {
+		return "https://app.ramble.ai" // Default fallback
+	}
+	return url
+}
+
 // GetDevAPIKey returns the development API key if in development mode
 func (a *App) GetDevAPIKey() string {
 	// Only return the dev key if we're in development mode

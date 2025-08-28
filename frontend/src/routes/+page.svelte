@@ -13,6 +13,7 @@
   import { Settings, Lightbulb, Video, Volume2, HelpCircle, Target, FileText, Brain, RotateCcw, Upload, Zap, Plus, RefreshCw, BarChart } from "@lucide/svelte";
   import { CreateProject, GetProjects, GetVideoClipsByProject, GetRambleAIApiKey } from "$lib/wailsjs/go/main/App";
   import OnboardingDialog from "$lib/components/OnboardingDialog.svelte";
+  import ApiKeyRequiredBanner from "$lib/components/ApiKeyRequiredBanner.svelte";
   import { BannerList } from "$lib/components/ui/banner";
   import { fetchBanners } from "$lib/services/bannerService.js";
   import { onMount } from "svelte";
@@ -26,7 +27,8 @@
   let error = $state("");
   let onboardingDialogOpen = $state(false);
   let banners = $state([]);
-  let hasApiKey = $state(false);
+  let hasApiKey = $state(true); // Optimistically assume they have one to prevent flash
+  let apiKeyLoaded = $state(false);
 
   // Load projects and banners on mount
   onMount(async () => {
@@ -123,6 +125,8 @@
     } catch (err) {
       console.log("No API key configured");
       hasApiKey = false;
+    } finally {
+      apiKeyLoaded = true;
     }
   }
 </script>
@@ -153,14 +157,15 @@
           </a>
         </Button>
         
-        <Dialog bind:open={dialogOpen}>
-          <DialogTrigger>
-            <Button size="sm" class="flex items-center gap-2">
-              <Plus class="w-4 h-4" />
-              New Project
-            </Button>
-          </DialogTrigger>
-        <DialogContent>
+        {#if hasApiKey && apiKeyLoaded}
+          <Dialog bind:open={dialogOpen}>
+            <DialogTrigger>
+              <Button size="sm" class="flex items-center gap-2">
+                <Plus class="w-4 h-4" />
+                New Project
+              </Button>
+            </DialogTrigger>
+          <DialogContent>
           <DialogHeader>
             <DialogTitle>Create New Project</DialogTitle>
           </DialogHeader>
@@ -191,12 +196,29 @@
             </Button>
           </DialogFooter>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        {:else if apiKeyLoaded}
+          <Button size="sm" disabled class="flex items-center gap-2 opacity-50">
+            <Plus class="w-4 h-4" />
+            New Project
+          </Button>
+        {:else}
+          <!-- Loading state - show nothing or a subtle loading indicator -->
+          <Button size="sm" disabled class="flex items-center gap-2 opacity-50">
+            <Plus class="w-4 h-4" />
+            New Project
+          </Button>
+        {/if}
       </div>
     </div>
 
     <!-- Banners -->
     <BannerList banners={banners} />
+
+    <!-- API Key Required Banner - only show after backend response confirms no API key -->
+    {#if apiKeyLoaded && !hasApiKey && projects.length === 0 && !loading}
+      <ApiKeyRequiredBanner />
+    {/if}
 
     {#if error}
       <div class="border border-destructive rounded p-4 text-destructive">
