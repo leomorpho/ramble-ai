@@ -622,16 +622,36 @@ func streamToOpenAIWhisper(audioFile multipart.File, filename string) (*AudioPro
 }
 
 // createProcessedFileRecord creates a new record in processed_files collection
+// Enforces maximum 2 reprocessing attempts per filename for each user
 func createProcessedFileRecord(app core.App, userID, filename string, fileSizeBytes int64, clientIP string) (*core.Record, error) {
 	collection, err := app.FindCollectionByNameOrId("processed_files")
 	if err != nil {
 		return nil, fmt.Errorf("failed to find processed_files collection: %w", err)
 	}
 
+	// Check existing processing count for this filename and user
+	existingRecords, err := app.FindRecordsByFilter("processed_files", 
+		fmt.Sprintf("user_id = '%s' && filename = '%s'", userID, filename), 
+		"", 0, 0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query existing processed files: %w", err)
+	}
+
+	processingCount := len(existingRecords) + 1 // Current attempt number
+
+	// Enforce maximum 2 processing attempts
+	if processingCount > 2 {
+		return nil, fmt.Errorf("maximum processing limit reached for file '%s' (limit: 2 attempts)", filename)
+	}
+
+	log.Printf("📊 [PROCESSING COUNT] User: %s | Filename: %s | Attempt: %d/2 | IP: %s", 
+		userID, filename, processingCount, clientIP)
+
 	record := core.NewRecord(collection)
 	record.Set("user_id", userID)
 	record.Set("filename", filename)
 	record.Set("file_size_bytes", fileSizeBytes)
+	record.Set("processing_count", processingCount)
 	record.Set("status", "processing")
 	record.Set("model_used", "whisper-1")
 	record.Set("client_ip", clientIP)
@@ -760,6 +780,7 @@ func UsageFilesHandler(e *core.RequestEvent, app core.App) error {
 			"file_size_bytes":    record.GetInt("file_size_bytes"),
 			"duration_seconds":   record.GetFloat("duration_seconds"),
 			"processing_time_ms": record.GetInt("processing_time_ms"),
+			"processing_count":   record.GetInt("processing_count"),
 			"status":            record.GetString("status"),
 			"transcript_length": record.GetInt("transcript_length"),
 			"words_count":       record.GetInt("words_count"),

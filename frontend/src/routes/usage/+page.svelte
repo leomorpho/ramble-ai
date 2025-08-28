@@ -179,7 +179,17 @@
   }
 
   function formatDate(dateString) {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    if (!dateString) return 'Unknown';
+    
+    const date = new Date(dateString);
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid date received:', dateString);
+      return 'Invalid Date';
+    }
+    
+    return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
@@ -217,6 +227,13 @@
       <h1 class="text-3xl font-bold text-foreground">Usage Statistics</h1>
     </div>
     <p class="text-muted-foreground -mt-6 ml-11">Track your video processing usage and history</p>
+    
+    <div class="mt-4 ml-11 p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
+      <p class="text-sm text-green-800 dark:text-green-200">
+        🔒 <strong>Privacy First:</strong> All audio and video processing happens locally on your machine. 
+        We never store your files on our servers - only processing metadata is tracked for usage statistics.
+      </p>
+    </div>
 
     {#if isLoading}
       <div class="flex items-center justify-center min-h-[400px]">

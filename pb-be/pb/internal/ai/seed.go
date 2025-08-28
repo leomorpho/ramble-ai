@@ -12,8 +12,8 @@ import (
 const (
 	// Development API key - only used when DEVELOPMENT=true
 	DEV_API_KEY = "ra-dev-12345678901234567890123456789012"
-	DEV_USER_EMAIL = "dev@ramble-ai.local"
-	DEV_USER_NAME = "Development User"
+	DEV_USER_EMAIL = "bob@test.com"
+	DEV_USER_NAME = "Bob"
 	
 	// Admin user for testing
 	ADMIN_USER_EMAIL = "alice@test.com"
@@ -51,8 +51,8 @@ func SeedDevelopmentData(app core.App) error {
 		devUser = core.NewRecord(usersCollection)
 		devUser.Set("email", DEV_USER_EMAIL)
 		devUser.Set("name", DEV_USER_NAME)
-		devUser.Set("password", "devpassword123")
-		devUser.Set("passwordConfirm", "devpassword123")
+		devUser.Set("password", "password")
+		devUser.Set("passwordConfirm", "password")
 		devUser.Set("verified", true)
 		
 		if err := app.Save(devUser); err != nil {

@@ -48,6 +48,12 @@ func init() {
 			&core.TextField{
 				Name: "client_ip",
 			},
+			&core.DateField{
+				Name: "created",
+			},
+			&core.DateField{
+				Name: "updated",
+			},
 		)
 
 		// Add indexes for efficient querying

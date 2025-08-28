@@ -3,8 +3,6 @@ package projects
 import (
 	"bytes"
 	"context"
-	"crypto/md5"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -1871,30 +1869,30 @@ func (s *ProjectService) BatchTranscribeUntranscribedClips(projectID int) (*Batc
 	}, nil
 }
 
-// extractAudio extracts audio from a video file using ffmpeg
+// extractAudio extracts audio from a video file using ffmpeg with optimized settings
 func (s *ProjectService) extractAudio(videoPath string) (string, error) {
-	// Create temp directory for audio files
-	tempDir := "temp_audio"
+	// Create temp directory for audio files using system temp dir
+	tempDir := filepath.Join(os.TempDir(), "ramble_audio")
 	if err := os.MkdirAll(tempDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create temp directory: %w", err)
 	}
 
 	// Generate unique audio filename
-	hash := md5.Sum([]byte(videoPath + fmt.Sprintf("%d", time.Now().UnixNano())))
-	audioFilename := hex.EncodeToString(hash[:]) + ".mp3"
+	audioFilename := fmt.Sprintf("audio_%d.mp3", time.Now().UnixNano())
 	audioPath := filepath.Join(tempDir, audioFilename)
 
 	log.Printf("[TRANSCRIPTION] Extracting audio from: %s to: %s", videoPath, audioPath)
 
-	// Use ffmpeg to extract audio
+	// Use ffmpeg to extract audio with optimized settings for Whisper
 	cmd := goapp.GetFFmpegCommand(
 		"-i", videoPath,
 		"-vn",            // No video
-		"-acodec", "mp3", // Audio codec
-		"-ar", "16000", // Sample rate (16kHz for Whisper)
-		"-ac", "1", // Mono channel
-		"-b:a", "64k", // Bitrate
-		"-y", // Overwrite output file
+		"-acodec", "mp3", // MP3 codec (guaranteed Whisper support)
+		"-ar", "16000",   // Sample rate (16kHz for Whisper)
+		"-ac", "1",       // Mono channel
+		"-b:a", "24k",    // Low bitrate for significant space savings (reduced from 64k)
+		"-af", "highpass=f=80,lowpass=f=8000", // Filter frequencies outside speech range
+		"-y",             // Overwrite output file
 		audioPath,
 	)
 
@@ -1904,7 +1902,14 @@ func (s *ProjectService) extractAudio(videoPath string) (string, error) {
 		return "", fmt.Errorf("ffmpeg failed: %w", err)
 	}
 
-	log.Printf("[TRANSCRIPTION] Audio extracted successfully: %s", audioPath)
+	// Get file size for logging
+	if stat, err := os.Stat(audioPath); err == nil {
+		sizeMB := float64(stat.Size()) / (1024 * 1024)
+		log.Printf("[TRANSCRIPTION] Audio extracted successfully: %s (%.2f MB)", audioPath, sizeMB)
+	} else {
+		log.Printf("[TRANSCRIPTION] Audio extracted successfully: %s", audioPath)
+	}
+
 	return audioPath, nil
 }
 
