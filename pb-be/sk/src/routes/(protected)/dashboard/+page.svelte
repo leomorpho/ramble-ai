@@ -7,6 +7,7 @@
 	import { onMount } from 'svelte';
 	import { getAvatarUrl } from '$lib/files.js';
 	import PersonalAccount from '$lib/components/dashboard/PersonalAccount.svelte';
+	import APIKeyManager from '$lib/components/APIKeyManager.svelte';
 
 	// State for avatar upload
 	let showAvatarUploadDialog = $state(false);
@@ -389,6 +390,9 @@
 
 			<!-- Personal Account -->
 				<PersonalAccount />
+
+			<!-- API Key Management -->
+				<APIKeyManager />
 
 			<!-- Recent Activity / Welcome Message -->
 				<div class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-xl border border-blue-200 dark:border-blue-800/50 p-6">
