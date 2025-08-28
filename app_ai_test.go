@@ -54,7 +54,7 @@ func TestAppSuggestHighlightsWithAI(t *testing.T) {
 		
 		// Should fail due to no OpenRouter API key configured
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to get AI highlight suggestions: OpenRouter API key not provided")
+		assert.Contains(t, err.Error(), "Ramble AI API key not configured")
 		assert.Nil(t, suggestions)
 	})
 	
@@ -259,7 +259,7 @@ func TestAppImproveHighlightSilencesWithAI(t *testing.T) {
 		
 		// Should fail due to no OpenRouter API key configured
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "OpenRouter API key not configured")
+		assert.Contains(t, err.Error(), "Ramble AI API key not configured")
 		assert.Nil(t, result)
 	})
 	

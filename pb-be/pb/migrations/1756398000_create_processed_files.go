@@ -48,17 +48,46 @@ func init() {
 			&core.TextField{
 				Name: "client_ip",
 			},
-			&core.DateField{
-				Name: "created",
+			&core.AutodateField{
+				Name:     "created",
+				OnCreate: true,
 			},
-			&core.DateField{
-				Name: "updated",
+			&core.AutodateField{
+				Name:     "updated", 
+				OnUpdate: true,
+			},
+			// Chunking fields for handling large files
+			&core.TextField{
+				Name: "base_filename",
+				Required: false,
+			},
+			&core.BoolField{
+				Name: "is_chunk",
+				Required: false,
+			},
+			&core.BoolField{
+				Name: "is_last_chunk",
+				Required: false,
+			},
+			&core.NumberField{
+				Name: "chunk_index",
+				Required: false,
+			},
+			&core.NumberField{
+				Name: "original_file_size_bytes",
+				Required: false,
+			},
+			&core.NumberField{
+				Name: "original_duration_seconds",
+				Required: false,
 			},
 		)
 
 		// Add indexes for efficient querying
 		processedFiles.AddIndex("idx_processed_files_user_id", false, "user_id", "")
 		processedFiles.AddIndex("idx_processed_files_status", false, "status", "")
+		processedFiles.AddIndex("idx_processed_files_chunks", false, "user_id", "base_filename")
+		processedFiles.AddIndex("idx_processed_files_is_chunk", false, "is_chunk", "")
 
 		// Security rules - users can only access their own processed files
 		processedFiles.ListRule = types.Pointer("@request.auth.id != '' && user_id = @request.auth.id")

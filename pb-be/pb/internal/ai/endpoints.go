@@ -484,11 +484,39 @@ func ProcessAudioHandler(e *core.RequestEvent, app core.App) error {
 	fileSize := header.Size
 	fileSizeKB := fileSize / 1024
 	
-	log.Printf("🎵 [AI AUDIO REQUEST] Processing | User: %s | Filename: %s | Audio Size: %d KB | IP: %s", 
-		userEmail, filename, fileSizeKB, clientIP)
+	// Check for chunk metadata from form data
+	baseFilename := e.Request.FormValue("base_filename")
+	isChunk := e.Request.FormValue("is_chunk") == "true"
+	isLastChunk := e.Request.FormValue("is_last_chunk") == "true"
+	chunkIndex := 0
+	if chunkStr := e.Request.FormValue("chunk_index"); chunkStr != "" {
+		fmt.Sscanf(chunkStr, "%d", &chunkIndex)
+	}
+	var originalFileSize int64
+	if sizeStr := e.Request.FormValue("original_file_size_bytes"); sizeStr != "" {
+		fmt.Sscanf(sizeStr, "%d", &originalFileSize)
+	}
+	var originalDuration float64
+	if durStr := e.Request.FormValue("original_duration_seconds"); durStr != "" {
+		fmt.Sscanf(durStr, "%f", &originalDuration)
+	}
+	
+	// If not a chunk, use the current filename as base
+	if baseFilename == "" {
+		baseFilename = filename
+	}
+	
+	if isChunk {
+		log.Printf("🎵 [AI AUDIO REQUEST] Processing Chunk | User: %s | Base: %s | Chunk: %d | Size: %d KB | Last: %v | IP: %s", 
+			userEmail, baseFilename, chunkIndex, fileSizeKB, isLastChunk, clientIP)
+	} else {
+		log.Printf("🎵 [AI AUDIO REQUEST] Processing | User: %s | Filename: %s | Audio Size: %d KB | IP: %s", 
+			userEmail, filename, fileSizeKB, clientIP)
+	}
 
-	// Create initial processed_files record
-	processedFileRecord, err := createProcessedFileRecord(app, userID, filename, fileSize, clientIP)
+	// Create initial processed_files record with chunk metadata
+	processedFileRecord, err := createProcessedFileRecordWithChunkInfo(app, userID, filename, fileSize, clientIP, 
+		baseFilename, isChunk, isLastChunk, chunkIndex, originalFileSize, originalDuration)
 	if err != nil {
 		log.Printf("⚠️  [AI AUDIO REQUEST] Warning: Failed to create processed_files record | User: %s | Error: %v", 
 			userEmail, err)
@@ -517,13 +545,29 @@ func ProcessAudioHandler(e *core.RequestEvent, app core.App) error {
 	// Update processed_files record with success
 	if processedFileRecord != nil {
 		updateProcessedFileRecord(app, processedFileRecord, "completed", result.Duration, transcriptLength, wordCount, elapsed.Milliseconds())
+		
+		// If this is the last chunk, flatten all chunks into a single record
+		if isLastChunk {
+			if err := flattenChunkedRecords(app, userID, baseFilename, originalFileSize, originalDuration); err != nil {
+				log.Printf("⚠️  [AI AUDIO REQUEST] Warning: Failed to flatten chunk records | User: %s | Base: %s | Error: %v", 
+					userEmail, baseFilename, err)
+				// Don't fail the request, just log the warning
+			} else {
+				log.Printf("✅ [AI AUDIO REQUEST] Flattened chunks | User: %s | Base: %s", userEmail, baseFilename)
+			}
+		}
 	}
 	
 	// Log usage and success
 	logAIUsage(app, userID, userEmail, "transcription", "whisper-1", 0, int(fileSizeKB), transcriptLength, elapsed, clientIP)
 	
-	log.Printf("✅ [AI AUDIO REQUEST] SUCCESS | User: %s | Filename: %s | Audio: %d KB | Transcript: %d chars | Words: %d | Duration: %v | IP: %s", 
-		userEmail, filename, fileSizeKB, transcriptLength, wordCount, elapsed, clientIP)
+	if isChunk {
+		log.Printf("✅ [AI AUDIO REQUEST] CHUNK SUCCESS | User: %s | Base: %s | Chunk: %d | Transcript: %d chars | Duration: %v | IP: %s", 
+			userEmail, baseFilename, chunkIndex, transcriptLength, elapsed, clientIP)
+	} else {
+		log.Printf("✅ [AI AUDIO REQUEST] SUCCESS | User: %s | Filename: %s | Audio: %d KB | Transcript: %d chars | Words: %d | Duration: %v | IP: %s", 
+			userEmail, filename, fileSizeKB, transcriptLength, wordCount, elapsed, clientIP)
+	}
 
 	return e.JSON(200, result)
 }
@@ -621,40 +665,53 @@ func streamToOpenAIWhisper(audioFile multipart.File, filename string) (*AudioPro
 	}, nil
 }
 
-// createProcessedFileRecord creates a new record in processed_files collection
-// Enforces maximum 2 reprocessing attempts per filename for each user
-func createProcessedFileRecord(app core.App, userID, filename string, fileSizeBytes int64, clientIP string) (*core.Record, error) {
+// createProcessedFileRecordWithChunkInfo creates a new record in processed_files collection with chunk metadata
+func createProcessedFileRecordWithChunkInfo(app core.App, userID, filename string, fileSizeBytes int64, clientIP string,
+	baseFilename string, isChunk, isLastChunk bool, chunkIndex int, originalFileSize int64, originalDuration float64) (*core.Record, error) {
+	
 	collection, err := app.FindCollectionByNameOrId("processed_files")
 	if err != nil {
 		return nil, fmt.Errorf("failed to find processed_files collection: %w", err)
 	}
 
-	// Check existing processing count for this filename and user
-	existingRecords, err := app.FindRecordsByFilter("processed_files", 
-		fmt.Sprintf("user_id = '%s' && filename = '%s'", userID, filename), 
-		"", 0, 0)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query existing processed files: %w", err)
+	// For non-chunks, check existing processing count
+	if !isChunk {
+		existingRecords, err := app.FindRecordsByFilter("processed_files", 
+			fmt.Sprintf("user_id = '%s' && filename = '%s' && is_chunk = false", userID, filename), 
+			"", 0, 0)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query existing processed files: %w", err)
+		}
+
+		processingCount := len(existingRecords) + 1
+		if processingCount > 2 {
+			return nil, fmt.Errorf("maximum processing limit reached for file '%s' (limit: 2 attempts)", filename)
+		}
+
+		log.Printf("📊 [PROCESSING COUNT] User: %s | Filename: %s | Attempt: %d/2 | IP: %s", 
+			userID, filename, processingCount, clientIP)
 	}
-
-	processingCount := len(existingRecords) + 1 // Current attempt number
-
-	// Enforce maximum 2 processing attempts
-	if processingCount > 2 {
-		return nil, fmt.Errorf("maximum processing limit reached for file '%s' (limit: 2 attempts)", filename)
-	}
-
-	log.Printf("📊 [PROCESSING COUNT] User: %s | Filename: %s | Attempt: %d/2 | IP: %s", 
-		userID, filename, processingCount, clientIP)
 
 	record := core.NewRecord(collection)
 	record.Set("user_id", userID)
 	record.Set("filename", filename)
 	record.Set("file_size_bytes", fileSizeBytes)
-	record.Set("processing_count", processingCount)
 	record.Set("status", "processing")
 	record.Set("model_used", "whisper-1")
 	record.Set("client_ip", clientIP)
+	
+	// Set chunk metadata
+	record.Set("base_filename", baseFilename)
+	record.Set("is_chunk", isChunk)
+	record.Set("is_last_chunk", isLastChunk)
+	if isChunk {
+		record.Set("chunk_index", chunkIndex)
+		record.Set("processing_count", 1) // Chunks always count as 1
+	}
+	if isLastChunk && originalFileSize > 0 {
+		record.Set("original_file_size_bytes", originalFileSize)
+		record.Set("original_duration_seconds", originalDuration)
+	}
 
 	if err := app.Save(record); err != nil {
 		return nil, fmt.Errorf("failed to save processed_files record: %w", err)
@@ -674,6 +731,78 @@ func updateProcessedFileRecord(app core.App, record *core.Record, status string,
 	if err := app.Save(record); err != nil {
 		return fmt.Errorf("failed to update processed_files record: %w", err)
 	}
+
+	return nil
+}
+
+// flattenChunkedRecords consolidates all chunk records into a single record after last chunk is processed
+func flattenChunkedRecords(app core.App, userID, baseFilename string, originalFileSize int64, originalDuration float64) error {
+	// Find all chunk records for this base filename
+	filter := fmt.Sprintf("user_id = '%s' && base_filename = '%s' && is_chunk = true && status = 'completed'", userID, baseFilename)
+	chunkRecords, err := app.FindRecordsByFilter("processed_files", filter, "chunk_index ASC", 0, 0)
+	if err != nil {
+		return fmt.Errorf("failed to find chunk records: %w", err)
+	}
+
+	if len(chunkRecords) == 0 {
+		return fmt.Errorf("no completed chunks found for base file: %s", baseFilename)
+	}
+
+	log.Printf("📊 [FLATTEN CHUNKS] Found %d chunks for file: %s | User: %s", len(chunkRecords), baseFilename, userID)
+
+	// Aggregate data from all chunks
+	var totalTranscriptLength int64
+	var totalWordsCount int64
+	var totalProcessingTimeMs int64
+	var clientIP string
+
+	for _, chunk := range chunkRecords {
+		totalTranscriptLength += int64(chunk.GetInt("transcript_length"))
+		totalWordsCount += int64(chunk.GetInt("words_count"))
+		totalProcessingTimeMs += int64(chunk.GetInt("processing_time_ms"))
+		if clientIP == "" {
+			clientIP = chunk.GetString("client_ip")
+		}
+	}
+
+	// Create the consolidated record
+	collection, err := app.FindCollectionByNameOrId("processed_files")
+	if err != nil {
+		return fmt.Errorf("failed to find processed_files collection: %w", err)
+	}
+
+	consolidatedRecord := core.NewRecord(collection)
+	consolidatedRecord.Set("user_id", userID)
+	consolidatedRecord.Set("filename", baseFilename)
+	consolidatedRecord.Set("file_size_bytes", originalFileSize)
+	consolidatedRecord.Set("duration_seconds", originalDuration)
+	consolidatedRecord.Set("processing_time_ms", totalProcessingTimeMs)
+	consolidatedRecord.Set("status", "completed")
+	consolidatedRecord.Set("transcript_length", totalTranscriptLength)
+	consolidatedRecord.Set("words_count", totalWordsCount)
+	consolidatedRecord.Set("model_used", "whisper-1")
+	consolidatedRecord.Set("client_ip", clientIP)
+	consolidatedRecord.Set("base_filename", baseFilename)
+	consolidatedRecord.Set("is_chunk", false)
+	consolidatedRecord.Set("chunk_index", len(chunkRecords)) // Store total chunk count for reference
+	consolidatedRecord.Set("processing_count", 1)
+
+	if err := app.Save(consolidatedRecord); err != nil {
+		return fmt.Errorf("failed to save consolidated record: %w", err)
+	}
+
+	log.Printf("✅ [FLATTEN CHUNKS] Created consolidated record | File: %s | Chunks: %d | Total Duration: %.1fs | Total Words: %d", 
+		baseFilename, len(chunkRecords), originalDuration, totalWordsCount)
+
+	// Delete the individual chunk records
+	for _, chunk := range chunkRecords {
+		if err := app.Delete(chunk); err != nil {
+			log.Printf("⚠️  [FLATTEN CHUNKS] Failed to delete chunk record %s: %v", chunk.Id, err)
+			// Continue deleting other chunks even if one fails
+		}
+	}
+
+	log.Printf("🗑️  [FLATTEN CHUNKS] Deleted %d chunk records for file: %s", len(chunkRecords), baseFilename)
 
 	return nil
 }
@@ -705,8 +834,9 @@ func UsageSummaryHandler(e *core.RequestEvent, app core.App) error {
 	// Get month parameter (optional, defaults to current month)
 	month := e.Request.URL.Query().Get("month") // Format: YYYY-MM
 
-	// Query processed files for user
-	filter := fmt.Sprintf("user_id = '%s'", userID)
+	// Query processed files for user (exclude chunk records)
+	filter := fmt.Sprintf("user_id = '%s' && (is_chunk = false || is_chunk = '')", userID)
+	log.Printf("🔍 [USAGE SUMMARY] Querying summary for user: %s with filter: %s", userID, filter)
 	if month != "" {
 		// Add month filter if specified
 		filter += fmt.Sprintf(" && created >= '%s-01 00:00:00' && created < '%s-01 00:00:00'", month, getNextMonth(month))
@@ -717,6 +847,8 @@ func UsageSummaryHandler(e *core.RequestEvent, app core.App) error {
 		log.Printf("❌ [USAGE SUMMARY REQUEST] FAILED: Database query error | User: %s | Error: %v", userEmail, err)
 		return e.JSON(500, map[string]string{"error": "Failed to retrieve usage data"})
 	}
+	
+	log.Printf("📊 [USAGE SUMMARY] Found %d records for summary | User: %s", len(records), userEmail)
 
 	// Aggregate statistics
 	summary := calculateUsageSummary(records)
@@ -762,14 +894,20 @@ func UsageFilesHandler(e *core.RequestEvent, app core.App) error {
 		}
 	}
 
-	// Query processed files
-	filter := fmt.Sprintf("user_id = '%s'", userID)
+	// Query processed files (exclude chunk records) - get records where is_chunk is false or empty
+	filter := fmt.Sprintf("user_id = '%s' && (is_chunk = false || is_chunk = '')", userID)
+	
+	// Add debug logging for troubleshooting
+	log.Printf("🔍 [USAGE FILES] Querying files for user: %s with filter: %s", userID, filter)
 	sort := "" // No sorting for now to avoid created field issues
 	
 	records, err := app.FindRecordsByFilter("processed_files", filter, sort, perPage, (page-1)*perPage)
 	if err != nil {
+		log.Printf("❌ [USAGE FILES] Database query failed: %v", err)
 		return e.JSON(500, map[string]string{"error": "Failed to retrieve files data"})
 	}
+	
+	log.Printf("📊 [USAGE FILES] Found %d records for user %s", len(records), userID)
 
 	// Convert to response format
 	files := make([]map[string]interface{}, len(records))
@@ -805,6 +943,8 @@ func UsageFilesHandler(e *core.RequestEvent, app core.App) error {
 		"total":        totalRecords,
 		"total_pages":  (totalRecords + int64(perPage) - 1) / int64(perPage),
 	}
+	
+	log.Printf("✅ [USAGE FILES] Returning %d files to user %s", len(files), userID)
 
 	return e.JSON(200, response)
 }
@@ -831,13 +971,13 @@ func UsageStatsHandler(e *core.RequestEvent, app core.App) error {
 	currentMonth := now.Format("2006-01")
 	lastMonth := now.AddDate(0, -1, 0).Format("2006-01")
 
-	// Query current month
-	currentFilter := fmt.Sprintf("user_id = '%s' && created >= '%s-01 00:00:00' && created < '%s-01 00:00:00'", 
+	// Query current month (exclude chunk records)
+	currentFilter := fmt.Sprintf("user_id = '%s' && (is_chunk = false || is_chunk = '') && created >= '%s-01 00:00:00' && created < '%s-01 00:00:00'", 
 		userID, currentMonth, getNextMonth(currentMonth))
 	currentRecords, _ := app.FindRecordsByFilter("processed_files", currentFilter, "", 0, 0)
 	
-	// Query last month
-	lastFilter := fmt.Sprintf("user_id = '%s' && created >= '%s-01 00:00:00' && created < '%s-01 00:00:00'", 
+	// Query last month (exclude chunk records)
+	lastFilter := fmt.Sprintf("user_id = '%s' && (is_chunk = false || is_chunk = '') && created >= '%s-01 00:00:00' && created < '%s-01 00:00:00'", 
 		userID, lastMonth, currentMonth)
 	lastRecords, _ := app.FindRecordsByFilter("processed_files", lastFilter, "", 0, 0)
 

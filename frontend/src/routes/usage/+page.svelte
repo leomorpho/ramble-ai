@@ -18,7 +18,8 @@
     CheckCircle2,
     AlertCircle,
     Loader2,
-    ArrowLeft
+    ArrowLeft,
+    RefreshCw
   } from "@lucide/svelte";
 
   // TypeScript interfaces matching PocketBase frontend
@@ -68,6 +69,21 @@
 
   onMount(async () => {
     await loadUsageData();
+    
+    // Add page visibility listener to refresh data when user returns to page
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('Page became visible, refreshing usage data...');
+        loadUsageData();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Cleanup on unmount
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   });
 
   async function loadUsageData() {
@@ -95,7 +111,8 @@
       }
 
       const filesData = await filesResponse.json();
-      processedFiles = filesData.items || [];
+      console.log('Files API response:', filesData); // Debug logging
+      processedFiles = filesData.files || [];
 
       // Load usage summary
       const summaryResponse = await fetch(`${POCKETBASE_URL}/api/usage/summary`, {
@@ -110,6 +127,7 @@
       }
 
       const summaryData = await summaryResponse.json();
+      console.log('Summary API response:', summaryData); // Debug logging
       
       // For now, use all-time data for both summaries until we add date filtering
       allTimeSummary = summaryData;
@@ -219,12 +237,18 @@
 <main class="min-h-screen bg-background text-foreground p-8">
   <div class="max-w-6xl mx-auto space-y-6">
     <!-- Header -->
-    <div class="flex items-center gap-3 mb-8">
-      <a href="/" class="text-muted-foreground hover:text-foreground" aria-label="Back to home">
-        <ArrowLeft class="w-4 h-4" />
-      </a>
-      <BarChart class="h-8 w-8 text-primary" />
-      <h1 class="text-3xl font-bold text-foreground">Usage Statistics</h1>
+    <div class="flex items-center justify-between mb-8">
+      <div class="flex items-center gap-3">
+        <a href="/" class="text-muted-foreground hover:text-foreground" aria-label="Back to home">
+          <ArrowLeft class="w-4 h-4" />
+        </a>
+        <BarChart class="h-8 w-8 text-primary" />
+        <h1 class="text-3xl font-bold text-foreground">Usage Statistics</h1>
+      </div>
+      <Button onclick={loadUsageData} variant="outline" size="sm" disabled={isLoading}>
+        <RefreshCw class={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+        Refresh
+      </Button>
     </div>
     <p class="text-muted-foreground -mt-6 ml-11">Track your video processing usage and history</p>
     

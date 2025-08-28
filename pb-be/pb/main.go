@@ -71,6 +71,9 @@ func main() {
 		log.Printf("Server configured: ReadTimeout=%v, WriteTimeout=%v", 
 			se.Server.ReadTimeout, se.Server.WriteTimeout)
 
+		// Log Whisper configuration for audio processing
+		logWhisperConfiguration()
+
 		// Seed development data if in development mode
 		if err := aihandlers.SeedDevelopmentData(app); err != nil {
 			log.Printf("Warning: Failed to seed development data: %v", err)
@@ -190,4 +193,31 @@ func configureEmailSettings(app *pocketbase.PocketBase) error {
 	
 	log.Printf("SMTP configured: %s:%d (TLS: %v)", smtpHost, smtpPort, smtpTLS)
 	return nil
+}
+
+// logWhisperConfiguration logs the Whisper API configuration for audio processing
+func logWhisperConfiguration() {
+	var maxSize int64
+	var source string
+	
+	if maxSizeStr := os.Getenv("WHISPER_MAX_FILE_SIZE"); maxSizeStr != "" {
+		if parsedSize, err := strconv.ParseInt(maxSizeStr, 10, 64); err == nil {
+			maxSize = parsedSize
+			source = "environment variable"
+		} else {
+			log.Printf("Warning: Invalid WHISPER_MAX_FILE_SIZE value '%s', using default", maxSizeStr)
+			maxSize = 25 * 1024 * 1024 // 25MB default
+			source = "default (invalid env var)"
+		}
+	} else {
+		maxSize = 25 * 1024 * 1024 // 25MB default
+		source = "default"
+	}
+	
+	sizeMB := float64(maxSize) / (1024 * 1024)
+	log.Printf("[WHISPER_CONFIG] Max file size: %d bytes (%.1f MB) - source: %s", maxSize, sizeMB, source)
+	
+	// Also log the PocketBase body limit for comparison
+	bodyLimitGB := float64(2<<30) / (1024 * 1024 * 1024)
+	log.Printf("[WHISPER_CONFIG] PocketBase body limit: %.0f GB for audio uploads", bodyLimitGB)
 }
