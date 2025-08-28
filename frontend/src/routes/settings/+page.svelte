@@ -1,39 +1,6 @@
 <script>
-  import OpenAIConfig from "$lib/components/settings/OpenAIConfig.svelte";
-  import OpenRouterConfig from "$lib/components/settings/OpenRouterConfig.svelte";
   import RemoteAIConfig from "$lib/components/settings/RemoteAIConfig.svelte";
-  import DevToggle from "$lib/components/settings/DevToggle.svelte";
   import { ArrowLeft } from "@lucide/svelte";
-  import { GetUseRemoteAIBackend } from "$lib/wailsjs/go/main/App";
-  import { onMount } from "svelte";
-
-  let useRemoteBackend = $state(false);
-  let loading = $state(true);
-
-  onMount(() => {
-    loadSettings();
-  });
-
-  async function loadSettings() {
-    try {
-      const remoteEnabled = await GetUseRemoteAIBackend();
-      useRemoteBackend = remoteEnabled;
-    } catch (err) {
-      console.error("Failed to load remote backend setting:", err);
-    } finally {
-      loading = false;
-    }
-  }
-
-  function handleBackendToggle(newValue) {
-    useRemoteBackend = newValue;
-  }
-
-  function handleAPIKeySeeded() {
-    // Force refresh of the page to update all components
-    // This is a simple approach to ensure RemoteAIConfig reloads
-    window.location.reload();
-  }
 </script>
 
 <main class="min-h-screen bg-background text-foreground p-8">
@@ -45,15 +12,6 @@
       <h1 class="text-2xl font-semibold">Settings</h1>
     </div>
 
-    {#if !loading}
-      <DevToggle onToggle={handleBackendToggle} onAPIKeySeeded={handleAPIKeySeeded} />
-      
-      {#if useRemoteBackend}
-        <RemoteAIConfig />
-      {:else}
-        <OpenAIConfig />
-        <OpenRouterConfig />
-      {/if}
-    {/if}
+    <RemoteAIConfig />
   </div>
 </main>

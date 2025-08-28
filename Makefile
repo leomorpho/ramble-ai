@@ -21,9 +21,10 @@ help: ## Show this help message
 dev: ## Start development server with hot reload
 	wails dev
 
-.PHONY: backend
-backend: ## Start PocketBase backend server
-	@echo "🚀 Starting PocketBase backend server..."
+
+.PHONY: pb
+pb: ## Smart PocketBase command - setup if needed, then start backend + SvelteKit (use NUKE=1 to delete database first)
+	@echo "🚀 Starting PocketBase development environment..."
 	@echo ""
 	@echo "⚠️  Make sure you have set your API keys in pb-be/pb/.env:"
 	@echo "   OPENROUTER_API_KEY=your-openrouter-key"
@@ -35,16 +36,59 @@ backend: ## Start PocketBase backend server
 		echo "   You can copy from pb-be/pb/.env.example"; \
 		exit 1; \
 	fi
-	@echo "🎯 Starting PocketBase backend..."
+	@echo "🔍 Checking if setup is needed..."
+	@# Check if SvelteKit dependencies are installed
+	@if [ ! -d pb-be/sk/node_modules ]; then \
+		echo "📦 First run detected - setting up dependencies..."; \
+		echo "   This may take a few minutes on first run..."; \
+		echo ""; \
+		echo "⏳ Installing SvelteKit frontend dependencies..."; \
+		cd pb-be/sk && npm install --progress=true; \
+		echo "✅ Frontend dependencies installed!"; \
+		echo ""; \
+		echo "⏳ Installing Go backend dependencies..."; \
+		cd pb-be/pb && go mod tidy; \
+		echo "✅ Backend dependencies installed!"; \
+		echo ""; \
+		echo "⏳ Building PocketBase backend..."; \
+		cd pb-be/pb && go build -o pocketbase; \
+		echo "✅ Backend built successfully!"; \
+		echo ""; \
+		echo "🎉 Setup complete!"; \
+	else \
+		echo "✅ Dependencies already installed, skipping setup..."; \
+	fi
+	@echo ""
+	@echo "🎯 Starting services..."
+	@echo "   📧 Email Testing: http://localhost:8025 (Mailpit)"
+	@echo "   🔧 PocketBase Backend: http://localhost:8090"
+	@echo "   🌐 SvelteKit Frontend: http://localhost:5174"
 	@echo "   Admin UI: http://localhost:8090/_/"
 	@echo "   API Endpoints:"
 	@echo "     POST /api/ai/process-text"
 	@echo "     POST /api/ai/process-audio" 
 	@echo "     POST /api/generate-api-key"
+	@echo "     GET /api/banners"
+	@echo "     GET /api/banners/authenticated"
 	@echo "   Development API Key: ra-dev-12345678901234567890123456789012"
 	@echo "   (Auto-seeded for development - use in your Wails app)"
 	@echo ""
-	cd pb-be/pb && go run main.go serve --dev --http 0.0.0.0:8090
+	@echo "🧑‍💼 Admin User (for PocketBase frontend):"
+	@echo "   Email: alice@test.com"
+	@echo "   Password: password"
+	@echo ""
+	@if [ "$(NUKE)" = "1" ]; then \
+		echo "💥 Nuking PocketBase database first..."; \
+		cd pb-be && $(MAKE) nuke-db; \
+	fi
+	cd pb-be && $(MAKE) dev
+
+.PHONY: pb-setup
+pb-setup: ## Setup PocketBase backend dependencies (usually not needed - pb does this automatically)
+	@echo "📦 Setting up PocketBase backend dependencies..."
+	@cd pb-be && $(MAKE) setup
+	@echo "✅ Backend setup complete!"
+
 
 .PHONY: dev-remote
 dev-remote: ## Start Wails app with remote AI backend enabled (configure .env.wails)
@@ -60,8 +104,22 @@ dev-remote: ## Start Wails app with remote AI backend enabled (configure .env.wa
 	USE_REMOTE_AI_BACKEND=true wails dev
 
 
-.PHONY: stop-backend
-stop-backend: ## Stop the PocketBase backend if running in background
+.PHONY: pb-only
+pb-only: ## Start PocketBase backend server only (no SvelteKit frontend)
+	@echo "🔧 Starting PocketBase backend server only..."
+	@if [ ! -f pb-be/pb/.env ]; then \
+		echo "❌ Error: pb-be/pb/.env file not found!"; \
+		echo "   Please create it with your API keys first."; \
+		exit 1; \
+	fi
+	@echo "🎯 Starting PocketBase backend..."
+	@echo "   Admin UI: http://localhost:8090/_/"
+	@echo "   Development API Key: ra-dev-12345678901234567890123456789012"
+	cd pb-be && $(MAKE) dev-backend
+
+
+.PHONY: pb-stop
+pb-stop: ## Stop the PocketBase backend if running in background
 	@if [ -f pb-backend.pid ]; then \
 		echo "🛑 Stopping PocketBase backend..."; \
 		kill $$(cat pb-backend.pid) 2>/dev/null && echo "✅ PocketBase backend stopped" || echo "⚠️  Backend process not found"; \
@@ -69,6 +127,20 @@ stop-backend: ## Stop the PocketBase backend if running in background
 	else \
 		echo "ℹ️  No background PocketBase backend running"; \
 	fi
+
+.PHONY: be
+be: ## Start PocketBase backend (use NUKE=1 to delete database first)
+	@if [ ! -f pb-be/pb/.env ]; then \
+		echo "❌ Error: pb-be/pb/.env file not found!"; \
+		echo "   Please create it with your API keys first."; \
+		echo "   You can copy from pb-be/pb/.env.example"; \
+		exit 1; \
+	fi
+	@cd pb-be && $(MAKE) be NUKE=$(NUKE)
+
+.PHONY: nuke-db
+nuke-db: ## Delete PocketBase database completely
+	@cd pb-be && $(MAKE) nuke-db
 
 .PHONY: build
 build: ## Build the application for production

@@ -12,13 +12,11 @@
 		authStore.logout();
 	}
 
-	// Debug: Log reactive updates
+	// Initialize subscription store when auth state changes
 	$effect(() => {
-		console.log('📱 Layout reactive update:', {
-			isLoggedIn: authStore.isLoggedIn,
-			user: authStore.user?.email,
-			initialized: authStore.initialized
-		});
+		if (authStore.initialized) {
+			subscriptionStore.initialize();
+		}
 	});
 </script>
 

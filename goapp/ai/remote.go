@@ -3,10 +3,10 @@ package ai
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -99,7 +99,7 @@ func (s *RemoteAIService) ProcessText(request *TextProcessingRequest) (*OpenRout
 	return &result, nil
 }
 
-// ProcessAudio handles audio processing requests via remote backend
+// ProcessAudio handles audio processing requests via simple multipart upload
 func (s *RemoteAIService) ProcessAudio(audioFile string) (*AudioProcessingResult, error) {
 	if s.backendURL == "" {
 		return nil, fmt.Errorf("backend URL not configured")
@@ -108,40 +108,48 @@ func (s *RemoteAIService) ProcessAudio(audioFile string) (*AudioProcessingResult
 		return nil, fmt.Errorf("API key not configured")
 	}
 
-	// Read the audio file
-	audioData, err := os.ReadFile(audioFile)
+	// Open the audio file
+	file, err := os.Open(audioFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read audio file: %w", err)
+		return nil, fmt.Errorf("failed to open audio file: %w", err)
+	}
+	defer file.Close()
+
+	// Create multipart form data
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+
+	// Add the audio file field
+	fileWriter, err := writer.CreateFormFile("audio", filepath.Base(audioFile))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create form file: %w", err)
 	}
 
-	// Create request with base64 encoded audio
-	request := map[string]string{
-		"audio_data": base64.StdEncoding.EncodeToString(audioData),
-		"filename":   filepath.Base(audioFile),
+	// Copy file contents to form
+	_, err = io.Copy(fileWriter, file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to copy file: %w", err)
 	}
+
+	// Close the multipart writer
+	writer.Close()
 
 	// Build the full URL
 	url := s.backendURL + "/api/ai/process-audio"
 
-	// Marshal request
-	jsonData, err := json.Marshal(request)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	// Create HTTP request
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	// Create HTTP request with multipart form data
+	req, err := http.NewRequest("POST", url, &buf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Set headers
+	// Set headers for multipart form data
 	req.Header.Set("Authorization", "Bearer "+s.apiKey)
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", writer.FormDataContentType())
 
 	// Make request with longer timeout for audio processing
 	client := &http.Client{
-		Timeout: 120 * time.Second, // 2 minutes for larger audio files
+		Timeout: 300 * time.Second, // 5 minutes for large audio files
 	}
 	resp, err := client.Do(req)
 	if err != nil {

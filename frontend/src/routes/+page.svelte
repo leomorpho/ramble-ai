@@ -10,9 +10,11 @@
     DialogTrigger 
   } from "$lib/components/ui/dialog";
   import { ThemeSwitcher } from "$lib/components/ui/theme-switcher";
-  import { Settings, Lightbulb, Video, Volume2, HelpCircle, Target, FileText, Brain, RotateCcw, Upload, Zap, Plus, RefreshCw } from "@lucide/svelte";
-  import { CreateProject, GetProjects, GetVideoClipsByProject } from "$lib/wailsjs/go/main/App";
+  import { Settings, Lightbulb, Video, Volume2, HelpCircle, Target, FileText, Brain, RotateCcw, Upload, Zap, Plus, RefreshCw, BarChart } from "@lucide/svelte";
+  import { CreateProject, GetProjects, GetVideoClipsByProject, GetRambleAIApiKey } from "$lib/wailsjs/go/main/App";
   import OnboardingDialog from "$lib/components/OnboardingDialog.svelte";
+  import { BannerList } from "$lib/components/ui/banner";
+  import { fetchBanners } from "$lib/services/bannerService.js";
   import { onMount } from "svelte";
 
   let projects = $state([]);
@@ -23,10 +25,14 @@
   let loading = $state(false);
   let error = $state("");
   let onboardingDialogOpen = $state(false);
+  let banners = $state([]);
+  let hasApiKey = $state(false);
 
-  // Load projects on mount
+  // Load projects and banners on mount
   onMount(async () => {
     await loadProjects();
+    await loadBanners();
+    await checkApiKey();
   });
 
   async function loadProjects() {
@@ -91,6 +97,34 @@
       loading = false;
     }
   }
+
+  async function loadBanners() {
+    try {
+      // Get API key if available
+      let apiKey = null;
+      try {
+        apiKey = await GetRambleAIApiKey();
+      } catch (err) {
+        console.log("No API key available for authenticated banners");
+      }
+
+      // Fetch banners (public + authenticated if API key available)
+      banners = await fetchBanners(apiKey);
+    } catch (err) {
+      console.error("Failed to load banners:", err);
+      // Don't show banner errors to user, just log them
+    }
+  }
+
+  async function checkApiKey() {
+    try {
+      const apiKey = await GetRambleAIApiKey();
+      hasApiKey = !!(apiKey && apiKey.trim());
+    } catch (err) {
+      console.log("No API key configured");
+      hasApiKey = false;
+    }
+  }
 </script>
 
 <main class="min-h-screen bg-background text-foreground p-8">
@@ -104,6 +138,14 @@
         <Button variant="ghost" size="icon" class="h-9 w-9" title="Help & Setup Guide" onclick={() => onboardingDialogOpen = true}>
           <HelpCircle class="h-4 w-4" />
         </Button>
+        
+        {#if hasApiKey}
+          <Button variant="ghost" size="icon" class="h-9 w-9" title="Usage Statistics" asChild>
+            <a href="/usage">
+              <BarChart class="h-4 w-4" />
+            </a>
+          </Button>
+        {/if}
         
         <Button variant="ghost" size="icon" class="h-9 w-9" title="Settings" asChild>
           <a href="/settings">
@@ -152,6 +194,9 @@
         </Dialog>
       </div>
     </div>
+
+    <!-- Banners -->
+    <BannerList banners={banners} />
 
     {#if error}
       <div class="border border-destructive rounded p-4 text-destructive">

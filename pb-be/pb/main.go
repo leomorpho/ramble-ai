@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/pocketbase/pocketbase"
@@ -14,9 +15,9 @@ import (
 	"github.com/stripe/stripe-go/v79"
 
 	aihandlers "pocketbase/internal/ai"
+	bannerhandlers "pocketbase/internal/banners"
 	otphandlers "pocketbase/internal/otp"
 	stripehandlers "pocketbase/internal/stripe"
-	tushandlers "pocketbase/internal/tus"
 	"pocketbase/webauthn"
 	_ "pocketbase/migrations"
 )
@@ -48,17 +49,33 @@ func main() {
 		log.Printf("Failed to configure SMTP: %v", err)
 	}
 
+	// Configure app settings for large file uploads
+	app.OnBootstrap().BindFunc(func(be *core.BootstrapEvent) error {
+		log.Println("Configuring PocketBase with large file upload support")
+		
+		// The file upload size limits are controlled by the middleware and server configuration
+		// We'll configure the server to handle large requests in the OnServe hook
+		
+		return be.Next()
+	})
+
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
+		// Configure request body size limit for large audio files
+		se.Server.MaxHeaderBytes = 1 << 20  // 1MB for headers
+		se.Server.ReadTimeout = 300 * time.Second // 5 minutes for large files
+		se.Server.WriteTimeout = 300 * time.Second
+		
+		// IMPORTANT: Configure body size limits BEFORE default middleware
+		// PocketBase's default body limit is 32MB, we need to bypass this for audio uploads
+		
+		log.Printf("Server configured: ReadTimeout=%v, WriteTimeout=%v", 
+			se.Server.ReadTimeout, se.Server.WriteTimeout)
+
 		// Seed development data if in development mode
 		if err := aihandlers.SeedDevelopmentData(app); err != nil {
 			log.Printf("Warning: Failed to seed development data: %v", err)
 		}
 
-		// Initialize TUS handler
-		tusHandler, err := tushandlers.NewTUSHandler(app)
-		if err != nil {
-			log.Fatal("Failed to initialize TUS handler:", err)
-		}
 
 		// Stripe routes
 		se.Router.POST("/create-checkout-session", func(e *core.RequestEvent) error {
@@ -87,27 +104,40 @@ func main() {
 			return aihandlers.ProcessTextHandler(e, app)
 		})
 
+		// Audio processing route with streaming support and increased body limit
+		// Override the default 32MB body limit to allow up to 2GB audio files
 		se.Router.POST("/api/ai/process-audio", func(e *core.RequestEvent) error {
+			log.Printf("🎵 Processing audio upload with 2GB body limit")
 			return aihandlers.ProcessAudioHandler(e, app)
-		})
+		}).Bind(apis.BodyLimit(2 << 30)) // 2GB body limit for audio uploads
 
 		se.Router.POST("/api/generate-api-key", func(e *core.RequestEvent) error {
 			return aihandlers.GenerateAPIKeyHandler(e, app)
 		})
 
-		// TUS upload routes - simple specific routes
-		tusHandlerFunc := func(e *core.RequestEvent) error {
-			tusHandler.ServeHTTP(e.Response, e.Request)
-			return nil
-		}
-		
-		// TUS protocol requires these specific endpoints
-		se.Router.POST("/tus", tusHandlerFunc)      // Create upload
-		se.Router.HEAD("/tus/{id}", tusHandlerFunc) // Get upload info
-		se.Router.PATCH("/tus/{id}", tusHandlerFunc) // Upload chunks
-		se.Router.DELETE("/tus/{id}", tusHandlerFunc) // Cancel upload
-		se.Router.Any("OPTIONS /tus", tusHandlerFunc) // CORS preflight for base
-		se.Router.Any("OPTIONS /tus/{id}", tusHandlerFunc) // CORS preflight for upload
+		// Usage tracking routes for Wails app (requires API key)
+		se.Router.GET("/api/usage/summary", func(e *core.RequestEvent) error {
+			return aihandlers.UsageSummaryHandler(e, app)
+		})
+
+		se.Router.GET("/api/usage/files", func(e *core.RequestEvent) error {
+			return aihandlers.UsageFilesHandler(e, app)
+		})
+
+		se.Router.GET("/api/usage/stats", func(e *core.RequestEvent) error {
+			return aihandlers.UsageStatsHandler(e, app)
+		})
+
+		// Banner routes
+		se.Router.GET("/api/banners", func(e *core.RequestEvent) error {
+			return bannerhandlers.GetPublicBannersHandler(e, app)
+		})
+
+		se.Router.GET("/api/banners/authenticated", func(e *core.RequestEvent) error {
+			return bannerhandlers.GetAuthenticatedBannersHandler(e, app)
+		})
+
+
 
 		// Serve static files from the provided public dir (if exists)
 		// This must be registered last as it's a catch-all route

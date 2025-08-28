@@ -30,7 +30,7 @@ interface Price {
 interface Subscription {
 	id: string;
 	subscription_id: string;
-	company_id: string;
+	user_id: string;
 	status: string;
 	price_id: string;
 	quantity: number;
@@ -125,7 +125,7 @@ class SubscriptionStore {
 				this.#userSubscription = null;
 			}
 		} catch (error) {
-			console.warn('Subscription collections not available yet. Please import the schema from pb/pb_bootstrap/pb_schema.json');
+			console.debug('Subscription collections not available yet.');
 			// Set empty state
 			this.#products = [];
 			this.#prices = [];
@@ -139,20 +139,9 @@ class SubscriptionStore {
 		if (!browser || !authStore.user) return;
 
 		try {
-			// First, find the user's company through their employee record
-			const employee = await pb.collection('employees').getFirstListItem(
-				`user_id = "${authStore.user.id}"`,
-				{ expand: 'company_id' }
-			);
-
-			if (!employee || !employee.company_id) {
-				this.#userSubscription = null;
-				return;
-			}
-
-			// Then find the subscription for that company
+			// Find the subscription directly for the user
 			const subscription = await pb.collection('subscriptions').getFirstListItem(
-				`company_id = "${employee.company_id}" && (status = "active" || status = "trialing")`
+				`user_id = "${authStore.user.id}" && (status = "active" || status = "trialing")`
 			);
 			this.#userSubscription = subscription as Subscription;
 		} catch (error: any) {
@@ -160,9 +149,10 @@ class SubscriptionStore {
 			this.#userSubscription = null;
 			if (error?.status === 404) {
 				if (error?.message?.includes('Missing collection')) {
-					console.warn('Subscriptions collection not available yet. Please import the schema from pb/pb_bootstrap/pb_schema.json');
+					// Silently handle missing collection - it's expected during development
+					console.debug('Subscriptions collection not available yet.');
 				} else {
-					console.log('No active subscription found for user company');
+					console.debug('No active subscription found for user');
 				}
 			} else {
 				console.warn('Error loading subscription:', error?.message || error);

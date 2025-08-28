@@ -9,9 +9,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"ramble-ai/binaries"
 	"ramble-ai/ent"
+	"ramble-ai/goapp"
 	"ramble-ai/goapp/assetshandler"
 	"ramble-ai/goapp/ai"
 	"ramble-ai/goapp/chatbot"
@@ -20,6 +22,7 @@ import (
 	"ramble-ai/goapp/projects"
 	"ramble-ai/goapp/realtime"
 	"ramble-ai/goapp/settings"
+	"ramble-ai/goapp/version"
 
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
@@ -321,22 +324,10 @@ func (a *App) SaveUseRemoteAIBackend(useRemote bool) error {
 	return a.SaveSetting("use_remote_ai_backend", value)
 }
 
-// GetUseRemoteAIBackend retrieves the remote AI backend toggle setting
+// GetUseRemoteAIBackend always returns true (remote backend only)
 func (a *App) GetUseRemoteAIBackend() (bool, error) {
-	// Check environment variable first
-	if envValue := os.Getenv("USE_REMOTE_AI_BACKEND"); envValue != "" {
-		return envValue == "true", nil
-	}
-	
-	// Fallback to database setting
-	value, err := a.GetSetting("use_remote_ai_backend")
-	if err != nil {
-		return false, err
-	}
-	if value == "" {
-		return false, nil // default to false
-	}
-	return value == "true", nil
+	// Always use remote backend - keeping function for compatibility
+	return true, nil
 }
 
 // SaveRemoteAIBackendURL saves the remote AI backend URL setting
@@ -463,16 +454,117 @@ type Highlight struct {
 	ColorID int     `json:"colorId"`
 }
 
-// TranscribeVideoClip transcribes audio from a video clip using the Projects service
+// TranscribeVideoClip transcribes audio from a video clip using the AI factory
 func (a *App) TranscribeVideoClip(clipID int) (*projects.TranscriptionResponse, error) {
+	// First, get the video clip to check if it exists and get the file path
+	clip, err := a.client.VideoClip.Get(a.ctx, clipID)
+	if err != nil {
+		return &projects.TranscriptionResponse{
+			Success: false,
+			Message: "Video clip not found",
+		}, nil
+	}
+
+	// Check if file exists
+	if _, err := os.Stat(clip.FilePath); os.IsNotExist(err) {
+		return &projects.TranscriptionResponse{
+			Success: false,
+			Message: "Video file not found",
+		}, nil
+	}
+
+	// Extract audio from video first to reduce file size
+	audioPath, err := a.extractAudioFromVideo(clip.FilePath)
+	if err != nil {
+		return &projects.TranscriptionResponse{
+			Success: false,
+			Message: fmt.Sprintf("Failed to extract audio: %v", err),
+		}, nil
+	}
+	defer os.Remove(audioPath) // Clean up temporary audio file
+
+	// Create AI service using factory (which will choose local or remote based on settings)
+	factory := ai.NewAIServiceFactory(a.client, a.ctx)
+	aiService, err := factory.CreateService()
+	if err != nil {
+		return &projects.TranscriptionResponse{
+			Success: false,
+			Message: fmt.Sprintf("AI service configuration error: %v", err),
+		}, nil
+	}
+
+	// Process the extracted audio file instead of the full video
+	result, err := aiService.ProcessAudio(audioPath)
+	if err != nil {
+		return &projects.TranscriptionResponse{
+			Success: false,
+			Message: fmt.Sprintf("Transcription failed: %v", err),
+		}, nil
+	}
+
+	// Convert AI result to projects format and save to database
 	projectService := projects.NewProjectService(a.client, a.ctx)
-	return projectService.TranscribeVideoClip(clipID)
+	return projectService.SaveTranscriptionResult(clipID, result)
+}
+
+// extractAudioFromVideo extracts audio from a video file using FFmpeg
+// Returns the path to the temporary audio file
+func (a *App) extractAudioFromVideo(videoPath string) (string, error) {
+	// Create temp directory for audio files
+	tempDir := filepath.Join(os.TempDir(), "ramble_audio")
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create temp directory: %w", err)
+	}
+
+	// Generate unique audio filename
+	audioFilename := fmt.Sprintf("audio_%d.mp3", time.Now().UnixNano())
+	audioPath := filepath.Join(tempDir, audioFilename)
+
+	log.Printf("[AUDIO EXTRACTION] Extracting audio from: %s to: %s", videoPath, audioPath)
+
+	// Use ffmpeg to extract audio with optimized settings for Whisper
+	cmd := goapp.GetFFmpegCommand(
+		"-i", videoPath,
+		"-vn",            // No video
+		"-acodec", "mp3", // MP3 codec (guaranteed Whisper support)
+		"-ar", "16000",   // Sample rate (16kHz for Whisper)  
+		"-ac", "1",       // Mono channel
+		"-b:a", "24k",    // Low bitrate for significant space savings
+		"-af", "highpass=f=80,lowpass=f=8000", // Filter frequencies outside speech range
+		"-y",             // Overwrite output file
+		audioPath,
+	)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("[AUDIO EXTRACTION] ffmpeg error: %v, output: %s", err, string(output))
+		return "", fmt.Errorf("ffmpeg failed: %w", err)
+	}
+
+	// Get file size for logging
+	if stat, err := os.Stat(audioPath); err == nil {
+		sizeMB := float64(stat.Size()) / (1024 * 1024)
+		log.Printf("[AUDIO EXTRACTION] Audio extracted successfully: %s (%.2f MB)", audioPath, sizeMB)
+	}
+
+	return audioPath, nil
 }
 
 // BatchTranscribeUntranscribedClips transcribes all untranscribed video clips in a project
 func (a *App) BatchTranscribeUntranscribedClips(projectID int) (*projects.BatchTranscribeResponse, error) {
+	// Create AI service using factory (which will choose local or remote based on settings)
+	factory := ai.NewAIServiceFactory(a.client, a.ctx)
+	aiService, err := factory.CreateService()
+	if err != nil {
+		return &projects.BatchTranscribeResponse{
+			Success: false,
+			Message: fmt.Sprintf("AI service configuration error: %v", err),
+		}, nil
+	}
+
+	// Use project service to handle the batch operation with AI service
 	projectService := projects.NewProjectService(a.client, a.ctx)
-	return projectService.BatchTranscribeUntranscribedClips(projectID)
+	return projectService.BatchTranscribeWithAIService(projectID, aiService)
 }
 
 // UpdateVideoClipHighlights updates the highlights for a video clip
@@ -847,5 +939,10 @@ func (a *App) ClearChatHistory(projectID int, endpointID string) error {
 func (a *App) SaveChatModelSelection(projectID int, endpointID string, model string) error {
 	service := chatbot.NewChatbotService(a.client, a.ctx, a.UpdateProjectHighlightOrderWithTitles)
 	return service.SaveModelSelection(projectID, endpointID, model)
+}
+
+// GetAppVersion returns the current application version information
+func (a *App) GetAppVersion() version.Info {
+	return version.Get()
 }
 

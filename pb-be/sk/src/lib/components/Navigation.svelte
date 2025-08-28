@@ -1,6 +1,6 @@
 <script lang="ts">
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
-	import { Home, Info, LogIn, LogOut, User, CreditCard, Crown } from 'lucide-svelte';
+	import { Home, Info, LogIn, LogOut, User, CreditCard, Crown, BarChart } from 'lucide-svelte';
 	import type { AuthModel } from 'pocketbase';
 	import { config } from '$lib/config.js';
 	import { getAvatarUrl } from '$lib/files.js';
@@ -55,6 +55,13 @@
 				</a>
 
 				{#if isLoggedIn}
+					<a
+						href="/usages"
+						class="hover:bg-accent hover:text-accent-foreground inline-flex h-9 w-9 items-center justify-center rounded-md text-sm font-medium whitespace-nowrap transition-colors"
+						title="Usage Statistics"
+					>
+						<BarChart class="h-4 w-4" />
+					</a>
 					{#if isSubscribed}
 						<a
 							href="/premium"

@@ -14,6 +14,11 @@ const (
 	DEV_API_KEY = "ra-dev-12345678901234567890123456789012"
 	DEV_USER_EMAIL = "dev@ramble-ai.local"
 	DEV_USER_NAME = "Development User"
+	
+	// Admin user for testing
+	ADMIN_USER_EMAIL = "alice@test.com"
+	ADMIN_USER_NAME = "Alice Admin"
+	ADMIN_PASSWORD = "password"
 )
 
 // SeedDevelopmentData creates a development user and API key for local testing
@@ -107,9 +112,16 @@ func SeedDevelopmentData(app core.App) error {
 		}
 	}
 
+	// Create admin user for testing
+	if err := seedAdminUser(app); err != nil {
+		log.Printf("Warning: failed to seed admin user: %v", err)
+		// Don't fail the entire seeding process for admin user issues
+	}
+
 	log.Printf("🌱 Development seeding complete!")
 	log.Printf("   API Key: %s", DEV_API_KEY)
 	log.Printf("   User: %s", DEV_USER_EMAIL)
+	log.Printf("   Admin: %s (password: %s)", ADMIN_USER_EMAIL, ADMIN_PASSWORD)
 	log.Printf("   Use this API key in your Wails app for development")
 
 	return nil
@@ -122,5 +134,54 @@ func createAPIKeysCollection(app core.App) error {
 	log.Println("API Keys collection creation would be handled by migrations in production")
 	log.Println("Please ensure the 'api_keys' collection exists with fields: key_hash, user_id, active, name")
 	return fmt.Errorf("api_keys collection must be created manually or via migrations")
+}
+
+// seedAdminUser creates an admin user for testing
+func seedAdminUser(app core.App) error {
+	// Check if admin user already exists
+	existingAdmin, err := app.FindFirstRecordByFilter("users", "email = {:email}", map[string]interface{}{
+		"email": ADMIN_USER_EMAIL,
+	})
+	
+	if err != nil {
+		// Create admin user
+		log.Printf("Creating admin user: %s", ADMIN_USER_EMAIL)
+		
+		usersCollection, err := app.FindCollectionByNameOrId("users")
+		if err != nil {
+			return fmt.Errorf("failed to find users collection: %w", err)
+		}
+
+		adminUser := core.NewRecord(usersCollection)
+		adminUser.Set("email", ADMIN_USER_EMAIL)
+		adminUser.Set("name", ADMIN_USER_NAME)
+		adminUser.Set("password", ADMIN_PASSWORD)
+		adminUser.Set("passwordConfirm", ADMIN_PASSWORD)
+		adminUser.Set("verified", true)
+		
+		// Set admin role if the field exists
+		if usersCollection.Fields.GetByName("role") != nil {
+			adminUser.Set("role", "admin")
+		}
+		
+		if err := app.Save(adminUser); err != nil {
+			return fmt.Errorf("failed to create admin user: %w", err)
+		}
+		
+		log.Printf("✅ Created admin user: %s (ID: %s)", ADMIN_USER_EMAIL, adminUser.Id)
+	} else {
+		log.Printf("✅ Admin user already exists: %s (ID: %s)", ADMIN_USER_EMAIL, existingAdmin.Id)
+		
+		// Ensure admin role is set if the field exists
+		usersCollection, err := app.FindCollectionByNameOrId("users")
+		if err == nil && usersCollection.Fields.GetByName("role") != nil {
+			existingAdmin.Set("role", "admin")
+			if err := app.Save(existingAdmin); err != nil {
+				log.Printf("Warning: failed to update admin user role: %v", err)
+			}
+		}
+	}
+
+	return nil
 }
 

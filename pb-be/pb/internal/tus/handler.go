@@ -3,10 +3,13 @@ package tus
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
@@ -17,6 +20,47 @@ import (
 type TUSHandler struct {
 	handler *handler.Handler
 	app     core.App
+}
+
+// AudioProcessingResult represents the result of audio processing
+type AudioProcessingResult struct {
+	Transcript string    `json:"transcript"`
+	Duration   float64   `json:"duration,omitempty"`
+	Language   string    `json:"language,omitempty"`
+	Words      []Word    `json:"words,omitempty"`
+	Segments   []Segment `json:"segments,omitempty"`
+}
+
+// Word represents a word with timestamps
+type Word struct {
+	Word  string  `json:"word"`
+	Start float64 `json:"start"`
+	End   float64 `json:"end"`
+}
+
+// Segment represents a segment with timestamps
+type Segment struct {
+	ID               int     `json:"id"`
+	Seek             int     `json:"seek"`
+	Start            float64 `json:"start"`
+	End              float64 `json:"end"`
+	Text             string  `json:"text"`
+	Tokens           []int   `json:"tokens"`
+	Temperature      float64 `json:"temperature"`
+	AvgLogprob       float64 `json:"avg_logprob"`
+	CompressionRatio float64 `json:"compression_ratio"`
+	NoSpeechProb     float64 `json:"no_speech_prob"`
+	Words            []Word  `json:"words"`
+}
+
+// OpenAITranscriptionResponse represents the response from OpenAI transcription API
+type OpenAITranscriptionResponse struct {
+	Task     string    `json:"task"`
+	Language string    `json:"language"`
+	Duration float64   `json:"duration"`
+	Text     string    `json:"text"`
+	Segments []Segment `json:"segments"`
+	Words    []Word    `json:"words"`
 }
 
 // NewTUSHandler creates a new TUS handler with PocketBase integration
@@ -35,18 +79,23 @@ func NewTUSHandler(app core.App) (*TUSHandler, error) {
 	store.UseIn(composer)
 
 	config := handler.Config{
-		BasePath:                "/tus/",
+		BasePath:                "/api/tus",
 		StoreComposer:          composer,
 		NotifyCompleteUploads:  true,
 		NotifyTerminatedUploads: true,
 		NotifyUploadProgress:   true,
 		NotifyCreatedUploads:   true,
+		MaxSize:                1024 * 1024 * 1024, // 1GB max file size
 	}
 
 	tusHandler, err := handler.NewHandler(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create TUS handler: %w", err)
 	}
+	
+	// Log the capabilities that will be advertised
+	capabilities := composer.Capabilities()
+	app.Logger().Info("TUS handler created", "capabilities", capabilities)
 
 	h := &TUSHandler{
 		handler: tusHandler,
@@ -245,6 +294,8 @@ func (h *TUSHandler) processFile(record *core.Record, instruction string) error 
 		return h.processImageThumbnail(record, fileSystem)
 	case instruction == "extract_text":
 		return h.processTextExtraction(record, fileSystem)
+	case instruction == "transcribe_audio":
+		return h.processAudioTranscription(record)
 	default:
 		h.app.Logger().Warn("Unknown processing instruction", "instruction", instruction)
 	}
@@ -272,20 +323,175 @@ func (h *TUSHandler) processTextExtraction(record *core.Record, fs *filesystem.S
 	return nil
 }
 
+// processAudioTranscription transcribes audio files using OpenAI Whisper
+func (h *TUSHandler) processAudioTranscription(record *core.Record) error {
+	h.app.Logger().Info("Starting audio transcription", "record_id", record.Id)
+	
+	// Get upload ID and file path
+	uploadID := record.GetString("upload_id")
+	if uploadID == "" {
+		return fmt.Errorf("no upload ID found in record")
+	}
+	
+	// Get the uploaded file path
+	uploadPath := filepath.Join(h.app.DataDir(), "tus_uploads", uploadID+".bin")
+	
+	// Open the uploaded file
+	file, err := os.Open(uploadPath)
+	if err != nil {
+		return fmt.Errorf("failed to open uploaded file: %w", err)
+	}
+	defer file.Close()
+	
+	// Get filename from metadata
+	filename := record.GetString("original_name")
+	if filename == "" {
+		filename = "audio.mp3"
+	}
+	
+	// Call OpenAI Whisper API
+	result, err := h.transcribeWithOpenAI(file, filename)
+	if err != nil {
+		h.app.Logger().Error("Transcription failed", "error", err, "record_id", record.Id)
+		record.Set("processing_status", "failed")
+		record.Set("error_message", err.Error())
+		h.app.Save(record)
+		return err
+	}
+	
+	// Store transcription results in record
+	transcriptionJSON, _ := json.Marshal(result)
+	record.Set("transcription_result", string(transcriptionJSON))
+	record.Set("processing_status", "completed")
+	record.Set("transcript", result.Transcript)
+	
+	// Save updated record
+	if err := h.app.Save(record); err != nil {
+		h.app.Logger().Error("Failed to save transcription result", "error", err)
+		return err
+	}
+	
+	h.app.Logger().Info("Audio transcription completed", "record_id", record.Id, "transcript_length", len(result.Transcript))
+	
+	// Clean up uploaded file
+	os.Remove(uploadPath)
+	os.Remove(filepath.Join(h.app.DataDir(), "tus_uploads", uploadID+".info"))
+	
+	return nil
+}
+
+// transcribeWithOpenAI sends audio to OpenAI Whisper API
+func (h *TUSHandler) transcribeWithOpenAI(audioFile *os.File, filename string) (*AudioProcessingResult, error) {
+	// Get OpenAI API key from environment
+	apiKey := os.Getenv("OPENAI_API_KEY")
+	if apiKey == "" {
+		return nil, fmt.Errorf("OpenAI API key not configured")
+	}
+
+	// Create a pipe for streaming multipart data to OpenAI
+	pipeReader, pipeWriter := io.Pipe()
+	multipartWriter := multipart.NewWriter(pipeWriter)
+
+	// Start goroutine to write multipart data
+	go func() {
+		defer pipeWriter.Close()
+		defer multipartWriter.Close()
+
+		// Add file field - stream directly from input
+		fileWriter, err := multipartWriter.CreateFormFile("file", filepath.Base(filename))
+		if err != nil {
+			pipeWriter.CloseWithError(fmt.Errorf("failed to create form file: %w", err))
+			return
+		}
+
+		// Stream file contents directly from input to OpenAI
+		_, err = io.Copy(fileWriter, audioFile)
+		if err != nil {
+			pipeWriter.CloseWithError(fmt.Errorf("failed to copy file: %w", err))
+			return
+		}
+
+		// Add model field
+		if err := multipartWriter.WriteField("model", "whisper-1"); err != nil {
+			pipeWriter.CloseWithError(fmt.Errorf("failed to write model field: %w", err))
+			return
+		}
+
+		// Add response format for verbose JSON with timestamps
+		if err := multipartWriter.WriteField("response_format", "verbose_json"); err != nil {
+			pipeWriter.CloseWithError(fmt.Errorf("failed to write response_format field: %w", err))
+			return
+		}
+
+		// Add timestamp granularities for word-level timestamps
+		if err := multipartWriter.WriteField("timestamp_granularities[]", "word"); err != nil {
+			pipeWriter.CloseWithError(fmt.Errorf("failed to write timestamp_granularities field: %w", err))
+			return
+		}
+	}()
+
+	// Create request with streaming body
+	req, err := http.NewRequest("POST", "https://api.openai.com/v1/audio/transcriptions", pipeReader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", multipartWriter.FormDataContentType())
+
+	// Make request
+	client := &http.Client{Timeout: 120 * time.Second} // Longer timeout for large files
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("OpenAI API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	// Parse response
+	var transcriptionResp OpenAITranscriptionResponse
+	if err := json.Unmarshal(body, &transcriptionResp); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &AudioProcessingResult{
+		Transcript: transcriptionResp.Text,
+		Duration:   transcriptionResp.Duration,
+		Language:   transcriptionResp.Language,
+		Words:      transcriptionResp.Words,
+		Segments:   transcriptionResp.Segments,
+	}, nil
+}
+
 // ServeHTTP implements http.Handler
 func (h *TUSHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Log TUS requests for debugging
+	h.app.Logger().Info("TUS request", "method", r.Method, "path", r.URL.Path, "headers", r.Header)
+	
 	// Add CORS headers
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE, HEAD, PATCH")
 	w.Header().Set("Access-Control-Allow-Headers", "Authorization, Origin, X-Requested-With, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat")
 	w.Header().Set("Access-Control-Expose-Headers", "Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat")
 
+	// Allow OPTIONS requests without authentication (needed for TUS protocol capabilities)
 	if r.Method == "OPTIONS" {
-		w.WriteHeader(http.StatusOK)
+		// Delegate to TUS handler for capability checks
+		h.handler.ServeHTTP(w, r)
 		return
 	}
 
-	// Authenticate request using PocketBase auth
+	// Authenticate request using PocketBase auth for other methods
 	if !h.authenticateRequest(r) {
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte("Authentication required"))
@@ -322,10 +528,3 @@ func (h *TUSHandler) authenticateRequest(r *http.Request) bool {
 	return true
 }
 
-// UseIn implements the store interface for TUS composer
-func (store *PocketBaseStore) UseIn(composer *handler.StoreComposer) {
-	composer.UseCore(store)
-	composer.UseTerminater(store)
-	composer.UseLengthDeferrer(store)
-	composer.UseConcater(store)
-}

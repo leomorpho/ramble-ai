@@ -1,4 +1,4 @@
-.PHONY: help dev dev-backend dev-frontend storybook build test lint format clean install deps check
+.PHONY: help dev dev-backend dev-frontend be nuke-db storybook build test lint format clean install deps check
 
 # Default target
 help: ## Show this help message
@@ -12,6 +12,16 @@ dev: mailpit-up ## Start full development environment (backend + frontend + mail
 	@echo "🔧 PocketBase (backend): http://localhost:8090"
 	@echo "🌐 SvelteKit (frontend): http://localhost:5174"
 	@make -j2 dev-backend dev-frontend
+
+be: ## Start PocketBase backend (use NUKE=1 to delete database first)
+	@cd pb && \
+	if [ "$(NUKE)" = "1" ]; then \
+		echo "💥 Nuking PocketBase database..."; \
+		rm -rf pb_data; \
+		echo "🗑️  Database deleted!"; \
+	fi
+	@echo "🚀 Starting PocketBase backend..."
+	@cd pb && ./pocketbase serve --dev --http 0.0.0.0:8090
 
 dev-backend: ## Start PocketBase backend in watch mode
 	@echo "Starting PocketBase backend..."
@@ -95,6 +105,11 @@ clean: ## Clean build artifacts
 	@rm -rf sk/build sk/.svelte-kit sk/node_modules/.vite
 	@rm -f pb/pocketbase pb/pb_data/logs.db*
 	@echo "Clean complete!"
+
+nuke-db: ## Delete PocketBase database completely
+	@echo "💥 Nuking PocketBase database..."
+	@cd pb && rm -rf pb_data
+	@echo "🗑️  Database deleted! Run 'make be' to recreate with migrations."
 
 clean-deps: ## Remove all dependencies
 	@echo "Removing dependencies..."

@@ -2,14 +2,12 @@
   import { Button } from "$lib/components/ui/button";
   import { Key } from "@lucide/svelte";
   import { 
-    GetUseRemoteAIBackend,
     GetRambleAIApiKey, 
     SaveRambleAIApiKey, 
     DeleteRambleAIApiKey 
   } from "$lib/wailsjs/go/main/App";
   import { onMount } from "svelte";
 
-  let useRemoteBackend = $state(false);
   let rambleApiKey = $state("");
   let loading = $state(false);
   let saved = $state(false);
@@ -20,24 +18,12 @@
     loadSettings();
   });
 
-  // Reload settings when the component becomes visible (reactive to useRemoteBackend)
-  $effect(() => {
-    if (useRemoteBackend) {
-      loadSettings();
-    }
-  });
-
   async function loadSettings() {
     try {
       loading = true;
       error = "";
       
-      const [remoteEnabled, apiKey] = await Promise.all([
-        GetUseRemoteAIBackend(),
-        GetRambleAIApiKey()
-      ]);
-      
-      useRemoteBackend = remoteEnabled;
+      const apiKey = await GetRambleAIApiKey();
       rambleApiKey = apiKey || "";
     } catch (err) {
       console.error("Failed to load Ramble AI settings:", err);
@@ -91,8 +77,7 @@
   }
 </script>
 
-{#if useRemoteBackend}
-  <div class="bg-card border rounded-lg p-6 space-y-6">
+<div class="bg-card border rounded-lg p-6 space-y-6">
     <div class="space-y-2">
       <h2 class="text-xl font-semibold flex items-center gap-2">
         <Key class="w-5 h-5 text-primary" />
@@ -188,5 +173,4 @@
         </div>
       {/if}
     </div>
-  </div>
-{/if}
+</div>

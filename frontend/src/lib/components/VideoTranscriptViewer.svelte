@@ -568,7 +568,7 @@ Return segments that would work well as standalone content pieces.`;
           </div>
         </Resizable.Pane>
         
-        <Resizable.Handle />
+        <Resizable.Handle withHandle={true} class="hover:bg-primary/20 transition-colors duration-200 group" />
         
         <!-- Transcript Pane -->
         <Resizable.Pane defaultSize={50}>

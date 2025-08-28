@@ -168,8 +168,8 @@ func upsertSubscription(app *pocketbase.PocketBase, stripeSub *stripe.Subscripti
 		return err
 	}
 
-	// Get company ID from customer
-	companyID, err := getCompanyIDFromCustomer(app, stripeSub.Customer.ID)
+	// Get user ID from customer
+	userID, err := getUserIDFromCustomer(app, stripeSub.Customer.ID)
 	if err != nil {
 		return err
 	}
@@ -186,7 +186,7 @@ func upsertSubscription(app *pocketbase.PocketBase, stripeSub *stripe.Subscripti
 
 	// Update record fields
 	record.Set("subscription_id", stripeSub.ID)
-	record.Set("company_id", companyID)
+	record.Set("user_id", userID)
 	record.Set("status", stripeSub.Status)
 	record.Set("quantity", stripeSub.Items.Data[0].Quantity)
 	record.Set("cancel_at_period_end", stripeSub.CancelAtPeriodEnd)

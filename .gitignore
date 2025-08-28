@@ -52,3 +52,18 @@ binaries/static/
 
 # PocketBase backend PID file (from make dev-with-backend)
 pb-backend.pid
+
+# Binaries and executables
+ramble-ai
+pb-be/pb/test-pb
+pb-be/pb/pocketbase
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+pb-be/data/
+
+# Build outputs
+build/
+dist/

@@ -32,6 +32,11 @@ class ClientAuthStore {
 		// Try to refresh auth if we have a token
 		if (pb.authStore.isValid) {
 			this.#refreshAuth();
+		} else if (pb.authStore.token) {
+			// Clear any invalid tokens that might be stored
+			console.log('🧹 Clearing invalid stored token');
+			pb.authStore.clear();
+			this.syncState();
 		}
 	}
 
@@ -39,10 +44,16 @@ class ClientAuthStore {
 		try {
 			if (pb.authStore.isValid) {
 				await pb.collection('users').authRefresh();
+				console.log('🔄 Auth refresh successful');
 			}
 		} catch (error) {
 			console.error('Auth refresh failed:', error);
-			// Don't clear on refresh failure - token might still be valid for a while
+			// Clear invalid tokens to prevent repeated refresh attempts
+			if (error.status === 401 || error.status === 403) {
+				console.log('🚫 Token invalid, clearing auth state');
+				pb.authStore.clear();
+				this.syncState();
+			}
 		}
 	}
 

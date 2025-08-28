@@ -27,6 +27,9 @@ func NewPocketBaseStore(app core.App) *PocketBaseStore {
 func (store *PocketBaseStore) NewUpload(ctx context.Context, info handler.FileInfo) (handler.Upload, error) {
 	id := info.ID
 	
+	// Log the creation for debugging
+	store.app.Logger().Info("Creating new TUS upload", "id", id, "size", info.Size, "metadata", info.MetaData)
+	
 	// Create the upload directory in PocketBase's storage
 	uploadPath := store.getUploadPath(id)
 	if err := os.MkdirAll(filepath.Dir(uploadPath), 0755); err != nil {
@@ -51,6 +54,8 @@ func (store *PocketBaseStore) NewUpload(ctx context.Context, info handler.FileIn
 		id:    id,
 		info:  info,
 	}
+	
+	store.app.Logger().Info("TUS upload created successfully", "id", id, "path", uploadPath)
 	
 	return upload, nil
 }
@@ -179,4 +184,19 @@ func formatPartialUploads(uploads []string) string {
 func extractValue(content, key string) string {
 	// Simplified extraction - in production use proper JSON parsing
 	return ""
+}
+
+// UseIn implements the store interface for TUS composer
+func (store *PocketBaseStore) UseIn(composer *handler.StoreComposer) {
+	// Core functionality (required for basic TUS operations including creation)
+	composer.UseCore(store)
+	
+	// Enable termination extension (allows deleting uploads)
+	composer.UseTerminater(store)
+	
+	// Enable length deferrer extension (allows uploads with unknown size initially)
+	composer.UseLengthDeferrer(store)
+	
+	// Enable concatenation extension (allows combining partial uploads)
+	composer.UseConcater(store)
 }

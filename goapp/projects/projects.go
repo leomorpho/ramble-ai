@@ -2040,3 +2040,168 @@ func (s *ProjectService) updateTranscriptionState(clipID int, state string, erro
 	_, err := update.Save(s.ctx)
 	return err
 }
+
+// SaveTranscriptionResult saves AI transcription result to database
+func (s *ProjectService) SaveTranscriptionResult(clipID int, result *ai.AudioProcessingResult) (*TranscriptionResponse, error) {
+	if result == nil {
+		return &TranscriptionResponse{
+			Success: false,
+			Message: "No transcription result provided",
+		}, nil
+	}
+
+	// Update transcription state to processing
+	err := s.updateTranscriptionState(clipID, TranscriptionStateTranscribing, "")
+	if err != nil {
+		log.Printf("[TRANSCRIPTION] Warning: failed to update state to transcribing: %v", err)
+	}
+
+	// Convert AI Words to schema Words for storage
+	var wordsForStorage []schema.Word
+	for _, w := range result.Words {
+		wordsForStorage = append(wordsForStorage, schema.Word{
+			Word:  w.Word,
+			Start: w.Start,
+			End:   w.End,
+		})
+	}
+
+	// Save transcription to database and update state to completed
+	_, err = s.client.VideoClip.
+		UpdateOneID(clipID).
+		SetTranscription(result.Transcript).
+		SetTranscriptionWords(wordsForStorage).
+		SetTranscriptionLanguage(result.Language).
+		SetTranscriptionDuration(result.Duration).
+		SetTranscriptionState(TranscriptionStateCompleted).
+		SetTranscriptionError("").
+		SetTranscriptionCompletedAt(time.Now()).
+		Save(s.ctx)
+
+	if err != nil {
+		s.updateTranscriptionState(clipID, TranscriptionStateError, "Failed to save transcription")
+		return &TranscriptionResponse{
+			Success: false,
+			Message: "Failed to save transcription",
+		}, nil
+	}
+
+	log.Printf("[TRANSCRIPTION] Transcription saved successfully, text length: %d characters, words: %d",
+		len(result.Transcript), len(result.Words))
+
+	// Convert AI Words to projects Words for response
+	var responseWords []Word
+	for _, w := range result.Words {
+		responseWords = append(responseWords, Word{
+			Word:  w.Word,
+			Start: w.Start,
+			End:   w.End,
+		})
+	}
+
+	return &TranscriptionResponse{
+		Success:       true,
+		Message:       "Transcription completed successfully",
+		Transcription: result.Transcript,
+		Words:         responseWords,
+		Language:      result.Language,
+		Duration:      result.Duration,
+	}, nil
+}
+
+// BatchTranscribeWithAIService transcribes all untranscribed video clips using provided AI service
+func (s *ProjectService) BatchTranscribeWithAIService(projectID int, aiService ai.AIService) (*BatchTranscribeResponse, error) {
+	// Get untranscribed clips  
+	clips, err := s.client.VideoClip.
+		Query().
+		Where(
+			videoclip.HasProjectWith(project.ID(projectID)),
+			videoclip.TranscriptionStateNEQ(TranscriptionStateCompleted),
+		).
+		All(s.ctx)
+	if err != nil {
+		return &BatchTranscribeResponse{
+			Success: false,
+			Message: fmt.Sprintf("Failed to get clips: %v", err),
+		}, nil
+	}
+
+	if len(clips) == 0 {
+		return &BatchTranscribeResponse{
+			Success: true,
+			Message: "No clips found that need transcription",
+		}, nil
+	}
+
+	log.Printf("[BATCH_TRANSCRIPTION] Starting batch transcription for project %d with %d clips", projectID, len(clips))
+
+	var transcribedCount, skippedCount, failedCount int
+	var failedClips []string
+
+	// Process each clip
+	for _, clip := range clips {
+		log.Printf("[BATCH_TRANSCRIPTION] Processing clip: %s (ID: %d)", clip.Name, clip.ID)
+
+		// Check if file exists
+		if _, err := os.Stat(clip.FilePath); os.IsNotExist(err) {
+			log.Printf("[BATCH_TRANSCRIPTION] File not found for clip %s: %s", clip.Name, clip.FilePath)
+			failedCount++
+			failedClips = append(failedClips, fmt.Sprintf("%s (file not found)", clip.Name))
+			continue
+		}
+
+		// Process audio using AI service
+		result, err := aiService.ProcessAudio(clip.FilePath)
+		if err != nil {
+			log.Printf("[BATCH_TRANSCRIPTION] Error transcribing clip %s: %v", clip.Name, err)
+			failedCount++
+			failedClips = append(failedClips, fmt.Sprintf("%s (error: %v)", clip.Name, err))
+			continue
+		}
+
+		// Save transcription result
+		transcriptionResponse, err := s.SaveTranscriptionResult(clip.ID, result)
+		if err != nil {
+			log.Printf("[BATCH_TRANSCRIPTION] Error saving transcription for clip %s: %v", clip.Name, err)
+			failedCount++
+			failedClips = append(failedClips, fmt.Sprintf("%s (save error: %v)", clip.Name, err))
+			continue
+		}
+
+		if transcriptionResponse.Success {
+			log.Printf("[BATCH_TRANSCRIPTION] Successfully transcribed clip: %s", clip.Name)
+			transcribedCount++
+		} else {
+			log.Printf("[BATCH_TRANSCRIPTION] Failed to transcribe clip %s: %s", clip.Name, transcriptionResponse.Message)
+			failedCount++
+			failedClips = append(failedClips, fmt.Sprintf("%s (%s)", clip.Name, transcriptionResponse.Message))
+		}
+	}
+
+	// Build summary message
+	var message string
+	if transcribedCount > 0 {
+		message = fmt.Sprintf("Successfully transcribed %d clips", transcribedCount)
+		if failedCount > 0 {
+			message += fmt.Sprintf(", %d failed", failedCount)
+		}
+		if skippedCount > 0 {
+			message += fmt.Sprintf(", %d skipped", skippedCount)
+		}
+	} else if failedCount > 0 {
+		message = fmt.Sprintf("All %d clips failed transcription", failedCount)
+	} else {
+		message = "No clips processed"
+	}
+
+	log.Printf("[BATCH_TRANSCRIPTION] Completed: %s", message)
+
+	return &BatchTranscribeResponse{
+		Success:          transcribedCount > 0 || (failedCount == 0 && skippedCount > 0),
+		Message:          message,
+		TranscribedCount: transcribedCount,
+		SkippedCount:     skippedCount,
+		FailedCount:      failedCount,
+		FailedClips:      failedClips,
+	}, nil
+}

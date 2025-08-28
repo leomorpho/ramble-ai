@@ -83,20 +83,10 @@ func (f *AIServiceFactory) CreateService() (AIService, error) {
 
 // createRemoteService creates a remote AI service
 func (f *AIServiceFactory) createRemoteService() (AIService, error) {
-	// Get remote settings - check environment variable first
-	var backendURL string
+	// Default to localhost development backend, allow environment override
+	backendURL := "http://localhost:8090"
 	if envURL := os.Getenv("REMOTE_AI_BACKEND_URL"); envURL != "" {
 		backendURL = envURL
-	} else {
-		var err error
-		backendURL, err = f.getSetting("remote_ai_backend_url")
-		if err != nil {
-			return nil, fmt.Errorf("failed to get backend URL: %w", err)
-		}
-	}
-	
-	if backendURL == "" {
-		return nil, fmt.Errorf("backend URL not configured")
 	}
 
 	apiKey, err := f.getSetting("ramble_ai_api_key")
@@ -147,18 +137,6 @@ func (f *AIServiceFactory) getSetting(key string) (string, error) {
 }
 
 func (f *AIServiceFactory) getUseRemoteAIBackend() (bool, error) {
-	// Check environment variable first
-	if envValue := os.Getenv("USE_REMOTE_AI_BACKEND"); envValue != "" {
-		return envValue == "true", nil
-	}
-	
-	// Fallback to database setting
-	value, err := f.getSetting("use_remote_ai_backend")
-	if err != nil {
-		return false, err
-	}
-	if value == "" {
-		return false, nil // default to false
-	}
-	return value == "true", nil
+	// Always use remote backend - keeping function for compatibility
+	return true, nil
 }

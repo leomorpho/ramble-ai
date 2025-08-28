@@ -19,3 +19,22 @@
 	bind:value
 	{...restProps}
 />
+
+<style>
+	/* Override browser autocomplete styling to match theme */
+	input:-webkit-autofill,
+	input:-webkit-autofill:hover,
+	input:-webkit-autofill:focus,
+	input:-webkit-autofill:active {
+		-webkit-box-shadow: 0 0 0 30px hsl(var(--background)) inset !important;
+		-webkit-text-fill-color: hsl(var(--foreground)) !important;
+		border-color: hsl(var(--border)) !important;
+	}
+	
+	/* For non-webkit browsers */
+	input:autofill {
+		background-color: hsl(var(--background)) !important;
+		color: hsl(var(--foreground)) !important;
+		border-color: hsl(var(--border)) !important;
+	}
+</style>

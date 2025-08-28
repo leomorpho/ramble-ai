@@ -6,8 +6,6 @@
 	import { Crown, User, Mail, Calendar, Edit3, Upload, X } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { getAvatarUrl } from '$lib/files.js';
-	import CompanySetupForm from '$lib/components/CompanySetupForm.svelte';
-	import CompanyOverview from '$lib/components/dashboard/CompanyOverview.svelte';
 	import PersonalAccount from '$lib/components/dashboard/PersonalAccount.svelte';
 
 	// State for avatar upload
@@ -16,52 +14,9 @@
 	let isDragOver = $state(false);
 	let fileInput: HTMLInputElement;
 
-	// Company state
-	let hasCompany = $state(false);
-	let isCheckingCompany = $state(true);
-	let companyData = $state<any>(null);
-	let employeeData = $state<any>(null);
-
-	// Load subscription and company data on mount
+	// Load subscription data on mount
 	onMount(async () => {
 		subscriptionStore.loadData();
-		
-		// Check if user has a company
-		if (authStore.user) {
-			try {
-				console.log('Looking for employee with user_id:', authStore.user.id);
-				
-				// Get employees list (this works based on the logs)
-				const allEmployees = await pb.collection('employees').getList(1, 50);
-				console.log('All employees user can see:', allEmployees);
-				
-				// Find the employee from the list we already have (avoid second request)
-				const employee = allEmployees.items.find(emp => emp.user_id === authStore.user.id);
-				
-				console.log('Employee found:', employee);
-				
-				if (employee && employee.company_id) {
-					// Now get the company separately
-					try {
-						const company = await pb.collection('companies').getOne(employee.company_id);
-						console.log('Company found:', company);
-						
-						hasCompany = true;
-						companyData = company;
-						employeeData = employee;
-					} catch (companyErr) {
-						console.error('Failed to get company:', companyErr);
-					}
-				} else {
-					console.log('Employee found but no company_id:', employee);
-				}
-			} catch (err) {
-				// No employee record found - user needs to create a company
-				console.log('No employee found for user:', err);
-			} finally {
-				isCheckingCompany = false;
-			}
-		}
 	});
 
 
@@ -314,28 +269,17 @@
 </svelte:head>
 
 <div class="container mx-auto px-4 py-8">
-	{#if isCheckingCompany}
-		<!-- Loading state -->
-		<div class="flex items-center justify-center min-h-[60vh]">
-			<div class="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full"></div>
-		</div>
-	{:else if !hasCompany}
-		<!-- Company Setup -->
-		<div class="mx-auto max-w-2xl">
-			<CompanySetupForm onSuccess={() => window.location.reload()} />
-		</div>
-	{:else}
-		<!-- Regular Dashboard -->
+	<!-- Dashboard -->
 		<div class="mx-auto max-w-6xl">
-			<!-- Header -->
-			<div class="mb-8">
-				<h1 class="text-4xl font-bold text-foreground mb-2">Dashboard</h1>
-				<p class="text-muted-foreground">Welcome back, {companyData?.name || 'your company'}</p>
-			</div>
+		<!-- Header -->
+		<div class="mb-8">
+			<h1 class="text-4xl font-bold text-foreground mb-2">Dashboard</h1>
+			<p class="text-muted-foreground">Welcome back, {authStore.user?.name || 'User'}</p>
+		</div>
 
-			<div class="grid gap-8 lg:grid-cols-3">
-			<!-- Profile Section -->
-			<div class="lg:col-span-1">
+		<div class="grid gap-8 lg:grid-cols-3">
+		<!-- Profile Section -->
+		<div class="lg:col-span-1">
 				<div class="bg-card rounded-xl border border-border p-6 shadow-sm">
 					<div class="text-center">
 						<!-- Avatar Section -->
@@ -406,9 +350,9 @@
 				</div>
 			</div>
 
-			<!-- Main Content -->
-			<div class="lg:col-span-2 space-y-6">
-				<!-- Quick Actions -->
+		<!-- Main Content -->
+		<div class="lg:col-span-2 space-y-6">
+			<!-- Quick Actions -->
 				<div class="bg-card rounded-xl border border-border p-6 shadow-sm">
 					<h3 class="text-lg font-semibold text-foreground mb-4">Quick Actions</h3>
 					<div class="grid gap-4 sm:grid-cols-1">
@@ -442,13 +386,11 @@
 					</div>
 				</div>
 
-				<!-- Company Overview -->
-				<CompanyOverview bind:companyData={companyData} employeeData={employeeData} />
 
-				<!-- Personal Account -->
+			<!-- Personal Account -->
 				<PersonalAccount />
 
-				<!-- Recent Activity / Welcome Message -->
+			<!-- Recent Activity / Welcome Message -->
 				<div class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-xl border border-blue-200 dark:border-blue-800/50 p-6">
 					<h3 class="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-2">Welcome to your Dashboard!</h3>
 					<p class="text-blue-700 dark:text-blue-300 mb-4">
@@ -469,7 +411,6 @@
 			</div>
 		</div>
 	</div>
-	{/if}
 </div>
 
 <!-- Avatar Upload Dialog -->
