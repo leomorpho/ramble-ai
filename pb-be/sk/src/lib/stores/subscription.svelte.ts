@@ -58,6 +58,7 @@ class SubscriptionStore {
 	#usage = $state<UsageInfo | null>(null);
 	#isLoading = $state(false);
 	#isUsageLoading = $state(false);
+	#initialized = $state(false);
 
 	constructor() {
 		// Initialize will be called from components
@@ -65,7 +66,9 @@ class SubscriptionStore {
 
 	// Initialize the store with effect tracking - call this from components
 	initialize() {
-		if (browser) {
+		if (browser && !this.#initialized) {
+			this.#initialized = true;
+			
 			// Load subscription plans immediately (public data)
 			this.loadPlans();
 			

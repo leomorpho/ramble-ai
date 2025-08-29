@@ -15,10 +15,7 @@
 	let isDragOver = $state(false);
 	let fileInput: HTMLInputElement;
 
-	// Load subscription data on mount
-	onMount(async () => {
-		subscriptionStore.loadData();
-	});
+	// Subscription store is initialized in root layout
 
 
 	// Helper to format date

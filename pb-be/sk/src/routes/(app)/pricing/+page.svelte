@@ -13,8 +13,9 @@
 	let checkoutLoading = $state<string | null>(null);
 	let billingInterval = $state<'month' | 'year'>('month');
 
+	// Subscription store is initialized in root layout
 	onMount(() => {
-		subscriptionStore.initialize();
+		// Refresh data to ensure it's current
 		subscriptionStore.refresh();
 	});
 
