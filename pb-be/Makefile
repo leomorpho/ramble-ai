@@ -1,4 +1,4 @@
-.PHONY: help dev dev-backend dev-frontend be nuke-db storybook build test lint format clean install deps check
+.PHONY: help dev dev-backend dev-frontend be be-pocketbase be-stripe nuke-db storybook build test lint format clean install deps check kill-pb
 
 # Default target
 help: ## Show this help message
@@ -6,14 +6,21 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
 # Development commands
-dev: mailpit-up ## Start full development environment (backend + frontend + mailpit)
+dev: mailpit-up ## Start full development environment (backend + frontend + webhooks + mailpit)
 	@echo "🚀 Starting full development environment..."
 	@echo "📧 Mailpit (email testing): http://localhost:8025"
 	@echo "🔧 PocketBase (backend): http://localhost:8090"
+	@echo "💳 Stripe webhooks: forwarding to localhost:8090/stripe"
 	@echo "🌐 SvelteKit (frontend): http://localhost:5174"
-	@make -j2 dev-backend dev-frontend
+	@make -j3 dev-backend be-stripe dev-frontend
 
-be: ## Start PocketBase backend (use NUKE=1 to delete database first)
+be: ## Start PocketBase backend + Stripe webhooks (use NUKE=1 to delete database first)
+	@echo "🚀 Starting PocketBase backend + Stripe webhook forwarding..."
+	@echo "🔧 PocketBase (backend): http://localhost:8090"
+	@echo "💳 Stripe webhooks: forwarding to localhost:8090/stripe"
+	@make -j2 be-pocketbase be-stripe
+
+be-pocketbase: ## Start only PocketBase backend (use NUKE=1 to delete database first)
 	@cd pb && \
 	if [ "$(NUKE)" = "1" ]; then \
 		echo "💥 Nuking PocketBase database..."; \
@@ -22,6 +29,15 @@ be: ## Start PocketBase backend (use NUKE=1 to delete database first)
 	fi
 	@echo "🚀 Starting PocketBase backend..."
 	@cd pb && ./pocketbase serve --dev --http 0.0.0.0:8090
+
+be-stripe: ## Start Stripe webhook forwarding
+	@echo "💳 Starting Stripe webhook forwarding..."
+	@if ! command -v stripe >/dev/null 2>&1; then \
+		echo "⚠️  Stripe CLI not found. Install it from: https://stripe.com/docs/stripe-cli"; \
+		echo "💡 Or run 'make be-pocketbase' to start backend without webhooks"; \
+		exit 1; \
+	fi
+	@stripe listen --forward-to=127.0.0.1:8090/stripe
 
 dev-backend: ## Start PocketBase backend in watch mode
 	@echo "Starting PocketBase backend..."
@@ -161,6 +177,13 @@ mailpit-status: ## Check Mailpit status
 # Utility commands
 logs: ## Show PocketBase logs
 	@cd pb && tail -f pb_data/logs.db
+
+kill-pb: ## Safely kill PocketBase processes
+	@echo "🛑 Killing PocketBase processes..."
+	@pkill -f "go run.*main.go serve" 2>/dev/null || echo "No Go PocketBase processes found"
+	@pkill -f "pocketbase.*serve" 2>/dev/null || echo "No binary PocketBase processes found"
+	@pkill -f "stripe listen" 2>/dev/null || echo "No Stripe CLI processes found"
+	@echo "✅ PocketBase and Stripe processes stopped"
 
 backup: ## Create a backup of PocketBase data
 	@cd pb && cp -r pb_data pb_data_backup_$(shell date +%Y%m%d_%H%M%S)

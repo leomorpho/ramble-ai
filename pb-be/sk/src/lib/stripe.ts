@@ -1,6 +1,7 @@
 import { loadStripe, type Stripe } from '@stripe/stripe-js';
 import { browser } from '$app/environment';
 import { authStore } from './stores/authClient.svelte.js';
+import { pb } from './pocketbase.js';
 
 // Stripe public key - this is safe to expose in frontend
 const STRIPE_PUBLISHABLE_KEY = 'pk_test_your_publishable_key_here';
@@ -23,7 +24,7 @@ export async function createCheckoutSession(planId: string) {
 		throw new Error('User must be logged in to create checkout session');
 	}
 
-	const response = await fetch('/create-checkout-session', {
+	const response = await fetch(`${pb.baseUrl}/create-checkout-session`, {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
@@ -58,7 +59,7 @@ export async function createPortalLink() {
 		throw new Error('User must be logged in to access billing portal');
 	}
 
-	const response = await fetch('/create-portal-link', {
+	const response = await fetch(`${pb.baseUrl}/create-portal-link`, {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
