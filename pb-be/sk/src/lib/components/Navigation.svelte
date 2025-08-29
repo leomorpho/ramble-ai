@@ -50,22 +50,6 @@
 						<BarChart class="h-4 w-4" />
 					</a>
 					<a
-						href="/pricing"
-						class="hover:bg-accent hover:text-accent-foreground inline-flex h-9 w-9 items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors"
-						title="Pricing"
-					>
-						<CreditCard class="h-4 w-4" />
-					</a>
-					{#if isSubscribed}
-						<a
-							href="/premium"
-							class="hover:bg-accent hover:text-accent-foreground inline-flex h-9 w-9 items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors"
-							title="Premium Features"
-						>
-							<Crown class="h-4 w-4 text-yellow-600" />
-						</a>
-					{/if}
-					<a
 						href="/dashboard"
 						class="hover:bg-accent hover:text-accent-foreground flex items-center space-x-2 rounded-md px-2 py-1 text-sm transition-colors"
 					>

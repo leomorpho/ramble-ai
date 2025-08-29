@@ -16,7 +16,6 @@
 		FileAudio, 
 		Clock, 
 		TrendingUp, 
-		Download, 
 		Calendar,
 		CheckCircle2,
 		AlertCircle,
@@ -305,12 +304,8 @@
 	<!-- Recent Files Section -->
 	<section class="py-20 border-t px-6">
 		<div class="max-w-4xl mx-auto">
-			<div class="flex items-center justify-between mb-12">
+			<div class="mb-12">
 				<h2 class="text-3xl md:text-4xl font-bold">Recent Processing History</h2>
-				<Button variant="outline" size="sm">
-					<Download class="h-4 w-4 mr-2" />
-					Export
-				</Button>
 			</div>
 			
 			<Card class="overflow-hidden">

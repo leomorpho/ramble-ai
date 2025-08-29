@@ -3,8 +3,9 @@
 	import { subscriptionStore } from '$lib/stores/subscription.svelte.js';
 	import { config } from '$lib/config.js';
 	import { pb } from '$lib/pocketbase.js';
-	import { Crown, User, Mail, Calendar, Edit3, Upload, X } from 'lucide-svelte';
+	import { Crown, User, Mail, Calendar, Edit3, Upload, X, Settings } from 'lucide-svelte';
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { getAvatarUrl } from '$lib/files.js';
 	import PersonalAccount from '$lib/components/dashboard/PersonalAccount.svelte';
 	import APIKeyManager from '$lib/components/APIKeyManager.svelte';
@@ -354,39 +355,66 @@
 
 		<!-- Main Content -->
 		<div class="lg:col-span-2 space-y-6">
-			<!-- Quick Actions -->
-				<div class="bg-card rounded-xl border border-border p-6 shadow-sm">
-					<h3 class="text-lg font-semibold text-foreground mb-4">Quick Actions</h3>
-					<div class="grid gap-4 sm:grid-cols-1">
-						{#if subscriptionStore.isSubscribed}
-							<a
-								href="/billing"
-								class="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-950/50 rounded-lg border border-green-200 dark:border-green-800/50 hover:bg-green-100 dark:hover:bg-green-950/70 transition-colors group"
-							>
-								<div class="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center">
-									<Crown class="w-5 h-5 text-white" />
-								</div>
-								<div>
-									<h4 class="font-medium text-green-900 dark:text-green-100">Manage Billing</h4>
-									<p class="text-sm text-green-700 dark:text-green-300">View subscription</p>
-								</div>
-							</a>
-						{:else}
-							<a
-								href="/pricing"
-								class="flex items-center gap-3 p-4 bg-purple-50 dark:bg-purple-950/50 rounded-lg border border-purple-200 dark:border-purple-800/50 hover:bg-purple-100 dark:hover:bg-purple-950/70 transition-colors group"
-							>
-								<div class="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center">
-									<Crown class="w-5 h-5 text-white" />
-								</div>
-								<div>
-									<h4 class="font-medium text-purple-900 dark:text-purple-100">Go Premium</h4>
-									<p class="text-sm text-purple-700 dark:text-purple-300">Unlock all features</p>
-								</div>
-							</a>
-						{/if}
+			<!-- Current Plan -->
+			<div class="bg-card rounded-xl border border-border p-6 shadow-sm">
+				<h3 class="text-lg font-semibold text-foreground mb-4">Current Plan</h3>
+				
+				{#if subscriptionStore.currentPlan}
+					<div class="flex items-center justify-between p-4 bg-primary/5 rounded-lg border border-primary/20">
+						<div class="flex items-center gap-4">
+							<div class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+								<Crown class="w-6 h-6 text-primary" />
+							</div>
+							<div>
+								<h4 class="text-xl font-semibold text-foreground">{subscriptionStore.currentPlan.name}</h4>
+								<p class="text-sm text-muted-foreground">
+									{subscriptionStore.currentPlan.hours_per_month} hour{subscriptionStore.currentPlan.hours_per_month !== 1 ? 's' : ''} per month
+									• ${(subscriptionStore.currentPlan.price_cents / 100).toFixed(2)}/{subscriptionStore.currentPlan.billing_interval}
+								</p>
+								{#if subscriptionStore.usage}
+									<div class="mt-2">
+										<p class="text-sm text-muted-foreground">
+											{subscriptionStore.usage.hours_used.toFixed(1)} / {subscriptionStore.usage.hours_limit} hours used this month
+										</p>
+										<div class="w-full bg-muted rounded-full h-2 mt-1">
+											<div 
+												class="bg-primary h-2 rounded-full transition-all" 
+												style="width: {Math.min(subscriptionStore.usage.usage_percentage, 100)}%"
+											></div>
+										</div>
+									</div>
+								{/if}
+							</div>
+						</div>
+						<button
+							onclick={() => goto('/pricing')}
+							class="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+						>
+							<Settings class="w-4 h-4" />
+							Change Plan
+						</button>
 					</div>
-				</div>
+				{:else}
+					<div class="flex items-center justify-between p-4 bg-muted/50 rounded-lg border">
+						<div class="flex items-center gap-4">
+							<div class="w-12 h-12 bg-muted rounded-lg flex items-center justify-center">
+								<User class="w-6 h-6 text-muted-foreground" />
+							</div>
+							<div>
+								<h4 class="text-xl font-semibold text-foreground">No Active Plan</h4>
+								<p class="text-sm text-muted-foreground">Choose a plan to get started</p>
+							</div>
+						</div>
+						<button
+							onclick={() => goto('/pricing')}
+							class="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+						>
+							<Crown class="w-4 h-4" />
+							Choose Plan
+						</button>
+					</div>
+				{/if}
+			</div>
 
 
 			<!-- Personal Account -->
