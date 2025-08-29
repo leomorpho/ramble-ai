@@ -11,6 +11,7 @@ import (
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/resend/resend-go/v2"
 	"github.com/stripe/stripe-go/v79"
 
 	aihandlers "pocketbase/internal/ai"
@@ -248,9 +249,40 @@ func loadSchemaFromJSON(app *pocketbase.PocketBase) error {
 	return nil
 }
 
-// configureEmailSettings sets up SMTP configuration for email verification
+// configureEmailSettings sets up email configuration for email verification
+// Uses SMTP for development (with Mailpit) and Resend for production
 func configureEmailSettings(app *pocketbase.PocketBase) error {
-	// Only configure if SMTP_HOST is set
+	isDevelopment := os.Getenv("DEVELOPMENT") == "true"
+	
+	// Common email settings
+	emailFrom := os.Getenv("EMAIL_FROM")
+	if emailFrom == "" {
+		if isDevelopment {
+			emailFrom = "noreply@localhost"
+		} else {
+			emailFrom = "noreply@ramble.goosebyteshq.com"
+		}
+	}
+	emailFromName := os.Getenv("EMAIL_FROM_NAME")
+	if emailFromName == "" {
+		emailFromName = "Pulse"
+	}
+
+	// Configure email templates
+	app.Settings().Meta.SenderName = emailFromName
+	app.Settings().Meta.SenderAddress = emailFrom
+
+	if isDevelopment {
+		// Development: Use SMTP with Mailpit
+		return configureEmailSMTP(app)
+	} else {
+		// Production: Use Resend
+		return configureEmailResend(app)
+	}
+}
+
+// configureEmailSMTP sets up SMTP configuration for development with Mailpit
+func configureEmailSMTP(app *pocketbase.PocketBase) error {
 	smtpHost := os.Getenv("SMTP_HOST")
 	if smtpHost == "" {
 		log.Println("SMTP_HOST not set, email verification disabled")
@@ -263,14 +295,6 @@ func configureEmailSettings(app *pocketbase.PocketBase) error {
 	}
 
 	smtpTLS := os.Getenv("SMTP_TLS") == "true"
-	emailFrom := os.Getenv("EMAIL_FROM")
-	if emailFrom == "" {
-		emailFrom = "noreply@localhost"
-	}
-	emailFromName := os.Getenv("EMAIL_FROM_NAME")
-	if emailFromName == "" {
-		emailFromName = "Pulse"
-	}
 
 	// Configure SMTP settings
 	app.Settings().SMTP.Enabled = true
@@ -280,12 +304,30 @@ func configureEmailSettings(app *pocketbase.PocketBase) error {
 	app.Settings().SMTP.Password = os.Getenv("SMTP_PASSWORD")
 	app.Settings().SMTP.TLS = smtpTLS
 	app.Settings().SMTP.AuthMethod = "PLAIN"
-
-	// Configure email templates
-	app.Settings().Meta.SenderName = emailFromName
-	app.Settings().Meta.SenderAddress = emailFrom
 	
-	log.Printf("SMTP configured: %s:%d (TLS: %v)", smtpHost, smtpPort, smtpTLS)
+	log.Printf("SMTP configured for development: %s:%d (TLS: %v)", smtpHost, smtpPort, smtpTLS)
+	return nil
+}
+
+// configureEmailResend sets up Resend configuration for production
+func configureEmailResend(app *pocketbase.PocketBase) error {
+	resendAPIKey := os.Getenv("RESEND_API_KEY")
+	if resendAPIKey == "" {
+		log.Println("RESEND_API_KEY not set, email verification disabled")
+		return nil
+	}
+
+	// Configure Resend SMTP settings
+	// Resend provides SMTP endpoint: smtp.resend.com:587
+	app.Settings().SMTP.Enabled = true
+	app.Settings().SMTP.Host = "smtp.resend.com"
+	app.Settings().SMTP.Port = 587
+	app.Settings().SMTP.Username = "resend"
+	app.Settings().SMTP.Password = resendAPIKey // Resend uses API key as password
+	app.Settings().SMTP.TLS = true
+	app.Settings().SMTP.AuthMethod = "PLAIN"
+	
+	log.Printf("Resend configured for production via SMTP: smtp.resend.com:587")
 	return nil
 }
 
