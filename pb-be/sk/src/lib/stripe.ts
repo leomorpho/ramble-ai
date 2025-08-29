@@ -14,8 +14,8 @@ export const getStripe = () => {
 	return stripePromise;
 };
 
-// Helper to create checkout session
-export async function createCheckoutSession(priceId: string, mode: 'subscription' | 'payment' = 'subscription') {
+// Helper to create checkout session for a subscription plan
+export async function createCheckoutSession(planId: string) {
 	if (!browser) return null;
 	
 	const user = authStore.user;
@@ -23,15 +23,14 @@ export async function createCheckoutSession(priceId: string, mode: 'subscription
 		throw new Error('User must be logged in to create checkout session');
 	}
 
-	const response = await fetch('http://localhost:8090/create-checkout-session', {
+	const response = await fetch('/create-checkout-session', {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
 		},
 		body: JSON.stringify({
-			price_id: priceId,
-			user_id: user.id,
-			mode: mode
+			plan_id: planId,
+			user_id: user.id
 		})
 	});
 
@@ -59,7 +58,7 @@ export async function createPortalLink() {
 		throw new Error('User must be logged in to access billing portal');
 	}
 
-	const response = await fetch('http://localhost:8090/create-portal-link', {
+	const response = await fetch('/create-portal-link', {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',

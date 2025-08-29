@@ -7,4 +7,15 @@
 /pocketbase.exe
 
 # Environment variables (contains secrets)
-.env
+.env# Binaries
+*.exe
+*.app
+*.dmg
+*.deb
+*.rpm
+*.msi
+*.bin
+*.so
+*.dll
+*.dylib
+subscription_test

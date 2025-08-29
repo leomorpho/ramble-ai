@@ -1,8 +1,13 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
+	import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card';
+	import { Badge } from '$lib/components/ui/badge';
 	import RambleLogo from '$lib/components/RambleLogo.svelte';
 	import DownloadButton from '$lib/components/DownloadButton.svelte';
-	import { config } from '$lib/config.js';
+	import { config } from '$lib/config.ts';
+	import { Check, Crown, Zap } from 'lucide-svelte';
+
+	let billingInterval = $state<'month' | 'year'>('month');
 
 	const faqs = [
 		{
@@ -157,6 +162,197 @@
 			<li>• 200+ AI Models (GPT-4, Claude, Gemini, Llama)</li>
 			<li>• Built-in guide walks you through setup in under 5 minutes</li>
 		</ul>
+	</div>
+</section>
+
+<!-- Pricing -->
+<section class="py-20 border-t">
+	<div class="max-w-6xl mx-auto px-6">
+		<div class="text-center mb-12">
+			<h2 class="text-3xl md:text-4xl font-bold mb-4">Simple, Transparent Pricing</h2>
+			<p class="text-muted-foreground">Choose the plan that fits your workflow</p>
+		</div>
+
+		<!-- Billing Toggle -->
+		<div class="flex justify-center mb-12">
+			<div class="flex items-center bg-muted p-1 rounded-lg">
+				<button
+					class="px-6 py-2 rounded-md text-sm font-medium transition-colors {billingInterval === 'month' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
+					onclick={() => billingInterval = 'month'}
+				>
+					Monthly
+				</button>
+				<button
+					class="px-6 py-2 rounded-md text-sm font-medium transition-colors {billingInterval === 'year' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
+					onclick={() => billingInterval = 'year'}
+				>
+					Yearly
+					<Badge variant="secondary" class="ml-2">Save 20%</Badge>
+				</button>
+			</div>
+		</div>
+		
+		<div class="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+			<!-- Free Plan -->
+			<Card class="relative">
+				<CardHeader class="text-center">
+					<div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+						<Check class="h-6 w-6 text-primary" />
+					</div>
+					<CardTitle class="text-2xl">Free</CardTitle>
+					<div class="mt-4">
+						<div class="text-4xl font-bold">$0</div>
+						<div class="text-muted-foreground">Always free</div>
+					</div>
+				</CardHeader>
+				<CardContent class="space-y-6">
+					<div class="text-center">
+						<div class="text-2xl font-semibold text-primary">1 hour</div>
+						<div class="text-sm text-muted-foreground">of media processing per month</div>
+					</div>
+
+					<ul class="space-y-3">
+						<li class="flex items-center">
+							<Check class="h-4 w-4 text-green-600 mr-3 flex-shrink-0" />
+							<span class="text-sm">1 hour of media processing</span>
+						</li>
+						<li class="flex items-center">
+							<Check class="h-4 w-4 text-green-600 mr-3 flex-shrink-0" />
+							<span class="text-sm">Unlimited video quality exports</span>
+						</li>
+						<li class="flex items-center">
+							<Check class="h-4 w-4 text-green-600 mr-3 flex-shrink-0" />
+							<span class="text-sm">Basic support</span>
+						</li>
+					</ul>
+
+					<Button class="w-full" variant="outline">
+						Get Started
+					</Button>
+				</CardContent>
+			</Card>
+
+			<!-- Basic Plan -->
+			<Card class="relative ring-2 ring-primary">
+				<Badge class="absolute -top-3 left-1/2 -translate-x-1/2">
+					Most Popular
+				</Badge>
+				<CardHeader class="text-center">
+					<div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+						<Zap class="h-6 w-6 text-primary" />
+					</div>
+					<CardTitle class="text-2xl">Basic</CardTitle>
+					<div class="mt-4">
+						{#if billingInterval === 'month'}
+							<div class="text-4xl font-bold">$5</div>
+							<div class="text-muted-foreground">per month</div>
+						{:else}
+							<div class="text-4xl font-bold">$48</div>
+							<div class="text-muted-foreground">per year</div>
+							<div class="text-sm text-green-600 mt-1">
+								($4 per month)
+							</div>
+						{/if}
+					</div>
+				</CardHeader>
+				<CardContent class="space-y-6">
+					<div class="text-center">
+						<div class="text-2xl font-semibold text-primary">10 hours</div>
+						<div class="text-sm text-muted-foreground">of media processing per month</div>
+					</div>
+
+					<ul class="space-y-3">
+						<li class="flex items-center">
+							<Check class="h-4 w-4 text-green-600 mr-3 flex-shrink-0" />
+							<span class="text-sm">10 hours of media processing</span>
+						</li>
+						<li class="flex items-center">
+							<Check class="h-4 w-4 text-green-600 mr-3 flex-shrink-0" />
+							<span class="text-sm">Unlimited video quality exports</span>
+						</li>
+						<li class="flex items-center">
+							<Check class="h-4 w-4 text-green-600 mr-3 flex-shrink-0" />
+							<span class="text-sm">Email support</span>
+						</li>
+						<li class="flex items-center">
+							<Check class="h-4 w-4 text-green-600 mr-3 flex-shrink-0" />
+							<span class="text-sm">Priority processing</span>
+						</li>
+						{#if billingInterval === 'year'}
+							<li class="flex items-center">
+								<Check class="h-4 w-4 text-green-600 mr-3 flex-shrink-0" />
+								<span class="text-sm">2 months free</span>
+							</li>
+						{/if}
+					</ul>
+
+					<Button class="w-full">
+						Start Free Trial
+					</Button>
+				</CardContent>
+			</Card>
+
+			<!-- Pro Plan -->
+			<Card class="relative">
+				<CardHeader class="text-center">
+					<div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+						<Crown class="h-6 w-6 text-primary" />
+					</div>
+					<CardTitle class="text-2xl">Pro</CardTitle>
+					<div class="mt-4">
+						{#if billingInterval === 'month'}
+							<div class="text-4xl font-bold">$15</div>
+							<div class="text-muted-foreground">per month</div>
+						{:else}
+							<div class="text-4xl font-bold">$144</div>
+							<div class="text-muted-foreground">per year</div>
+							<div class="text-sm text-green-600 mt-1">
+								($12 per month)
+							</div>
+						{/if}
+					</div>
+				</CardHeader>
+				<CardContent class="space-y-6">
+					<div class="text-center">
+						<div class="text-2xl font-semibold text-primary">30 hours</div>
+						<div class="text-sm text-muted-foreground">of media processing per month</div>
+					</div>
+
+					<ul class="space-y-3">
+						<li class="flex items-center">
+							<Check class="h-4 w-4 text-green-600 mr-3 flex-shrink-0" />
+							<span class="text-sm">30 hours of media processing</span>
+						</li>
+						<li class="flex items-center">
+							<Check class="h-4 w-4 text-green-600 mr-3 flex-shrink-0" />
+							<span class="text-sm">Unlimited video quality exports</span>
+						</li>
+						<li class="flex items-center">
+							<Check class="h-4 w-4 text-green-600 mr-3 flex-shrink-0" />
+							<span class="text-sm">Priority support</span>
+						</li>
+						<li class="flex items-center">
+							<Check class="h-4 w-4 text-green-600 mr-3 flex-shrink-0" />
+							<span class="text-sm">Advanced AI models</span>
+						</li>
+						<li class="flex items-center">
+							<Check class="h-4 w-4 text-green-600 mr-3 flex-shrink-0" />
+							<span class="text-sm">Bulk processing</span>
+						</li>
+						{#if billingInterval === 'year'}
+							<li class="flex items-center">
+								<Check class="h-4 w-4 text-green-600 mr-3 flex-shrink-0" />
+								<span class="text-sm">2 months free</span>
+							</li>
+						{/if}
+					</ul>
+
+					<Button class="w-full">
+						Start Free Trial
+					</Button>
+				</CardContent>
+			</Card>
+		</div>
 	</div>
 </section>
 

@@ -13,9 +13,8 @@ import (
 
 // CreateCheckoutSessionRequest represents the request payload for creating a checkout session
 type CreateCheckoutSessionRequest struct {
-	PriceID string `json:"price_id"`
-	UserID  string `json:"user_id"`
-	Mode    string `json:"mode"` // "subscription" or "payment"
+	PlanID string `json:"plan_id"`
+	UserID string `json:"user_id"`
 }
 
 // CreatePortalLinkRequest represents the request payload for creating a portal link
@@ -31,7 +30,23 @@ func CreateCheckoutSession(e *core.RequestEvent, app *pocketbase.PocketBase) err
 		return e.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 
-	// Get or create Stripe customer directly for user
+	// Get the subscription plan
+	plan, err := app.FindRecordById("subscription_plans", data.PlanID)
+	if err != nil {
+		return e.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid plan ID"})
+	}
+
+	// Free plan doesn't need Stripe checkout
+	if plan.GetString("billing_interval") == "free" {
+		return e.JSON(http.StatusBadRequest, map[string]string{"error": "Cannot create checkout for free plan"})
+	}
+
+	stripePriceID := plan.GetString("stripe_price_id")
+	if stripePriceID == "" {
+		return e.JSON(http.StatusInternalServerError, map[string]string{"error": "Plan has no Stripe price ID"})
+	}
+
+	// Get or create Stripe customer for user
 	customerID, err := getOrCreateStripeCustomer(app, data.UserID)
 	if err != nil {
 		return e.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -42,21 +57,20 @@ func CreateCheckoutSession(e *core.RequestEvent, app *pocketbase.PocketBase) err
 		Customer: stripe.String(customerID),
 		LineItems: []*stripe.CheckoutSessionLineItemParams{
 			{
-				Price:    stripe.String(data.PriceID),
+				Price:    stripe.String(stripePriceID),
 				Quantity: stripe.Int64(1),
 			},
 		},
-		Mode:       stripe.String(data.Mode),
+		Mode:       stripe.String("subscription"),
 		SuccessURL: stripe.String(os.Getenv("STRIPE_SUCCESS_URL")),
 		CancelURL:  stripe.String(os.Getenv("STRIPE_CANCEL_URL")),
-	}
-
-	if data.Mode == "subscription" {
-		params.SubscriptionData = &stripe.CheckoutSessionSubscriptionDataParams{
+		SubscriptionData: &stripe.CheckoutSessionSubscriptionDataParams{
 			Metadata: map[string]string{
 				"user_id": data.UserID,
+				"plan_id": data.PlanID,
 			},
-		}
+		},
+		AllowPromotionCodes: stripe.Bool(true),
 	}
 
 	s, err := checkoutsession.New(params)

@@ -83,6 +83,11 @@ func main() {
 			log.Printf("Warning: Failed to seed development data: %v", err)
 		}
 
+		// Seed subscription plans
+		if err := stripehandlers.SeedSubscriptionPlans(app); err != nil {
+			log.Printf("Warning: Failed to seed subscription plans: %v", err)
+		}
+
 
 		// Stripe routes
 		se.Router.POST("/create-checkout-session", func(e *core.RequestEvent) error {
@@ -95,6 +100,27 @@ func main() {
 
 		se.Router.POST("/stripe", func(e *core.RequestEvent) error {
 			return stripehandlers.HandleWebhook(e, app)
+		})
+
+		// Subscription management routes
+		se.Router.GET("/api/subscription/info", func(e *core.RequestEvent) error {
+			return stripehandlers.GetUserSubscriptionInfo(e, app)
+		})
+
+		se.Router.GET("/api/subscription/plans", func(e *core.RequestEvent) error {
+			return stripehandlers.GetAvailablePlans(e, app)
+		})
+
+		se.Router.GET("/api/subscription/usage", func(e *core.RequestEvent) error {
+			return stripehandlers.GetUsageStats(e, app)
+		})
+
+		se.Router.GET("/api/subscription/upgrades", func(e *core.RequestEvent) error {
+			return stripehandlers.GetPlanUpgrades(e, app)
+		})
+
+		se.Router.POST("/api/subscription/switch-to-free", func(e *core.RequestEvent) error {
+			return stripehandlers.SwitchToFreePlan(e, app)
 		})
 
 		// OTP routes

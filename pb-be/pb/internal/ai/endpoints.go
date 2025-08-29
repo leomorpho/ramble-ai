@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
+	stripehandlers "pocketbase/internal/stripe"
 )
 
 // TextProcessingRequest represents a request for text-based AI processing
@@ -137,8 +138,8 @@ func ProcessTextHandler(e *core.RequestEvent, app core.App) error {
 	log.Printf("👤 [AI TEXT REQUEST] User: %s (%s) | API Key: %s | IP: %s", 
 		userEmail, userID, maskedKey, clientIP)
 
-	// Check user's subscription status (placeholder - implement based on your subscription model)
-	if !isUserSubscribed(user) {
+	// Check user's subscription status
+	if !isUserSubscribed(app, userID) {
 		log.Printf("❌ [AI TEXT REQUEST] FAILED: No active subscription | User: %s | IP: %s", 
 			userEmail, clientIP)
 		return e.JSON(403, map[string]string{"error": "Active subscription required"})
@@ -285,10 +286,16 @@ func validateAPIKey(app core.App, apiKey string) (*core.Record, error) {
 	return userRecord, nil
 }
 
-func isUserSubscribed(user *core.Record) bool {
-	// Placeholder - implement your subscription logic
-	// This could check a subscriptions collection or Stripe status
-	return true // For now, allow all users
+func isUserSubscribed(app core.App, userID string) bool {
+	// Check if user has an active subscription using our new system
+	subscription, err := stripehandlers.GetUserSubscription(app, userID)
+	if err != nil {
+		log.Printf("No subscription found for user %s: %v", userID, err)
+		return false
+	}
+
+	status := subscription.GetString("status")
+	return status == "active" || status == "trialing"
 }
 
 func proxyToOpenRouter(request *TextProcessingRequest) (*OpenRouterResponse, error) {
@@ -456,8 +463,8 @@ func ProcessAudioHandler(e *core.RequestEvent, app core.App) error {
 	log.Printf("👤 [AI AUDIO REQUEST] User: %s (%s) | API Key: %s | IP: %s", 
 		userEmail, userID, maskedKey, clientIP)
 
-	// Check user's subscription status
-	if !isUserSubscribed(user) {
+	// Check user's subscription status and usage limits
+	if !isUserSubscribed(app, userID) {
 		log.Printf("❌ [AI AUDIO REQUEST] FAILED: No active subscription | User: %s | IP: %s", 
 			userEmail, clientIP)
 		return e.JSON(403, map[string]string{"error": "Active subscription required"})
@@ -514,6 +521,23 @@ func ProcessAudioHandler(e *core.RequestEvent, app core.App) error {
 			userEmail, filename, fileSizeKB, clientIP)
 	}
 
+	// For non-chunks, do preliminary usage validation (estimate duration from file size)
+	// This is a rough check - final validation and tracking happens after getting actual duration
+	if !isChunk {
+		// Rough estimate: 1MB ≈ 1 minute for typical audio files
+		estimatedDurationSeconds := float64(fileSize) / 1048576.0 * 60.0
+		
+		// Check if user can process this estimated duration
+		if err := stripehandlers.ValidateUsageLimits(app, userID, estimatedDurationSeconds/3600.0); err != nil {
+			log.Printf("❌ [AI AUDIO REQUEST] FAILED: Usage limit exceeded | User: %s | Estimated hours: %.2f | IP: %s | Error: %v", 
+				userEmail, estimatedDurationSeconds/3600.0, clientIP, err)
+			return e.JSON(403, map[string]string{
+				"error": err.Error(),
+				"code":  "USAGE_LIMIT_EXCEEDED",
+			})
+		}
+	}
+
 	// Create initial processed_files record with chunk metadata
 	processedFileRecord, err := createProcessedFileRecordWithChunkInfo(app, userID, filename, fileSize, clientIP, 
 		baseFilename, isChunk, isLastChunk, chunkIndex, originalFileSize, originalDuration)
@@ -555,6 +579,18 @@ func ProcessAudioHandler(e *core.RequestEvent, app core.App) error {
 			} else {
 				log.Printf("✅ [AI AUDIO REQUEST] Flattened chunks | User: %s | Base: %s", userEmail, baseFilename)
 			}
+		}
+	}
+
+	// Update usage tracking for non-chunks (for chunks, usage is tracked when flattened)
+	if !isChunk {
+		if err := stripehandlers.UpdateUsageAfterProcessing(app, userID, result.Duration); err != nil {
+			log.Printf("⚠️  [AI AUDIO REQUEST] Warning: Failed to update usage tracking | User: %s | Duration: %.2fs | Error: %v", 
+				userEmail, result.Duration, err)
+			// Don't fail the request if usage tracking fails
+		} else {
+			log.Printf("📊 [AI AUDIO REQUEST] Usage updated | User: %s | Duration: %.2fs (%.3f hours)", 
+				userEmail, result.Duration, result.Duration/3600.0)
 		}
 	}
 	

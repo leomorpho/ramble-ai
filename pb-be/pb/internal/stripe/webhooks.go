@@ -2,10 +2,12 @@ package stripe
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
@@ -33,34 +35,14 @@ func HandleWebhook(e *core.RequestEvent, app *pocketbase.PocketBase) error {
 
 	// Handle the event
 	switch event.Type {
-	case "product.created", "product.updated":
-		var product stripe.Product
-		if err := json.Unmarshal(event.Data.Raw, &product); err != nil {
-			log.Printf("Error parsing webhook JSON: %v", err)
-			return e.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
-		}
-		if err := upsertProduct(app, &product); err != nil {
-			log.Printf("Error upserting product: %v", err)
-		}
-
-	case "price.created", "price.updated":
-		var price stripe.Price
-		if err := json.Unmarshal(event.Data.Raw, &price); err != nil {
-			log.Printf("Error parsing webhook JSON: %v", err)
-			return e.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
-		}
-		if err := upsertPrice(app, &price); err != nil {
-			log.Printf("Error upserting price: %v", err)
-		}
-
 	case "customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted":
 		var sub stripe.Subscription
 		if err := json.Unmarshal(event.Data.Raw, &sub); err != nil {
 			log.Printf("Error parsing webhook JSON: %v", err)
 			return e.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
-		if err := upsertSubscription(app, &sub); err != nil {
-			log.Printf("Error upserting subscription: %v", err)
+		if err := handleSubscriptionEvent(app, &sub, string(event.Type)); err != nil {
+			log.Printf("Error handling subscription event: %v", err)
 		}
 
 	case "checkout.session.completed":
@@ -75,10 +57,30 @@ func HandleWebhook(e *core.RequestEvent, app *pocketbase.PocketBase) error {
 			if err != nil {
 				log.Printf("Error retrieving subscription: %v", err)
 			} else {
-				if err := upsertSubscription(app, sub); err != nil {
-					log.Printf("Error upserting subscription from checkout: %v", err)
+				if err := handleSubscriptionEvent(app, sub, "customer.subscription.created"); err != nil {
+					log.Printf("Error handling subscription from checkout: %v", err)
 				}
 			}
+		}
+
+	case "invoice.payment_failed":
+		var invoice stripe.Invoice
+		if err := json.Unmarshal(event.Data.Raw, &invoice); err != nil {
+			log.Printf("Error parsing invoice webhook JSON: %v", err)
+			return e.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		}
+		if err := handlePaymentFailed(app, &invoice); err != nil {
+			log.Printf("Error handling payment failure: %v", err)
+		}
+
+	case "invoice.payment_succeeded":
+		var invoice stripe.Invoice
+		if err := json.Unmarshal(event.Data.Raw, &invoice); err != nil {
+			log.Printf("Error parsing invoice webhook JSON: %v", err)
+			return e.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		}
+		if err := handlePaymentSucceeded(app, &invoice); err != nil {
+			log.Printf("Error handling payment success: %v", err)
 		}
 
 	default:
@@ -88,85 +90,9 @@ func HandleWebhook(e *core.RequestEvent, app *pocketbase.PocketBase) error {
 	return e.JSON(http.StatusOK, map[string]string{"status": "success"})
 }
 
-// upsertProduct creates or updates a product record in PocketBase
-func upsertProduct(app *pocketbase.PocketBase, stripeProduct *stripe.Product) error {
-	collection, err := app.FindCollectionByNameOrId("products")
-	if err != nil {
-		return err
-	}
-
-	// Try to find existing record
-	record, err := app.FindFirstRecordByFilter("products", "product_id = {:product_id}", map[string]any{
-		"product_id": stripeProduct.ID,
-	})
-
-	if err != nil {
-		// Create new record
-		record = core.NewRecord(collection)
-	}
-
-	// Update record fields
-	record.Set("product_id", stripeProduct.ID)
-	record.Set("active", stripeProduct.Active)
-	record.Set("name", stripeProduct.Name)
-	record.Set("description", stripeProduct.Description)
-
-	if len(stripeProduct.Images) > 0 {
-		record.Set("image", stripeProduct.Images[0])
-	}
-
-	// Convert metadata to JSON
-	if metadata, err := json.Marshal(stripeProduct.Metadata); err == nil {
-		record.Set("metadata", string(metadata))
-	}
-
-	return app.Save(record)
-}
-
-// upsertPrice creates or updates a price record in PocketBase
-func upsertPrice(app *pocketbase.PocketBase, stripePrice *stripe.Price) error {
-	collection, err := app.FindCollectionByNameOrId("prices")
-	if err != nil {
-		return err
-	}
-
-	// Try to find existing record
-	record, err := app.FindFirstRecordByFilter("prices", "price_id = {:price_id}", map[string]any{
-		"price_id": stripePrice.ID,
-	})
-
-	if err != nil {
-		// Create new record
-		record = core.NewRecord(collection)
-	}
-
-	// Update record fields
-	record.Set("price_id", stripePrice.ID)
-	record.Set("product_id", stripePrice.Product.ID)
-	record.Set("active", stripePrice.Active)
-	record.Set("currency", stripePrice.Currency)
-	record.Set("unit_amount", stripePrice.UnitAmount)
-	record.Set("type", stripePrice.Type)
-
-	if stripePrice.Recurring != nil {
-		record.Set("interval", stripePrice.Recurring.Interval)
-		record.Set("interval_count", stripePrice.Recurring.IntervalCount)
-	}
-
-	// Convert metadata to JSON
-	if metadata, err := json.Marshal(stripePrice.Metadata); err == nil {
-		record.Set("metadata", string(metadata))
-	}
-
-	return app.Save(record)
-}
-
-// upsertSubscription creates or updates a subscription record in PocketBase
-func upsertSubscription(app *pocketbase.PocketBase, stripeSub *stripe.Subscription) error {
-	collection, err := app.FindCollectionByNameOrId("subscriptions")
-	if err != nil {
-		return err
-	}
+// handleSubscriptionEvent processes Stripe subscription lifecycle events
+func handleSubscriptionEvent(app *pocketbase.PocketBase, stripeSub *stripe.Subscription, eventType string) error {
+	log.Printf("Processing subscription event: %s for subscription %s", eventType, stripeSub.ID)
 
 	// Get user ID from customer
 	userID, err := getUserIDFromCustomer(app, stripeSub.Customer.ID)
@@ -174,49 +100,172 @@ func upsertSubscription(app *pocketbase.PocketBase, stripeSub *stripe.Subscripti
 		return err
 	}
 
-	// Try to find existing record
-	record, err := app.FindFirstRecordByFilter("subscriptions", "subscription_id = {:subscription_id}", map[string]any{
-		"subscription_id": stripeSub.ID,
+	// Find the subscription plan that matches this Stripe price
+	var planID string
+	if stripeSub.Items != nil && len(stripeSub.Items.Data) > 0 {
+		stripePriceID := stripeSub.Items.Data[0].Price.ID
+		plan, err := app.FindFirstRecordByFilter("subscription_plans", "stripe_price_id = {:price_id}", map[string]any{
+			"price_id": stripePriceID,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to find subscription plan for price %s: %w", stripePriceID, err)
+		}
+		planID = plan.Id
+	}
+
+	// Handle deletion separately
+	if eventType == "customer.subscription.deleted" {
+		return handleSubscriptionCancellation(app, userID, stripeSub)
+	}
+
+	// Get or create subscription record
+	collection, err := app.FindCollectionByNameOrId("user_subscriptions")
+	if err != nil {
+		return err
+	}
+
+	// Try to find existing subscription for this user
+	record, err := app.FindFirstRecordByFilter("user_subscriptions", "user_id = {:user_id} AND stripe_subscription_id = {:sub_id}", map[string]any{
+		"user_id": userID,
+		"sub_id": stripeSub.ID,
 	})
 
 	if err != nil {
 		// Create new record
 		record = core.NewRecord(collection)
+		log.Printf("Creating new subscription record for user %s", userID)
+	} else {
+		log.Printf("Updating existing subscription record for user %s", userID)
 	}
 
 	// Update record fields
-	record.Set("subscription_id", stripeSub.ID)
 	record.Set("user_id", userID)
-	record.Set("status", stripeSub.Status)
-	record.Set("quantity", stripeSub.Items.Data[0].Quantity)
+	if planID != "" {
+		record.Set("plan_id", planID)
+	}
+	record.Set("stripe_subscription_id", stripeSub.ID)
+	record.Set("status", mapStripeStatus(stripeSub.Status))
+	record.Set("current_period_start", time.Unix(stripeSub.CurrentPeriodStart, 0))
+	record.Set("current_period_end", time.Unix(stripeSub.CurrentPeriodEnd, 0))
 	record.Set("cancel_at_period_end", stripeSub.CancelAtPeriodEnd)
-	record.Set("current_period_start", stripeSub.CurrentPeriodStart)
-	record.Set("current_period_end", stripeSub.CurrentPeriodEnd)
 
-	if stripeSub.Items != nil && len(stripeSub.Items.Data) > 0 {
-		record.Set("price_id", stripeSub.Items.Data[0].Price.ID)
-	}
-
-	if stripeSub.EndedAt > 0 {
-		record.Set("ended_at", stripeSub.EndedAt)
-	}
-	if stripeSub.CancelAt > 0 {
-		record.Set("cancel_at", stripeSub.CancelAt)
-	}
 	if stripeSub.CanceledAt > 0 {
-		record.Set("canceled_at", stripeSub.CanceledAt)
-	}
-	if stripeSub.TrialStart > 0 {
-		record.Set("trial_start", stripeSub.TrialStart)
+		record.Set("canceled_at", time.Unix(stripeSub.CanceledAt, 0))
 	}
 	if stripeSub.TrialEnd > 0 {
-		record.Set("trial_end", stripeSub.TrialEnd)
-	}
-
-	// Convert metadata to JSON
-	if metadata, err := json.Marshal(stripeSub.Metadata); err == nil {
-		record.Set("metadata", string(metadata))
+		record.Set("trial_end", time.Unix(stripeSub.TrialEnd, 0))
 	}
 
 	return app.Save(record)
+}
+
+// handleSubscriptionCancellation handles subscription deletion
+func handleSubscriptionCancellation(app *pocketbase.PocketBase, userID string, stripeSub *stripe.Subscription) error {
+	log.Printf("Handling subscription cancellation for user %s", userID)
+
+	// Move user to free plan
+	freePlan, err := app.FindFirstRecordByFilter("subscription_plans", "billing_interval = 'free'", map[string]any{})
+	if err != nil {
+		return fmt.Errorf("failed to find free plan: %w", err)
+	}
+
+	// Update user's subscription to free plan
+	collection, err := app.FindCollectionByNameOrId("user_subscriptions")
+	if err != nil {
+		return err
+	}
+
+	// Find user's current subscription
+	record, err := app.FindFirstRecordByFilter("user_subscriptions", "user_id = {:user_id} AND stripe_subscription_id = {:sub_id}", map[string]any{
+		"user_id": userID,
+		"sub_id": stripeSub.ID,
+	})
+
+	if err != nil {
+		// If no existing subscription, create a free one
+		record = core.NewRecord(collection)
+		record.Set("user_id", userID)
+	}
+
+	// Set to free plan
+	now := time.Now()
+	oneYearFromNow := now.AddDate(1, 0, 0)
+
+	record.Set("plan_id", freePlan.Id)
+	record.Set("stripe_subscription_id", nil) // Remove Stripe subscription ID
+	record.Set("status", "active")
+	record.Set("current_period_start", now)
+	record.Set("current_period_end", oneYearFromNow)
+	record.Set("cancel_at_period_end", false)
+	record.Set("canceled_at", time.Unix(stripeSub.CanceledAt, 0))
+
+	return app.Save(record)
+}
+
+// handlePaymentFailed handles failed payment events
+func handlePaymentFailed(app *pocketbase.PocketBase, invoice *stripe.Invoice) error {
+	if invoice.Subscription == nil {
+		return nil // Not a subscription invoice
+	}
+
+	// Get user ID from customer
+	userID, err := getUserIDFromCustomer(app, invoice.Customer.ID)
+	if err != nil {
+		return err
+	}
+
+	// Update subscription status to past_due
+	record, err := app.FindFirstRecordByFilter("user_subscriptions", "user_id = {:user_id} AND stripe_subscription_id = {:sub_id}", map[string]any{
+		"user_id": userID,
+		"sub_id": invoice.Subscription.ID,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	record.Set("status", "past_due")
+	return app.Save(record)
+}
+
+// handlePaymentSucceeded handles successful payment events
+func handlePaymentSucceeded(app *pocketbase.PocketBase, invoice *stripe.Invoice) error {
+	if invoice.Subscription == nil {
+		return nil // Not a subscription invoice
+	}
+
+	// Get user ID from customer
+	userID, err := getUserIDFromCustomer(app, invoice.Customer.ID)
+	if err != nil {
+		return err
+	}
+
+	// Update subscription status to active
+	record, err := app.FindFirstRecordByFilter("user_subscriptions", "user_id = {:user_id} AND stripe_subscription_id = {:sub_id}", map[string]any{
+		"user_id": userID,
+		"sub_id": invoice.Subscription.ID,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	record.Set("status", "active")
+	return app.Save(record)
+}
+
+// mapStripeStatus maps Stripe subscription statuses to our internal statuses
+func mapStripeStatus(stripeStatus stripe.SubscriptionStatus) string {
+	switch stripeStatus {
+	case stripe.SubscriptionStatusActive:
+		return "active"
+	case stripe.SubscriptionStatusCanceled:
+		return "cancelled"
+	case stripe.SubscriptionStatusPastDue:
+		return "past_due"
+	case stripe.SubscriptionStatusTrialing:
+		return "trialing"
+	default:
+		return "active" // Default fallback
+	}
 }

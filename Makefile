@@ -128,6 +128,29 @@ pb-stop: ## Stop the PocketBase backend if running in background
 		echo "ℹ️  No background PocketBase backend running"; \
 	fi
 
+.PHONY: kill-pb
+kill-pb: ## Safely kill PocketBase processes (NEVER touches Firefox/OrbStack)
+	@echo "🛑 Safely killing PocketBase processes..."
+	@echo "🔍 Checking what will be killed:"
+	@ps aux | grep "go run.*main.go serve" | grep -v grep || echo "   No Go PocketBase processes found"
+	@ps aux | grep "pocketbase.*serve" | grep -v grep || echo "   No binary PocketBase processes found"
+	@echo ""
+	@echo "🔪 Killing PocketBase Go processes..."
+	@pkill -f "go run.*main.go serve" && echo "✅ Killed Go PocketBase processes" || echo "ℹ️  No Go processes to kill"
+	@echo "🔪 Killing PocketBase binary processes..."
+	@pkill -f "pocketbase.*serve" && echo "✅ Killed binary PocketBase processes" || echo "ℹ️  No binary processes to kill"
+	@echo "🔪 Killing any lingering child processes..."
+	@ps aux | grep "main.*serve" | grep -v grep | awk '{print $$2}' | xargs -r kill -9 && echo "✅ Killed lingering processes" || echo "ℹ️  No lingering processes"
+	@echo ""
+	@echo "🔍 Verifying port 8090 is clear..."
+	@if lsof -i :8090 | grep -v "COMMAND" | grep -q .; then \
+		echo "⚠️  Warning: Other processes still using port 8090:"; \
+		lsof -i :8090; \
+		echo "   These are NOT PocketBase processes - leaving them alone"; \
+	else \
+		echo "✅ Port 8090 is clear"; \
+	fi
+
 .PHONY: be
 be: ## Start PocketBase backend (use NUKE=1 to delete database first)
 	@if [ ! -f pb-be/pb/.env ]; then \

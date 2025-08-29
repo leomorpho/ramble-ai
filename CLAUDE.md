@@ -127,3 +127,43 @@ The project uses **Vitest** with jsdom environment for testing. Test files shoul
 - Main.go embeds `all:frontend/build` - ensure this matches build output
 - Use `pnpm` for package management instead of `npm`
 - Static adapter disables SSR for proper Wails integration
+- ALWAYS use the pocketbase javascript SDK when in a js/ts fe, except if it cannot be used for security reasons or custom endpoint or user asks you to not to
+- when starting pocketbase for test on port 8090 or other, always kill it once you're done
+## PocketBase Server Management
+
+### ⚠️ CRITICAL: Safe PocketBase Process Killing
+
+**NEVER use `lsof -ti:8090 | xargs kill -9`** - This kills ALL processes on port 8090 including Firefox and OrbStack!
+
+**ONLY use these safe commands to kill PocketBase:**
+
+```bash
+# Method 1: Use Makefile command (RECOMMENDED - handles auto-restart processes)
+make kill-pb
+
+# Method 2: Kill specific Go processes
+pkill -f "go run.*main.go serve"
+
+# Method 3: More specific grep-based approach  
+ps aux | grep "go run.*main.go serve" | grep -v grep | awk '{print $2}' | xargs -r kill -9
+
+# Method 4: If using compiled PocketBase binary
+pkill -f "pocketbase.*serve"
+
+# Method 5: Kill parent processes too (for auto-restart scenarios)
+pkill -f "go run.*main.go serve" && pkill -f "main.*serve"
+```
+
+**Before killing, verify what will be killed:**
+```bash
+# Check what processes will be affected BEFORE killing
+ps aux | grep "go run.*main.go serve" | grep -v grep
+```
+
+### PocketBase Development Guidelines
+
+- **Assume PocketBase is running** on port 8090 before starting tasks
+- **Only kill/restart** when absolutely necessary for backend changes  
+- **Ask before killing** if unsure whether restart is needed
+- **Always verify** what processes will be killed before running kill commands
+- **Use KillBash tool** when working with background processes started by Claude Code
