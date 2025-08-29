@@ -62,7 +62,6 @@
 	"dependencies": {
 		"@inlang/paraglide-js": "^2.0.0",
 		"@simplewebauthn/browser": "^13.1.0",
-		"@stripe/stripe-js": "^7.3.1",
 		"@uppy/core": "^4.3.0",
 		"@uppy/dashboard": "^4.1.0",
 		"@uppy/drag-drop": "^4.0.3",

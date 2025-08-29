@@ -6,13 +6,13 @@
 	import { Loader2, Check, Crown, Zap } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '$lib/components/ui/dialog';
 	
 	let isLoading = $state(false);
 	let checkoutLoading = $state<string | null>(null);
-	let billingInterval = $state<'month' | 'year'>('month');
+	// Removed yearly support - only show monthly plans
+	// let billingInterval = $state<'month' | 'year'>('month');
 	
 	// Dialog states
 	let showFreeDowngradeDialog = $state(false);
@@ -94,28 +94,16 @@
 		return Check;
 	}
 
-	function getPlansForInterval(interval: 'month' | 'year') {
+	function getMonthlyAndFreePlans() {
 		return subscriptionStore.plans
-			.filter(plan => plan.billing_interval === interval || plan.billing_interval === 'free')
+			.filter(plan => plan.billing_interval === 'month' || plan.billing_interval === 'free')
 			.sort((a, b) => a.display_order - b.display_order);
 	}
 
-	function calculateSavings(monthlyPrice: number, yearlyPrice: number): number {
-		const monthlyTotal = monthlyPrice * 12;
-		return Math.round(((monthlyTotal - yearlyPrice) / monthlyTotal) * 100);
-	}
-
-	// Get the monthly equivalent price for yearly plans
-	function getMonthlyEquivalent(plan: any) {
-		if (plan.billing_interval === 'year') {
-			return plan.price_cents / 12;
-		}
-		return plan.price_cents;
-	}
-
-	function hasYearlyPlans(): boolean {
-		return subscriptionStore.plans.some(plan => plan.billing_interval === 'year');
-	}
+	// Removed yearly-specific functions
+	// function calculateSavings(monthlyPrice: number, yearlyPrice: number): number { ... }
+	// function getMonthlyEquivalent(plan: any) { ... }
+	// function hasYearlyPlans(): boolean { ... }
 </script>
 
 <svelte:head>
@@ -149,30 +137,11 @@
 				</p>
 			</div>
 		{:else}
-			<!-- Billing Toggle (only show if yearly plans exist) -->
-			{#if hasYearlyPlans()}
-				<div class="flex justify-center mb-12">
-					<div class="flex items-center bg-muted p-1 rounded-lg">
-						<button
-							class="px-6 py-2 rounded-md text-sm font-medium transition-colors {billingInterval === 'month' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
-							onclick={() => billingInterval = 'month'}
-						>
-							Monthly
-						</button>
-						<button
-							class="px-6 py-2 rounded-md text-sm font-medium transition-colors {billingInterval === 'year' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
-							onclick={() => billingInterval = 'year'}
-						>
-							Yearly
-							<Badge variant="secondary" class="ml-2">Save 20%</Badge>
-						</button>
-					</div>
-				</div>
-			{/if}
+			<!-- Removed billing interval toggle - only showing monthly plans -->
 
 			<!-- Plans Grid -->
 			<div class="grid gap-6 md:grid-cols-3">
-				{#each getPlansForInterval(billingInterval) as plan (plan.id)}
+				{#each getMonthlyAndFreePlans() as plan (plan.id)}
 					{@const isPopular = plan.name.toLowerCase().includes('basic')}
 					{@const isCurrentPlan = subscriptionStore.isCurrentPlan(plan.id)}
 					
@@ -200,11 +169,6 @@
 									</div>
 									<div class="text-sm text-muted-foreground">
 										per {plan.billing_interval}
-										{#if plan.billing_interval === 'year'}
-											<div class="text-sm text-green-600 mt-1">
-												({subscriptionStore.formatPrice(getMonthlyEquivalent(plan))} per month)
-											</div>
-										{/if}
 									</div>
 								{/if}
 							</div>

@@ -1,19 +1,6 @@
-import { loadStripe, type Stripe } from '@stripe/stripe-js';
 import { browser } from '$app/environment';
 import { authStore } from './stores/authClient.svelte.js';
 import { pb } from './pocketbase.js';
-
-// Stripe public key - this is safe to expose in frontend
-const STRIPE_PUBLISHABLE_KEY = 'pk_test_your_publishable_key_here';
-
-let stripePromise: Promise<Stripe | null> | null = null;
-
-export const getStripe = () => {
-	if (!stripePromise) {
-		stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
-	}
-	return stripePromise;
-};
 
 // Helper to create checkout session for a subscription plan
 export async function createCheckoutSession(planId: string) {

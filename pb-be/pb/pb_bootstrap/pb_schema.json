@@ -895,7 +895,8 @@
         ],
         "indexes": [
             "CREATE UNIQUE INDEX `idx_api_keys_key_hash` ON `api_keys` (key_hash)",
-            "CREATE INDEX `idx_api_keys_user_id` ON `api_keys` (user_id)"
+            "CREATE INDEX `idx_api_keys_user_id` ON `api_keys` (user_id)",
+            "CREATE UNIQUE INDEX `idx_CIyBGXZcuz` ON `api_keys` (`user_id`)"
         ],
         "system": false
     },

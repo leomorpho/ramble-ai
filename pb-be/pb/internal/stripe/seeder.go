@@ -36,7 +36,7 @@ func SeedSubscriptionPlans(app *pocketbase.PocketBase) error {
 
 	log.Println("🌱 Seeding subscription plans...")
 
-	// Define our 5 subscription plans
+	// Define our 3 subscription plans (monthly only)
 	plans := []PlanConfig{
 		{
 			Name:            "Free",
@@ -57,31 +57,13 @@ func SeedSubscriptionPlans(app *pocketbase.PocketBase) error {
 			DisplayOrder:    2,
 		},
 		{
-			Name:            "Basic Yearly",
-			Tier:            "basic",
-			PriceCents:      4800, // $48.00 (20% discount - 10 months price for 12)
-			BillingInterval: "year",
-			HoursPerMonth:   10,
-			Features:        []string{"10 hours of media processing", "Unlimited video quality exports", "Email support", "Priority processing", "2 months free"},
-			DisplayOrder:    3,
-		},
-		{
 			Name:            "Pro Monthly",
 			Tier:            "pro",
-			PriceCents:      1500, // $15.00
+			PriceCents:      1000, // $10.00
 			BillingInterval: "month",
-			HoursPerMonth:   30,
-			Features:        []string{"30 hours of media processing", "Unlimited video quality exports", "Priority support", "Advanced AI models", "Bulk processing"},
-			DisplayOrder:    4,
-		},
-		{
-			Name:            "Pro Yearly",
-			Tier:            "pro",
-			PriceCents:      14400, // $144.00 (20% discount - 10 months price for 12)
-			BillingInterval: "year",
-			HoursPerMonth:   30,
-			Features:        []string{"30 hours of media processing", "Unlimited video quality exports", "Priority support", "Advanced AI models", "Bulk processing", "2 months free"},
-			DisplayOrder:    5,
+			HoursPerMonth:   25,
+			Features:        []string{"25 hours of media processing", "Unlimited video quality exports", "Priority support", "Advanced AI models", "Bulk processing"},
+			DisplayOrder:    3,
 		},
 	}
 
