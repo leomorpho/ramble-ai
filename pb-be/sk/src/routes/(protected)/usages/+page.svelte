@@ -216,15 +216,15 @@
 <section class="py-20 px-6">
 	<div class="max-w-4xl mx-auto">
 		<div class="flex items-center gap-3 mb-6">
-			<BarChart class="h-10 w-10 text-primary" />
+			<BarChart class="h-8 w-8 text-primary" />
 			<h1 class="text-4xl md:text-5xl font-bold">Usage Statistics</h1>
 		</div>
-		<p class="text-xl text-muted-foreground mb-8">
+		<p class="text-xl text-muted-foreground mb-6">
 			Track your video processing usage and history
 		</p>
-		<div class="p-4 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
-			<div class="flex items-center gap-2 text-sm text-green-800 dark:text-green-200">
-				<Shield class="h-4 w-4" />
+		<div class="border rounded-lg p-4 bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
+			<div class="flex items-start gap-3 text-sm text-green-800 dark:text-green-200">
+				<Shield class="h-4 w-4 mt-0.5 flex-shrink-0" />
 				<p>
 					<strong>Privacy First:</strong> All audio and video processing happens locally on your machine. 
 					We never store your files on our servers - only processing metadata is tracked for usage statistics.
@@ -263,40 +263,34 @@
 	<!-- Summary Cards Section -->
 	<section class="py-20 border-t px-6">
 		<div class="max-w-4xl mx-auto">
-			<h2 class="text-3xl md:text-4xl font-bold mb-12">Overview</h2>
-			<div class="grid gap-2 md:gap-6 grid-cols-3">
+			<h2 class="text-3xl md:text-4xl font-bold mb-8">Overview</h2>
+			<div class="grid gap-6 md:grid-cols-3">
 				<!-- This Month Card -->
-				<Card class="p-2 md:p-6">
-					<div class="flex items-center justify-between mb-0.5 md:mb-2">
-						<span class="text-xs md:text-sm font-medium text-muted-foreground">This Month</span>
-						<Calendar class="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
+				<div class="border rounded-lg p-6">
+					<div class="flex items-center justify-between mb-3">
+						<span class="text-sm font-medium text-muted-foreground">This Month</span>
+						<Calendar class="h-4 w-4 text-muted-foreground" />
 					</div>
-					<div class="space-y-0.5 md:space-y-2">
-						<div class="text-lg md:text-2xl font-bold">{currentMonthSummary ? formatDuration(currentMonthSummary.total_duration_seconds) : '0s'}</div>
-					</div>
-				</Card>
+					<div class="text-2xl font-bold">{currentMonthSummary ? formatDuration(currentMonthSummary.total_duration_seconds) : '0s'}</div>
+				</div>
 
 				<!-- Success Rate Card -->
-				<Card class="p-2 md:p-6">
-					<div class="flex items-center justify-between mb-0.5 md:mb-2">
-						<span class="text-xs md:text-sm font-medium text-muted-foreground">Success Rate</span>
-						<TrendingUp class="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
+				<div class="border rounded-lg p-6">
+					<div class="flex items-center justify-between mb-3">
+						<span class="text-sm font-medium text-muted-foreground">Success Rate</span>
+						<TrendingUp class="h-4 w-4 text-muted-foreground" />
 					</div>
-					<div class="space-y-0.5 md:space-y-2">
-						<div class="text-lg md:text-2xl font-bold">{currentMonthSummary ? currentMonthSummary.success_rate.toFixed(1) : '0.0'}%</div>
-					</div>
-				</Card>
+					<div class="text-2xl font-bold">{currentMonthSummary ? currentMonthSummary.success_rate.toFixed(1) : '0.0'}%</div>
+				</div>
 
 				<!-- Total Processing Card -->
-				<Card class="p-2 md:p-6">
-					<div class="flex items-center justify-between mb-0.5 md:mb-2">
-						<span class="text-xs md:text-sm font-medium text-muted-foreground">Total Processing</span>
-						<Clock class="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
+				<div class="border rounded-lg p-6">
+					<div class="flex items-center justify-between mb-3">
+						<span class="text-sm font-medium text-muted-foreground">Total Processing</span>
+						<Clock class="h-4 w-4 text-muted-foreground" />
 					</div>
-					<div class="space-y-0.5 md:space-y-2">
-						<div class="text-lg md:text-2xl font-bold">{allTimeSummary ? formatDuration(allTimeSummary.total_duration_seconds) : '0s'}</div>
-					</div>
-				</Card>
+					<div class="text-2xl font-bold">{allTimeSummary ? formatDuration(allTimeSummary.total_duration_seconds) : '0s'}</div>
+				</div>
 			</div>
 		</div>
 	</section>
@@ -304,24 +298,22 @@
 	<!-- Recent Files Section -->
 	<section class="py-20 border-t px-6">
 		<div class="max-w-4xl mx-auto">
-			<div class="mb-12">
-				<h2 class="text-3xl md:text-4xl font-bold">Recent Processing History</h2>
-			</div>
+			<h2 class="text-3xl md:text-4xl font-bold mb-8">Recent Processing History</h2>
 			
-			<Card class="overflow-hidden">
+			<div class="border rounded-lg overflow-hidden">
 				<div class="p-6">
 				
 				{#if processedFiles.length === 0}
 					<div class="text-center py-12 text-muted-foreground">
-						<FileAudio class="h-12 w-12 mx-auto mb-4 opacity-50" />
-						<p class="text-lg font-medium">No files processed yet</p>
+						<FileAudio class="h-8 w-8 mx-auto mb-4 opacity-50" />
+						<p class="font-medium mb-2">No files processed yet</p>
 						<p class="text-sm">Your transcription history will appear here once you start processing audio files.</p>
 					</div>
 				{:else}
 					<div class="overflow-x-auto">
 						<table class="w-full">
 							<thead>
-								<tr class="border-b border-border text-left">
+								<tr class="border-b text-left">
 									<th class="pb-3 text-sm font-medium text-muted-foreground">File</th>
 									<th class="pb-3 text-sm font-medium text-muted-foreground">Duration</th>
 									<th class="pb-3 text-sm font-medium text-muted-foreground">Size</th>
@@ -331,7 +323,7 @@
 							</thead>
 							<tbody>
 								{#each processedFiles as file}
-									<tr class="border-b border-border/50">
+									<tr class="border-b border-border/50 last:border-0">
 										<td class="py-4">
 											<div class="flex items-center gap-3">
 												<FileAudio class="h-4 w-4 text-muted-foreground" />
@@ -366,7 +358,7 @@
 					</div>
 				{/if}
 				</div>
-			</Card>
+			</div>
 		</div>
 	</section>
 {/if}

@@ -3,21 +3,14 @@
 	import { subscriptionStore } from '$lib/stores/subscription.svelte.js';
 	import { config } from '$lib/config.js';
 	import { pb } from '$lib/pocketbase.js';
-	import { Crown, User, Mail, Calendar, Edit3, Upload, X, Settings } from 'lucide-svelte';
+	import { Crown, User, Mail, Calendar, Settings, Edit3, Shield } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { getAvatarUrl } from '$lib/files.js';
-	import PersonalAccount from '$lib/components/dashboard/PersonalAccount.svelte';
+	import { Label } from '$lib/components/ui/label/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
+	import { Button } from '$lib/components/ui/button/index.js';
 	import APIKeyManager from '$lib/components/APIKeyManager.svelte';
-
-	// State for avatar upload
-	let showAvatarUploadDialog = $state(false);
-	let isUploading = $state(false);
-	let isDragOver = $state(false);
-	let fileInput: HTMLInputElement;
-
-	// Subscription store is initialized in root layout
-
+	import OTPVerification from '$lib/components/OTPVerification.svelte';
 
 	// Helper to format date
 	function formatDate(dateString: string): string {
@@ -28,236 +21,116 @@
 		});
 	}
 
-	// State for error messages
-	let uploadError = $state<string | null>(null);
+	// Personal account editing state
+	let isEditingProfile = $state(false);
+	let editPersonalName = $state(authStore.user?.name || '');
+	let editPersonalEmail = $state(authStore.user?.email || '');
+	let isSavingPersonal = $state(false);
+	let personalEditError = $state<string | null>(null);
+	let personalEditSuccess = $state<string | null>(null);
+	
+	// Email verification state
+	let showEmailVerification = $state(false);
 
-	// Function to detect actual file type from file header and check for animated PNG
-	async function detectFileType(file: File): Promise<{ type: string; isAnimated: boolean }> {
-		return new Promise((resolve) => {
-			const reader = new FileReader();
-			reader.onload = (e) => {
-				const arr = new Uint8Array(e.target?.result as ArrayBuffer);
-				let header = '';
-				for (let i = 0; i < Math.min(arr.length, 8); i++) {
-					header += arr[i].toString(16).padStart(2, '0');
-				}
-				
-				// Detect file type by header
-				if (header.startsWith('89504e47')) {
-					// PNG file detected, check if it's animated (APNG)
-					// Look for acTL chunk which indicates animation
-					const fullArray = new Uint8Array(e.target?.result as ArrayBuffer);
-					const isAnimated = checkForAPNG(fullArray);
-					resolve({ type: 'image/png', isAnimated });
-				} else if (header.startsWith('ffd8ff')) {
-					resolve({ type: 'image/jpeg', isAnimated: false });
-				} else if (header.startsWith('47494638')) {
-					resolve({ type: 'image/gif', isAnimated: true }); // GIFs can be animated
-				} else if (header.startsWith('52494646')) {
-					resolve({ type: 'image/webp', isAnimated: false });
-				} else {
-					resolve({ type: 'unknown', isAnimated: false });
-				}
-			};
-			reader.readAsArrayBuffer(file);
-		});
-	}
-
-	// Function to check if PNG is animated (APNG)
-	function checkForAPNG(data: Uint8Array): boolean {
-		// Look for acTL chunk signature in PNG file
-		// acTL = 61 63 54 4C
-		const acTLSignature = [0x61, 0x63, 0x54, 0x4C];
-		
-		for (let i = 0; i < data.length - 4; i++) {
-			if (data[i] === acTLSignature[0] && 
-				data[i + 1] === acTLSignature[1] && 
-				data[i + 2] === acTLSignature[2] && 
-				data[i + 3] === acTLSignature[3]) {
-				return true;
-			}
+	// Update edit values when user data changes
+	$effect(() => {
+		if (authStore.user) {
+			editPersonalName = authStore.user.name || '';
+			editPersonalEmail = authStore.user.email || '';
 		}
-		return false;
-	}
+	});
 
-	// Handle file upload
-	async function handleFileUpload(file: File) {
-		if (!authStore.user) {
-			uploadError = 'User not authenticated';
+	// Handle personal account save
+	async function handleSavePersonal() {
+		if (!editPersonalName.trim()) {
+			personalEditError = 'Name is required';
 			return;
 		}
 
-		// Clear previous errors
-		uploadError = null;
-
-		// Enhanced file validation
-		console.log('File details:', {
-			name: file.name,
-			type: file.type,
-			size: file.size,
-			lastModified: file.lastModified
-		});
-
-		// Check if we have a valid user and auth
-		console.log('Auth details:', {
-			isLoggedIn: authStore.isLoggedIn,
-			userId: authStore.user?.id,
-			userEmail: authStore.user?.email,
-			authValid: pb.authStore.isValid
-		});
-
-		// Check file size
-		const maxSize = 5 * 1024 * 1024; // 5MB
-		if (file.size > maxSize) {
-			uploadError = `File size (${(file.size / 1024 / 1024).toFixed(2)}MB) exceeds 5MB limit`;
+		if (!editPersonalEmail.trim()) {
+			personalEditError = 'Email is required';
 			return;
 		}
 
-		if (file.size === 0) {
-			uploadError = 'File appears to be empty';
-			return;
-		}
-
-		// Check file type
-		const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
-		if (!allowedTypes.includes(file.type)) {
-			uploadError = `File type "${file.type}" not supported. Please use JPEG, PNG, WebP, or GIF`;
-			return;
-		}
-
-		// Additional check for file extension
-		const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
-		const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
-		if (!allowedExtensions.includes(fileExtension)) {
-			uploadError = `File extension "${fileExtension}" not supported`;
-			return;
-		}
-
-		// Verify actual file type by reading file header
-		try {
-			const fileAnalysis = await detectFileType(file);
-			console.log('File analysis:', fileAnalysis, 'vs reported type:', file.type);
-			
-			if (fileAnalysis.type === 'unknown') {
-				uploadError = 'File does not appear to be a valid image';
-				return;
-			}
-			
-			// Check for animated PNG (APNG) which might not be supported
-			if (fileAnalysis.isAnimated && fileAnalysis.type === 'image/png') {
-				uploadError = 'Animated PNG files (APNG) are not supported. Please use a static PNG or convert to GIF for animations.';
-				return;
-			}
-			
-			// Check for animated files in general if we want to restrict them
-			if (fileAnalysis.isAnimated && fileAnalysis.type === 'image/gif') {
-				console.log('Animated GIF detected - this should be supported');
-			}
-			
-			// If detected type doesn't match reported type, log it but continue
-			if (fileAnalysis.type !== file.type) {
-				console.warn('File type mismatch:', { detected: fileAnalysis.type, reported: file.type });
-			}
-		} catch (typeDetectionError) {
-			console.error('Error detecting file type:', typeDetectionError);
-			// Continue anyway - this is just extra validation
-		}
+		isSavingPersonal = true;
+		personalEditError = null;
+		personalEditSuccess = null;
 
 		try {
-			isUploading = true;
-
-			// Create FormData and upload directly to PocketBase users collection
-			const formData = new FormData();
-			formData.append('avatar', file);
-
-			console.log('Attempting to upload avatar...', {
-				userId: authStore.user.id,
-				fileName: file.name,
-				fileType: file.type,
-				fileSize: file.size
-			});
-
-			// Update user record with new avatar
-			const result = await pb.collection('users').update(authStore.user.id, formData);
+			const currentEmail = authStore.user!.email;
+			const newEmail = editPersonalEmail.trim();
 			
-			console.log('Upload successful:', result);
-			
-			// Close dialog and refresh
-			showAvatarUploadDialog = false;
-			authStore.syncState();
-		} catch (error: any) {
-			console.error('Failed to upload avatar:', error);
-			console.error('Error type:', typeof error);
-			console.error('Error keys:', Object.keys(error));
-			
-			// Log the full error structure for debugging
-			if (error?.response) {
-				console.error('Error response:', error.response);
-				console.error('Response status:', error.response?.status);
-				console.error('Response data:', error.response?.data);
-			}
-			
-			// Parse PocketBase error for better user feedback
-			if (error?.response?.data) {
-				const errorData = error.response.data;
-				console.error('PocketBase error details:', errorData);
+			// If email is changing, we need to request email change verification
+			if (currentEmail !== newEmail) {
+				// Request email change - this will send verification to new email
+				await pb.collection('users').requestEmailChange(newEmail);
 				
-				// Check for field-specific errors
-				if (errorData.avatar) {
-					const avatarError = errorData.avatar;
-					if (typeof avatarError === 'object') {
-						uploadError = `Avatar error: ${avatarError.message || avatarError.code || JSON.stringify(avatarError)}`;
-					} else {
-						uploadError = `Avatar error: ${avatarError}`;
-					}
-				} else if (errorData.message) {
-					uploadError = `Upload failed: ${errorData.message}`;
-				} else if (errorData.code) {
-					uploadError = `Upload failed (${errorData.code}): ${errorData.message || 'Server error'}`;
-				} else {
-					// Show the raw error data for debugging
-					uploadError = `Upload failed: ${JSON.stringify(errorData)}`;
-				}
-			} else if (error?.status) {
-				uploadError = `HTTP ${error.status}: ${error.message || 'Server error'}`;
-			} else if (error?.message) {
-				uploadError = `Upload failed: ${error.message}`;
+				// Update only the name for now - email will be updated after verification
+				await pb.collection('users').update(authStore.user!.id, {
+					name: editPersonalName.trim()
+				});
+				
+				// Show success message about email verification
+				personalEditSuccess = `A verification email has been sent to ${newEmail}. Please check your email and click the verification link to complete the email change.`;
+				console.log('Email change verification sent to:', newEmail);
+				
+				// Reset email field to current value since change is pending
+				editPersonalEmail = currentEmail;
 			} else {
-				uploadError = `Upload failed: ${JSON.stringify(error)}`;
+				// Only name is changing
+				await pb.collection('users').update(authStore.user!.id, {
+					name: editPersonalName.trim()
+				});
 			}
+
+			// Update auth store
+			authStore.syncState();
+			isEditingProfile = false;
+		} catch (error: any) {
+			console.error('Failed to update profile:', error);
+			personalEditError = error.message || 'Failed to update profile';
 		} finally {
-			isUploading = false;
+			isSavingPersonal = false;
 		}
 	}
 
-	// Handle file input change
-	function handleFileChange(event: Event) {
-		const target = event.target as HTMLInputElement;
-		const file = target.files?.[0];
-		if (file) {
-			handleFileUpload(file);
-		}
+	// Handle cancel personal edit
+	function handleCancelPersonalEdit() {
+		isEditingProfile = false;
+		editPersonalName = authStore.user?.name || '';
+		editPersonalEmail = authStore.user?.email || '';
+		personalEditError = null;
+		personalEditSuccess = null;
 	}
 
-	// Handle drag and drop
-	function handleDrop(event: DragEvent) {
-		event.preventDefault();
-		isDragOver = false;
+	// Handle email verification success
+	async function handleEmailVerificationSuccess() {
+		showEmailVerification = false;
 		
-		const files = event.dataTransfer?.files;
-		if (files && files.length > 0) {
-			handleFileUpload(files[0]);
+		// Fetch the updated user record from the server to get the latest verification status
+		try {
+			if (authStore.user) {
+				const updatedUser = await pb.collection('users').getOne(authStore.user.id);
+				// Update PocketBase's auth store with the fresh user data
+				pb.authStore.save(pb.authStore.token, updatedUser);
+				// Sync our reactive store
+				authStore.syncState();
+			}
+		} catch (error) {
+			console.error('Failed to refresh user data:', error);
 		}
+		
+		personalEditSuccess = 'Email verified successfully!';
 	}
 
-	function handleDragOver(event: DragEvent) {
-		event.preventDefault();
-		isDragOver = true;
+	// Handle email verification cancel
+	function handleEmailVerificationCancel() {
+		showEmailVerification = false;
 	}
 
-	function handleDragLeave(event: DragEvent) {
-		event.preventDefault();
-		isDragOver = false;
+	// Start email verification process
+	function startEmailVerification() {
+		showEmailVerification = true;
 	}
 
 </script>
@@ -272,235 +145,224 @@
 	<div class="max-w-4xl mx-auto">
 		<h1 class="text-4xl md:text-5xl font-bold mb-6">Dashboard</h1>
 		<p class="text-xl text-muted-foreground">
-			Welcome back, {authStore.user?.name || 'User'}
+			Welcome back, {authStore.user?.name || authStore.user?.email || 'User'}
 		</p>
 	</div>
 </section>
 
 <!-- Dashboard Content -->
 <section class="py-20 border-t px-6">
-	<div class="max-w-6xl mx-auto">
-
-		<div class="grid gap-8 lg:grid-cols-3">
+	<div class="max-w-4xl mx-auto space-y-6">
 		<!-- Profile Section -->
-		<div class="lg:col-span-1">
-				<div class="bg-card rounded-xl border border-border p-6 shadow-sm">
-					<div class="text-center">
-						<!-- Avatar Section - Hidden for now -->
-						<!-- <div class="relative mb-6">
-							<div class="relative inline-block">
-								{#if getAvatarUrl(authStore.user, 'large')}
-									<img
-										src={getAvatarUrl(authStore.user, 'large')}
-										alt="Profile"
-										class="w-24 h-24 rounded-full object-cover border-4 border-background shadow-lg"
-									/>
-								{:else}
-									<div class="w-24 h-24 rounded-full bg-muted border-4 border-background shadow-lg flex items-center justify-center">
-										<User class="w-8 h-8 text-muted-foreground" />
-									</div>
-								{/if}
-								
-								<button
-									onclick={() => {
-										uploadError = null;
-										showAvatarUploadDialog = true;
-									}}
-									class="absolute -bottom-1 -right-1 w-8 h-8 bg-primary text-primary-foreground rounded-full shadow-lg hover:bg-primary/90 transition-colors flex items-center justify-center"
-									title="Upload avatar"
-								>
-									<Edit3 class="w-4 h-4" />
-								</button>
-							</div>
-						</div> -->
+		<div class="border rounded-lg p-6">
+			{#if showEmailVerification}
+				<!-- Email Verification Step -->
+				<OTPVerification 
+					userID={authStore.user?.id || ''}
+					email={authStore.user?.email || ''}
+					purpose="signup_verification"
+					onSuccess={handleEmailVerificationSuccess}
+					onCancel={handleEmailVerificationCancel}
+				/>
+			{:else}
+				<!-- Profile Header -->
+				<div class="flex items-center justify-between mb-6">
+					<h3 class="text-lg font-semibold">Profile</h3>
+					<button
+						onclick={() => isEditingProfile = !isEditingProfile}
+						class="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
+						disabled={isSavingPersonal}
+					>
+						<Edit3 class="w-4 h-4" />
+						Edit
+					</button>
+				</div>
 
+				<!-- Success Message -->
+				{#if personalEditSuccess}
+					<div class="mb-6 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
+						<p class="text-sm text-green-600 dark:text-green-300">{personalEditSuccess}</p>
+					</div>
+				{/if}
 
-						<!-- User Name & Email -->
-						<div class="space-y-2">
-							<h2 class="text-xl font-semibold text-foreground">
-								{authStore.user?.name || 'User'}
-							</h2>
-							<p class="text-muted-foreground flex items-center justify-center gap-2">
-								<Mail class="w-4 h-4" />
-								{authStore.user?.email}
-							</p>
-							{#if authStore.user?.created}
-								<p class="text-sm text-muted-foreground flex items-center justify-center gap-2">
-									<Calendar class="w-4 h-4" />
-									Member since {formatDate(authStore.user.created)}
-								</p>
-							{/if}
-						</div>
-
-						<!-- Subscription Status -->
-						{#if subscriptionStore.isSubscribed}
-							<div class="mt-4 inline-flex items-center gap-2 px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded-full text-sm font-medium">
-								<Crown class="w-4 h-4" />
-								Premium Member
-							</div>
-						{:else}
-							<div class="mt-4">
-								<a
-									href="/pricing"
-									class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors text-sm font-medium"
-								>
-									<Crown class="w-4 h-4" />
-									Upgrade to Premium
-								</a>
+				{#if isEditingProfile}
+					<!-- Edit Form -->
+					<form onsubmit={(e) => { e.preventDefault(); handleSavePersonal(); }} class="space-y-4">
+						{#if personalEditError}
+							<div class="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg">
+								<p class="text-sm text-red-600 dark:text-red-300">{personalEditError}</p>
 							</div>
 						{/if}
-					</div>
-				</div>
-			</div>
 
-		<!-- Main Content -->
-		<div class="lg:col-span-2 space-y-6">
-			<!-- Current Plan -->
-			<div class="bg-card rounded-xl border border-border p-6 shadow-sm">
-				<h3 class="text-lg font-semibold text-foreground mb-4">Current Plan</h3>
-				
-				{#if subscriptionStore.currentPlan}
-					<div class="flex items-center justify-between p-4 bg-primary/5 rounded-lg border border-primary/20">
-						<div class="flex items-center gap-4">
-							<div class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-								<Crown class="w-6 h-6 text-primary" />
-							</div>
-							<div>
-								<h4 class="text-xl font-semibold text-foreground">{subscriptionStore.currentPlan.name}</h4>
-								<p class="text-sm text-muted-foreground">
-									{subscriptionStore.currentPlan.hours_per_month} hour{subscriptionStore.currentPlan.hours_per_month !== 1 ? 's' : ''} per month
-									• ${(subscriptionStore.currentPlan.price_cents / 100).toFixed(2)}/{subscriptionStore.currentPlan.billing_interval}
-								</p>
-								{#if subscriptionStore.usage}
-									<div class="mt-2">
-										<p class="text-sm text-muted-foreground">
-											{subscriptionStore.usage.hours_used.toFixed(1)} / {subscriptionStore.usage.hours_limit} hours used this month
-										</p>
-										<div class="w-full bg-muted rounded-full h-2 mt-1">
-											<div 
-												class="bg-primary h-2 rounded-full transition-all" 
-												style="width: {Math.min(subscriptionStore.usage.usage_percentage, 100)}%"
-											></div>
-										</div>
-									</div>
-								{/if}
-							</div>
+						<div class="space-y-2">
+							<Label for="edit-personal-name">Name</Label>
+							<Input
+								id="edit-personal-name"
+								type="text"
+								bind:value={editPersonalName}
+								disabled={isSavingPersonal}
+								required
+							/>
 						</div>
-						<button
-							onclick={() => goto('/pricing')}
-							class="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-						>
-							<Settings class="w-4 h-4" />
-							Change Plan
-						</button>
-					</div>
+
+						<div class="space-y-2">
+							<Label for="edit-personal-email">Email</Label>
+							<Input
+								id="edit-personal-email"
+								type="email"
+								bind:value={editPersonalEmail}
+								disabled={isSavingPersonal}
+								required
+							/>
+							<p class="text-xs text-muted-foreground">Changing your email will require verification</p>
+						</div>
+
+						<div class="flex gap-2">
+							<Button
+								type="submit"
+								size="sm"
+								disabled={isSavingPersonal}
+							>
+								{isSavingPersonal ? 'Saving...' : 'Save Changes'}
+							</Button>
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								onclick={handleCancelPersonalEdit}
+								disabled={isSavingPersonal}
+							>
+								Cancel
+							</Button>
+						</div>
+					</form>
 				{:else}
-					<div class="flex items-center justify-between p-4 bg-muted/50 rounded-lg border">
+					<!-- Display Mode -->
+					<div class="space-y-6">
+						<!-- User Info -->
 						<div class="flex items-center gap-4">
 							<div class="w-12 h-12 bg-muted rounded-lg flex items-center justify-center">
 								<User class="w-6 h-6 text-muted-foreground" />
 							</div>
 							<div>
-								<h4 class="text-xl font-semibold text-foreground">No Active Plan</h4>
-								<p class="text-sm text-muted-foreground">Choose a plan to get started</p>
+								<h4 class="text-lg font-semibold">
+									{authStore.user?.name || 'User'}
+								</h4>
+								<div class="flex items-center gap-2 text-sm text-muted-foreground">
+									<Mail class="w-4 h-4" />
+									{authStore.user?.email}
+									{#if !authStore.user?.verified}
+										<span class="text-orange-600 dark:text-orange-400">⚠️ Not verified</span>
+									{:else}
+										<span class="text-green-600 dark:text-green-400">✅ Verified</span>
+									{/if}
+								</div>
+								{#if authStore.user?.created}
+									<div class="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+										<Calendar class="w-4 h-4" />
+										Member since {formatDate(authStore.user.created)}
+									</div>
+								{/if}
 							</div>
 						</div>
-						<button
-							onclick={() => goto('/pricing')}
-							class="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-						>
-							<Crown class="w-4 h-4" />
-							Choose Plan
-						</button>
+
+						<!-- Account Status and Actions -->
+						<div class="flex flex-col sm:flex-row gap-3">
+							{#if subscriptionStore.isSubscribed}
+								<div class="flex items-center gap-2 px-3 py-1 bg-green-50 dark:bg-green-950/30 text-green-800 dark:text-green-200 rounded-lg text-sm font-medium w-fit">
+									<Crown class="w-4 h-4" />
+									Premium Member
+								</div>
+							{:else}
+								<button
+									onclick={() => goto('/pricing')}
+									class="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors text-sm font-medium w-fit"
+								>
+									<Crown class="w-4 h-4" />
+									Upgrade to Premium
+								</button>
+							{/if}
+
+							{#if !authStore.user?.verified}
+								<Button
+									size="sm"
+									variant="outline"
+									onclick={startEmailVerification}
+									class="w-fit"
+								>
+									<Shield class="w-4 h-4 mr-2" />
+									Verify Email
+								</Button>
+							{/if}
+						</div>
 					</div>
 				{/if}
-			</div>
-
-
-			<!-- Personal Account -->
-				<PersonalAccount />
-
-			<!-- API Key Management -->
-				<APIKeyManager />
-
-			</div>
+			{/if}
 		</div>
-	</div>
-</section>
 
-<!-- Avatar Upload Dialog -->
-{#if showAvatarUploadDialog}
-	<div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onclick={(e) => e.target === e.currentTarget && !isUploading && (showAvatarUploadDialog = false)}>
-		<div class="bg-background rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
-			<div class="flex items-center justify-between mb-4">
-				<h3 class="text-lg font-semibold">Upload Avatar</h3>
-				{#if !isUploading}
-					<button
-						onclick={() => showAvatarUploadDialog = false}
-						class="text-muted-foreground hover:text-foreground"
-					>
-						<X class="h-5 w-5" />
-					</button>
-				{/if}
-			</div>
+		<!-- Current Plan -->
+		<div class="border rounded-lg p-6">
+			<h3 class="text-lg font-semibold mb-4">Current Plan</h3>
 			
-			<!-- Error Message -->
-			{#if uploadError}
-				<div class="mb-4 p-3 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800/50 rounded-lg">
-					<p class="text-sm text-red-700 dark:text-red-300 mb-2">{uploadError}</p>
+			{#if subscriptionStore.currentPlan}
+				<div class="flex items-center justify-between p-4 bg-muted/30 rounded-lg border">
+					<div class="flex items-center gap-4">
+						<div class="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+							<Crown class="w-5 h-5 text-primary" />
+						</div>
+						<div>
+							<h4 class="text-lg font-semibold">{subscriptionStore.currentPlan.name}</h4>
+							<p class="text-sm text-muted-foreground">
+								{subscriptionStore.currentPlan.hours_per_month} hour{subscriptionStore.currentPlan.hours_per_month !== 1 ? 's' : ''} per month
+								• ${(subscriptionStore.currentPlan.price_cents / 100).toFixed(2)}/{subscriptionStore.currentPlan.billing_interval}
+							</p>
+							{#if subscriptionStore.usage}
+								<div class="mt-2">
+									<p class="text-sm text-muted-foreground">
+										{subscriptionStore.usage.hours_used.toFixed(1)} / {subscriptionStore.usage.hours_limit} hours used this month
+									</p>
+									<div class="w-full bg-muted rounded-full h-2 mt-1">
+										<div 
+											class="bg-primary h-2 rounded-full transition-all" 
+											style="width: {Math.min(subscriptionStore.usage.usage_percentage, 100)}%"
+										></div>
+									</div>
+								</div>
+							{/if}
+						</div>
+					</div>
 					<button
-						onclick={() => uploadError = null}
-						class="text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 underline"
+						onclick={() => goto('/pricing')}
+						class="flex items-center gap-2 px-4 py-2 border rounded-md hover:bg-muted transition-colors"
 					>
-						Try again
+						<Settings class="w-4 h-4" />
+						Change Plan
+					</button>
+				</div>
+			{:else}
+				<div class="flex items-center justify-between p-4 bg-muted/30 rounded-lg border">
+					<div class="flex items-center gap-4">
+						<div class="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+							<User class="w-5 h-5 text-muted-foreground" />
+						</div>
+						<div>
+							<h4 class="text-lg font-semibold">No Active Plan</h4>
+							<p class="text-sm text-muted-foreground">Choose a plan to get started</p>
+						</div>
+					</div>
+					<button
+						onclick={() => goto('/pricing')}
+						class="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+					>
+						<Crown class="w-4 h-4" />
+						Choose Plan
 					</button>
 				</div>
 			{/if}
-
-			<!-- Upload Area -->
-			<div 
-				class="border-2 border-dashed rounded-lg p-8 text-center transition-colors {isDragOver ? 'border-primary bg-primary/5' : uploadError ? 'border-red-300 bg-red-50/50 dark:border-red-700 dark:bg-red-950/20' : 'border-muted-foreground/20'}"
-				ondrop={handleDrop}
-				ondragover={handleDragOver}
-				ondragleave={handleDragLeave}
-			>
-				{#if isUploading}
-					<div class="space-y-4">
-						<div class="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent mx-auto"></div>
-						<p class="text-sm text-muted-foreground">Uploading avatar...</p>
-					</div>
-				{:else}
-					<div class="space-y-4">
-						<div class="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto">
-							<Upload class="h-6 w-6 text-muted-foreground" />
-						</div>
-						<div>
-							<p class="text-sm font-medium mb-1">Drop your image here, or click to browse</p>
-							<p class="text-xs text-muted-foreground">JPEG, PNG (static), WebP or GIF up to 5MB</p>
-							<p class="text-xs text-muted-foreground mt-1">✨ Upload starts automatically when file is selected</p>
-							<p class="text-xs text-muted-foreground">Note: Animated PNG files (APNG) are not supported</p>
-						</div>
-						<button
-							onclick={() => fileInput.click()}
-							class="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors text-sm"
-							disabled={uploadError !== null}
-						>
-							Choose File
-						</button>
-					</div>
-				{/if}
-			</div>
-
-			<!-- Hidden file input -->
-			<input
-				bind:this={fileInput}
-				type="file"
-				accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
-				onchange={handleFileChange}
-				class="hidden"
-				disabled={isUploading}
-			/>
-
 		</div>
+
+		<!-- API Key Management -->
+		<APIKeyManager />
 	</div>
-{/if}
+</section>
+

@@ -15,6 +15,7 @@
   
   // New API key display state
   let newGeneratedKey = $state<string | null>(null);
+  let keyVisibilityCountdown = $state<number>(0);
   
   // Copy feedback state
   let copiedKeyId = $state<string | null>(null);
@@ -111,9 +112,10 @@
 
       if (response.api_key) {
         newGeneratedKey = response.api_key;
+        keyVisibilityCountdown = 60; // Start 60 second countdown
         success = hasExistingKey 
-          ? 'New API key generated! Your old key has been replaced. Please copy this key now - you won\'t be able to see it again.'
-          : 'API key generated successfully! Please copy this key now - you won\'t be able to see it again.';
+          ? 'New API key generated! Your old key has been replaced. Copy it from below - you won\'t be able to see it again.'
+          : 'API key generated successfully! Copy it from below - you won\'t be able to see it again.';
         
         // Reload keys list to include the new one
         await loadAPIKeys();
@@ -159,6 +161,27 @@
     return 'ra-••••••••';
   }
 
+  // Determine if we should show the actual key or masked version
+  function getDisplayKey(apiKey: any): string {
+    // If we have a newly generated key and this is the most recent API key, show the full key
+    if (newGeneratedKey && apiKeys.length > 0 && apiKey.id === apiKeys[0].id) {
+      return newGeneratedKey;
+    }
+    return maskKey(apiKey.key_hash);
+  }
+
+  // Check if this API key is the newly generated one
+  function isNewlyGenerated(apiKey: any): boolean {
+    return newGeneratedKey !== null && apiKeys.length > 0 && apiKey.id === apiKeys[0].id;
+  }
+
+  // Format countdown time as MM:SS
+  function formatCountdown(seconds: number): string {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+
   // Clear success/error messages after timeout
   $effect(() => {
     if (success || error) {
@@ -170,23 +193,23 @@
     }
   });
 
-  // Close new key display after copying or timeout
+  // Countdown timer for key visibility
   $effect(() => {
-    if (newGeneratedKey) {
-      const timeout = setTimeout(() => {
-        newGeneratedKey = null;
-      }, 60000); // Hide after 1 minute
-      return () => clearTimeout(timeout);
+    if (keyVisibilityCountdown > 0) {
+      const timer = setInterval(() => {
+        keyVisibilityCountdown--;
+        if (keyVisibilityCountdown <= 0) {
+          newGeneratedKey = null;
+        }
+      }, 1000);
+      return () => clearInterval(timer);
     }
   });
 </script>
 
-<div class="bg-card rounded-xl border border-border p-6 shadow-sm">
-  <div class="flex items-center justify-between mb-6">
-    <div class="flex items-center gap-2">
-      <Key class="w-5 h-5 text-primary" />
-      <h3 class="text-lg font-semibold text-foreground">API Key Management</h3>
-    </div>
+<div class="border rounded-lg p-6">
+  <div class="flex items-center justify-between mb-4">
+    <h3 class="text-lg font-semibold">API Key Management</h3>
     <Button
       size="sm"
       onclick={handleGenerateClick}
@@ -200,47 +223,19 @@
 
   <!-- Success/Error Messages -->
   {#if success}
-    <div class="mb-4 p-3 bg-green-50 dark:bg-green-950/50 border border-green-200 dark:border-green-800/50 rounded-lg flex items-start gap-2">
+    <div class="mb-4 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg flex items-start gap-2">
       <CheckCircle class="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
       <p class="text-sm text-green-700 dark:text-green-300">{success}</p>
     </div>
   {/if}
 
   {#if error}
-    <div class="mb-4 p-3 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800/50 rounded-lg flex items-start gap-2">
+    <div class="mb-4 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-2">
       <AlertTriangle class="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
       <p class="text-sm text-red-700 dark:text-red-300">{error}</p>
     </div>
   {/if}
 
-  <!-- New Generated Key Display -->
-  {#if newGeneratedKey}
-    <div class="mb-6 p-4 bg-yellow-50 dark:bg-yellow-950/50 border-2 border-yellow-200 dark:border-yellow-800/50 rounded-lg">
-      <div class="flex items-start gap-2 mb-3">
-        <AlertTriangle class="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
-        <div>
-          <h4 class="text-sm font-semibold text-yellow-800 dark:text-yellow-200">Your New API Key</h4>
-          <p class="text-xs text-yellow-700 dark:text-yellow-300">Copy this key now - you won't be able to see it again!</p>
-        </div>
-      </div>
-      
-      <div class="flex gap-2">
-        <Input
-          value={newGeneratedKey}
-          readonly
-          class="font-mono text-sm bg-white dark:bg-gray-900"
-        />
-        <Button
-          size="sm"
-          onclick={() => copyToClipboard(newGeneratedKey!, 'new-key')}
-          class="flex items-center gap-2"
-        >
-          <Copy class="w-4 h-4" />
-          {copiedKeyId === 'new-key' ? 'Copied!' : 'Copy'}
-        </Button>
-      </div>
-    </div>
-  {/if}
 
 
   <!-- API Keys List -->
@@ -264,17 +259,40 @@
       </Button>
     </div>
   {:else}
-    <div class="space-y-3">
+    <div class="space-y-4">
       {#each apiKeys as apiKey}
-        <div class="p-4 bg-muted/30 rounded-lg border border-border">
-          <div class="flex items-center gap-2 mb-1">
-            <code class="text-sm font-mono text-foreground">{maskKey(apiKey.key_hash)}</code>
-            <span class="px-2 py-0.5 bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 rounded-full text-xs font-medium">
-              Active
-            </span>
-          </div>
-          <div class="text-xs text-muted-foreground">
-            <span>Created {formatDate(apiKey.created)}</span>
+        {@const isNewKey = isNewlyGenerated(apiKey)}
+        {@const displayKey = getDisplayKey(apiKey)}
+        <div class="p-4 rounded-lg border {isNewKey ? 'bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800' : 'bg-muted/30'}">
+          <div class="flex items-center justify-between">
+            <div class="flex-1">
+              <div class="flex items-center gap-2">
+                <code class="text-sm font-mono">{displayKey}</code>
+                {#if isNewKey}
+                  <Button
+                    size="sm"
+                    onclick={() => copyToClipboard(displayKey, apiKey.id)}
+                    class="flex items-center gap-1 h-6 px-2 text-xs"
+                  >
+                    <Copy class="w-3 h-3" />
+                    {copiedKeyId === apiKey.id ? 'Copied!' : 'Copy'}
+                  </Button>
+                  {#if keyVisibilityCountdown > 0}
+                    <span class="text-xs text-yellow-700 dark:text-yellow-300 bg-yellow-100 dark:bg-yellow-900/50 px-2 py-1 rounded">
+                      Visible for {formatCountdown(keyVisibilityCountdown)}
+                    </span>
+                  {/if}
+                {/if}
+              </div>
+              <div class="flex items-center gap-3 mt-2">
+                <span class="px-2 py-0.5 bg-green-50 dark:bg-green-950/30 text-green-800 dark:text-green-200 rounded text-xs font-medium">
+                  Active
+                </span>
+                <span class="text-xs text-muted-foreground">
+                  Created {formatDate(apiKey.created)}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       {/each}
@@ -282,9 +300,9 @@
   {/if}
 
   <!-- Help Text -->
-  <div class="mt-6 p-3 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800/50 rounded-lg">
-    <h4 class="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-1">Using Your API Key</h4>
-    <ul class="text-xs text-blue-700 dark:text-blue-300 space-y-1">
+  <div class="mt-6 p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+    <h4 class="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-3">Using Your API Key</h4>
+    <ul class="text-sm text-blue-700 dark:text-blue-300 space-y-2">
       <li>• Copy your API key and paste it into the Ramble AI desktop application settings</li>
       <li>• <strong>You can only have one API key at a time</strong> - generating a new one replaces the old one</li>
       <li>• API keys are only shown once during creation - you cannot view them again</li>
