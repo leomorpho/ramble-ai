@@ -6,6 +6,7 @@
 	import DownloadButton from '$lib/components/DownloadButton.svelte';
 	import { config } from '$lib/config.ts';
 	import { Check, Crown, Zap } from 'lucide-svelte';
+	import { goto } from '$app/navigation';
 
 	let billingInterval = $state<'month' | 'year'>('month');
 
@@ -226,7 +227,7 @@
 						</li>
 					</ul>
 
-					<Button class="w-full" variant="outline">
+					<Button class="w-full" variant="outline" onclick={() => goto('/login?tab=signup')}>
 						Get Started
 					</Button>
 				</CardContent>
@@ -286,8 +287,8 @@
 						{/if}
 					</ul>
 
-					<Button class="w-full">
-						Start Free Trial
+					<Button class="w-full" onclick={() => goto('/login?tab=signup')}>
+						Get Started
 					</Button>
 				</CardContent>
 			</Card>
@@ -347,8 +348,8 @@
 						{/if}
 					</ul>
 
-					<Button class="w-full">
-						Start Free Trial
+					<Button class="w-full" onclick={() => goto('/login?tab=signup')}>
+						Get Started
 					</Button>
 				</CardContent>
 			</Card>

@@ -15,10 +15,16 @@
 	let {
 		ref = $bindable(null),
 		class: className,
+		initialTab = 'login',
 		...restProps
-	}: WithElementRef<HTMLAttributes<HTMLDivElement>> = $props();
+	}: WithElementRef<HTMLAttributes<HTMLDivElement> & { initialTab?: string }> = $props();
 
-	let activeTab = $state('login');
+	let activeTab = $state(initialTab);
+	
+	// Update activeTab when initialTab prop changes
+	$effect(() => {
+		activeTab = initialTab;
+	});
 	
 	// Form state - simplified to single step
 	let email = $state('');
