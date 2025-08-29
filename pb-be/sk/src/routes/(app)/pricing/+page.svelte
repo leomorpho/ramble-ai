@@ -1,17 +1,23 @@
 <script lang="ts">
 	import { subscriptionStore } from '$lib/stores/subscription.svelte.ts';
 	import { authStore } from '$lib/stores/authClient.svelte.ts';
-	import { createCheckoutSession } from '$lib/stripe.ts';
+	import { createCheckoutSession, createPortalLink } from '$lib/stripe.ts';
 	import { config } from '$lib/config.ts';
 	import { Loader2, Check, Crown, Zap } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
+	import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '$lib/components/ui/dialog';
 	
 	let isLoading = $state(false);
 	let checkoutLoading = $state<string | null>(null);
 	let billingInterval = $state<'month' | 'year'>('month');
+	
+	// Dialog states
+	let showFreeDowngradeDialog = $state(false);
+	let showErrorDialog = $state(false);
+	let errorMessage = $state('');
 
 	// Subscription store is initialized in root layout
 	onMount(() => {
@@ -26,10 +32,14 @@
 			return;
 		}
 
-		// Free plan doesn't need Stripe checkout
 		const plan = subscriptionStore.getPlan(planId);
+		
+		// Handle free plan switching
 		if (plan?.billing_interval === 'free') {
-			// Could implement switching to free plan here if needed
+			if (subscriptionStore.isSubscribed) {
+				// User wants to downgrade to free - show confirmation dialog
+				showFreeDowngradeDialog = true;
+			}
 			return;
 		}
 
@@ -38,7 +48,8 @@
 			await createCheckoutSession(planId);
 		} catch (error) {
 			console.error('Error creating checkout session:', error);
-			alert('Failed to start checkout. Please try again.');
+			errorMessage = 'Failed to start checkout. Please try again.';
+			showErrorDialog = true;
 		} finally {
 			checkoutLoading = null;
 		}
@@ -48,13 +59,24 @@
 		return subscriptionStore.isCurrentPlan(planId);
 	}
 
+	async function handleFreeDowngrade() {
+		showFreeDowngradeDialog = false;
+		try {
+			await createPortalLink();
+		} catch (error) {
+			console.error('Error accessing billing portal:', error);
+			errorMessage = 'Failed to access billing portal. Please try again.';
+			showErrorDialog = true;
+		}
+	}
+
 	function getButtonText(planId: string): string {
 		if (checkoutLoading === planId) return 'Processing...';
 		if (isCurrentPlan(planId)) return 'Current Plan';
 		
 		const plan = subscriptionStore.getPlan(planId);
 		if (plan?.billing_interval === 'free') {
-			return 'Free Plan';
+			return subscriptionStore.isSubscribed ? 'Switch to Free' : 'Select Free Plan';
 		}
 		
 		if (!authStore.isLoggedIn) return 'Sign Up to Subscribe';
@@ -63,8 +85,6 @@
 	}
 
 	function isButtonDisabled(planId: string): boolean {
-		const plan = subscriptionStore.getPlan(planId);
-		if (plan?.billing_interval === 'free') return true; // Free plan doesn't need a button action
 		return checkoutLoading !== null || isCurrentPlan(planId);
 	}
 
@@ -156,13 +176,19 @@
 					{@const isPopular = plan.name.toLowerCase().includes('basic')}
 					{@const isCurrentPlan = subscriptionStore.isCurrentPlan(plan.id)}
 					
-					<div class="border rounded-lg p-6 {isPopular ? 'border-primary' : ''} {isCurrentPlan ? 'bg-muted/30' : ''}">
-						{#if isPopular}
+					<div class="relative border rounded-lg p-6 {isCurrentPlan ? 'bg-green-50 dark:bg-green-900/30' : ''}">
+						{#if isCurrentPlan}
+							<div class="absolute -top-3 left-1/2 transform -translate-x-1/2">
+								<Badge class="bg-green-600 text-white px-4 py-1 text-sm font-semibold shadow-md">
+									✓ Current Plan
+								</Badge>
+							</div>
+						{:else if isPopular}
 							<Badge class="mb-4">Most Popular</Badge>
 						{/if}
 						
-						<div class="text-center mb-6">
-							<h3 class="text-xl font-semibold mb-2">{plan.name}</h3>
+						<div class="text-center mb-6 {isCurrentPlan ? 'mt-4' : ''}">
+							<h3 class="text-xl font-semibold mb-2 {isCurrentPlan ? 'text-primary' : ''}">{plan.name}</h3>
 							
 							<div class="mb-4">
 								{#if plan.billing_interval === 'free'}
@@ -210,20 +236,6 @@
 			</div>
 		{/if}
 
-		<!-- Current Subscription Status -->
-		{#if subscriptionStore.isSubscribed}
-			<div class="mt-12">
-				<div class="border rounded-lg p-6 bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
-					<h3 class="text-lg font-semibold text-green-800 dark:text-green-200 mb-2">You're subscribed!</h3>
-					<p class="text-green-700 dark:text-green-300 mb-4">
-						Manage your subscription, update payment methods, and view billing history.
-					</p>
-					<Button variant="outline" onclick={() => window.location.href = '/billing'}>
-						Manage Subscription
-					</Button>
-				</div>
-			</div>
-		{/if}
 
 		<!-- Usage Warning -->
 		{#if subscriptionStore.usageWarning}
@@ -293,3 +305,40 @@
 		</div>
 	</div>
 </section>
+
+<!-- Free Plan Downgrade Confirmation Dialog -->
+<Dialog bind:open={showFreeDowngradeDialog}>
+	<DialogContent>
+		<DialogHeader>
+			<DialogTitle>Switch to Free Plan</DialogTitle>
+			<DialogDescription>
+				Switching to the Free plan will cancel your current subscription at the end of the billing period. You can manage this change in the billing portal.
+			</DialogDescription>
+		</DialogHeader>
+		<DialogFooter>
+			<Button variant="outline" onclick={() => showFreeDowngradeDialog = false}>
+				Cancel
+			</Button>
+			<Button onclick={handleFreeDowngrade}>
+				Continue to Billing Portal
+			</Button>
+		</DialogFooter>
+	</DialogContent>
+</Dialog>
+
+<!-- Error Dialog -->
+<Dialog bind:open={showErrorDialog}>
+	<DialogContent>
+		<DialogHeader>
+			<DialogTitle>Error</DialogTitle>
+			<DialogDescription>
+				{errorMessage}
+			</DialogDescription>
+		</DialogHeader>
+		<DialogFooter>
+			<Button onclick={() => showErrorDialog = false}>
+				OK
+			</Button>
+		</DialogFooter>
+	</DialogContent>
+</Dialog>
