@@ -137,11 +137,11 @@ stripe: ## Start Stripe webhook forwarding (run in separate terminal)
 		echo "   Or download from: https://github.com/stripe/stripe-cli/releases"; \
 		exit 1; \
 	fi
-	@echo "🔗 Forwarding webhooks to: http://127.0.0.1:8090/stripe"
+	@echo "🔗 Forwarding webhooks to: http://127.0.0.1:8090/api/webhooks/stripe"
 	@echo "📝 Make sure PocketBase backend is running on port 8090"
 	@echo "   Run 'make pb' or 'make pb-only' in another terminal"
 	@echo ""
-	stripe listen --forward-to=127.0.0.1:8090/stripe
+	stripe listen --forward-to=127.0.0.1:8090/api/webhooks/stripe
 
 .PHONY: kill-pb
 kill-pb: ## Safely kill PocketBase processes (NEVER touches Firefox/OrbStack)
