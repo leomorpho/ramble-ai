@@ -128,6 +128,21 @@ pb-stop: ## Stop the PocketBase backend if running in background
 		echo "ℹ️  No background PocketBase backend running"; \
 	fi
 
+.PHONY: stripe
+stripe: ## Start Stripe webhook forwarding (run in separate terminal)
+	@echo "💳 Starting Stripe webhook forwarding..."
+	@if ! command -v stripe >/dev/null 2>&1; then \
+		echo "⚠️  Stripe CLI not found. Install it from: https://stripe.com/docs/stripe-cli"; \
+		echo "   On macOS: brew install stripe/stripe-cli/stripe"; \
+		echo "   Or download from: https://github.com/stripe/stripe-cli/releases"; \
+		exit 1; \
+	fi
+	@echo "🔗 Forwarding webhooks to: http://127.0.0.1:8090/stripe"
+	@echo "📝 Make sure PocketBase backend is running on port 8090"
+	@echo "   Run 'make pb' or 'make pb-only' in another terminal"
+	@echo ""
+	stripe listen --forward-to=127.0.0.1:8090/stripe
+
 .PHONY: kill-pb
 kill-pb: ## Safely kill PocketBase processes (NEVER touches Firefox/OrbStack)
 	@echo "🛑 Safely killing PocketBase processes..."

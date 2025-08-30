@@ -17,7 +17,7 @@ pre-commit:
       run: |
         if git diff --cached --name-only | grep -q "\\.go$"; then
           echo "🧪 Running Go tests..."
-          go test ./... -short -timeout=30s || exit 1
+          cd pb-be/pb && go test ./... -short -timeout=30s || exit 1
         fi
         if git diff --cached --name-only | grep -q "^frontend/"; then
           echo "🧪 Running Frontend tests..."
@@ -39,7 +39,7 @@ pre-push:
       fail_text: "Full frontend test suite failed"
       
     full-go-tests:
-      root: "./"
+      root: "pb-be/pb/"
       run: go test ./... -short -timeout=60s
       fail_text: "Full Go test suite failed"
 
