@@ -259,8 +259,10 @@ func TestFFmpegExtension(t *testing.T) {
 
 // Helper function to reset the global state for testing
 func resetFFmpegState() {
-	// Reset the sync.Once and cached values
-	ffmpegOnce = sync.Once{}
+	mu.Lock()
+	defer mu.Unlock()
+	
+	// Reset the cached values
 	ffmpegPath = ""
-	extractionErr = nil
+	extractionSuccess = false
 }

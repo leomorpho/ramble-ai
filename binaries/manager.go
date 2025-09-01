@@ -7,64 +7,114 @@ import (
 	"path/filepath"
 	"runtime"
 	"sync"
+	"time"
 )
 
 var (
-	ffmpegPath    string
-	ffmpegOnce    sync.Once
-	extractionErr error
+	ffmpegPath       string
+	ffmpegOnce       sync.Once
+	extractionSuccess bool
+	mu               sync.Mutex
 )
 
 // GetFFmpegPath returns the path to the extracted FFmpeg binary.
-// It extracts the binary on first call and caches the path for subsequent calls.
+// It extracts the binary on first call and caches successful extractions.
+// If extraction fails, it will retry on subsequent calls instead of caching the error.
 func GetFFmpegPath() (string, error) {
-	ffmpegOnce.Do(func() {
-		ffmpegPath, extractionErr = extractFFmpeg()
-	})
-	return ffmpegPath, extractionErr
+	mu.Lock()
+	defer mu.Unlock()
+	
+	// If we already successfully extracted, return the cached path
+	if extractionSuccess && ffmpegPath != "" {
+		return ffmpegPath, nil
+	}
+	
+	// If no binary is embedded (dev/test mode), return permanent error
+	if len(FFmpegBinary) == 0 {
+		return "", fmt.Errorf("no embedded FFmpeg binary available (dev/test mode)")
+	}
+	
+	// Attempt extraction (this will retry on failures)
+	path, err := extractFFmpeg()
+	if err != nil {
+		log.Printf("FFmpeg extraction failed, will retry on next call: %v", err)
+		return "", err
+	}
+	
+	// Cache successful extraction
+	ffmpegPath = path
+	extractionSuccess = true
+	log.Printf("FFmpeg extraction successful, cached path: %s", path)
+	return path, nil
 }
 
-// extractFFmpeg extracts the embedded FFmpeg binary to a temporary file
+// extractFFmpeg extracts the embedded FFmpeg binary to a temporary file with retry logic
 func extractFFmpeg() (string, error) {
 	// If no binary is embedded (dev/test mode), return an error
 	if len(FFmpegBinary) == 0 {
 		return "", fmt.Errorf("no embedded FFmpeg binary available (dev/test mode)")
 	}
 
-	// Create a temporary file with the appropriate extension
-	tmpFile, err := os.CreateTemp("", "ffmpeg"+FFmpegExtension)
-	if err != nil {
-		return "", fmt.Errorf("failed to create temp file: %w", err)
-	}
-	defer tmpFile.Close()
-
-	// Write the embedded binary data to the temp file
-	if _, err := tmpFile.Write(FFmpegBinary); err != nil {
-		os.Remove(tmpFile.Name()) // Clean up on error
-		return "", fmt.Errorf("failed to write FFmpeg binary: %w", err)
-	}
-
-	// Make the file executable on Unix systems
-	if runtime.GOOS != "windows" {
-		if err := os.Chmod(tmpFile.Name(), 0755); err != nil {
-			os.Remove(tmpFile.Name()) // Clean up on error
-			return "", fmt.Errorf("failed to make FFmpeg executable: %w", err)
+	// Retry extraction with exponential backoff for temporary failures
+	maxRetries := 3
+	baseDelay := 100 * time.Millisecond
+	
+	var lastErr error
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if attempt > 0 {
+			delay := baseDelay * time.Duration(1<<uint(attempt-1)) // exponential backoff: 100ms, 200ms, 400ms
+			log.Printf("FFmpeg extraction attempt %d/%d failed, retrying in %v: %v", attempt, maxRetries, delay, lastErr)
+			time.Sleep(delay)
 		}
+
+		// Create a temporary file with the appropriate extension
+		tmpFile, err := os.CreateTemp("", "ffmpeg"+FFmpegExtension)
+		if err != nil {
+			lastErr = fmt.Errorf("failed to create temp file: %w", err)
+			continue
+		}
+
+		// Write the embedded binary data to the temp file
+		if _, err := tmpFile.Write(FFmpegBinary); err != nil {
+			tmpFile.Close()
+			os.Remove(tmpFile.Name()) // Clean up on error
+			lastErr = fmt.Errorf("failed to write FFmpeg binary: %w", err)
+			continue
+		}
+
+		tmpFile.Close() // Close before chmod
+
+		// Make the file executable on Unix systems
+		if runtime.GOOS != "windows" {
+			if err := os.Chmod(tmpFile.Name(), 0755); err != nil {
+				os.Remove(tmpFile.Name()) // Clean up on error
+				lastErr = fmt.Errorf("failed to make FFmpeg executable: %w", err)
+				continue
+			}
+		}
+
+		path := tmpFile.Name()
+		log.Printf("FFmpeg extracted successfully to: %s (attempt %d/%d)", path, attempt+1, maxRetries)
+		return path, nil
 	}
 
-	path := tmpFile.Name()
-	log.Printf("FFmpeg extracted to: %s", path)
-	return path, nil
+	return "", fmt.Errorf("ffmpeg extraction failed after %d attempts, last error: %w", maxRetries, lastErr)
 }
 
 // CleanupFFmpeg removes the extracted FFmpeg binary (call on app shutdown)
 func CleanupFFmpeg() {
-	if ffmpegPath != "" {
+	mu.Lock()
+	defer mu.Unlock()
+	
+	if extractionSuccess && ffmpegPath != "" {
 		if err := os.Remove(ffmpegPath); err != nil {
 			log.Printf("Failed to cleanup FFmpeg binary: %v", err)
 		} else {
 			log.Printf("FFmpeg binary cleaned up: %s", ffmpegPath)
 		}
+		// Reset state after cleanup
+		ffmpegPath = ""
+		extractionSuccess = false
 	}
 }
 
