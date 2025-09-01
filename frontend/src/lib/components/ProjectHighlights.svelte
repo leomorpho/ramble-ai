@@ -427,10 +427,10 @@
           size="sm"
           onclick={() => (showAIActionsSheet = true)}
           class="flex items-center gap-2"
-          title="AI actions for highlight organization and optimization"
+          title="AI reordering for highlight organization and optimization"
         >
           <Sparkles class="w-4 h-4" />
-          AI Actions
+          AI Reorder
         </Button>
       {/if}
       <div class="text-sm text-muted-foreground">
@@ -787,7 +787,7 @@
   </DialogContent>
 </Dialog>
 
-<!-- AI Actions Sheet -->
+<!-- AI Reorder Sheet -->
 <AIActionsSheet
   bind:open={showAIActionsSheet}
   {projectId}

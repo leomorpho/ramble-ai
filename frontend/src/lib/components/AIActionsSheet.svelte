@@ -4,6 +4,7 @@
     ReorderHighlightsWithAIOptions,
     GetProjectAISettings,
     SaveProjectAISettings,
+    GetUseRemoteAIBackend,
   } from "$lib/wailsjs/go/main/App";
   import { toast } from "svelte-sonner";
   import { Sparkles, Settings2, Play, Loader2 } from "@lucide/svelte";
@@ -28,6 +29,8 @@
   let aiActionError = $state("");
   let customPrompt = $state("");
   let selectedModel = $state("anthropic/claude-sonnet-4");
+  let useRemoteBackend = $state(false);
+  let extraInfoOpen = $state(false);
   
   // AI action options
   let useCurrentOrder = $state(false);
@@ -58,8 +61,18 @@
   $effect(() => {
     if (open && projectId) {
       loadAISettings();
+      checkRemoteBackend();
     }
   });
+
+  // Check if using remote AI backend
+  async function checkRemoteBackend() {
+    try {
+      useRemoteBackend = await GetUseRemoteAIBackend();
+    } catch (error) {
+      console.error("Failed to check remote backend status:", error);
+    }
+  }
 
   // Load AI settings
   async function loadAISettings() {
@@ -192,22 +205,27 @@
   }
 </script>
 
-<CustomSheet bind:open title="AI Actions" class="w-full max-w-2xl">
+<CustomSheet bind:open title="AI Reorder" class="w-full max-w-2xl">
   <div class="h-full overflow-y-auto">
     <div class="p-6 pb-8 space-y-6">
-    <!-- AI Actions Header -->
-    <div>
-      <h2 class="text-lg font-semibold">AI Highlight Actions</h2>
-      <p class="text-sm text-muted-foreground">
-        Configure AI actions to organize and optimize your highlights.
-      </p>
-    </div>
 
     <!-- Action Options -->
     <div class="border rounded p-4 space-y-4">
-      <div>
-        <h3 class="font-medium">Action Options</h3>
-        <p class="text-sm text-muted-foreground">Choose what the AI should focus on.</p>
+      <div class="flex items-start justify-between">
+        <div>
+          <h3 class="font-medium">Action Options</h3>
+          <p class="text-sm text-muted-foreground">Choose what the AI should focus on.</p>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onclick={resetOptions}
+          disabled={aiActionLoading}
+          class="text-xs"
+        >
+          <Settings2 class="w-3 h-3 mr-1" />
+          Reset to Defaults
+        </Button>
       </div>
       
       <!-- Use Current Order -->
@@ -325,51 +343,74 @@
       </div>
     </div>
 
-    <!-- AI Model Selection -->
-    <div class="border rounded p-4 space-y-3">
-      <div>
-        <h3 class="font-medium">AI Model</h3>
-        <p class="text-sm text-muted-foreground">Choose the AI model to use.</p>
+    <!-- AI Model Selection (hide when using remote backend) -->
+    {#if !useRemoteBackend}
+      <div class="border rounded p-4 space-y-3">
+        <div>
+          <h3 class="font-medium">AI Model</h3>
+          <p class="text-sm text-muted-foreground">Choose the AI model to use.</p>
+        </div>
+        <Select.Root type="single" name="aiModel" bind:value={selectedModel}>
+          <Select.Trigger class="w-full">
+            {selectedModelDisplay}
+          </Select.Trigger>
+          <Select.Content>
+            <Select.Group>
+              <Select.Label>Available Models</Select.Label>
+              {#each availableModels as model}
+                <Select.Item value={model.value} label={model.label}>
+                  {model.label}
+                </Select.Item>
+              {/each}
+            </Select.Group>
+          </Select.Content>
+        </Select.Root>
       </div>
-      <Select.Root type="single" name="aiModel" bind:value={selectedModel}>
-        <Select.Trigger class="w-full">
-          {selectedModelDisplay}
-        </Select.Trigger>
-        <Select.Content>
-          <Select.Group>
-            <Select.Label>Available Models</Select.Label>
-            {#each availableModels as model}
-              <Select.Item value={model.value} label={model.label}>
-                {model.label}
-              </Select.Item>
-            {/each}
-          </Select.Group>
-        </Select.Content>
-      </Select.Root>
-    </div>
+    {/if}
 
-    <!-- Custom Prompt -->
+    <!-- Extra Info Section (Collapsible) -->
     <div class="border rounded p-4 space-y-3">
-      <div>
-        <h3 class="font-medium">Custom Instructions</h3>
-        <p class="text-sm text-muted-foreground">Provide additional context for the AI.</p>
-      </div>
-      <Textarea
-        bind:value={customPrompt}
-        placeholder="Enter custom instructions for the AI..."
-        class="min-h-[100px]"
-      />
-    </div>
+      <button
+        type="button"
+        onclick={() => extraInfoOpen = !extraInfoOpen}
+        class="w-full flex items-center justify-between text-left hover:bg-accent/50 -m-1 p-1 rounded transition-colors"
+      >
+        <span class="font-medium text-sm">Extra Information</span>
+        <svg
+          class="w-4 h-4 transition-transform duration-200"
+          class:rotate-180={extraInfoOpen}
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      
+      {#if extraInfoOpen}
+        <div class="space-y-4 pt-2">
+          <!-- Custom Prompt -->
+          <div class="space-y-2">
+            <h4 class="text-sm font-medium">Custom Instructions</h4>
+            <p class="text-xs text-muted-foreground">Provide additional context for the AI.</p>
+            <Textarea
+              bind:value={customPrompt}
+              placeholder="Enter custom instructions for the AI..."
+              class="min-h-[80px] text-sm"
+            />
+          </div>
 
-    <!-- Prompt Preview -->
-    <div class="border rounded p-4 space-y-3">
-      <div>
-        <h3 class="font-medium">Generated Prompt Preview</h3>
-        <p class="text-sm text-muted-foreground">The prompt that will be sent to the AI.</p>
-      </div>
-      <div class="border rounded p-3 text-sm font-mono text-muted-foreground max-h-[200px] overflow-y-auto whitespace-pre-wrap">
-        {buildPromptPreview()}
-      </div>
+          <!-- Prompt Preview -->
+          <div class="space-y-2">
+            <h4 class="text-sm font-medium">Generated Prompt Preview</h4>
+            <p class="text-xs text-muted-foreground">The prompt that will be sent to the AI.</p>
+            <div class="border rounded p-2 text-xs font-mono text-muted-foreground max-h-[150px] overflow-y-auto whitespace-pre-wrap">
+              {buildPromptPreview()}
+            </div>
+          </div>
+        </div>
+      {/if}
     </div>
 
     <!-- Error Display -->
@@ -392,17 +433,8 @@
           Processing...
         {:else}
           <Sparkles class="w-4 h-4 mr-2" />
-          Apply AI Actions
+          Reorder now!
         {/if}
-      </Button>
-      
-      <Button
-        variant="outline"
-        onclick={resetOptions}
-        disabled={aiActionLoading}
-      >
-        <Settings2 class="w-4 h-4 mr-2" />
-        Reset
       </Button>
       
       <Button
