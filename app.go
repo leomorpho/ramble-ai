@@ -114,9 +114,19 @@ func (a *App) startup(ctx context.Context) {
 
 	log.Println("Database initialized and migrations applied")
 
-	// Initialize FFmpeg binary
+	// Initialize FFmpeg binary with detailed debugging
+	log.Printf("FFmpeg initialization debug info: %+v", binaries.GetFFmpegDebugInfo())
+	
 	if ffmpegPath, err := binaries.GetFFmpegPath(); err != nil {
 		log.Printf("Failed to extract FFmpeg binary: %v", err)
+		log.Printf("FFmpeg will fall back to system binary if available")
+		log.Printf("This may cause 'ffmpeg: executable file not found' errors")
+		log.Printf("Embedded binary size: %d bytes", binaries.GetEmbeddedBinarySize())
+		
+		// Check if FFmpeg binary data was actually embedded
+		if !binaries.IsFFmpegAvailable() {
+			log.Printf("FFmpeg binary data is not available (likely not embedded in production build)")
+		}
 	} else {
 		// Set environment variable for video processing services
 		os.Setenv("FFMPEG_PATH", ffmpegPath)

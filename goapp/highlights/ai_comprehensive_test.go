@@ -109,7 +109,7 @@ func TestSuggestHighlightsWithAI(t *testing.T) {
 		// We test that it doesn't crash and handles errors properly
 		if err != nil {
 			// Expected if no real API key or network issues
-			assert.Contains(t, err.Error(), "AI service")
+			assert.Contains(t, err.Error(), "OpenRouter API key not configured")
 		} else {
 			// If successful, validate suggestions format
 			assert.IsType(t, []HighlightSuggestion{}, suggestions)
@@ -120,7 +120,7 @@ func TestSuggestHighlightsWithAI(t *testing.T) {
 		suggestions, err := service.SuggestHighlightsWithAI(project.ID, clip.ID, "Test prompt")
 		
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "Ramble AI API key not configured")
+		assert.Contains(t, err.Error(), "OpenRouter API key not configured")
 		assert.Nil(t, suggestions)
 	})
 	

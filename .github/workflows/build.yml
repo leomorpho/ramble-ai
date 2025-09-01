@@ -58,8 +58,67 @@ jobs:
           fi
         shell: bash
       
+      - name: Verify FFmpeg binaries before build
+        run: |
+          echo "Checking FFmpeg binaries before build:"
+          ls -la binaries/static/
+          if [[ "${{ matrix.platform }}" == "macos-latest" ]]; then
+            if [ ! -f "binaries/static/ffmpeg-darwin-amd64" ]; then
+              echo "❌ ERROR: ffmpeg-darwin-amd64 binary missing!"
+              exit 1
+            else
+              echo "✅ ffmpeg-darwin-amd64 found"
+              file binaries/static/ffmpeg-darwin-amd64
+            fi
+          else
+            if [ ! -f "binaries/static/ffmpeg-windows-amd64.exe" ]; then
+              echo "❌ ERROR: ffmpeg-windows-amd64.exe binary missing!"
+              exit 1
+            else
+              echo "✅ ffmpeg-windows-amd64.exe found"
+              file binaries/static/ffmpeg-windows-amd64.exe
+            fi
+          fi
+        shell: bash
+      
       - name: Build Wails app
-        run: wails build -tags production
+        run: |
+          echo "Building with production tags..."
+          echo "Current platform: ${{ matrix.platform }}"
+          echo "Build tags will include: production"
+          echo "Expected to embed: binaries/static/ffmpeg-darwin-amd64"
+          wails build -tags production
+      
+      - name: Verify FFmpeg embedding in built binary
+        run: |
+          echo "Checking if FFmpeg binary was embedded in the built app..."
+          if [[ "${{ matrix.platform }}" == "macos-latest" ]]; then
+            if [ -f "build/bin/RambleAI.app/Contents/MacOS/RambleAI" ]; then
+              echo "✅ Built binary found: build/bin/RambleAI.app/Contents/MacOS/RambleAI"
+              # Check binary size - embedded FFmpeg should make it significantly larger
+              ls -lh build/bin/RambleAI.app/Contents/MacOS/RambleAI
+              BINARY_SIZE=$(stat -f%z build/bin/RambleAI.app/Contents/MacOS/RambleAI)
+              echo "Binary size: $BINARY_SIZE bytes"
+              # FFmpeg binary is ~100MB, so if the total is less than 50MB, embedding likely failed
+              if [ $BINARY_SIZE -lt 52428800 ]; then
+                echo "⚠️  WARNING: Binary size is unexpectedly small, FFmpeg may not be embedded"
+              else
+                echo "✅ Binary size looks good for embedded FFmpeg"
+              fi
+              
+              # Try to extract embedded data using strings command to verify embedding
+              echo "Checking for embedded FFmpeg signature in binary..."
+              if strings build/bin/RambleAI.app/Contents/MacOS/RambleAI | grep -q "FFmpeg"; then
+                echo "✅ Found FFmpeg signature in binary"
+              else
+                echo "⚠️  WARNING: No FFmpeg signature found in binary"
+              fi
+            else
+              echo "❌ ERROR: Built binary not found!"
+              exit 1
+            fi
+          fi
+        shell: bash
       
       - name: Clean up after build to save space
         run: |

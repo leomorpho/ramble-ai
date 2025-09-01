@@ -92,7 +92,7 @@ func (f *AIServiceFactory) createRemoteService() (AIService, error) {
 		return nil, fmt.Errorf("failed to get API key: %w", err)
 	}
 	if apiKey == "" {
-		return nil, fmt.Errorf("Ramble AI API key not configured")
+		return nil, fmt.Errorf("OpenRouter API key not configured")
 	}
 
 	return NewRemoteAIService(f.client, f.ctx, backendURL, apiKey), nil

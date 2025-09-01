@@ -745,7 +745,7 @@ func (s *CoreAIService) removeOverlapFromTranscript(originalTranscript string, d
 // ProcessText handles all text-based AI processing tasks
 func (s *CoreAIService) ProcessText(request *TextProcessingRequest, apiKey string) (*OpenRouterResponse, error) {
 	if apiKey == "" {
-		return nil, fmt.Errorf("OpenRouter API key not provided")
+		return nil, fmt.Errorf("OpenRouter API key not configured")
 	}
 
 	if request.Model == "" {

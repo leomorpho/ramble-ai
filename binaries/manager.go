@@ -87,3 +87,31 @@ func GetFFmpegDir() (string, error) {
 	}
 	return filepath.Dir(path), nil
 }
+
+// GetEmbeddedBinarySize returns the size of the embedded FFmpeg binary
+func GetEmbeddedBinarySize() int {
+	return len(FFmpegBinary)
+}
+
+// GetFFmpegDebugInfo returns debug information about FFmpeg embedding
+func GetFFmpegDebugInfo() map[string]interface{} {
+	info := map[string]interface{}{
+		"embedded_size":  GetEmbeddedBinarySize(),
+		"extension":      FFmpegExtension,
+		"available":      IsFFmpegAvailable(),
+		"version":        GetFFmpegVersion(),
+		"runtime_goos":   runtime.GOOS,
+		"runtime_goarch": runtime.GOARCH,
+	}
+	
+	if path, err := GetFFmpegPath(); err == nil {
+		info["extracted_path"] = path
+		if stat, err := os.Stat(path); err == nil {
+			info["extracted_size"] = stat.Size()
+		}
+	} else {
+		info["error"] = err.Error()
+	}
+	
+	return info
+}
