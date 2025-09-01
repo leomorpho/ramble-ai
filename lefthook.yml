@@ -15,10 +15,19 @@ pre-commit:
     # Only run tests if relevant files changed
     tests:
       run: |
-        # Check if Go files changed OR if pb-be submodule changed
-        if git diff --cached --name-only | grep -q "\\.go$" || git diff --cached --name-only | grep -q "^pb-be$"; then
+        # Check if Go files changed
+        if git diff --cached --name-only | grep -q "\\.go$"; then
           echo "🧪 Running Go tests..."
-          cd pb-be/pb && go test ./... -short -timeout=30s || exit 1
+          
+          # Test main module first
+          echo "Testing main module..."
+          go test ./... -short -timeout=30s || exit 1
+          
+          # Test pb-be submodule if it exists and has changes
+          if [ -d "pb-be/pb" ]; then
+            echo "Testing pb-be submodule..."
+            cd pb-be/pb && go test ./... -short -timeout=30s || exit 1
+          fi
         fi
         if git diff --cached --name-only | grep -q "^frontend/"; then
           echo "🧪 Running Frontend tests..."
@@ -40,8 +49,18 @@ pre-push:
       fail_text: "Full frontend test suite failed"
       
     full-go-tests:
-      root: "pb-be/pb/"
-      run: go test ./... -short -timeout=60s
+      run: |
+        echo "🧪 Running full Go test suite..."
+        
+        # Test main module
+        echo "Testing main module..."
+        go test ./... -short -timeout=60s || exit 1
+        
+        # Test pb-be submodule if it exists
+        if [ -d "pb-be/pb" ]; then
+          echo "Testing pb-be submodule..."
+          cd pb-be/pb && go test ./... -short -timeout=60s || exit 1
+        fi
       fail_text: "Full Go test suite failed"
 
 # Commit message hooks - DISABLED

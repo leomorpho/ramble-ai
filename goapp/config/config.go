@@ -36,4 +36,4 @@ func ShouldUseRemoteBackend() bool {
 		}
 	}
 	return USE_REMOTE_AI_BACKEND
-}
+}// test comment
