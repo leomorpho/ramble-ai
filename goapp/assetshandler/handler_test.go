@@ -474,9 +474,9 @@ func TestGenerateThumbnail(t *testing.T) {
 		// This will create the thumbnails directory but fail at ffmpeg
 		_, err := handler.GenerateThumbnail(nonExistentVideo)
 		
-		// Should get an error from ffmpeg
+		// Should get an error from FFmpeg creation (in dev/test mode no embedded binary)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "ffmpeg failed")
+		assert.Contains(t, err.Error(), "embedded FFmpeg binary not available")
 		
 		// But thumbnails directory should exist
 		_, err = os.Stat("thumbnails")

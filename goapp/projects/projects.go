@@ -1884,7 +1884,7 @@ func (s *ProjectService) extractAudio(videoPath string) (string, error) {
 	log.Printf("[TRANSCRIPTION] Extracting audio from: %s to: %s", videoPath, audioPath)
 
 	// Use ffmpeg to extract audio with optimized settings for Whisper
-	cmd := goapp.GetFFmpegCommand(
+	cmd, err := goapp.GetFFmpegCommand(
 		"-i", videoPath,
 		"-vn",            // No video
 		"-acodec", "mp3", // MP3 codec (guaranteed Whisper support)
@@ -1895,6 +1895,9 @@ func (s *ProjectService) extractAudio(videoPath string) (string, error) {
 		"-y",             // Overwrite output file
 		audioPath,
 	)
+	if err != nil {
+		return "", fmt.Errorf("failed to create FFmpeg command: %w", err)
+	}
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {

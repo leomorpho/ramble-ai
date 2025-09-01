@@ -397,7 +397,7 @@ func (s *CoreAIService) splitAudioIntoChunks(audioFile string, chunkInfo *ChunkI
 		chunkPath := filepath.Join(tempDir, chunkFilename)
 		
 		// Use FFmpeg to extract chunk with optimized settings (matching app.go)
-		cmd := goapp.GetFFmpegCommand(
+		cmd, err := goapp.GetFFmpegCommand(
 			"-i", audioFile,
 			"-ss", fmt.Sprintf("%.2f", startTime),            // Start time
 			"-t", fmt.Sprintf("%.2f", chunkDuration),          // Duration  
@@ -410,6 +410,10 @@ func (s *CoreAIService) splitAudioIntoChunks(audioFile string, chunkInfo *ChunkI
 			"-y",                                              // Overwrite output file
 			chunkPath,
 		)
+		if err != nil {
+			s.cleanupChunks(chunkPaths) // Cleanup any successful chunks
+			return nil, fmt.Errorf("failed to create FFmpeg command for chunk %d: %w", i, err)
+		}
 		
 		output, err := cmd.CombinedOutput()
 		if err != nil {

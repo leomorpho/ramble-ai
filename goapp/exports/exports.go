@@ -562,7 +562,7 @@ func (s *ExportService) extractHighlightSegment(segment HighlightSegment, tempDi
 
 	// Build FFmpeg command - using input seeking + minimal re-encoding for precision
 	duration := segment.End - segment.Start
-	cmd := goapp.GetFFmpegCommand(
+	cmd, err := goapp.GetFFmpegCommand(
 		"-ss", fmt.Sprintf("%.3f", segment.Start),
 		"-i", segment.VideoPath,
 		"-t", fmt.Sprintf("%.3f", duration),
@@ -574,6 +574,9 @@ func (s *ExportService) extractHighlightSegment(segment HighlightSegment, tempDi
 		"-y",
 		outputPath,
 	)
+	if err != nil {
+		return "", fmt.Errorf("failed to create FFmpeg command: %w", err)
+	}
 
 	// Execute command
 	output, err := cmd.CombinedOutput()
@@ -588,7 +591,7 @@ func (s *ExportService) extractHighlightSegment(segment HighlightSegment, tempDi
 func (s *ExportService) extractHighlightSegmentDirect(segment HighlightSegment, outputPath string) error {
 	// Build FFmpeg command - using input seeking + minimal re-encoding for precision
 	duration := segment.End - segment.Start
-	cmd := goapp.GetFFmpegCommand(
+	cmd, err := goapp.GetFFmpegCommand(
 		"-ss", fmt.Sprintf("%.3f", segment.Start),
 		"-i", segment.VideoPath,
 		"-t", fmt.Sprintf("%.3f", duration),
@@ -600,6 +603,9 @@ func (s *ExportService) extractHighlightSegmentDirect(segment HighlightSegment, 
 		"-y",
 		outputPath,
 	)
+	if err != nil {
+		return fmt.Errorf("failed to create FFmpeg command: %w", err)
+	}
 
 	// Execute command
 	output, err := cmd.CombinedOutput()
@@ -802,7 +808,7 @@ func (s *ExportService) extractHighlightSegmentWithProgress(segment HighlightSeg
 
 	// Build FFmpeg command with progress tracking - using input seeking + minimal re-encoding for precision
 	duration := paddedEnd - paddedStart
-	cmd := goapp.GetFFmpegCommand(
+	cmd, err := goapp.GetFFmpegCommand(
 		"-progress", "pipe:1",
 		"-ss", fmt.Sprintf("%.3f", paddedStart),
 		"-i", segment.VideoPath,
@@ -815,6 +821,9 @@ func (s *ExportService) extractHighlightSegmentWithProgress(segment HighlightSeg
 		"-y",
 		outputPath,
 	)
+	if err != nil {
+		return "", fmt.Errorf("failed to create FFmpeg command: %w", err)
+	}
 
 	// Create pipes for stdout
 	stdout, err := cmd.StdoutPipe()
@@ -859,7 +868,7 @@ func (s *ExportService) extractHighlightSegmentDirectWithProgress(segment Highli
 
 	// Build FFmpeg command with progress tracking - using input seeking + minimal re-encoding for precision
 	duration := paddedEnd - paddedStart
-	cmd := goapp.GetFFmpegCommand(
+	cmd, err := goapp.GetFFmpegCommand(
 		"-progress", "pipe:1",
 		"-ss", fmt.Sprintf("%.3f", paddedStart),
 		"-i", segment.VideoPath,
@@ -872,6 +881,9 @@ func (s *ExportService) extractHighlightSegmentDirectWithProgress(segment Highli
 		"-y",
 		outputPath,
 	)
+	if err != nil {
+		return fmt.Errorf("failed to create FFmpeg command: %w", err)
+	}
 
 	// Create pipes for stdout
 	stdout, err := cmd.StdoutPipe()
@@ -948,7 +960,7 @@ func (s *ExportService) stitchSegments(segmentPaths []string, outputPath string,
 	}
 
 	// Build FFmpeg concat command with progress
-	cmd := goapp.GetFFmpegCommand(
+	cmd, err := goapp.GetFFmpegCommand(
 		"-progress", "pipe:1",
 		"-f", "concat",
 		"-safe", "0",
@@ -958,6 +970,9 @@ func (s *ExportService) stitchSegments(segmentPaths []string, outputPath string,
 		"-y",
 		outputPath,
 	)
+	if err != nil {
+		return fmt.Errorf("failed to create FFmpeg command: %w", err)
+	}
 
 	// Create pipes for stdout
 	stdout, err := cmd.StdoutPipe()

@@ -81,13 +81,43 @@ jobs:
           fi
         shell: bash
       
+      - name: Verify embed files before build
+        run: |
+          echo "Verifying embed files are accessible before build..."
+          echo "Current working directory: $(pwd)"
+          echo "Contents of binaries/static/:"
+          ls -la binaries/static/ || echo "❌ binaries/static/ directory not found"
+          
+          if [[ "${{ matrix.platform }}" == "macos-latest" ]]; then
+            if [ -f "binaries/static/ffmpeg-darwin-amd64" ]; then
+              echo "✅ Found binaries/static/ffmpeg-darwin-amd64"
+              file binaries/static/ffmpeg-darwin-amd64
+              echo "Size: $(stat -f%z binaries/static/ffmpeg-darwin-amd64) bytes"
+            else
+              echo "❌ ERROR: binaries/static/ffmpeg-darwin-amd64 not found"
+              echo "This will cause Go embed to fail!"
+              exit 1
+            fi
+          fi
+        shell: bash
+        
       - name: Build Wails app
         run: |
           echo "Building with production tags..."
           echo "Current platform: ${{ matrix.platform }}"
           echo "Build tags will include: production"
           echo "Expected to embed: binaries/static/ffmpeg-darwin-amd64"
-          wails build -tags production
+          
+          echo "Starting Wails build with verbose output..."
+          wails build -tags production -v 2 || {
+            echo "❌ Wails build failed!"
+            echo "Checking if it's an embed issue..."
+            echo "Go build test with production tags:"
+            go build -tags production -v . || echo "Go build also failed"
+            exit 1
+          }
+          
+          echo "✅ Wails build completed successfully"
       
       - name: Verify FFmpeg embedding in built binary
         run: |
