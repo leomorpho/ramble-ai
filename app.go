@@ -128,8 +128,6 @@ func (a *App) startup(ctx context.Context) {
 			log.Printf("FFmpeg binary data is not available (likely not embedded in production build)")
 		}
 	} else {
-		// Set environment variable for video processing services
-		os.Setenv("FFMPEG_PATH", ffmpegPath)
 		log.Printf("FFmpeg initialized successfully: %s (version %s)", ffmpegPath, binaries.GetFFmpegVersion())
 	}
 
