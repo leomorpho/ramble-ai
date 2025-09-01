@@ -6,8 +6,9 @@
 
 <script>
   import { onMount } from "svelte";
-  import { GetRambleAIApiKey } from "$lib/wailsjs/go/main/App";
+  import { GetRambleAIApiKey, GetBackendURL } from "$lib/wailsjs/go/main/App";
   import { Button } from "$lib/components/ui/button";
+  import { Skeleton } from "$lib/components/ui/skeleton";
   import { 
     BarChart, 
     FileAudio, 
@@ -64,10 +65,18 @@
   let error = $state(null);
   let selectedMonth = $state(new Date().toISOString().slice(0, 7)); // YYYY-MM
 
-  // PocketBase backend base URL
-  const POCKETBASE_URL = "http://localhost:8090";
+  // PocketBase backend base URL - get from Go backend
+  let POCKETBASE_URL = $state("https://api.ramble.goosebyteshq.com"); // fallback
 
   onMount(async () => {
+    // Get the backend URL from Go configuration
+    try {
+      POCKETBASE_URL = await GetBackendURL();
+      console.log(`Using PocketBase URL: ${POCKETBASE_URL}`);
+    } catch (err) {
+      console.warn('Failed to get backend URL, using fallback:', err);
+    }
+    
     await loadUsageData();
     
     // Add page visibility listener to refresh data when user returns to page
@@ -232,6 +241,12 @@
       default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
     }
   }
+
+  function hasBeenMoreThanOneMonth() {
+    // For Wails app, we need to get user data from the backend
+    // For now, we'll return true to maintain existing behavior until we implement proper user auth
+    return true; // TODO: Implement proper user registration date check when Wails auth is implemented
+  }
 </script>
 
 <main class="min-h-screen bg-background text-foreground p-8">
@@ -260,10 +275,113 @@
     </div>
 
     {#if isLoading}
-      <div class="flex items-center justify-center min-h-[400px]">
-        <div class="flex items-center gap-2 text-muted-foreground">
-          <Loader2 class="h-5 w-5 animate-spin" />
-          <span>Loading usage statistics...</span>
+      <!-- Skeleton Loading State -->
+      <div class="space-y-6">
+        <!-- Summary Cards Skeleton -->
+        <div class="grid gap-6 md:grid-cols-2 mb-8">
+          <!-- Card 1 -->
+          <div class="border rounded p-6 bg-card">
+            <div class="flex items-center justify-between mb-2">
+              <Skeleton class="h-4 w-20" />
+              <Skeleton class="h-4 w-4" />
+            </div>
+            <div class="space-y-2">
+              <Skeleton class="h-8 w-16" />
+              <Skeleton class="h-4 w-24" />
+            </div>
+          </div>
+          
+          <!-- Card 2 -->
+          <div class="border rounded p-6 bg-card">
+            <div class="flex items-center justify-between mb-2">
+              <Skeleton class="h-4 w-24" />
+              <Skeleton class="h-4 w-4" />
+            </div>
+            <div class="space-y-2">
+              <Skeleton class="h-8 w-12" />
+              <Skeleton class="h-4 w-20" />
+            </div>
+          </div>
+          
+        </div>
+
+        <!-- All-Time Statistics Skeleton -->
+        <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {#each Array(4) as _, i}
+            <div class="border rounded p-6 bg-card">
+              <div class="flex items-center justify-between mb-2">
+                <Skeleton class="h-4 w-20" />
+                <Skeleton class="h-4 w-4" />
+              </div>
+              <div class="space-y-2">
+                <Skeleton class="h-8 w-16" />
+                <Skeleton class="h-4 w-24" />
+              </div>
+            </div>
+          {/each}
+        </div>
+
+        <!-- Recent Files Table Skeleton -->
+        <div class="border rounded bg-card">
+          <div class="border-b border-border p-4">
+            <Skeleton class="h-6 w-32" />
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead class="bg-muted/50">
+                <tr class="border-b border-border/50">
+                  <th class="text-left py-3 px-4">
+                    <Skeleton class="h-4 w-16" />
+                  </th>
+                  <th class="text-left py-3 px-4">
+                    <Skeleton class="h-4 w-12" />
+                  </th>
+                  <th class="text-left py-3 px-4">
+                    <Skeleton class="h-4 w-20" />
+                  </th>
+                  <th class="text-left py-3 px-4">
+                    <Skeleton class="h-4 w-16" />
+                  </th>
+                  <th class="text-left py-3 px-4">
+                    <Skeleton class="h-4 w-12" />
+                  </th>
+                  <th class="text-left py-3 px-4">
+                    <Skeleton class="h-4 w-20" />
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each Array(5) as _, i}
+                  <tr class="border-b border-border/50">
+                    <td class="py-4 px-4">
+                      <div class="flex items-center gap-3">
+                        <Skeleton class="h-4 w-4" />
+                        <div class="space-y-1">
+                          <Skeleton class="h-4 w-32" />
+                          <Skeleton class="h-3 w-20" />
+                        </div>
+                      </div>
+                    </td>
+                    <td class="py-4 px-4">
+                      <Skeleton class="h-5 w-16 rounded-full" />
+                    </td>
+                    <td class="py-4 px-4">
+                      <Skeleton class="h-4 w-12" />
+                    </td>
+                    <td class="py-4 px-4">
+                      <Skeleton class="h-4 w-16" />
+                    </td>
+                    <td class="py-4 px-4">
+                      <Skeleton class="h-4 w-20" />
+                    </td>
+                    <td class="py-4 px-4">
+                      <Skeleton class="h-4 w-24" />
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     {:else if error}
@@ -278,9 +396,9 @@
       </div>
     {:else}
       <!-- Summary Cards -->
-      <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
+      <div class="grid gap-6 {hasBeenMoreThanOneMonth() ? 'md:grid-cols-2' : 'md:grid-cols-1'} mb-8">
         <!-- Current Month Summary -->
-        {#if currentMonthSummary}
+        {#if hasBeenMoreThanOneMonth() && currentMonthSummary}
           <div class="border rounded p-6 bg-card">
             <div class="flex items-center justify-between mb-2">
               <span class="text-sm font-medium text-muted-foreground">This Month</span>
@@ -290,19 +408,6 @@
               <div class="text-2xl font-bold">{formatDuration(currentMonthSummary.total_duration_seconds)}</div>
               <div class="text-sm text-muted-foreground">
                 {currentMonthSummary.total_files} files processed
-              </div>
-            </div>
-          </div>
-
-          <div class="border rounded p-6 bg-card">
-            <div class="flex items-center justify-between mb-2">
-              <span class="text-sm font-medium text-muted-foreground">Success Rate</span>
-              <TrendingUp class="h-4 w-4 text-muted-foreground" />
-            </div>
-            <div class="space-y-2">
-              <div class="text-2xl font-bold">{currentMonthSummary.success_rate.toFixed(1)}%</div>
-              <div class="text-sm text-muted-foreground">
-                {currentMonthSummary.status_breakdown.completed} completed
               </div>
             </div>
           </div>

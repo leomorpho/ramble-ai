@@ -454,6 +454,11 @@ func (a *App) GetRambleAIApiKey() (string, error) {
 	return a.GetSetting("ramble_ai_api_key")
 }
 
+// GetBackendURL returns the backend URL configured for the current environment
+func (a *App) GetBackendURL() string {
+	return config.GetRemoteBackendURL()
+}
+
 // DeleteRambleAIApiKey removes the Ramble AI API key
 func (a *App) DeleteRambleAIApiKey() error {
 	return a.DeleteSetting("ramble_ai_api_key")
