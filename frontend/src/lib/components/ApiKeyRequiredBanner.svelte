@@ -2,6 +2,7 @@
   import { Button } from "$lib/components/ui/button";
   import { ExternalLink, Key, Settings } from "@lucide/svelte";
   import { GetRambleFrontendURL } from "$lib/wailsjs/go/main/App";
+  import { BrowserOpenURL } from "$lib/wailsjs/runtime/runtime";
   import { onMount } from "svelte";
 
   let frontendUrl = $state("https://app.ramble.ai"); // fallback
@@ -13,6 +14,10 @@
       console.warn("Failed to get frontend URL:", err);
     }
   });
+
+  function openApiKeyPage() {
+    BrowserOpenURL(frontendUrl);
+  }
 </script>
 
 <div class="border border-orange-200 bg-orange-50 rounded-lg p-6 space-y-4 dark:border-orange-800 dark:bg-orange-950">
@@ -31,14 +36,12 @@
       
       <div class="flex flex-col sm:flex-row gap-3">
         <Button 
-          asChild 
+          onclick={openApiKeyPage}
           size="sm" 
-          class="flex-1 sm:flex-none"
+          class="flex-1 sm:flex-none inline-flex items-center gap-2"
         >
-          <a href={frontendUrl} target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2">
-            Get Free API Key
-            <ExternalLink class="w-3 h-3" />
-          </a>
+          Get Free API Key
+          <ExternalLink class="w-3 h-3" />
         </Button>
         
         <Button 

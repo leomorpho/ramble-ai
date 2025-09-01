@@ -8,6 +8,7 @@
   } from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button";
   import { ExternalLink, Key, Wand2, PlayCircle, ChevronRight } from "@lucide/svelte";
+  import { BrowserOpenURL } from "$lib/wailsjs/runtime/runtime";
 
   let { open = $bindable(false) } = $props();
 </script>
@@ -36,9 +37,9 @@
         <div class="space-y-2">
           <ol class="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
             <li>
-              Visit <a href="https://platform.openai.com/api-keys" target="_blank" class="text-foreground hover:underline inline-flex items-center gap-1">
+              Visit <button onclick={() => BrowserOpenURL("https://platform.openai.com/api-keys")} class="text-foreground hover:underline inline-flex items-center gap-1">
                 platform.openai.com <ExternalLink class="w-3 h-3" />
-              </a>
+              </button>
             </li>
             <li>Create new secret key</li>
             <li>Copy key (starts with "sk-")</li>
@@ -64,9 +65,9 @@
         <div class="space-y-2">
           <ol class="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
             <li>
-              Visit <a href="https://openrouter.ai/keys" target="_blank" class="text-foreground hover:underline inline-flex items-center gap-1">
+              Visit <button onclick={() => BrowserOpenURL("https://openrouter.ai/keys")} class="text-foreground hover:underline inline-flex items-center gap-1">
                 openrouter.ai <ExternalLink class="w-3 h-3" />
-              </a>
+              </button>
             </li>
             <li>Sign in or create account</li>
             <li>Create new key</li>

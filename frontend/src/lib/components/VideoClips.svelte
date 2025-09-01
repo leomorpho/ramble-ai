@@ -16,6 +16,7 @@
     TranscribeVideoClip,
     BatchTranscribeUntranscribedClips,
     GetOpenAIApiKey,
+    GetUseRemoteAIBackend,
   } from "$lib/wailsjs/go/main/App";
   import {
     OnFileDrop,
@@ -520,19 +521,24 @@
 
   async function startTranscription(clip) {
     try {
-      // Check if OpenAI API key is configured
-      const apiKey = await GetOpenAIApiKey();
-      if (!apiKey || apiKey.trim() === "") {
-        toast.error("OpenAI API Key Required", {
-          description:
-            "Please configure your OpenAI API key in settings to use transcription.",
-        });
+      // Check if using remote backend - if so, skip OpenAI API key check
+      const useRemoteBackend = await GetUseRemoteAIBackend();
+      
+      if (!useRemoteBackend) {
+        // Only check for OpenAI API key when using local backend
+        const apiKey = await GetOpenAIApiKey();
+        if (!apiKey || apiKey.trim() === "") {
+          toast.error("OpenAI API Key Required", {
+            description:
+              "Please configure your OpenAI API key in settings to use transcription.",
+          });
 
-        // Redirect to settings after a short delay
-        setTimeout(() => {
-          goto("/settings");
-        }, 2000);
-        return;
+          // Redirect to settings after a short delay
+          setTimeout(() => {
+            goto("/settings");
+          }, 2000);
+          return;
+        }
       }
 
       // Update clip state to transcribing
@@ -635,16 +641,21 @@
       batchTranscribing = true;
       clipError = "";
 
-      // Check if OpenAI API key is configured
-      const apiKey = await GetOpenAIApiKey();
-      if (!apiKey || apiKey.trim() === "") {
-        toast.error("OpenAI API Key Required", {
-          description: "Please configure your OpenAI API key in settings to use transcription.",
-        });
-        setTimeout(() => {
-          goto("/settings");
-        }, 2000);
-        return;
+      // Check if using remote backend - if so, skip OpenAI API key check
+      const useRemoteBackend = await GetUseRemoteAIBackend();
+      
+      if (!useRemoteBackend) {
+        // Only check for OpenAI API key when using local backend
+        const apiKey = await GetOpenAIApiKey();
+        if (!apiKey || apiKey.trim() === "") {
+          toast.error("OpenAI API Key Required", {
+            description: "Please configure your OpenAI API key in settings to use transcription.",
+          });
+          setTimeout(() => {
+            goto("/settings");
+          }, 2000);
+          return;
+        }
       }
 
       // Count untranscribed clips
