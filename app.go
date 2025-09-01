@@ -17,6 +17,7 @@ import (
 	"ramble-ai/goapp/assetshandler"
 	"ramble-ai/goapp/ai"
 	"ramble-ai/goapp/chatbot"
+	"ramble-ai/goapp/config"
 	"ramble-ai/goapp/exports"
 	"ramble-ai/goapp/highlights"
 	"ramble-ai/goapp/projects"
@@ -349,16 +350,18 @@ func (a *App) IsDevMode() bool {
 
 // IsRemoteBackendOverriddenByEnv checks if the remote backend setting is overridden by environment variables
 func (a *App) IsRemoteBackendOverriddenByEnv() bool {
+	// In production, always return true since it's compiled in
+	if config.IsProduction() {
+		return true
+	}
+	// In development, check for env override
 	return os.Getenv("USE_REMOTE_AI_BACKEND") != ""
 }
 
 // GetRambleFrontendURL returns the Ramble AI frontend URL for API key acquisition
 func (a *App) GetRambleFrontendURL() string {
-	url := os.Getenv("RAMBLE_FRONTEND_URL")
-	if url == "" {
-		return "https://app.ramble.ai" // Default fallback
-	}
-	return url
+	// Use build-time configuration with env override in development
+	return config.GetFrontendURL()
 }
 
 // GetDevAPIKey returns the development API key if in development mode

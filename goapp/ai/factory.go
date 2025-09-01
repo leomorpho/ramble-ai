@@ -10,6 +10,7 @@ import (
 	"github.com/joho/godotenv"
 	"ramble-ai/ent"
 	"ramble-ai/ent/settings"
+	"ramble-ai/goapp/config"
 )
 
 // AIServiceFactory creates AI services based on configuration
@@ -83,11 +84,8 @@ func (f *AIServiceFactory) CreateService() (AIService, error) {
 
 // createRemoteService creates a remote AI service
 func (f *AIServiceFactory) createRemoteService() (AIService, error) {
-	// Default to localhost development backend, allow environment override
-	backendURL := "http://localhost:8090"
-	if envURL := os.Getenv("REMOTE_AI_BACKEND_URL"); envURL != "" {
-		backendURL = envURL
-	}
+	// Use build-time configuration with env override in development
+	backendURL := config.GetRemoteBackendURL()
 
 	apiKey, err := f.getSetting("ramble_ai_api_key")
 	if err != nil {
@@ -137,6 +135,6 @@ func (f *AIServiceFactory) getSetting(key string) (string, error) {
 }
 
 func (f *AIServiceFactory) getUseRemoteAIBackend() (bool, error) {
-	// Always use remote backend - keeping function for compatibility
-	return true, nil
+	// Use build-time configuration with env override in development
+	return config.ShouldUseRemoteBackend(), nil
 }
