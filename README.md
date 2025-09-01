@@ -129,6 +129,32 @@ make test-watch
 
 For detailed testing documentation, see [docs/TESTING.md](docs/TESTING.md).
 
+### Local Development & Testing
+
+To test the complete application locally with both PocketBase backend and Wails desktop app:
+
+```bash
+# Terminal 1: Start PocketBase backend (reset database)
+cd pb-be
+make pb NUKE=1
+
+# Terminal 2: Start Wails desktop app  
+make dev
+```
+
+This setup provides:
+- ✅ **Clean Database**: `NUKE=1` resets PocketBase database completely
+- ✅ **Consistent API Keys**: Both services seed the same development API key  
+- ✅ **Remote Backend Mode**: Wails app connects to local PocketBase (localhost:8090)
+- ✅ **Full Feature Testing**: Audio transcription, user management, subscriptions
+
+**Development API Key**: Both services automatically use `ra-dev-12345678901234567890123456789012`
+
+**Ports**:
+- PocketBase Backend: `http://localhost:8090`
+- SvelteKit Frontend: `http://localhost:5174` 
+- Wails Desktop App: Development window
+
 ## Development
 
 ### Project Structure

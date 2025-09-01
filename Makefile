@@ -18,7 +18,61 @@ help: ## Show this help message
 
 # Development
 .PHONY: dev
-dev: ## Start development server with hot reload
+dev: ## Start development server with local PocketBase backend
+	@echo "🛠️  Starting Wails app with local PocketBase development configuration..."
+	@echo "   - DEVELOPMENT mode: ENABLED (triggers auto-seeding)"
+	@echo "   - Remote AI backend: ENABLED (but pointing to local PocketBase)"
+	@echo "   - Backend URL: http://localhost:8090"
+	@echo "   - Frontend URL: http://localhost:8090 (for API key signup)"
+	@echo "   - Development API key: ra-dev-12345678901234567890123456789012"
+	@echo "   - Auto-seeding: Both Wails app and PocketBase will seed the same API key"
+	@echo ""
+	@echo "💡 Perfect for local development with remote backend behavior:"
+	@echo "   - External link functionality (connects to local PocketBase)"
+	@echo "   - Remote backend transcription (via local PocketBase)"
+	@echo "   - Same UI behavior as production but local backend"
+	@echo ""
+	@echo "⚠️  Make sure PocketBase is running: make pb"
+	@echo "💡 For production-like testing, use: make dev-prod"
+	@echo ""
+	DEVELOPMENT=true \
+	USE_REMOTE_AI_BACKEND=true \
+	REMOTE_AI_BACKEND_URL=http://localhost:8090 \
+	RAMBLE_FRONTEND_URL=http://localhost:8090 \
+	wails dev
+
+.PHONY: dev-prod
+dev-prod: ## Start development server with production-like configuration for testing
+	@echo "🚀 Starting Wails app with production-like configuration..."
+	@echo "   This simulates production build behavior in development mode"
+	@echo "   - Remote AI backend: ENABLED"
+	@echo "   - Remote backend URL: https://api.ramble.goosebyteshq.com"
+	@echo "   - Frontend URL: https://ramble.goosebyteshq.com"
+	@echo "   - API key source: Remote backend (no local OpenAI key needed)"
+	@echo ""
+	@echo "💡 Perfect for testing production behavior:"
+	@echo "   - External link functionality (Get Free API Key button)"
+	@echo "   - Remote backend transcription (no OpenAI API key required)"
+	@echo "   - Production-like UI behavior"
+	@echo ""
+	@echo "⚠️  Note: Requires internet connection to reach remote services"
+	@echo "💡 For local development, use: make dev"
+	@echo ""
+	USE_REMOTE_AI_BACKEND=true \
+	REMOTE_AI_BACKEND_URL=https://api.ramble.goosebyteshq.com \
+	RAMBLE_FRONTEND_URL=https://ramble.goosebyteshq.com \
+	wails dev
+
+.PHONY: dev-local
+dev-local: ## Start development server with local configuration (old default behavior)
+	@echo "🛠️  Starting Wails app with local development configuration..."
+	@echo "   - Remote AI backend: DISABLED"
+	@echo "   - Uses local OpenAI API key for transcription"
+	@echo "   - Local development URLs and behavior"
+	@echo ""
+	@echo "💡 This is the old 'make dev' behavior for local development"
+	@echo "💡 For modern development with PocketBase, use: make dev"
+	@echo ""
 	wails dev
 
 
@@ -683,3 +737,4 @@ db-backup: ## Backup database to timestamped file
 	else \
 		echo "Database file $(DB_FILE) not found."; \
 	fi
+
