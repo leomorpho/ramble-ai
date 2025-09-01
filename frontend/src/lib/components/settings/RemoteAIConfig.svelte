@@ -1,11 +1,12 @@
 <script>
   import { Button } from "$lib/components/ui/button";
-  import { Key } from "@lucide/svelte";
+  import { Key, ExternalLink } from "@lucide/svelte";
   import { 
     GetRambleAIApiKey, 
     SaveRambleAIApiKey, 
     DeleteRambleAIApiKey 
   } from "$lib/wailsjs/go/main/App";
+  import { BrowserOpenURL } from "$lib/wailsjs/runtime/runtime";
   import { onMount } from "svelte";
 
   let rambleApiKey = $state("");
@@ -75,6 +76,10 @@
   function toggleApiKeyVisibility() {
     showApiKey = !showApiKey;
   }
+
+  function openRambleAILink() {
+    BrowserOpenURL("https://ramble.goosebyteshq.com");
+  }
 </script>
 
 <div class="bg-card border rounded-lg p-6 space-y-6">
@@ -121,9 +126,16 @@
             {/if}
           </button>
         </div>
-        <p class="text-xs text-muted-foreground">
-          Remote backend is enabled via environment variables. Backend URL and settings are managed by deployment configuration.
-        </p>
+        <div class="flex justify-end">
+          <button
+            type="button"
+            onclick={openRambleAILink}
+            class="text-xs text-primary hover:underline flex items-center gap-1"
+          >
+            Get new API key here
+            <ExternalLink class="w-3 h-3" />
+          </button>
+        </div>
       </div>
 
       <!-- How to get API key -->
@@ -132,12 +144,19 @@
           <h3 class="text-sm font-medium text-blue-900 dark:text-blue-100">
             Get your Ramble AI API Key:
           </h3>
-          <ol class="text-sm text-blue-700 dark:text-blue-300 space-y-1 ml-4">
-            <li>1. Visit the Ramble AI dashboard or PocketBase admin</li>
-            <li>2. Sign up and choose a subscription plan</li>
-            <li>3. Generate an API key in your account settings</li>
-            <li>4. Copy and paste the key above</li>
-          </ol>
+          <div class="space-y-3">
+            <Button 
+              variant="outline" 
+              onclick={openRambleAILink}
+              class="w-full justify-center gap-2 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/30"
+            >
+              Get API Key at ramble.goosebytes.hq
+              <ExternalLink class="w-4 h-4" />
+            </Button>
+            <p class="text-xs text-blue-600 dark:text-blue-400">
+              Sign up, choose a plan, generate an API key, then paste it above.
+            </p>
+          </div>
         </div>
       {/if}
 
