@@ -44,8 +44,8 @@ jobs:
         echo "Downloading Linux binary..."
         curl -L -o binaries/static/ffmpeg-linux.zip https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-linux-64.zip
         echo "Extracting Linux binary..."
-        cd binaries/static && unzip -o ffmpeg-linux.zip && mv ffmpeg ffmpeg-linux-amd64
-        rm -f ffmpeg-linux.zip
+        cd binaries/static && unzip -o ffmpeg-linux.zip && mv ffmpeg ffmpeg-linux-amd64 && cd ../..
+        rm -f binaries/static/ffmpeg-linux.zip
         echo "✅ FFmpeg binary ready for CI tests!"
         ls -la binaries/static/
       shell: bash
