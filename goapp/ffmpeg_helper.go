@@ -222,7 +222,20 @@ func EnsureFFmpeg(ctx context.Context, settingsService interface{ GetFFmpegReady
 	log.Printf("[FFMPEG] 📥 Starting FFmpeg download process...")
 	
 	if err := downloadFFmpeg(); err != nil {
-		errorMsg := fmt.Sprintf("failed to download FFmpeg: %v", err)
+		// Provide user-friendly error message with diagnostics
+		var errorMsg string
+		if strings.Contains(err.Error(), "unsupported platform") {
+			errorMsg = fmt.Sprintf("Platform not supported: %s/%s", runtime.GOOS, runtime.GOARCH)
+		} else if strings.Contains(err.Error(), "HTTP") || strings.Contains(err.Error(), "timeout") {
+			errorMsg = fmt.Sprintf("Download failed (network issue): %v", err)
+		} else if strings.Contains(err.Error(), "permission") || strings.Contains(err.Error(), "denied") {
+			errorMsg = fmt.Sprintf("Permission error during download: %v", err)
+		} else if strings.Contains(err.Error(), "disk") || strings.Contains(err.Error(), "space") {
+			errorMsg = fmt.Sprintf("Insufficient disk space: %v", err)
+		} else {
+			errorMsg = fmt.Sprintf("Download failed: %v", err)
+		}
+		
 		log.Printf("[FFMPEG] ❌ Download failed: %s", errorMsg)
 		emitEvent("ffmpeg_error", errorMsg)
 		return fmt.Errorf(errorMsg)
@@ -243,19 +256,48 @@ func EnsureFFmpeg(ctx context.Context, settingsService interface{ GetFFmpegReady
 	if !TestFFmpegBinary(ffmpegPath) {
 		// Provide more detailed error information for troubleshooting
 		fileInfo, statErr := os.Stat(ffmpegPath)
-		var fileDetails string
-		if statErr == nil {
-			fileDetails = fmt.Sprintf(" (size: %d bytes, mode: %s)", fileInfo.Size(), fileInfo.Mode())
+		var errorDetails []string
+		
+		if statErr != nil {
+			errorDetails = append(errorDetails, fmt.Sprintf("File check failed: %v", statErr))
 		} else {
-			fileDetails = fmt.Sprintf(" (stat error: %v)", statErr)
+			errorDetails = append(errorDetails, fmt.Sprintf("File size: %d MB", fileInfo.Size()/(1024*1024)))
+			errorDetails = append(errorDetails, fmt.Sprintf("Permissions: %s", fileInfo.Mode()))
+			
+			// Check if file is executable
+			if fileInfo.Mode().Perm()&0111 == 0 {
+				errorDetails = append(errorDetails, "Binary is not executable")
+			}
 		}
 		
-		errorMsg := fmt.Sprintf("downloaded FFmpeg is not working%s", fileDetails)
+		// Test execution and capture output
+		cmd := exec.Command(ffmpegPath, "-version")
+		output, execErr := cmd.CombinedOutput()
+		if execErr != nil {
+			errorDetails = append(errorDetails, fmt.Sprintf("Execution error: %v", execErr))
+			if len(output) > 0 {
+				outputStr := string(output)
+				if strings.Contains(outputStr, "killed") {
+					errorDetails = append(errorDetails, "Binary was killed (likely security/quarantine issue)")
+				} else if strings.Contains(outputStr, "bad CPU type") {
+					errorDetails = append(errorDetails, "Architecture mismatch (Intel vs ARM)")
+				} else if len(outputStr) > 100 {
+					errorDetails = append(errorDetails, fmt.Sprintf("Output: %s...", outputStr[:100]))
+				} else {
+					errorDetails = append(errorDetails, fmt.Sprintf("Output: %s", outputStr))
+				}
+			}
+		}
+		
+		errorDetails = append(errorDetails, fmt.Sprintf("Platform: %s/%s", runtime.GOOS, runtime.GOARCH))
 		if isCI {
-			errorMsg += " - this may be due to CI security restrictions or missing dependencies"
+			errorDetails = append(errorDetails, "Running in CI environment")
 		}
 		
-		log.Printf("[FFMPEG] ❌ Binary test failed: %s", errorMsg)
+		// Create detailed error message for toast
+		errorMsg := fmt.Sprintf("FFmpeg verification failed: %s", strings.Join(errorDetails, "; "))
+		
+		log.Printf("[FFMPEG] ❌ Binary test failed with details: %v", errorDetails)
 		emitEvent("ffmpeg_error", errorMsg)
 		return fmt.Errorf(errorMsg)
 	}

@@ -148,15 +148,17 @@ build: ## Build the application for production
 	wails build -tags production
 
 .PHONY: build-prod
-build-prod: ffmpeg-binaries ## Build obfuscated production binary for macOS
+build-prod: ## Build obfuscated production binary for macOS (FFmpeg auto-downloads)
 	@echo "🔒 Building obfuscated production binary for macOS..."
+	@echo "ℹ️  FFmpeg will be auto-downloaded on first run if needed"
 	@echo "Excluding Atlas SQL packages from obfuscation..."
 	GOGARBLE="*,!ariga.io/atlas/..." wails build -tags production -obfuscated -garbleargs "-literals -tiny -seed=random" -platform=darwin/amd64
 	@echo "✅ Production build complete!"
 
 .PHONY: test-prod
-test-prod: ffmpeg-binaries ## Build and run production version locally for testing
+test-prod: ## Build and run production version locally for testing (FFmpeg auto-downloads)
 	@echo "🔨 Building production version for local testing..."
+	@echo "ℹ️  FFmpeg will be auto-downloaded on first run if needed"
 	wails build -tags production
 	@echo ""
 	@echo "✅ Build complete! Running production build locally..."
@@ -247,10 +249,11 @@ create-dmg: ## Create a DMG installer
 	@echo "✅ DMG created: build/RambleAI.dmg"
 
 .PHONY: release-local
-release-local: ffmpeg-binaries build-prod create-dmg ## Local build without signing (for testing)
+release-local: build-prod create-dmg ## Local build without signing (FFmpeg auto-downloads)
 	@echo "🚀 Local macOS build complete!"
 	@echo "📦 Unsigned DMG: build/RambleAI.dmg"
 	@echo "⚠️  DMG is unsigned - use signing commands for signed version"
+	@echo "ℹ️  FFmpeg will be auto-downloaded on first run if needed"
 
 # === TESTING ===
 
@@ -265,31 +268,17 @@ test: ## Run all tests (Go + Frontend)
 test-go: ## Run Go tests only
 	go test $$(go list ./... | grep -v "/ent")
 
-# === FFMPEG BINARIES ===
-
-.PHONY: ffmpeg-binaries
-ffmpeg-binaries: ## Download FFmpeg binaries for all platforms
-	@echo "📦 Downloading FFmpeg binaries..."
-	@mkdir -p binaries/static
-	@echo "Downloading Windows binary..."
-	@curl -L -o binaries/static/ffmpeg-windows.zip https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-win-64.zip
-	@echo "Downloading macOS binary..."
-	@curl -L -o binaries/static/ffmpeg-macos.zip https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-macos-64.zip
-	@echo "Downloading Linux binary..."
-	@curl -L -o binaries/static/ffmpeg-linux.zip https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-linux-64.zip
-	@echo "Extracting binaries..."
-	@cd binaries/static && unzip -o ffmpeg-windows.zip && mv ffmpeg.exe ffmpeg-windows-amd64.exe
-	@cd binaries/static && unzip -o ffmpeg-macos.zip && mv ffmpeg ffmpeg-darwin-amd64
-	@cd binaries/static && unzip -o ffmpeg-linux.zip && mv ffmpeg ffmpeg-linux-amd64
-	@echo "Cleaning up zip files..."
-	@rm -f binaries/static/*.zip
-	@echo "✅ FFmpeg binaries downloaded and extracted!"
+# === FFMPEG (AUTO-DOWNLOAD) ===
+# FFmpeg is now auto-downloaded by the app on first run
+# No need to manually download binaries anymore
 
 .PHONY: ffmpeg-clean
-ffmpeg-clean: ## Clean downloaded FFmpeg binaries
-	@echo "🧹 Cleaning FFmpeg binaries..."
-	@rm -rf binaries/static
+ffmpeg-clean: ## Clean auto-downloaded FFmpeg binaries
+	@echo "🧹 Cleaning auto-downloaded FFmpeg binaries..."
+	@rm -rf ~/Library/Application\ Support/RambleAI/binaries
+	@rm -rf binaries  # Development mode binaries
 	@echo "✅ FFmpeg binaries cleaned!"
+	@echo "ℹ️  FFmpeg will be re-downloaded on next app run"
 
 # === CLEANUP ===
 
