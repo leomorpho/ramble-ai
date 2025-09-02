@@ -122,8 +122,11 @@ func (a *App) startup(ctx context.Context) {
 		runtime.EventsEmit(ctx, eventName, data...)
 	}
 	
-	// Start FFmpeg initialization (potentially in background)
+	// Start FFmpeg initialization with a small delay to allow frontend to set up event listeners
 	go func() {
+		// Give the frontend time to set up event listeners
+		time.Sleep(1 * time.Second)
+		
 		if err := goapp.EnsureFFmpeg(ctx, settingsService, emitEvent); err != nil {
 			log.Printf("Failed to ensure FFmpeg availability: %v", err)
 		} else {

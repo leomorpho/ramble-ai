@@ -296,7 +296,15 @@ func EnsureFFmpeg(ctx context.Context, settingsService interface{ GetFFmpegReady
 		output, execErr := cmd.CombinedOutput()
 		if execErr != nil {
 			errorDetails = append(errorDetails, fmt.Sprintf("Execution error: %v", execErr))
-			if len(output) > 0 {
+			
+			// Check for specific sandbox/entitlement issues
+			if strings.Contains(execErr.Error(), "operation not permitted") {
+				errorDetails = append(errorDetails, "Sandbox restriction: App lacks permission to execute downloaded binaries")
+				errorDetails = append(errorDetails, "This may require code signing with proper entitlements")
+				if runtime.GOOS == "darwin" {
+					errorDetails = append(errorDetails, "Required entitlement: com.apple.security.cs.disable-executable-page-protection")
+				}
+			} else if len(output) > 0 {
 				outputStr := string(output)
 				if strings.Contains(outputStr, "killed") {
 					errorDetails = append(errorDetails, "Binary was killed (likely security/quarantine issue)")
@@ -431,9 +439,14 @@ func TestFFmpegBinary(path string) bool {
 		log.Printf("[FFMPEG] Binary execution failed: %v", err)
 		log.Printf("[FFMPEG] Command output: %s", string(output))
 		
-		// Check for specific macOS security issues
-		if runtime.GOOS == "darwin" && strings.Contains(string(output), "killed") {
-			log.Printf("[FFMPEG] Possible macOS security/quarantine issue detected")
+		// Check for specific macOS security and sandbox issues
+		if runtime.GOOS == "darwin" {
+			if strings.Contains(err.Error(), "operation not permitted") {
+				log.Printf("[FFMPEG] 🚫 Sandbox restriction detected: App lacks permission to execute downloaded binaries")
+				log.Printf("[FFMPEG] This requires proper entitlements and code signing")
+			} else if strings.Contains(string(output), "killed") {
+				log.Printf("[FFMPEG] 🔒 Possible macOS security/quarantine issue detected")
+			}
 		}
 		
 		return false
