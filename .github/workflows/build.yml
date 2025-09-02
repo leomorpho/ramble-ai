@@ -49,15 +49,16 @@ jobs:
         run: |
           echo "Building Wails app..."
           echo "Current platform: ${{ matrix.platform }}"
+          echo "Building universal macOS binary (Intel + ARM)"
           echo "FFmpeg will be auto-downloaded by the app when needed"
           
-          echo "Starting Wails build..."
-          wails build -v 2 || {
-            echo "❌ Wails build failed!"
+          echo "Starting Wails universal build..."
+          wails build -platform "darwin/universal" -v 2 || {
+            echo "❌ Wails universal build failed!"
             exit 1
           }
           
-          echo "✅ Wails build completed successfully"
+          echo "✅ Wails universal build completed successfully"
       
       
       - name: Verify app build

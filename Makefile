@@ -157,9 +157,10 @@ build-prod: ## Build obfuscated production binary for macOS (FFmpeg auto-downloa
 
 .PHONY: test-prod
 test-prod: ## Build and run production version locally for testing (FFmpeg auto-downloads)
-	@echo "🔨 Building production version for local testing..."
+	@echo "🔨 Building universal production version for local testing..."
 	@echo "ℹ️  FFmpeg will be auto-downloaded on first run if needed"
-	wails build -tags production
+	@echo "🔄 Building universal binary (Intel + ARM support)..."
+	wails build -tags production -platform "darwin/universal"
 	@echo ""
 	@echo "✅ Build complete! Running production build locally..."
 	@echo "   Binary location: ./build/bin/RambleAI.app/Contents/MacOS/RambleAI"

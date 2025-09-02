@@ -196,7 +196,28 @@ func EnsureFFmpeg(ctx context.Context, settingsService interface{ GetFFmpegReady
 	isCI := os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true"
 	
 	log.Printf("[FFMPEG] === FFmpeg Initialization Started ===")
-	log.Printf("[FFMPEG] Platform: %s/%s", runtime.GOOS, runtime.GOARCH)
+	log.Printf("[FFMPEG] Runtime Platform: %s/%s", runtime.GOOS, runtime.GOARCH)
+	
+	// Check if this is a universal binary by checking the actual binary file
+	execPath, err := os.Executable()
+	isUniversal := false
+	if err == nil {
+		// Check if the binary is universal using the 'file' command
+		cmd := exec.Command("file", execPath)
+		if output, err := cmd.CombinedOutput(); err == nil {
+			outputStr := string(output)
+			if strings.Contains(outputStr, "universal binary") {
+				isUniversal = true
+			}
+		}
+	}
+	
+	if isUniversal {
+		log.Printf("[FFMPEG] Universal Binary: Supporting both Intel and ARM, currently running on %s", runtime.GOARCH)
+	} else {
+		log.Printf("[FFMPEG] Native Binary: Built and running on %s", runtime.GOARCH)
+	}
+	
 	log.Printf("[FFMPEG] CI Environment: %v", isCI)
 	log.Printf("[FFMPEG] Working Directory: %s", func() string { wd, _ := os.Getwd(); return wd }())
 	
@@ -289,7 +310,24 @@ func EnsureFFmpeg(ctx context.Context, settingsService interface{ GetFFmpegReady
 			}
 		}
 		
-		errorDetails = append(errorDetails, fmt.Sprintf("Platform: %s/%s", runtime.GOOS, runtime.GOARCH))
+		// Add platform and binary type information
+		execPath, err := os.Executable()
+		isUniversal := false
+		if err == nil {
+			cmd := exec.Command("file", execPath)
+			if output, err := cmd.CombinedOutput(); err == nil {
+				if strings.Contains(string(output), "universal binary") {
+					isUniversal = true
+				}
+			}
+		}
+		
+		if isUniversal {
+			errorDetails = append(errorDetails, fmt.Sprintf("Universal binary running on %s/%s", runtime.GOOS, runtime.GOARCH))
+		} else {
+			errorDetails = append(errorDetails, fmt.Sprintf("Platform: %s/%s", runtime.GOOS, runtime.GOARCH))
+		}
+		
 		if isCI {
 			errorDetails = append(errorDetails, "Running in CI environment")
 		}
@@ -413,7 +451,26 @@ func downloadFFmpeg() error {
 	// Detect CI environment
 	isCI := os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true"
 	
-	log.Printf("[FFMPEG] Starting download for platform: %s/%s (CI: %v)", runtime.GOOS, runtime.GOARCH, isCI)
+	// For universal binaries, runtime.GOARCH shows the actual running architecture
+	log.Printf("[FFMPEG] Starting download for runtime platform: %s/%s (CI: %v)", runtime.GOOS, runtime.GOARCH, isCI)
+	
+	// Check if this is a universal binary
+	execPath, err := os.Executable()
+	isUniversal := false
+	if err == nil {
+		cmd := exec.Command("file", execPath)
+		if output, err := cmd.CombinedOutput(); err == nil {
+			if strings.Contains(string(output), "universal binary") {
+				isUniversal = true
+			}
+		}
+	}
+	
+	if isUniversal {
+		log.Printf("[FFMPEG] Universal binary detected, running on: %s", runtime.GOARCH)
+	} else {
+		log.Printf("[FFMPEG] Native binary running on: %s", runtime.GOARCH)
+	}
 	
 	// Map Go runtime to ffbinaries platform
 	var platform string
@@ -421,10 +478,14 @@ func downloadFFmpeg() error {
 	switch currentPlatform {
 	case "darwin/amd64":
 		platform = "macos-64"
-		log.Printf("[FFMPEG] Using Intel macOS binary")
+		log.Printf("[FFMPEG] Using Intel macOS FFmpeg binary for Intel runtime")
 	case "darwin/arm64":
 		platform = "macos-64"  // ffbinaries doesn't have separate ARM build yet
-		log.Printf("[FFMPEG] Using Intel macOS binary for ARM Mac (Rosetta 2)")
+		if isUniversal {
+			log.Printf("[FFMPEG] Universal binary - using Intel FFmpeg via Rosetta for ARM runtime")
+		} else {
+			log.Printf("[FFMPEG] Using Intel FFmpeg binary for ARM Mac (Rosetta 2)")
+		}
 	case "linux/amd64":
 		platform = "linux-64"
 	case "linux/386":
