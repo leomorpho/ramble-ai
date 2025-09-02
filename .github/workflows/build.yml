@@ -134,16 +134,26 @@ jobs:
         shell: bash
       
       # macOS signing with gon - following Wails documentation approach
-      - name: Bundle FFmpeg into app before signing
+      - name: Bundle and sign FFmpeg before app signing
         if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
         run: |
-          echo "📦 Bundling FFmpeg binary into app before signing..."
+          echo "📦 Bundling and signing FFmpeg binary for notarization..."
           
           # Verify FFmpeg binary exists
           if [ ! -f "build/darwin/binaries/ffmpeg" ]; then
             echo "❌ FFmpeg binary not found at build/darwin/binaries/ffmpeg"
             exit 1
           fi
+          
+          # Get the actual Developer ID Application identity
+          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | awk -F'"' '{print $2}')
+          
+          if [[ -z "$IDENTITY" ]]; then
+            echo "❌ No Developer ID Application identity found"
+            exit 1
+          fi
+          
+          echo "Using identity: $IDENTITY"
           
           # Create Resources/binaries directory in the app bundle
           mkdir -p "build/bin/RambleAI.app/Contents/Resources/binaries"
@@ -152,10 +162,25 @@ jobs:
           cp "build/darwin/binaries/ffmpeg" "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg"
           chmod 755 "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg"
           
+          # Sign the bundled FFmpeg binary with the same options gon uses for notarization
+          echo "🔐 Signing bundled FFmpeg binary with hardened runtime..."
+          codesign \
+            --force \
+            --timestamp \
+            --options runtime \
+            --entitlements "./build/darwin/entitlements.plist" \
+            --sign "$IDENTITY" \
+            --verbose \
+            "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg"
+          
+          # Verify the signature
+          echo "✅ Verifying FFmpeg signature..."
+          codesign --verify --verbose "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg"
+          
           # Verify bundling
-          echo "✅ FFmpeg bundled successfully:"
+          echo "✅ FFmpeg bundled and signed successfully:"
           ls -lh "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg"
-          echo "✅ gon will now sign both the app and bundled FFmpeg binary"
+          echo "✅ gon will now sign the complete app bundle for notarization"
         shell: bash
       
       - name: Install gon for macOS signing
