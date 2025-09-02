@@ -148,6 +148,7 @@ jobs:
               if [ -f "build/bin/RambleAI.app/Contents/MacOS/ffmpeg" ]; then
                 echo "✅ Bundled FFmpeg binary found: build/bin/RambleAI.app/Contents/MacOS/ffmpeg"
                 ls -lh build/bin/RambleAI.app/Contents/MacOS/ffmpeg
+                
                 # Test if it's executable
                 if [ -x "build/bin/RambleAI.app/Contents/MacOS/ffmpeg" ]; then
                   echo "✅ Bundled FFmpeg is executable"
@@ -158,6 +159,9 @@ jobs:
                   echo "❌ ERROR: Bundled FFmpeg is not executable"
                   exit 1
                 fi
+                
+                # Note: FFmpeg binary will be signed later in the signing step
+                echo "📝 Note: FFmpeg binary will be code signed before app notarization"
               else
                 echo "❌ ERROR: Bundled FFmpeg binary not found - this should have been copied by previous step"
                 exit 1
@@ -313,6 +317,33 @@ jobs:
           echo "✅ Created gon configuration with identity: $IDENTITY"
         shell: bash
       
+      - name: Sign bundled FFmpeg binary separately
+        if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
+        run: |
+          # Get the actual Developer ID Application identity
+          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | awk -F'"' '{print $2}')
+          
+          if [[ -z "$IDENTITY" ]]; then
+            echo "❌ No Developer ID Application identity found"
+            exit 1
+          fi
+          
+          echo "✅ Signing bundled FFmpeg binary with identity: $IDENTITY"
+          
+          # Sign the bundled FFmpeg binary first (required for app bundle signing)
+          if [ -f "build/bin/RambleAI.app/Contents/MacOS/ffmpeg" ]; then
+            codesign -s "$IDENTITY" -f -v --timestamp --options runtime build/bin/RambleAI.app/Contents/MacOS/ffmpeg
+            echo "✅ FFmpeg binary signed successfully"
+            
+            # Verify the signing worked
+            codesign -v build/bin/RambleAI.app/Contents/MacOS/ffmpeg
+            echo "✅ FFmpeg binary signature verified"
+          else
+            echo "❌ ERROR: FFmpeg binary not found for signing"
+            exit 1
+          fi
+        shell: bash
+
       - name: Sign and notarize macOS app with gon
         if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
         run: |
