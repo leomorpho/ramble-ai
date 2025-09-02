@@ -326,8 +326,31 @@ func downloadFFmpeg() error {
 		return fmt.Errorf("failed to download FFmpeg: HTTP %d", resp.StatusCode)
 	}
 	
-	// Create temporary file
-	tempFile, err := os.CreateTemp("", "ffmpeg-*.zip")
+	// Get app data directory for temp file - same logic as getDownloadedFFmpegPath
+	var userDataDir string
+	if _, err := os.Stat("go.mod"); err == nil {
+		// Development mode
+		cwd, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("failed to get current working directory: %w", err)
+		}
+		userDataDir = cwd
+	} else {
+		// Production mode
+		userConfigDir, err := os.UserConfigDir()
+		if err != nil {
+			return fmt.Errorf("failed to get user config directory: %w", err)
+		}
+		userDataDir = filepath.Join(userConfigDir, "RambleAI")
+	}
+	
+	// Create temp file in app data directory instead of system temp
+	tempDir := filepath.Join(userDataDir, "temp")
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		return fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	
+	tempFile, err := os.CreateTemp(tempDir, "ffmpeg-*.zip")
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
