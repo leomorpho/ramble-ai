@@ -44,62 +44,27 @@ jobs:
           pnpm install --frozen-lockfile
         timeout-minutes: 10
       
-      - name: Download FFmpeg binaries
+      - name: Install FFmpeg (system dependency)
         run: |
-          mkdir -p binaries/static
           if [[ "${{ matrix.platform }}" == "macos-latest" ]]; then
-            curl -L -o binaries/static/ffmpeg-macos.zip https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-macos-64.zip
-            cd binaries/static && unzip -o ffmpeg-macos.zip && mv ffmpeg ffmpeg-darwin-amd64
-            rm -f ffmpeg-macos.zip
+            echo "Installing FFmpeg via Homebrew..."
+            brew install ffmpeg
+            echo "Verifying FFmpeg installation..."
+            ffmpeg -version | head -1
           else
-            curl -L -o binaries/static/ffmpeg-windows.zip https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-win-64.zip
-            cd binaries/static && unzip -o ffmpeg-windows.zip && mv ffmpeg.exe ffmpeg-windows-amd64.exe
-            rm -f ffmpeg-windows.zip
+            echo "Installing FFmpeg on Windows..."
+            # Windows installation would go here if we supported it
           fi
         shell: bash
       
-      - name: Verify FFmpeg binaries before build
+      - name: Verify FFmpeg installation
         run: |
-          echo "Checking FFmpeg binaries before build:"
-          ls -la binaries/static/
-          if [[ "${{ matrix.platform }}" == "macos-latest" ]]; then
-            if [ ! -f "binaries/static/ffmpeg-darwin-amd64" ]; then
-              echo "❌ ERROR: ffmpeg-darwin-amd64 binary missing!"
-              exit 1
-            else
-              echo "✅ ffmpeg-darwin-amd64 found"
-              file binaries/static/ffmpeg-darwin-amd64
-            fi
-          else
-            if [ ! -f "binaries/static/ffmpeg-windows-amd64.exe" ]; then
-              echo "❌ ERROR: ffmpeg-windows-amd64.exe binary missing!"
-              exit 1
-            else
-              echo "✅ ffmpeg-windows-amd64.exe found"
-              file binaries/static/ffmpeg-windows-amd64.exe
-            fi
-          fi
+          echo "Verifying system FFmpeg installation:"
+          which ffmpeg
+          ffmpeg -version | head -3
+          echo "✅ FFmpeg is available in PATH"
         shell: bash
       
-      - name: Verify embed files before build
-        run: |
-          echo "Verifying embed files are accessible before build..."
-          echo "Current working directory: $(pwd)"
-          echo "Contents of binaries/static/:"
-          ls -la binaries/static/ || echo "❌ binaries/static/ directory not found"
-          
-          if [[ "${{ matrix.platform }}" == "macos-latest" ]]; then
-            if [ -f "binaries/static/ffmpeg-darwin-amd64" ]; then
-              echo "✅ Found binaries/static/ffmpeg-darwin-amd64"
-              file binaries/static/ffmpeg-darwin-amd64
-              echo "Size: $(stat -f%z binaries/static/ffmpeg-darwin-amd64) bytes"
-            else
-              echo "❌ ERROR: binaries/static/ffmpeg-darwin-amd64 not found"
-              echo "This will cause Go embed to fail!"
-              exit 1
-            fi
-          fi
-        shell: bash
         
       - name: Build Wails app
         run: |
@@ -119,74 +84,17 @@ jobs:
           
           echo "✅ Wails build completed successfully"
       
-      - name: Bundle FFmpeg binary in app package
-        run: |
-          echo "Copying FFmpeg binary to app bundle..."
-          if [[ "${{ matrix.platform }}" == "macos-latest" ]]; then
-            if [ -f "binaries/static/ffmpeg-darwin-amd64" ] && [ -d "build/bin/RambleAI.app/Contents/MacOS" ]; then
-              cp binaries/static/ffmpeg-darwin-amd64 build/bin/RambleAI.app/Contents/MacOS/ffmpeg
-              chmod +x build/bin/RambleAI.app/Contents/MacOS/ffmpeg
-              echo "✅ FFmpeg binary bundled successfully"
-              ls -lh build/bin/RambleAI.app/Contents/MacOS/ffmpeg
-            else
-              echo "❌ ERROR: Cannot bundle FFmpeg - source binary or destination directory missing"
-              echo "Source exists: $(test -f binaries/static/ffmpeg-darwin-amd64 && echo yes || echo no)"
-              echo "Destination exists: $(test -d build/bin/RambleAI.app/Contents/MacOS && echo yes || echo no)"
-              exit 1
-            fi
-          fi
-        shell: bash
       
-      - name: Verify FFmpeg bundling and embedding in built app
+      - name: Verify app build
         run: |
-          echo "Checking FFmpeg bundling and embedding in the built app..."
+          echo "Verifying app build completed successfully..."
           if [[ "${{ matrix.platform }}" == "macos-latest" ]]; then
             if [ -f "build/bin/RambleAI.app/Contents/MacOS/RambleAI" ]; then
-              echo "✅ Built binary found: build/bin/RambleAI.app/Contents/MacOS/RambleAI"
-              
-              # Verify FFmpeg was bundled correctly
-              if [ -f "build/bin/RambleAI.app/Contents/MacOS/ffmpeg" ]; then
-                echo "✅ Bundled FFmpeg binary found: build/bin/RambleAI.app/Contents/MacOS/ffmpeg"
-                ls -lh build/bin/RambleAI.app/Contents/MacOS/ffmpeg
-                
-                # Test if it's executable
-                if [ -x "build/bin/RambleAI.app/Contents/MacOS/ffmpeg" ]; then
-                  echo "✅ Bundled FFmpeg is executable"
-                  # Test FFmpeg version
-                  build/bin/RambleAI.app/Contents/MacOS/ffmpeg -version | head -1
-                  echo "✅ Bundled FFmpeg is working"
-                else
-                  echo "❌ ERROR: Bundled FFmpeg is not executable"
-                  exit 1
-                fi
-                
-                # Note: FFmpeg binary will be signed later in the signing step
-                echo "📝 Note: FFmpeg binary will be code signed before app notarization"
-              else
-                echo "❌ ERROR: Bundled FFmpeg binary not found - this should have been copied by previous step"
-                exit 1
-              fi
-              
-              # Check main binary size - embedded FFmpeg should make it significantly larger
+              echo "✅ App binary found: build/bin/RambleAI.app/Contents/MacOS/RambleAI"
               ls -lh build/bin/RambleAI.app/Contents/MacOS/RambleAI
-              BINARY_SIZE=$(stat -f%z build/bin/RambleAI.app/Contents/MacOS/RambleAI)
-              echo "Main binary size: $BINARY_SIZE bytes"
-              # FFmpeg binary is ~80MB, so if the total is less than 50MB, embedding likely failed
-              if [ $BINARY_SIZE -lt 52428800 ]; then
-                echo "⚠️  WARNING: Main binary size is small, embedded FFmpeg may not be available"
-              else
-                echo "✅ Main binary size looks good for embedded FFmpeg"
-              fi
-              
-              # Check for embedded FFmpeg signature in main binary
-              echo "Checking for embedded FFmpeg signature in main binary..."
-              if strings build/bin/RambleAI.app/Contents/MacOS/RambleAI | grep -q "FFmpeg"; then
-                echo "✅ Found FFmpeg signature in main binary (embedded backup available)"
-              else
-                echo "⚠️  WARNING: No FFmpeg signature found in main binary"
-              fi
+              echo "✅ App build verification completed - using system FFmpeg dependency"
             else
-              echo "❌ ERROR: Built binary not found!"
+              echo "❌ ERROR: App binary not found!"
               exit 1
             fi
           fi
@@ -197,8 +105,7 @@ jobs:
           echo "Disk space before cleanup:"
           df -h
           
-          # Extremely aggressive cleanup to free maximum space
-          rm -rf binaries/static
+          # Extremely aggressive cleanup to free maximum space  
           rm -rf frontend/node_modules
           rm -rf frontend/.svelte-kit
           rm -rf frontend/build
@@ -317,32 +224,6 @@ jobs:
           echo "✅ Created gon configuration with identity: $IDENTITY"
         shell: bash
       
-      - name: Sign bundled FFmpeg binary separately
-        if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
-        run: |
-          # Get the actual Developer ID Application identity
-          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | awk -F'"' '{print $2}')
-          
-          if [[ -z "$IDENTITY" ]]; then
-            echo "❌ No Developer ID Application identity found"
-            exit 1
-          fi
-          
-          echo "✅ Signing bundled FFmpeg binary with identity: $IDENTITY"
-          
-          # Sign the bundled FFmpeg binary first (required for app bundle signing)
-          if [ -f "build/bin/RambleAI.app/Contents/MacOS/ffmpeg" ]; then
-            codesign -s "$IDENTITY" -f -v --timestamp --options runtime build/bin/RambleAI.app/Contents/MacOS/ffmpeg
-            echo "✅ FFmpeg binary signed successfully"
-            
-            # Verify the signing worked
-            codesign -v build/bin/RambleAI.app/Contents/MacOS/ffmpeg
-            echo "✅ FFmpeg binary signature verified"
-          else
-            echo "❌ ERROR: FFmpeg binary not found for signing"
-            exit 1
-          fi
-        shell: bash
 
       - name: Sign and notarize macOS app with gon
         if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'

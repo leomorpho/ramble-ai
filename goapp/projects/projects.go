@@ -1883,26 +1883,9 @@ func (s *ProjectService) extractAudio(videoPath string) (string, error) {
 
 	log.Printf("[TRANSCRIPTION] Extracting audio from: %s to: %s", videoPath, audioPath)
 
-	// Use ffmpeg to extract audio with optimized settings for Whisper
-	cmd, err := goapp.GetFFmpegCommand(
-		"-i", videoPath,
-		"-vn",            // No video
-		"-acodec", "mp3", // MP3 codec (guaranteed Whisper support)
-		"-ar", "16000",   // Sample rate (16kHz for Whisper)
-		"-ac", "1",       // Mono channel
-		"-b:a", "24k",    // Low bitrate for significant space savings (reduced from 64k)
-		"-af", "highpass=f=80,lowpass=f=8000", // Filter frequencies outside speech range
-		"-y",             // Overwrite output file
-		audioPath,
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to create FFmpeg command: %w", err)
-	}
-
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Printf("[TRANSCRIPTION] ffmpeg error: %v, output: %s", err, string(output))
-		return "", fmt.Errorf("ffmpeg failed: %w", err)
+	// Use ffmpeg-go library to extract audio with optimized settings for Whisper
+	if err := goapp.ExtractAudio(videoPath, audioPath); err != nil {
+		return "", fmt.Errorf("failed to extract audio: %w", err)
 	}
 
 	// Get file size for logging

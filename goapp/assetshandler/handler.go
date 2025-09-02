@@ -268,25 +268,9 @@ func (h *AssetHandler) GenerateThumbnail(videoPath string) (string, error) {
 
 	log.Printf("[THUMBNAIL] Generating new thumbnail for: %s", videoPath)
 
-	// Use ffmpeg to generate thumbnail at 10% of video duration
-	cmd, err := goapp.GetFFmpegCommand(
-		"-i", videoPath,
-		"-ss", "00:00:03", // Seek to 3 seconds
-		"-vframes", "1", // Extract 1 frame
-		"-vf", "scale=320:240:force_original_aspect_ratio=decrease,pad=320:240:(ow-iw)/2:(oh-ih)/2", // Scale to 320x240 with padding
-		"-q:v", "2", // High quality
-		"-y", // Overwrite output file
-		thumbnailPath,
-	)
-	if err != nil {
-		log.Printf("[THUMBNAIL] Failed to create FFmpeg command: %v", err)
-		return "", err
-	}
-
-	// Run ffmpeg command
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Printf("[THUMBNAIL] ffmpeg error: %v, output: %s", err, string(output))
+	// Use ffmpeg-go library to generate thumbnail at 3 seconds
+	if err := goapp.GenerateThumbnail(videoPath, thumbnailPath, "00:00:03"); err != nil {
+		log.Printf("[THUMBNAIL] Failed to generate thumbnail: %v", err)
 		return "", fmt.Errorf("ffmpeg failed: %w", err)
 	}
 

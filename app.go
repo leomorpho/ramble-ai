@@ -114,20 +114,13 @@ func (a *App) startup(ctx context.Context) {
 
 	log.Println("Database initialized and migrations applied")
 
-	// Initialize FFmpeg with bundle-aware detection
-	if cmd, err := goapp.GetFFmpegCommand("-version"); err != nil {
-		log.Printf("Failed to create FFmpeg command: %v", err)
-		log.Printf("This may cause 'ffmpeg: executable file not found' errors")
-		log.Printf("FFmpeg debug info: %+v", binaries.GetFFmpegDebugInfo())
-		log.Printf("Embedded binary size: %d bytes", binaries.GetEmbeddedBinarySize())
-		
-		// Check if FFmpeg binary data was actually embedded
-		if !binaries.IsFFmpegAvailable() {
-			log.Printf("FFmpeg binary data is not available (likely not embedded in production build)")
-		}
+	// Initialize FFmpeg using system binary (native Go bindings approach)
+	if err := goapp.CheckFFmpegAvailability(); err != nil {
+		log.Printf("System FFmpeg not available: %v", err)
+		log.Printf("Please ensure FFmpeg is installed and available in PATH")
+		log.Printf("This may cause transcription and media processing to fail")
 	} else {
-		log.Printf("FFmpeg initialized successfully: %s (version %s)", cmd.Path, binaries.GetFFmpegVersion())
-		log.Printf("FFmpeg debug info: %+v", binaries.GetFFmpegDebugInfo())
+		log.Printf("FFmpeg initialized successfully using system binary")
 	}
 
 	// Recover any incomplete export jobs
@@ -546,26 +539,9 @@ func (a *App) extractAudioFromVideo(videoPath string) (string, error) {
 
 	log.Printf("[AUDIO EXTRACTION] Extracting audio from: %s to: %s", videoPath, audioPath)
 
-	// Use ffmpeg to extract audio with optimized settings for Whisper
-	cmd, err := goapp.GetFFmpegCommand(
-		"-i", videoPath,
-		"-vn",            // No video
-		"-acodec", "mp3", // MP3 codec (guaranteed Whisper support)
-		"-ar", "16000",   // Sample rate (16kHz for Whisper)  
-		"-ac", "1",       // Mono channel
-		"-b:a", "24k",    // Low bitrate for significant space savings
-		"-af", "highpass=f=80,lowpass=f=8000", // Filter frequencies outside speech range
-		"-y",             // Overwrite output file
-		audioPath,
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to create FFmpeg command: %w", err)
-	}
-
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Printf("[AUDIO EXTRACTION] ffmpeg error: %v, output: %s", err, string(output))
-		return "", fmt.Errorf("ffmpeg failed: %w", err)
+	// Use ffmpeg-go library to extract audio with optimized settings for Whisper
+	if err := goapp.ExtractAudio(videoPath, audioPath); err != nil {
+		return "", fmt.Errorf("failed to extract audio: %w", err)
 	}
 
 	// Get file size for logging

@@ -396,29 +396,10 @@ func (s *CoreAIService) splitAudioIntoChunks(audioFile string, chunkInfo *ChunkI
 		chunkFilename := fmt.Sprintf("chunk_%d_%s.mp3", i, hex.EncodeToString(hash[:8]))
 		chunkPath := filepath.Join(tempDir, chunkFilename)
 		
-		// Use FFmpeg to extract chunk with optimized settings (matching app.go)
-		cmd, err := goapp.GetFFmpegCommand(
-			"-i", audioFile,
-			"-ss", fmt.Sprintf("%.2f", startTime),            // Start time
-			"-t", fmt.Sprintf("%.2f", chunkDuration),          // Duration  
-			"-vn",                                             // No video
-			"-acodec", "mp3",                                  // MP3 codec
-			"-ar", "16000",                                    // Sample rate (16kHz for Whisper)  
-			"-ac", "1",                                        // Mono channel
-			"-b:a", "24k",                                     // Low bitrate for space savings
-			"-af", "highpass=f=80,lowpass=f=8000",            // Filter frequencies outside speech range
-			"-y",                                              // Overwrite output file
-			chunkPath,
-		)
-		if err != nil {
+		// Use ffmpeg-go library to extract audio chunk with optimized settings
+		if err := goapp.ExtractAudioChunk(audioFile, startTime, chunkDuration, chunkPath); err != nil {
 			s.cleanupChunks(chunkPaths) // Cleanup any successful chunks
-			return nil, fmt.Errorf("failed to create FFmpeg command for chunk %d: %w", i, err)
-		}
-		
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			s.cleanupChunks(chunkPaths) // Cleanup any successful chunks
-			return nil, fmt.Errorf("ffmpeg failed for chunk %d: %w, output: %s", i, err, string(output))
+			return nil, fmt.Errorf("failed to extract audio chunk %d: %w", i, err)
 		}
 		
 		// Verify chunk was created and get size

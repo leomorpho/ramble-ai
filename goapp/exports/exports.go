@@ -560,28 +560,10 @@ func (s *ExportService) extractHighlightSegment(segment HighlightSegment, tempDi
 	// Generate output filename
 	outputPath := filepath.Join(tempDir, fmt.Sprintf("segment_%03d.mp4", index))
 
-	// Build FFmpeg command - using input seeking + minimal re-encoding for precision
+	// Export high-quality video segment using ffmpeg-go library
 	duration := segment.End - segment.Start
-	cmd, err := goapp.GetFFmpegCommand(
-		"-ss", fmt.Sprintf("%.3f", segment.Start),
-		"-i", segment.VideoPath,
-		"-t", fmt.Sprintf("%.3f", duration),
-		"-c:v", "libx264",
-		"-preset", "ultrafast",
-		"-crf", "18",
-		"-c:a", "copy",
-		"-movflags", "+faststart",
-		"-y",
-		outputPath,
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to create FFmpeg command: %w", err)
-	}
-
-	// Execute command
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("ffmpeg error: %v\nOutput: %s", err, string(output))
+	if err := goapp.ExportVideoSegmentHighQuality(segment.VideoPath, outputPath, segment.Start, duration); err != nil {
+		return "", fmt.Errorf("failed to export video segment: %w", err)
 	}
 
 	return outputPath, nil
