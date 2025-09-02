@@ -134,17 +134,10 @@ jobs:
         shell: bash
       
       # macOS signing with gon - following Wails documentation approach
-      - name: Bundle and sign FFmpeg before app signing
+      - name: Bundle FFmpeg into app for gon signing
         if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
         run: |
-          echo "📦 Bundling and signing FFmpeg binary for notarization..."
-          
-          # Debug: Show current working directory and file structure
-          echo "🔍 Current working directory: $(pwd)"
-          echo "🔍 Files in build/darwin/:"
-          ls -la build/darwin/ || echo "❌ build/darwin/ does not exist"
-          echo "🔍 Files in build/darwin/binaries/:"
-          ls -la build/darwin/binaries/ || echo "❌ build/darwin/binaries/ does not exist"
+          echo "📦 Bundling FFmpeg binary into app (gon will handle all signing)..."
           
           # Verify FFmpeg binary exists
           if [ ! -f "build/darwin/binaries/ffmpeg" ]; then
@@ -159,37 +152,6 @@ jobs:
           ls -lh "build/darwin/binaries/ffmpeg"
           file "build/darwin/binaries/ffmpeg"
           
-          # Debug: Show available signing identities
-          echo "🔍 Available signing identities:"
-          security find-identity -v -p codesigning || {
-            echo "❌ Failed to list signing identities"
-            exit 1
-          }
-          
-          # Get the actual Developer ID Application identity
-          echo "🔍 Looking for Developer ID Application identity..."
-          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | awk -F'"' '{print $2}')
-          
-          if [[ -z "$IDENTITY" ]]; then
-            echo "❌ No Developer ID Application identity found"
-            echo "🔍 All available identities:"
-            security find-identity -v -p codesigning
-            exit 1
-          fi
-          
-          echo "✅ Using identity: $IDENTITY"
-          
-          # Verify entitlements file exists
-          if [ ! -f "./build/darwin/entitlements.plist" ]; then
-            echo "❌ Entitlements file not found at ./build/darwin/entitlements.plist"
-            echo "🔍 Files in build/darwin/:"
-            ls -la build/darwin/
-            exit 1
-          fi
-          
-          echo "✅ Entitlements file found:"
-          ls -lh "./build/darwin/entitlements.plist"
-          
           # Create Resources/binaries directory in the app bundle
           echo "📁 Creating app bundle directories..."
           mkdir -p "build/bin/RambleAI.app/Contents/Resources/binaries" || {
@@ -197,7 +159,7 @@ jobs:
             exit 1
           }
           
-          # Copy FFmpeg binary into app bundle
+          # Copy FFmpeg binary into app bundle (no manual signing needed)
           echo "📋 Copying FFmpeg binary to app bundle..."
           cp "build/darwin/binaries/ffmpeg" "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg" || {
             echo "❌ Failed to copy FFmpeg binary"
@@ -209,51 +171,9 @@ jobs:
             exit 1
           }
           
-          echo "✅ FFmpeg copied successfully:"
+          echo "✅ FFmpeg bundled successfully:"
           ls -lh "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg"
-          
-          # Sign the bundled FFmpeg binary with the same options gon uses for notarization
-          echo "🔐 Signing bundled FFmpeg binary with hardened runtime..."
-          echo "🔍 Codesign command: codesign --force --timestamp --options runtime --entitlements ./build/darwin/entitlements.plist --sign \"$IDENTITY\" --verbose build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg"
-          
-          codesign \
-            --force \
-            --timestamp \
-            --options runtime \
-            --entitlements "./build/darwin/entitlements.plist" \
-            --sign "$IDENTITY" \
-            --verbose \
-            "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg" || {
-            echo "❌ Codesign failed with exit code $?"
-            echo "🔍 Trying to get more error details..."
-            codesign \
-              --force \
-              --timestamp \
-              --options runtime \
-              --entitlements "./build/darwin/entitlements.plist" \
-              --sign "$IDENTITY" \
-              --verbose \
-              "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg" 2>&1 || true
-            exit 1
-          }
-          
-          echo "✅ Codesign completed successfully"
-          
-          # Verify the signature
-          echo "🔍 Verifying FFmpeg signature..."
-          codesign --verify --verbose "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg" || {
-            echo "❌ Signature verification failed"
-            echo "🔍 Checking signature details:"
-            codesign -dv "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg" 2>&1 || true
-            exit 1
-          }
-          
-          # Verify bundling
-          echo "✅ FFmpeg bundled and signed successfully:"
-          ls -lh "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg"
-          echo "🔍 Final signature check:"
-          codesign -dv "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg"
-          echo "✅ gon will now sign the complete app bundle for notarization"
+          echo "✅ gon will now sign the complete app bundle (including bundled FFmpeg) for notarization"
         shell: bash
       
       - name: Install gon for macOS signing

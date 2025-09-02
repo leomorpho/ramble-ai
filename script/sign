@@ -46,26 +46,13 @@ sign_macos() {
     
     echo "Re-signing with identity: $APPLE_DEVELOPER_ID"
     
-    # Copy and sign FFmpeg binary if it exists
+    # Bundle FFmpeg binary if it exists (will be signed with the main app)
     if [[ -f "./build/darwin/binaries/ffmpeg" ]]; then
       echo "📦 Bundling FFmpeg binary into app..."
       mkdir -p "$1/Contents/Resources/binaries"
       cp "./build/darwin/binaries/ffmpeg" "$1/Contents/Resources/binaries/ffmpeg"
       chmod 755 "$1/Contents/Resources/binaries/ffmpeg"
-      
-      echo "🔐 Signing bundled FFmpeg binary with hardened runtime for notarization..."
-      codesign \
-        --force \
-        --timestamp \
-        --options runtime \
-        --entitlements "./build/darwin/entitlements.plist" \
-        --sign "${APPLE_DEVELOPER_ID}" \
-        --verbose \
-        "$1/Contents/Resources/binaries/ffmpeg"
-      
-      echo "✅ Verifying FFmpeg signature..."
-      codesign --verify --verbose "$1/Contents/Resources/binaries/ffmpeg"
-      echo "✅ FFmpeg binary signed and bundled with hardened runtime"
+      echo "✅ FFmpeg bundled successfully - will be signed with the main app bundle"
     fi
     
     # Sign the executable first with --force to overwrite existing signature
