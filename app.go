@@ -114,13 +114,12 @@ func (a *App) startup(ctx context.Context) {
 
 	log.Println("Database initialized and migrations applied")
 
-	// Initialize FFmpeg using system binary (native Go bindings approach)
-	if err := goapp.CheckFFmpegAvailability(); err != nil {
-		log.Printf("System FFmpeg not available: %v", err)
-		log.Printf("Please ensure FFmpeg is installed and available in PATH")
+	// Initialize FFmpeg (auto-download if necessary)
+	if err := goapp.EnsureFFmpeg(); err != nil {
+		log.Printf("Failed to ensure FFmpeg availability: %v", err)
 		log.Printf("This may cause transcription and media processing to fail")
 	} else {
-		log.Printf("FFmpeg initialized successfully using system binary")
+		log.Printf("FFmpeg initialized successfully")
 	}
 
 	// Recover any incomplete export jobs

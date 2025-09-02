@@ -44,41 +44,16 @@ jobs:
           pnpm install --frozen-lockfile
         timeout-minutes: 10
       
-      - name: Install FFmpeg (system dependency)
-        run: |
-          if [[ "${{ matrix.platform }}" == "macos-latest" ]]; then
-            echo "Installing FFmpeg via Homebrew..."
-            brew install ffmpeg
-            echo "Verifying FFmpeg installation..."
-            ffmpeg -version | head -1
-          else
-            echo "Installing FFmpeg on Windows..."
-            # Windows installation would go here if we supported it
-          fi
-        shell: bash
-      
-      - name: Verify FFmpeg installation
-        run: |
-          echo "Verifying system FFmpeg installation:"
-          which ffmpeg
-          ffmpeg -version | head -3
-          echo "✅ FFmpeg is available in PATH"
-        shell: bash
-      
         
       - name: Build Wails app
         run: |
-          echo "Building with production tags..."
+          echo "Building Wails app..."
           echo "Current platform: ${{ matrix.platform }}"
-          echo "Build tags will include: production"
-          echo "Expected to embed: binaries/static/ffmpeg-darwin-amd64"
+          echo "FFmpeg will be auto-downloaded by the app when needed"
           
-          echo "Starting Wails build with verbose output..."
-          wails build -tags production -v 2 || {
+          echo "Starting Wails build..."
+          wails build -v 2 || {
             echo "❌ Wails build failed!"
-            echo "Checking if it's an embed issue..."
-            echo "Go build test with production tags:"
-            go build -tags production -v . || echo "Go build also failed"
             exit 1
           }
           
@@ -92,7 +67,7 @@ jobs:
             if [ -f "build/bin/RambleAI.app/Contents/MacOS/RambleAI" ]; then
               echo "✅ App binary found: build/bin/RambleAI.app/Contents/MacOS/RambleAI"
               ls -lh build/bin/RambleAI.app/Contents/MacOS/RambleAI
-              echo "✅ App build verification completed - using system FFmpeg dependency"
+              echo "✅ App build verification completed - will auto-download FFmpeg when needed"
             else
               echo "❌ ERROR: App binary not found!"
               exit 1

@@ -1,11 +1,15 @@
 package goapp
 
 import (
+	"archive/zip"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 
 	ffmpeg "github.com/u2takey/ffmpeg-go"
 )
@@ -181,4 +185,219 @@ func CheckFFmpegAvailability() error {
 	
 	log.Printf("[FFMPEG] System FFmpeg is available")
 	return nil
+}
+
+// EnsureFFmpeg ensures FFmpeg is available by downloading it if necessary
+func EnsureFFmpeg() error {
+	log.Printf("[FFMPEG] Ensuring FFmpeg availability")
+	
+	// Check if we already have a downloaded FFmpeg
+	ffmpegPath, err := getDownloadedFFmpegPath()
+	if err == nil {
+		// Test if the downloaded FFmpeg works
+		if testFFmpegBinary(ffmpegPath) {
+			log.Printf("[FFMPEG] Using downloaded FFmpeg at: %s", ffmpegPath)
+			return nil
+		}
+		log.Printf("[FFMPEG] Downloaded FFmpeg not working, removing and re-downloading")
+		os.Remove(ffmpegPath)
+	}
+	
+	// Try system FFmpeg first
+	if CheckFFmpegAvailability() == nil {
+		log.Printf("[FFMPEG] Using system FFmpeg")
+		return nil
+	}
+	
+	// Download FFmpeg
+	log.Printf("[FFMPEG] Neither downloaded nor system FFmpeg available, downloading...")
+	if err := downloadFFmpeg(); err != nil {
+		return fmt.Errorf("failed to download FFmpeg: %w", err)
+	}
+	
+	// Test the newly downloaded FFmpeg
+	ffmpegPath, err = getDownloadedFFmpegPath()
+	if err != nil {
+		return fmt.Errorf("failed to get downloaded FFmpeg path: %w", err)
+	}
+	
+	if !testFFmpegBinary(ffmpegPath) {
+		return fmt.Errorf("downloaded FFmpeg is not working")
+	}
+	
+	log.Printf("[FFMPEG] Successfully downloaded and verified FFmpeg at: %s", ffmpegPath)
+	return nil
+}
+
+// getDownloadedFFmpegPath returns the path where we store downloaded FFmpeg
+func getDownloadedFFmpegPath() (string, error) {
+	// Get user data directory (same logic as in app.go)
+	var userDataDir string
+	
+	// Check if we're in development mode
+	if _, err := os.Stat("go.mod"); err == nil {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "", fmt.Errorf("failed to get current working directory: %w", err)
+		}
+		userDataDir = cwd
+	} else {
+		// Production mode
+		userConfigDir, err := os.UserConfigDir()
+		if err != nil {
+			return "", fmt.Errorf("failed to get user config directory: %w", err)
+		}
+		userDataDir = filepath.Join(userConfigDir, "RambleAI")
+	}
+	
+	// Create directory if it doesn't exist
+	if err := os.MkdirAll(userDataDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create app data directory: %w", err)
+	}
+	
+	// FFmpeg binary name depends on OS
+	binaryName := "ffmpeg"
+	if runtime.GOOS == "windows" {
+		binaryName = "ffmpeg.exe"
+	}
+	
+	ffmpegPath := filepath.Join(userDataDir, binaryName)
+	
+	// Check if file exists
+	if _, err := os.Stat(ffmpegPath); os.IsNotExist(err) {
+		return "", fmt.Errorf("downloaded FFmpeg not found at %s", ffmpegPath)
+	}
+	
+	return ffmpegPath, nil
+}
+
+// testFFmpegBinary tests if an FFmpeg binary is working
+func testFFmpegBinary(path string) bool {
+	_, err := exec.Command(path, "-version").CombinedOutput()
+	return err == nil
+}
+
+// downloadFFmpeg downloads FFmpeg for the current platform
+func downloadFFmpeg() error {
+	// Map Go runtime to ffbinaries platform
+	var platform string
+	switch runtime.GOOS + "/" + runtime.GOARCH {
+	case "darwin/amd64", "darwin/arm64":
+		platform = "macos-64"
+	case "linux/amd64":
+		platform = "linux-64"
+	case "linux/386":
+		platform = "linux-32"
+	case "linux/arm64":
+		platform = "linux-arm64"
+	case "windows/amd64":
+		platform = "windows-64"
+	default:
+		return fmt.Errorf("unsupported platform: %s/%s", runtime.GOOS, runtime.GOARCH)
+	}
+	
+	// Get download URL from ffbinaries API
+	downloadURL := fmt.Sprintf("https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-%s.zip", platform)
+	log.Printf("[FFMPEG] Downloading from: %s", downloadURL)
+	
+	// Download the zip file
+	resp, err := http.Get(downloadURL)
+	if err != nil {
+		return fmt.Errorf("failed to download FFmpeg: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to download FFmpeg: HTTP %d", resp.StatusCode)
+	}
+	
+	// Create temporary file
+	tempFile, err := os.CreateTemp("", "ffmpeg-*.zip")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	defer os.Remove(tempFile.Name())
+	defer tempFile.Close()
+	
+	// Copy response to temp file
+	_, err = io.Copy(tempFile, resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to save download: %w", err)
+	}
+	
+	// Extract FFmpeg binary
+	return extractFFmpeg(tempFile.Name())
+}
+
+// extractFFmpeg extracts the FFmpeg binary from downloaded zip
+func extractFFmpeg(zipPath string) error {
+	// Open zip file
+	reader, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return fmt.Errorf("failed to open zip file: %w", err)
+	}
+	defer reader.Close()
+	
+	// Get destination path
+	userDataDir := filepath.Dir(zipPath) // Use temp dir first
+	if _, err := os.Stat("go.mod"); err == nil {
+		// Development mode
+		cwd, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("failed to get current working directory: %w", err)
+		}
+		userDataDir = cwd
+	} else {
+		// Production mode
+		userConfigDir, err := os.UserConfigDir()
+		if err != nil {
+			return fmt.Errorf("failed to get user config directory: %w", err)
+		}
+		userDataDir = filepath.Join(userConfigDir, "RambleAI")
+		if err := os.MkdirAll(userDataDir, 0755); err != nil {
+			return fmt.Errorf("failed to create app data directory: %w", err)
+		}
+	}
+	
+	// Find and extract FFmpeg binary
+	binaryName := "ffmpeg"
+	if runtime.GOOS == "windows" {
+		binaryName = "ffmpeg.exe"
+	}
+	
+	for _, file := range reader.File {
+		if file.Name == binaryName {
+			// Extract this file
+			rc, err := file.Open()
+			if err != nil {
+				return fmt.Errorf("failed to open file in zip: %w", err)
+			}
+			defer rc.Close()
+			
+			// Create destination file
+			destPath := filepath.Join(userDataDir, binaryName)
+			destFile, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+			if err != nil {
+				return fmt.Errorf("failed to create destination file: %w", err)
+			}
+			defer destFile.Close()
+			
+			// Copy file contents
+			_, err = io.Copy(destFile, rc)
+			if err != nil {
+				return fmt.Errorf("failed to extract file: %w", err)
+			}
+			
+			log.Printf("[FFMPEG] Extracted FFmpeg to: %s", destPath)
+			
+			// Remove quarantine on macOS
+			if runtime.GOOS == "darwin" {
+				exec.Command("xattr", "-d", "com.apple.quarantine", destPath).Run()
+			}
+			
+			return nil
+		}
+	}
+	
+	return fmt.Errorf("FFmpeg binary not found in zip file")
 }
