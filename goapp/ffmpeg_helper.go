@@ -2,6 +2,7 @@ package goapp
 
 import (
 	"archive/zip"
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -188,47 +189,60 @@ func CheckFFmpegAvailability() error {
 }
 
 // EnsureFFmpeg ensures FFmpeg is available by always using our app-specific version
-func EnsureFFmpeg() error {
+func EnsureFFmpeg(ctx context.Context, settingsService interface{ GetFFmpegReady() (bool, error); SaveFFmpegReady(bool) error }, emitEvent func(string, ...interface{})) error {
 	log.Printf("[FFMPEG] Ensuring app-specific FFmpeg availability")
 	
-	// Always use our app-specific FFmpeg (skip system check for consistency)
-	ffmpegPath, err := getDownloadedFFmpegPath()
-	if err == nil {
-		// Test if our downloaded FFmpeg works
-		if testFFmpegBinary(ffmpegPath) {
+	// Check database first
+	if ready, err := settingsService.GetFFmpegReady(); err == nil && ready {
+		ffmpegPath, err := GetDownloadedFFmpegPath()
+		if err == nil && TestFFmpegBinary(ffmpegPath) {
 			log.Printf("[FFMPEG] Using app-specific FFmpeg at: %s", ffmpegPath)
-			// Set environment variable for ffmpeg-go to use our binary
 			os.Setenv("FFMPEG_BINARY", ffmpegPath)
 			return nil
 		}
-		log.Printf("[FFMPEG] App-specific FFmpeg not working, removing and re-downloading")
-		os.Remove(ffmpegPath)
+		// Binary missing despite DB flag - reset flag and re-download
+		log.Printf("[FFMPEG] App-specific FFmpeg not working despite DB flag, re-downloading")
+		settingsService.SaveFFmpegReady(false)
 	}
 	
-	// Download our controlled FFmpeg version
+	// Emit download start event
+	emitEvent("ffmpeg_downloading")
 	log.Printf("[FFMPEG] App-specific FFmpeg not found, downloading controlled version...")
+	
 	if err := downloadFFmpeg(); err != nil {
-		return fmt.Errorf("failed to download FFmpeg: %w", err)
+		errorMsg := fmt.Sprintf("failed to download FFmpeg: %v", err)
+		emitEvent("ffmpeg_error", errorMsg)
+		return fmt.Errorf(errorMsg)
 	}
 	
 	// Test the newly downloaded FFmpeg
-	ffmpegPath, err = getDownloadedFFmpegPath()
+	ffmpegPath, err := GetDownloadedFFmpegPath()
 	if err != nil {
-		return fmt.Errorf("failed to get downloaded FFmpeg path: %w", err)
+		errorMsg := fmt.Sprintf("failed to get downloaded FFmpeg path: %v", err)
+		emitEvent("ffmpeg_error", errorMsg)
+		return fmt.Errorf(errorMsg)
 	}
 	
-	if !testFFmpegBinary(ffmpegPath) {
-		return fmt.Errorf("downloaded FFmpeg is not working")
+	if !TestFFmpegBinary(ffmpegPath) {
+		errorMsg := "downloaded FFmpeg is not working"
+		emitEvent("ffmpeg_error", errorMsg)
+		return fmt.Errorf(errorMsg)
 	}
+	
+	// Mark as ready in database
+	settingsService.SaveFFmpegReady(true)
 	
 	// Set environment variable for ffmpeg-go to use our binary
 	os.Setenv("FFMPEG_BINARY", ffmpegPath)
+	
+	// Emit completion event
+	emitEvent("ffmpeg_ready")
 	log.Printf("[FFMPEG] Successfully downloaded and configured app-specific FFmpeg at: %s", ffmpegPath)
 	return nil
 }
 
-// getDownloadedFFmpegPath returns the path where we store our app-specific FFmpeg
-func getDownloadedFFmpegPath() (string, error) {
+// GetDownloadedFFmpegPath returns the path where we store our app-specific FFmpeg
+func GetDownloadedFFmpegPath() (string, error) {
 	// Get user data directory (same logic as in app.go)
 	var userDataDir string
 	
@@ -272,8 +286,8 @@ func getDownloadedFFmpegPath() (string, error) {
 	return ffmpegPath, nil
 }
 
-// testFFmpegBinary tests if an FFmpeg binary is working
-func testFFmpegBinary(path string) bool {
+// TestFFmpegBinary tests if an FFmpeg binary is working
+func TestFFmpegBinary(path string) bool {
 	_, err := exec.Command(path, "-version").CombinedOutput()
 	return err == nil
 }

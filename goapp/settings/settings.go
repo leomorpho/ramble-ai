@@ -116,3 +116,21 @@ func (s *SettingsService) GetThemePreference() (string, error) {
 	}
 	return theme, nil
 }
+
+// SaveFFmpegReady saves whether FFmpeg is downloaded and ready
+func (s *SettingsService) SaveFFmpegReady(ready bool) error {
+	value := "false"
+	if ready {
+		value = "true"
+	}
+	return s.SaveSetting("ffmpeg_ready", value)
+}
+
+// GetFFmpegReady retrieves whether FFmpeg is ready, defaults to false
+func (s *SettingsService) GetFFmpegReady() (bool, error) {
+	value, err := s.GetSetting("ffmpeg_ready")
+	if err != nil {
+		return false, err
+	}
+	return value == "true", nil
+}

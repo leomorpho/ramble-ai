@@ -28,6 +28,7 @@ import (
 	entsql "entgo.io/ent/dialect/sql"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // App struct
@@ -114,12 +115,21 @@ func (a *App) startup(ctx context.Context) {
 	log.Println("Database initialized and migrations applied")
 
 	// Initialize FFmpeg (auto-download if necessary)
-	if err := goapp.EnsureFFmpeg(); err != nil {
-		log.Printf("Failed to ensure FFmpeg availability: %v", err)
-		log.Printf("This may cause transcription and media processing to fail")
-	} else {
-		log.Printf("FFmpeg initialized successfully")
+	settingsService := settings.NewSettingsService(a.client, ctx)
+	
+	// Create event emitter function
+	emitEvent := func(eventName string, data ...interface{}) {
+		runtime.EventsEmit(ctx, eventName, data...)
 	}
+	
+	// Start FFmpeg initialization (potentially in background)
+	go func() {
+		if err := goapp.EnsureFFmpeg(ctx, settingsService, emitEvent); err != nil {
+			log.Printf("Failed to ensure FFmpeg availability: %v", err)
+		} else {
+			log.Printf("FFmpeg initialized successfully")
+		}
+	}()
 
 	// Recover any incomplete export jobs
 	if err := a.RecoverActiveExportJobs(); err != nil {
@@ -942,5 +952,27 @@ func (a *App) SaveChatModelSelection(projectID int, endpointID string, model str
 // GetAppVersion returns the current application version information
 func (a *App) GetAppVersion() version.Info {
 	return version.Get()
+}
+
+// IsFFmpegReady checks if FFmpeg is downloaded and ready for use
+func (a *App) IsFFmpegReady() bool {
+	settingsService := settings.NewSettingsService(a.client, a.ctx)
+	ready, err := settingsService.GetFFmpegReady()
+	if err != nil {
+		log.Printf("Failed to check FFmpeg readiness: %v", err)
+		return false
+	}
+	
+	// Also verify the binary actually exists and works
+	if ready {
+		ffmpegPath, err := goapp.GetDownloadedFFmpegPath()
+		if err != nil || !goapp.TestFFmpegBinary(ffmpegPath) {
+			// Binary missing or not working, reset database flag
+			settingsService.SaveFFmpegReady(false)
+			return false
+		}
+	}
+	
+	return ready
 }
 

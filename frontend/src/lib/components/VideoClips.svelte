@@ -17,6 +17,7 @@
     BatchTranscribeUntranscribedClips,
     GetOpenAIApiKey,
     GetUseRemoteAIBackend,
+    IsFFmpegReady,
   } from "$lib/wailsjs/go/main/App";
   import {
     OnFileDrop,
@@ -521,6 +522,16 @@
 
   async function startTranscription(clip) {
     try {
+      // Check if FFmpeg is ready
+      const ffmpegReady = await IsFFmpegReady();
+      if (!ffmpegReady) {
+        toast.warning('Media processing not ready', {
+          description: 'Please wait for setup to complete',
+          duration: 3000
+        });
+        return;
+      }
+      
       // Check if using remote backend - if so, skip OpenAI API key check
       const useRemoteBackend = await GetUseRemoteAIBackend();
       
@@ -640,6 +651,17 @@
     try {
       batchTranscribing = true;
       clipError = "";
+
+      // Check if FFmpeg is ready
+      const ffmpegReady = await IsFFmpegReady();
+      if (!ffmpegReady) {
+        toast.warning('Media processing not ready', {
+          description: 'Please wait for setup to complete',
+          duration: 3000
+        });
+        batchTranscribing = false;
+        return;
+      }
 
       // Check if using remote backend - if so, skip OpenAI API key check
       const useRemoteBackend = await GetUseRemoteAIBackend();
