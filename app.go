@@ -115,11 +115,10 @@ func (a *App) startup(ctx context.Context) {
 	log.Println("Database initialized and migrations applied")
 
 	// Initialize FFmpeg with bundle-aware detection
-	log.Printf("FFmpeg initialization debug info: %+v", binaries.GetFFmpegDebugInfo())
-	
 	if cmd, err := goapp.GetFFmpegCommand("-version"); err != nil {
 		log.Printf("Failed to create FFmpeg command: %v", err)
 		log.Printf("This may cause 'ffmpeg: executable file not found' errors")
+		log.Printf("FFmpeg debug info: %+v", binaries.GetFFmpegDebugInfo())
 		log.Printf("Embedded binary size: %d bytes", binaries.GetEmbeddedBinarySize())
 		
 		// Check if FFmpeg binary data was actually embedded
@@ -128,6 +127,7 @@ func (a *App) startup(ctx context.Context) {
 		}
 	} else {
 		log.Printf("FFmpeg initialized successfully: %s (version %s)", cmd.Path, binaries.GetFFmpegVersion())
+		log.Printf("FFmpeg debug info: %+v", binaries.GetFFmpegDebugInfo())
 	}
 
 	// Recover any incomplete export jobs
