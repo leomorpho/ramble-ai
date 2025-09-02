@@ -61,50 +61,6 @@ jobs:
           echo "✅ Wails universal build completed successfully"
       
       
-      - name: Pre-download FFmpeg for both architectures
-        if: matrix.platform == 'macos-latest'
-        run: |
-          echo "📦 Pre-downloading FFmpeg for both Intel and ARM64 architectures..."
-          
-          # Create directory for FFmpeg binaries
-          mkdir -p build/darwin/binaries
-          
-          # Download ARM64 FFmpeg binary from Martin Riedl (signed and notarized)
-          echo "Downloading ARM64 FFmpeg..."
-          curl -L -o build/darwin/ffmpeg-arm64.zip "https://ffmpeg.martin-riedl.de/redirect/latest/macos/arm64/release/ffmpeg.zip" || {
-            echo "❌ Failed to download ARM64 FFmpeg"
-            exit 1
-          }
-          
-          # Download Intel x86_64 FFmpeg binary from Martin Riedl (signed and notarized)
-          echo "Downloading Intel x86_64 FFmpeg..."
-          curl -L -o build/darwin/ffmpeg-x86_64.zip "https://ffmpeg.martin-riedl.de/redirect/latest/macos/amd64/release/ffmpeg.zip" || {
-            echo "❌ Failed to download Intel FFmpeg"
-            exit 1
-          }
-          
-          # Extract ARM64 FFmpeg binary
-          cd build/darwin
-          unzip ffmpeg-arm64.zip
-          mv ffmpeg binaries/ffmpeg-arm64
-          chmod +x binaries/ffmpeg-arm64
-          rm ffmpeg-arm64.zip
-          
-          # Extract Intel FFmpeg binary
-          unzip ffmpeg-x86_64.zip
-          mv ffmpeg binaries/ffmpeg-x86_64
-          chmod +x binaries/ffmpeg-x86_64
-          rm ffmpeg-x86_64.zip
-          
-          # Verify downloads
-          echo "✅ FFmpeg binaries downloaded successfully:"
-          echo "ARM64 FFmpeg:"
-          ls -lh binaries/ffmpeg-arm64
-          file binaries/ffmpeg-arm64
-          echo "Intel FFmpeg:"
-          ls -lh binaries/ffmpeg-x86_64
-          file binaries/ffmpeg-x86_64
-        shell: bash
       
       - name: Verify app build
         run: |
@@ -113,7 +69,7 @@ jobs:
             if [ -f "build/bin/RambleAI.app/Contents/MacOS/RambleAI" ]; then
               echo "✅ App binary found: build/bin/RambleAI.app/Contents/MacOS/RambleAI"
               ls -lh build/bin/RambleAI.app/Contents/MacOS/RambleAI
-              echo "✅ App build verification completed - FFmpeg will be bundled during signing"
+              echo "✅ App build verification completed"
             else
               echo "❌ ERROR: App binary not found!"
               exit 1
@@ -149,36 +105,6 @@ jobs:
         shell: bash
       
       # macOS signing with gon - following Wails documentation approach
-      - name: Bundle FFmpeg binaries into app (signing happens after certificate import)
-        if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
-        run: |
-          echo "📦 Bundling both FFmpeg binaries into app..."
-          
-          # Verify both FFmpeg binaries exist
-          if [ ! -f "build/darwin/binaries/ffmpeg-arm64" ]; then
-            echo "❌ ARM64 FFmpeg binary not found at build/darwin/binaries/ffmpeg-arm64"
-            exit 1
-          fi
-          
-          if [ ! -f "build/darwin/binaries/ffmpeg-x86_64" ]; then
-            echo "❌ Intel FFmpeg binary not found at build/darwin/binaries/ffmpeg-x86_64"
-            exit 1
-          fi
-          
-          # Create Resources/binaries directory in the app bundle
-          mkdir -p "build/bin/RambleAI.app/Contents/Resources/binaries"
-          
-          # Copy both FFmpeg binaries into app bundle
-          cp "build/darwin/binaries/ffmpeg-arm64" "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg-arm64"
-          cp "build/darwin/binaries/ffmpeg-x86_64" "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg-x86_64"
-          
-          chmod 755 "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg-arm64"
-          chmod 755 "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg-x86_64"
-          
-          echo "✅ Both FFmpeg binaries bundled - will be signed after certificate import"
-          echo "ARM64: $(ls -lh build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg-arm64)"
-          echo "Intel: $(ls -lh build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg-x86_64)"
-        shell: bash
       
       - name: Install gon for macOS signing
         if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
@@ -240,48 +166,6 @@ jobs:
           echo "Looking for Developer ID Application:"
           security find-identity -v -p codesigning | grep "Developer ID Application" || echo "No Developer ID Application found"
       
-      - name: Sign FFmpeg binaries with hardened runtime
-        if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
-        run: |
-          echo "🔐 Signing both FFmpeg binaries with hardened runtime..."
-          
-          # Get the Developer ID Application identity
-          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | awk -F'"' '{print $2}')
-          
-          if [[ -z "$IDENTITY" ]]; then
-            echo "❌ No Developer ID Application identity found"
-            exit 1
-          fi
-          
-          echo "✅ Using identity: $IDENTITY"
-          
-          # Sign ARM64 FFmpeg with hardened runtime for notarization
-          echo "Signing ARM64 FFmpeg..."
-          codesign \
-            --force \
-            --timestamp \
-            --options runtime \
-            --entitlements "./build/darwin/entitlements.plist" \
-            --sign "$IDENTITY" \
-            "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg-arm64"
-          
-          # Sign Intel FFmpeg with hardened runtime for notarization
-          echo "Signing Intel FFmpeg..."
-          codesign \
-            --force \
-            --timestamp \
-            --options runtime \
-            --entitlements "./build/darwin/entitlements.plist" \
-            --sign "$IDENTITY" \
-            "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg-x86_64"
-          
-          # Verify both FFmpeg signatures
-          echo "Verifying signatures..."
-          codesign --verify --verbose "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg-arm64"
-          codesign --verify --verbose "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg-x86_64"
-          
-          echo "✅ Both FFmpeg binaries signed with hardened runtime - gon will sign the main app bundle"
-        shell: bash
       
       - name: Create gon configuration with actual values
         if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'

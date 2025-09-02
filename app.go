@@ -954,10 +954,24 @@ func (a *App) GetAppVersion() version.Info {
 	return version.Get()
 }
 
-// IsFFmpegReady checks if bundled FFmpeg is available
+// IsFFmpegReady checks if system FFmpeg is available
 func (a *App) IsFFmpegReady() bool {
-	// Check if bundled FFmpeg is available and working
-	bundledPath := goapp.GetBundledFFmpegPath()
-	return bundledPath != "" && goapp.TestFFmpegBinary(bundledPath)
+	// Check if system FFmpeg is available and working
+	systemPath, err := goapp.FindSystemFFmpeg()
+	return err == nil && goapp.TestFFmpegBinary(systemPath)
+}
+
+// InstallFFmpeg installs FFmpeg to the system
+func (a *App) InstallFFmpeg() error {
+	// Create event emitter function for this context
+	emitEvent := func(eventName string, data ...interface{}) {
+		if len(data) == 1 {
+			runtime.EventsEmit(a.ctx, eventName, data[0])
+		} else {
+			runtime.EventsEmit(a.ctx, eventName, data...)
+		}
+	}
+	
+	return goapp.InstallFFmpeg(a.ctx, emitEvent)
 }
 

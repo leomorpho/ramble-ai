@@ -3,7 +3,9 @@ package goapp
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,174 +22,14 @@ func GetFFmpegCommand(args ...string) (*exec.Cmd, error) {
 	return exec.Command("ffmpeg", args...), nil
 }
 
-// GetBundledFFmpegPath returns the path to the bundled FFmpeg binary in the app bundle (legacy)
+// Legacy functions for backward compatibility - these now redirect to system FFmpeg
 func GetBundledFFmpegPath() string {
-	path, _ := GetBundledFFmpegPathWithDetails()
-	return path
-}
-
-// GetBundledFFmpegPathWithDetails returns the path to the bundled FFmpeg binary and user-visible detection details
-func GetBundledFFmpegPathWithDetails() (string, string) {
-	// Get the path to the current executable
-	execPath, err := os.Executable()
+	// Redirect to system FFmpeg detection
+	systemPath, err := FindSystemFFmpeg()
 	if err != nil {
-		log.Printf("[FFMPEG] ❌ Failed to get executable path: %v", err)
-		return "", fmt.Sprintf("Failed to get executable path: %v", err)
+		return ""
 	}
-	
-	log.Printf("[FFMPEG] 🔍 Executable path: %s", execPath)
-	log.Printf("[FFMPEG] 🔍 Runtime platform: %s/%s", runtime.GOOS, runtime.GOARCH)
-
-	// Detect platform and get platform-specific bundled paths
-	switch runtime.GOOS {
-	case "darwin":
-		return getBundledFFmpegPathMacOSWithDetails(execPath)
-	case "windows":
-		// TODO: Implement Windows bundled FFmpeg detection
-		log.Printf("[FFMPEG] Windows bundled FFmpeg support not yet implemented")
-		return "", "Windows bundled FFmpeg support not yet implemented"
-	case "linux":
-		// TODO: Implement Linux bundled FFmpeg detection  
-		log.Printf("[FFMPEG] Linux bundled FFmpeg support not yet implemented")
-		return "", "Linux bundled FFmpeg support not yet implemented"
-	default:
-		log.Printf("[FFMPEG] Unsupported platform for bundled FFmpeg: %s", runtime.GOOS)
-		return "", fmt.Sprintf("Unsupported platform for bundled FFmpeg: %s", runtime.GOOS)
-	}
-}
-
-func getBundledFFmpegPathMacOS(execPath string) string {
-	path, _ := getBundledFFmpegPathMacOSWithDetails(execPath)
-	return path
-}
-
-func getBundledFFmpegPathMacOSWithDetails(execPath string) (string, string) {
-	log.Printf("[FFMPEG] 🔍 Analyzing executable path for macOS app bundle detection")
-	log.Printf("[FFMPEG] 🔍 Full executable path: %s", execPath)
-	log.Printf("[FFMPEG] 🔍 CPU Architecture: %s", runtime.GOARCH)
-	
-	// First, resolve any symlinks in the executable path
-	realExecPath, err := filepath.EvalSymlinks(execPath)
-	if err != nil {
-		log.Printf("[FFMPEG] ⚠️ Could not resolve symlinks in executable path: %v", err)
-		realExecPath = execPath // Fall back to original path
-	} else if realExecPath != execPath {
-		log.Printf("[FFMPEG] 🔍 Resolved symlinks: %s -> %s", execPath, realExecPath)
-		execPath = realExecPath
-	}
-	
-	// Determine the FFmpeg binary suffix based on architecture
-	var ffmpegSuffix string
-	switch runtime.GOARCH {
-	case "arm64":
-		ffmpegSuffix = "-arm64"
-		log.Printf("[FFMPEG] 🔍 Using ARM64 binary for Apple Silicon")
-	case "amd64":
-		ffmpegSuffix = "-x86_64"
-		log.Printf("[FFMPEG] 🔍 Using x86_64 binary for Intel")
-	default:
-		// Fall back to no suffix (legacy single binary)
-		ffmpegSuffix = ""
-		log.Printf("[FFMPEG] ⚠️ Unknown architecture %s, trying legacy single binary", runtime.GOARCH)
-	}
-	
-	var possiblePaths []string
-	var detailsBuilder []string
-	
-	detailsBuilder = append(detailsBuilder, fmt.Sprintf("Executable path: %s", execPath))
-	detailsBuilder = append(detailsBuilder, fmt.Sprintf("CPU Architecture: %s", runtime.GOARCH))
-	
-	// Check if we're inside an app bundle (path contains .app/Contents/MacOS/)
-	if strings.Contains(execPath, ".app/Contents/MacOS/") {
-		log.Printf("[FFMPEG] ✅ Detected app bundle structure in executable path")
-		detailsBuilder = append(detailsBuilder, "✅ Detected app bundle structure")
-		
-		// Method 1: Direct path extraction (most reliable for bundled apps)
-		if parts := strings.Split(execPath, ".app/Contents/MacOS/"); len(parts) >= 2 {
-			appContentsDir := parts[0] + ".app/Contents"
-			
-			// Try architecture-specific binary first
-			if ffmpegSuffix != "" {
-				bundledPath := filepath.Join(appContentsDir, "Resources", "binaries", "ffmpeg"+ffmpegSuffix)
-				possiblePaths = append(possiblePaths, bundledPath)
-				log.Printf("[FFMPEG] 🔍 Primary path (arch-specific): %s", bundledPath)
-			}
-			
-			// Fall back to generic binary
-			bundledPath := filepath.Join(appContentsDir, "Resources", "binaries", "ffmpeg")
-			possiblePaths = append(possiblePaths, bundledPath)
-			log.Printf("[FFMPEG] 🔍 Fallback path (generic): %s", bundledPath)
-			
-			detailsBuilder = append(detailsBuilder, fmt.Sprintf("Looking for ffmpeg%s", ffmpegSuffix))
-		}
-		
-		// Method 2: Standard installation locations
-		standardPaths := []string{
-			"/Applications/RambleAI.app/Contents/Resources/binaries/ffmpeg" + ffmpegSuffix,
-			filepath.Join(os.Getenv("HOME"), "Applications", "RambleAI.app", "Contents", "Resources", "binaries", "ffmpeg"+ffmpegSuffix),
-			"/Applications/RambleAI.app/Contents/Resources/binaries/ffmpeg",
-			filepath.Join(os.Getenv("HOME"), "Applications", "RambleAI.app", "Contents", "Resources", "binaries", "ffmpeg"),
-		}
-		possiblePaths = append(possiblePaths, standardPaths...)
-		detailsBuilder = append(detailsBuilder, fmt.Sprintf("Also checking %d standard paths", len(standardPaths)))
-	} else {
-		log.Printf("[FFMPEG] ⚠️ Not in standard app bundle structure - checking development locations")
-		detailsBuilder = append(detailsBuilder, "⚠️ Not in standard app bundle structure")
-		
-		// Development build locations
-		if wd, err := os.Getwd(); err == nil {
-			// Try architecture-specific binary first
-			if ffmpegSuffix != "" {
-				devFFmpegPath := filepath.Join(wd, "build", "bin", "RambleAI.app", "Contents", "Resources", "binaries", "ffmpeg"+ffmpegSuffix)
-				possiblePaths = append(possiblePaths, devFFmpegPath)
-			}
-			
-			// Fall back to generic binary
-			devFFmpegPath := filepath.Join(wd, "build", "bin", "RambleAI.app", "Contents", "Resources", "binaries", "ffmpeg")
-			possiblePaths = append(possiblePaths, devFFmpegPath)
-			log.Printf("[FFMPEG] 🔍 Added development paths")
-			detailsBuilder = append(detailsBuilder, fmt.Sprintf("Development path with suffix: ffmpeg%s", ffmpegSuffix))
-		}
-	}
-	
-	// Try each possible path with detailed logging
-	var pathCheckDetails []string
-	for i, candidatePath := range possiblePaths {
-		log.Printf("[FFMPEG] 🔍 Attempt %d/%d: Checking path: %s", i+1, len(possiblePaths), candidatePath)
-		
-		if fileInfo, err := os.Stat(candidatePath); err == nil {
-			log.Printf("[FFMPEG] ✅ File exists! Size: %d bytes, Mode: %s", fileInfo.Size(), fileInfo.Mode())
-			pathCheckDetails = append(pathCheckDetails, fmt.Sprintf("✅ Found at %s (size: %d bytes)", candidatePath, fileInfo.Size()))
-			
-			// Check if file is executable
-			if fileInfo.Mode().Perm()&0111 == 0 {
-				log.Printf("[FFMPEG] ⚠️ File exists but is not executable, attempting to fix permissions")
-				if chmodErr := os.Chmod(candidatePath, 0755); chmodErr != nil {
-					log.Printf("[FFMPEG] ❌ Failed to set executable permissions: %v", chmodErr)
-					pathCheckDetails = append(pathCheckDetails, fmt.Sprintf("❌ Failed to fix permissions: %v", chmodErr))
-					continue
-				}
-				log.Printf("[FFMPEG] ✅ Fixed executable permissions")
-				pathCheckDetails = append(pathCheckDetails, "✅ Fixed executable permissions")
-			}
-			
-			log.Printf("[FFMPEG] ✅ Found valid bundled FFmpeg binary at: %s", candidatePath)
-			return candidatePath, strings.Join(append(detailsBuilder, pathCheckDetails...), "; ")
-		} else {
-			log.Printf("[FFMPEG] ❌ Path not accessible: %v", err)
-			pathCheckDetails = append(pathCheckDetails, fmt.Sprintf("❌ %s: %v", candidatePath, err))
-		}
-	}
-	
-	log.Printf("[FFMPEG] ❌ No bundled FFmpeg found in any of %d attempted locations", len(possiblePaths))
-	
-	// Additional debug info for user
-	if wd, err := os.Getwd(); err == nil {
-		detailsBuilder = append(detailsBuilder, fmt.Sprintf("Working dir: %s", wd))
-	}
-	
-	allDetails := strings.Join(append(detailsBuilder, pathCheckDetails...), "; ")
-	return "", fmt.Sprintf("No FFmpeg found. %s", allDetails)
+	return systemPath
 }
 
 // ExtractAudio extracts audio from video using ffmpeg-go library
@@ -324,40 +166,180 @@ func CheckFFmpegAvailability() error {
 	return nil
 }
 
-// EnsureFFmpeg ensures FFmpeg is available by using the bundled version
+// EnsureFFmpeg ensures FFmpeg is available by checking system installation
 func EnsureFFmpeg(ctx context.Context, settingsService interface{}, emitEvent func(string, ...interface{})) error {
 	log.Printf("[FFMPEG] === FFmpeg Initialization Started ===")
 	log.Printf("[FFMPEG] Runtime Platform: %s/%s", runtime.GOOS, runtime.GOARCH)
 	
-	// Check for bundled FFmpeg binary in the app bundle with detailed error reporting
-	bundledPath, detectionDetails := GetBundledFFmpegPathWithDetails()
-	if bundledPath == "" {
-		errorMsg := fmt.Sprintf("FFmpeg not found in app bundle. Detection details: %s", detectionDetails)
-		log.Printf("[FFMPEG] ❌ %s", errorMsg)
-		emitEvent("ffmpeg_error", errorMsg)
-		return fmt.Errorf(errorMsg)
+	// Check for system FFmpeg installation
+	ffmpegPath, err := FindSystemFFmpeg()
+	if err != nil {
+		log.Printf("[FFMPEG] ❌ System FFmpeg not found: %v", err)
+		emitEvent("ffmpeg_not_found", err.Error())
+		return err
 	}
 	
-	log.Printf("[FFMPEG] Testing bundled FFmpeg binary at: %s", bundledPath)
-	testResult, testDetails := TestFFmpegBinaryWithDetails(bundledPath)
+	log.Printf("[FFMPEG] Testing system FFmpeg binary at: %s", ffmpegPath)
+	testResult, testDetails := TestFFmpegBinaryWithDetails(ffmpegPath)
 	if !testResult {
-		errorMsg := fmt.Sprintf("Bundled FFmpeg binary failed verification. Test details: %s", testDetails)
+		errorMsg := fmt.Sprintf("System FFmpeg failed verification. Test details: %s", testDetails)
 		log.Printf("[FFMPEG] ❌ %s", errorMsg)
 		emitEvent("ffmpeg_error", errorMsg)
 		return fmt.Errorf(errorMsg)
 	}
 	
-	// Set environment variable for ffmpeg-go to use our bundled binary
-	os.Setenv("FFMPEG_BINARY", bundledPath)
-	log.Printf("[FFMPEG] ✅ Using bundled FFmpeg binary at: %s", bundledPath)
+	// Set environment variable for ffmpeg-go to use the system binary
+	os.Setenv("FFMPEG_BINARY", ffmpegPath)
+	log.Printf("[FFMPEG] ✅ Using system FFmpeg binary at: %s", ffmpegPath)
 	
-	// Emit ready event immediately - no async operations
+	// Emit ready event
 	emitEvent("ffmpeg_ready")
 	log.Printf("[FFMPEG] === FFmpeg Initialization Complete ===")
 	return nil
 }
 
-// Download-related functions removed - FFmpeg is now bundled in the app
+// FindSystemFFmpeg looks for FFmpeg in common system locations
+func FindSystemFFmpeg() (string, error) {
+	log.Printf("[FFMPEG] 🔍 Searching for system FFmpeg installation...")
+	
+	// Common FFmpeg installation locations on macOS
+	commonLocations := []string{
+		"/opt/homebrew/bin/ffmpeg",   // ARM64 Homebrew
+		"/usr/local/bin/ffmpeg",      // Intel Homebrew / manual install
+		"/Applications/FFmpeg.app/Contents/MacOS/ffmpeg", // App bundle install
+	}
+	
+	// First check PATH
+	if pathFFmpeg, err := exec.LookPath("ffmpeg"); err == nil {
+		log.Printf("[FFMPEG] ✅ Found FFmpeg in PATH: %s", pathFFmpeg)
+		return pathFFmpeg, nil
+	}
+	
+	// Then check common locations
+	for _, location := range commonLocations {
+		if _, err := os.Stat(location); err == nil {
+			log.Printf("[FFMPEG] ✅ Found FFmpeg at: %s", location)
+			return location, nil
+		}
+	}
+	
+	log.Printf("[FFMPEG] ❌ FFmpeg not found in any system location")
+	return "", fmt.Errorf("FFmpeg not found. Please install FFmpeg to continue using video processing features")
+}
+
+// InstallFFmpeg downloads and installs FFmpeg to the system
+func InstallFFmpeg(ctx context.Context, emitEvent func(string, ...interface{})) error {
+	log.Printf("[FFMPEG] 🔽 Starting FFmpeg installation...")
+	
+	// Determine architecture and download URL
+	var downloadURL string
+	switch runtime.GOARCH {
+	case "arm64":
+		downloadURL = "https://ffmpeg.martin-riedl.de/redirect/latest/macos/arm64/release/ffmpeg.zip"
+		log.Printf("[FFMPEG] Installing ARM64 FFmpeg for Apple Silicon")
+	case "amd64":
+		downloadURL = "https://ffmpeg.martin-riedl.de/redirect/latest/macos/amd64/release/ffmpeg.zip"
+		log.Printf("[FFMPEG] Installing Intel FFmpeg for x86_64")
+	default:
+		return fmt.Errorf("unsupported architecture: %s", runtime.GOARCH)
+	}
+	
+	// Create temporary directory
+	tempDir, err := os.MkdirTemp("", "ffmpeg-install")
+	if err != nil {
+		return fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
+	
+	// Download FFmpeg
+	emitEvent("ffmpeg_install_progress", "Downloading FFmpeg...")
+	zipPath := filepath.Join(tempDir, "ffmpeg.zip")
+	
+	log.Printf("[FFMPEG] Downloading from: %s", downloadURL)
+	resp, err := http.Get(downloadURL)
+	if err != nil {
+		return fmt.Errorf("failed to download FFmpeg: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("failed to download FFmpeg: HTTP %d", resp.StatusCode)
+	}
+	
+	// Save to file
+	zipFile, err := os.Create(zipPath)
+	if err != nil {
+		return fmt.Errorf("failed to create zip file: %w", err)
+	}
+	defer zipFile.Close()
+	
+	_, err = io.Copy(zipFile, resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to save FFmpeg download: %w", err)
+	}
+	
+	// Extract FFmpeg
+	emitEvent("ffmpeg_install_progress", "Extracting FFmpeg...")
+	cmd := exec.Command("unzip", "-o", zipPath, "-d", tempDir)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to extract FFmpeg: %w", err)
+	}
+	
+	// Find extracted binary
+	ffmpegBinary := filepath.Join(tempDir, "ffmpeg")
+	if _, err := os.Stat(ffmpegBinary); err != nil {
+		return fmt.Errorf("FFmpeg binary not found after extraction: %w", err)
+	}
+	
+	// Install to system location
+	emitEvent("ffmpeg_install_progress", "Installing FFmpeg to system...")
+	
+	// Try /usr/local/bin first (doesn't require admin)
+	installPath := "/usr/local/bin/ffmpeg"
+	
+	// Ensure /usr/local/bin exists
+	if err := os.MkdirAll("/usr/local/bin", 0755); err != nil {
+		return fmt.Errorf("failed to create /usr/local/bin: %w", err)
+	}
+	
+	// Copy FFmpeg binary
+	if err := copyFile(ffmpegBinary, installPath); err != nil {
+		return fmt.Errorf("failed to install FFmpeg: %w", err)
+	}
+	
+	// Make executable
+	if err := os.Chmod(installPath, 0755); err != nil {
+		return fmt.Errorf("failed to make FFmpeg executable: %w", err)
+	}
+	
+	// Test installation
+	emitEvent("ffmpeg_install_progress", "Verifying installation...")
+	if !TestFFmpegBinary(installPath) {
+		return fmt.Errorf("FFmpeg installation failed verification")
+	}
+	
+	log.Printf("[FFMPEG] ✅ FFmpeg successfully installed to: %s", installPath)
+	emitEvent("ffmpeg_install_complete", installPath)
+	return nil
+}
+
+// copyFile copies a file from src to dst
+func copyFile(src, dst string) error {
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer sourceFile.Close()
+	
+	destFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destFile.Close()
+	
+	_, err = io.Copy(destFile, sourceFile)
+	return err
+}
 
 // TestFFmpegBinary tests if an FFmpeg binary is working with detailed error reporting (legacy)
 func TestFFmpegBinary(path string) bool {
