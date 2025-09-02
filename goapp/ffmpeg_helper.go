@@ -187,30 +187,26 @@ func CheckFFmpegAvailability() error {
 	return nil
 }
 
-// EnsureFFmpeg ensures FFmpeg is available by downloading it if necessary
+// EnsureFFmpeg ensures FFmpeg is available by always using our app-specific version
 func EnsureFFmpeg() error {
-	log.Printf("[FFMPEG] Ensuring FFmpeg availability")
+	log.Printf("[FFMPEG] Ensuring app-specific FFmpeg availability")
 	
-	// Check if we already have a downloaded FFmpeg
+	// Always use our app-specific FFmpeg (skip system check for consistency)
 	ffmpegPath, err := getDownloadedFFmpegPath()
 	if err == nil {
-		// Test if the downloaded FFmpeg works
+		// Test if our downloaded FFmpeg works
 		if testFFmpegBinary(ffmpegPath) {
-			log.Printf("[FFMPEG] Using downloaded FFmpeg at: %s", ffmpegPath)
+			log.Printf("[FFMPEG] Using app-specific FFmpeg at: %s", ffmpegPath)
+			// Set environment variable for ffmpeg-go to use our binary
+			os.Setenv("FFMPEG_BINARY", ffmpegPath)
 			return nil
 		}
-		log.Printf("[FFMPEG] Downloaded FFmpeg not working, removing and re-downloading")
+		log.Printf("[FFMPEG] App-specific FFmpeg not working, removing and re-downloading")
 		os.Remove(ffmpegPath)
 	}
 	
-	// Try system FFmpeg first
-	if CheckFFmpegAvailability() == nil {
-		log.Printf("[FFMPEG] Using system FFmpeg")
-		return nil
-	}
-	
-	// Download FFmpeg
-	log.Printf("[FFMPEG] Neither downloaded nor system FFmpeg available, downloading...")
+	// Download our controlled FFmpeg version
+	log.Printf("[FFMPEG] App-specific FFmpeg not found, downloading controlled version...")
 	if err := downloadFFmpeg(); err != nil {
 		return fmt.Errorf("failed to download FFmpeg: %w", err)
 	}
@@ -225,11 +221,13 @@ func EnsureFFmpeg() error {
 		return fmt.Errorf("downloaded FFmpeg is not working")
 	}
 	
-	log.Printf("[FFMPEG] Successfully downloaded and verified FFmpeg at: %s", ffmpegPath)
+	// Set environment variable for ffmpeg-go to use our binary
+	os.Setenv("FFMPEG_BINARY", ffmpegPath)
+	log.Printf("[FFMPEG] Successfully downloaded and configured app-specific FFmpeg at: %s", ffmpegPath)
 	return nil
 }
 
-// getDownloadedFFmpegPath returns the path where we store downloaded FFmpeg
+// getDownloadedFFmpegPath returns the path where we store our app-specific FFmpeg
 func getDownloadedFFmpegPath() (string, error) {
 	// Get user data directory (same logic as in app.go)
 	var userDataDir string
@@ -250,9 +248,12 @@ func getDownloadedFFmpegPath() (string, error) {
 		userDataDir = filepath.Join(userConfigDir, "RambleAI")
 	}
 	
+	// Use dedicated binaries subdirectory to avoid conflicts
+	binariesDir := filepath.Join(userDataDir, "binaries")
+	
 	// Create directory if it doesn't exist
-	if err := os.MkdirAll(userDataDir, 0755); err != nil {
-		return "", fmt.Errorf("failed to create app data directory: %w", err)
+	if err := os.MkdirAll(binariesDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create binaries directory: %w", err)
 	}
 	
 	// FFmpeg binary name depends on OS
@@ -261,11 +262,11 @@ func getDownloadedFFmpegPath() (string, error) {
 		binaryName = "ffmpeg.exe"
 	}
 	
-	ffmpegPath := filepath.Join(userDataDir, binaryName)
+	ffmpegPath := filepath.Join(binariesDir, binaryName)
 	
 	// Check if file exists
 	if _, err := os.Stat(ffmpegPath); os.IsNotExist(err) {
-		return "", fmt.Errorf("downloaded FFmpeg not found at %s", ffmpegPath)
+		return "", fmt.Errorf("app-specific FFmpeg not found at %s", ffmpegPath)
 	}
 	
 	return ffmpegPath, nil
@@ -338,8 +339,8 @@ func extractFFmpeg(zipPath string) error {
 	}
 	defer reader.Close()
 	
-	// Get destination path
-	userDataDir := filepath.Dir(zipPath) // Use temp dir first
+	// Get destination path - use same logic as getDownloadedFFmpegPath
+	var userDataDir string
 	if _, err := os.Stat("go.mod"); err == nil {
 		// Development mode
 		cwd, err := os.Getwd()
@@ -354,9 +355,12 @@ func extractFFmpeg(zipPath string) error {
 			return fmt.Errorf("failed to get user config directory: %w", err)
 		}
 		userDataDir = filepath.Join(userConfigDir, "RambleAI")
-		if err := os.MkdirAll(userDataDir, 0755); err != nil {
-			return fmt.Errorf("failed to create app data directory: %w", err)
-		}
+	}
+	
+	// Use dedicated binaries subdirectory
+	binariesDir := filepath.Join(userDataDir, "binaries")
+	if err := os.MkdirAll(binariesDir, 0755); err != nil {
+		return fmt.Errorf("failed to create binaries directory: %w", err)
 	}
 	
 	// Find and extract FFmpeg binary
@@ -374,8 +378,8 @@ func extractFFmpeg(zipPath string) error {
 			}
 			defer rc.Close()
 			
-			// Create destination file
-			destPath := filepath.Join(userDataDir, binaryName)
+			// Create destination file in binaries directory
+			destPath := filepath.Join(binariesDir, binaryName)
 			destFile, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 			if err != nil {
 				return fmt.Errorf("failed to create destination file: %w", err)

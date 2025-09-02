@@ -67,3 +67,4 @@ pb-be/data/
 # Build outputs
 build/
 dist/
+binaries/

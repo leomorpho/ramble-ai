@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"ramble-ai/binaries"
 	"ramble-ai/ent"
 	"ramble-ai/goapp"
 	"ramble-ai/goapp/assetshandler"
@@ -130,9 +129,6 @@ func (a *App) startup(ctx context.Context) {
 
 // shutdown is called when the app shuts down
 func (a *App) shutdown(ctx context.Context) {
-	// Cleanup FFmpeg binary
-	binaries.CleanupFFmpeg()
-
 	// Shutdown real-time manager
 	manager := realtime.GetManager()
 	manager.Shutdown()
