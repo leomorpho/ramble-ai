@@ -15,11 +15,21 @@
       console.log('FFmpeg initialized successfully');
     });
     
-    EventsOn('ffmpeg_error', (error) => {
-      // Only show critical errors for bundled FFmpeg
+    EventsOn('ffmpeg_error', (...args) => {
+      // Show detailed error information from backend
+      console.error('FFmpeg Error args:', args);
+      
+      // Extract the actual error message (might be in args[0] if passed as variadic)
+      let errorMessage = args[0];
+      if (Array.isArray(errorMessage) && errorMessage.length > 0) {
+        errorMessage = errorMessage[0];
+      }
+      
+      console.error('FFmpeg Error message:', errorMessage);
+      
       toast.error('Video processing unavailable', {
-        description: 'FFmpeg not found in app bundle. Please reinstall the application.',
-        duration: 15000,
+        description: errorMessage || 'FFmpeg not found in app bundle. Please reinstall the application.',
+        duration: 20000, // Longer duration for detailed messages
         action: {
           label: 'Reload',
           onClick: () => window.location.reload()

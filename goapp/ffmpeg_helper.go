@@ -65,6 +65,16 @@ func getBundledFFmpegPathMacOSWithDetails(execPath string) (string, string) {
 	log.Printf("[FFMPEG] 🔍 Analyzing executable path for macOS app bundle detection")
 	log.Printf("[FFMPEG] 🔍 Full executable path: %s", execPath)
 	
+	// First, resolve any symlinks in the executable path
+	realExecPath, err := filepath.EvalSymlinks(execPath)
+	if err != nil {
+		log.Printf("[FFMPEG] ⚠️ Could not resolve symlinks in executable path: %v", err)
+		realExecPath = execPath // Fall back to original path
+	} else if realExecPath != execPath {
+		log.Printf("[FFMPEG] 🔍 Resolved symlinks: %s -> %s", execPath, realExecPath)
+		execPath = realExecPath
+	}
+	
 	var possiblePaths []string
 	var detailsBuilder []string
 	

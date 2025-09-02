@@ -116,7 +116,12 @@ func (a *App) startup(ctx context.Context) {
 
 	// Create event emitter function
 	emitEvent := func(eventName string, data ...interface{}) {
-		runtime.EventsEmit(ctx, eventName, data...)
+		// For single string data, emit it directly instead of as an array
+		if len(data) == 1 {
+			runtime.EventsEmit(ctx, eventName, data[0])
+		} else {
+			runtime.EventsEmit(ctx, eventName, data...)
+		}
 	}
 	
 	// Initialize bundled FFmpeg immediately - no delay needed since it's synchronous
