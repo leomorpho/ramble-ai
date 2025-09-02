@@ -134,46 +134,25 @@ jobs:
         shell: bash
       
       # macOS signing with gon - following Wails documentation approach
-      - name: Bundle FFmpeg into app for gon signing
+      - name: Bundle FFmpeg into app (signing happens after certificate import)
         if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
         run: |
-          echo "📦 Bundling FFmpeg binary into app (gon will handle all signing)..."
+          echo "📦 Bundling FFmpeg binary into app..."
           
           # Verify FFmpeg binary exists
           if [ ! -f "build/darwin/binaries/ffmpeg" ]; then
             echo "❌ FFmpeg binary not found at build/darwin/binaries/ffmpeg"
-            echo "🔍 Checking for FFmpeg in other locations:"
-            find build/ -name "ffmpeg" -type f 2>/dev/null || echo "No ffmpeg files found in build/"
             exit 1
           fi
           
-          # Show FFmpeg binary details
-          echo "✅ FFmpeg binary found:"
-          ls -lh "build/darwin/binaries/ffmpeg"
-          file "build/darwin/binaries/ffmpeg"
-          
           # Create Resources/binaries directory in the app bundle
-          echo "📁 Creating app bundle directories..."
-          mkdir -p "build/bin/RambleAI.app/Contents/Resources/binaries" || {
-            echo "❌ Failed to create app bundle directories"
-            exit 1
-          }
+          mkdir -p "build/bin/RambleAI.app/Contents/Resources/binaries"
           
-          # Copy FFmpeg binary into app bundle (no manual signing needed)
-          echo "📋 Copying FFmpeg binary to app bundle..."
-          cp "build/darwin/binaries/ffmpeg" "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg" || {
-            echo "❌ Failed to copy FFmpeg binary"
-            exit 1
-          }
+          # Copy FFmpeg binary into app bundle
+          cp "build/darwin/binaries/ffmpeg" "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg"
+          chmod 755 "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg"
           
-          chmod 755 "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg" || {
-            echo "❌ Failed to set executable permissions"
-            exit 1
-          }
-          
-          echo "✅ FFmpeg bundled successfully:"
-          ls -lh "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg"
-          echo "✅ gon will now sign the complete app bundle (including bundled FFmpeg) for notarization"
+          echo "✅ FFmpeg bundled - will be signed after certificate import"
         shell: bash
       
       - name: Install gon for macOS signing
@@ -235,6 +214,36 @@ jobs:
           echo ""
           echo "Looking for Developer ID Application:"
           security find-identity -v -p codesigning | grep "Developer ID Application" || echo "No Developer ID Application found"
+      
+      - name: Sign FFmpeg binary with hardened runtime
+        if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
+        run: |
+          echo "🔐 Signing bundled FFmpeg binary with hardened runtime..."
+          
+          # Get the Developer ID Application identity
+          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | awk -F'"' '{print $2}')
+          
+          if [[ -z "$IDENTITY" ]]; then
+            echo "❌ No Developer ID Application identity found"
+            exit 1
+          fi
+          
+          echo "✅ Using identity: $IDENTITY"
+          
+          # Sign FFmpeg with hardened runtime for notarization
+          codesign \
+            --force \
+            --timestamp \
+            --options runtime \
+            --entitlements "./build/darwin/entitlements.plist" \
+            --sign "$IDENTITY" \
+            "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg"
+          
+          # Verify FFmpeg signature
+          codesign --verify --verbose "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg"
+          
+          echo "✅ FFmpeg signed with hardened runtime - gon will sign the main app bundle"
+        shell: bash
       
       - name: Create gon configuration with actual values
         if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
