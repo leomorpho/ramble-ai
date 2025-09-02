@@ -114,25 +114,17 @@ func (a *App) startup(ctx context.Context) {
 
 	log.Println("Database initialized and migrations applied")
 
-	// Initialize FFmpeg (auto-download if necessary)
-	settingsService := settings.NewSettingsService(a.client, ctx)
-	
 	// Create event emitter function
 	emitEvent := func(eventName string, data ...interface{}) {
 		runtime.EventsEmit(ctx, eventName, data...)
 	}
 	
-	// Start FFmpeg initialization with a small delay to allow frontend to set up event listeners
-	go func() {
-		// Give the frontend time to set up event listeners
-		time.Sleep(1 * time.Second)
-		
-		if err := goapp.EnsureFFmpeg(ctx, settingsService, emitEvent); err != nil {
-			log.Printf("Failed to ensure FFmpeg availability: %v", err)
-		} else {
-			log.Printf("FFmpeg initialized successfully")
-		}
-	}()
+	// Initialize bundled FFmpeg immediately - no delay needed since it's synchronous
+	if err := goapp.EnsureFFmpeg(ctx, nil, emitEvent); err != nil {
+		log.Printf("Failed to ensure FFmpeg availability: %v", err)
+	} else {
+		log.Printf("FFmpeg initialized successfully")
+	}
 
 	// Recover any incomplete export jobs
 	if err := a.RecoverActiveExportJobs(); err != nil {
@@ -957,25 +949,10 @@ func (a *App) GetAppVersion() version.Info {
 	return version.Get()
 }
 
-// IsFFmpegReady checks if FFmpeg is downloaded and ready for use
+// IsFFmpegReady checks if bundled FFmpeg is available
 func (a *App) IsFFmpegReady() bool {
-	settingsService := settings.NewSettingsService(a.client, a.ctx)
-	ready, err := settingsService.GetFFmpegReady()
-	if err != nil {
-		log.Printf("Failed to check FFmpeg readiness: %v", err)
-		return false
-	}
-	
-	// Also verify the binary actually exists and works
-	if ready {
-		ffmpegPath, err := goapp.GetDownloadedFFmpegPath()
-		if err != nil || !goapp.TestFFmpegBinary(ffmpegPath) {
-			// Binary missing or not working, reset database flag
-			settingsService.SaveFFmpegReady(false)
-			return false
-		}
-	}
-	
-	return ready
+	// Check if bundled FFmpeg is available and working
+	bundledPath := goapp.GetBundledFFmpegPath()
+	return bundledPath != "" && goapp.TestFFmpegBinary(bundledPath)
 }
 

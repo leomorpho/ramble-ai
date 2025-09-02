@@ -525,9 +525,9 @@
       // Check if FFmpeg is ready
       const ffmpegReady = await IsFFmpegReady();
       if (!ffmpegReady) {
-        toast.warning('Media processing not ready', {
-          description: 'Please wait for setup to complete',
-          duration: 3000
+        toast.error('Video processing unavailable', {
+          description: 'FFmpeg not found. Please restart the application.',
+          duration: 5000
         });
         return;
       }
@@ -655,9 +655,9 @@
       // Check if FFmpeg is ready
       const ffmpegReady = await IsFFmpegReady();
       if (!ffmpegReady) {
-        toast.warning('Media processing not ready', {
-          description: 'Please wait for setup to complete',
-          duration: 3000
+        toast.error('Video processing unavailable', {
+          description: 'FFmpeg not found. Please restart the application.',
+          duration: 5000
         });
         batchTranscribing = false;
         return;
