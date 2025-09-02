@@ -22,7 +22,7 @@
       toast.dismiss('ffmpeg');
       toast.success('Ready to transcribe!', {
         description: 'You can now transcribe videos',
-        duration: 3000
+        duration: 10000
       });
     });
     
