@@ -11,6 +11,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
+	"time"
 
 	ffmpeg "github.com/u2takey/ffmpeg-go"
 )
@@ -190,54 +192,87 @@ func CheckFFmpegAvailability() error {
 
 // EnsureFFmpeg ensures FFmpeg is available by always using our app-specific version
 func EnsureFFmpeg(ctx context.Context, settingsService interface{ GetFFmpegReady() (bool, error); SaveFFmpegReady(bool) error }, emitEvent func(string, ...interface{})) error {
-	log.Printf("[FFMPEG] Ensuring app-specific FFmpeg availability")
+	// Detect environment
+	isCI := os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true"
+	
+	log.Printf("[FFMPEG] === FFmpeg Initialization Started ===")
+	log.Printf("[FFMPEG] Platform: %s/%s", runtime.GOOS, runtime.GOARCH)
+	log.Printf("[FFMPEG] CI Environment: %v", isCI)
+	log.Printf("[FFMPEG] Working Directory: %s", func() string { wd, _ := os.Getwd(); return wd }())
 	
 	// Check database first
 	if ready, err := settingsService.GetFFmpegReady(); err == nil && ready {
+		log.Printf("[FFMPEG] Database indicates FFmpeg is ready, verifying...")
 		ffmpegPath, err := GetDownloadedFFmpegPath()
 		if err == nil && TestFFmpegBinary(ffmpegPath) {
-			log.Printf("[FFMPEG] Using app-specific FFmpeg at: %s", ffmpegPath)
+			log.Printf("[FFMPEG] ✅ Using existing app-specific FFmpeg at: %s", ffmpegPath)
 			os.Setenv("FFMPEG_BINARY", ffmpegPath)
 			return nil
 		}
 		// Binary missing despite DB flag - reset flag and re-download
-		log.Printf("[FFMPEG] App-specific FFmpeg not working despite DB flag, re-downloading")
+		log.Printf("[FFMPEG] ⚠️ App-specific FFmpeg not working despite DB flag, re-downloading")
+		log.Printf("[FFMPEG] Path error: %v", err)
 		settingsService.SaveFFmpegReady(false)
+	} else if err != nil {
+		log.Printf("[FFMPEG] Database check failed: %v", err)
 	}
 	
 	// Emit download start event
 	emitEvent("ffmpeg_downloading")
-	log.Printf("[FFMPEG] App-specific FFmpeg not found, downloading controlled version...")
+	log.Printf("[FFMPEG] 📥 Starting FFmpeg download process...")
 	
 	if err := downloadFFmpeg(); err != nil {
 		errorMsg := fmt.Sprintf("failed to download FFmpeg: %v", err)
+		log.Printf("[FFMPEG] ❌ Download failed: %s", errorMsg)
 		emitEvent("ffmpeg_error", errorMsg)
 		return fmt.Errorf(errorMsg)
 	}
+	
+	log.Printf("[FFMPEG] Download completed, verifying binary...")
 	
 	// Test the newly downloaded FFmpeg
 	ffmpegPath, err := GetDownloadedFFmpegPath()
 	if err != nil {
 		errorMsg := fmt.Sprintf("failed to get downloaded FFmpeg path: %v", err)
+		log.Printf("[FFMPEG] ❌ Path lookup failed: %s", errorMsg)
 		emitEvent("ffmpeg_error", errorMsg)
 		return fmt.Errorf(errorMsg)
 	}
 	
+	log.Printf("[FFMPEG] Testing downloaded FFmpeg binary...")
 	if !TestFFmpegBinary(ffmpegPath) {
-		errorMsg := "downloaded FFmpeg is not working"
+		// Provide more detailed error information for troubleshooting
+		fileInfo, statErr := os.Stat(ffmpegPath)
+		var fileDetails string
+		if statErr == nil {
+			fileDetails = fmt.Sprintf(" (size: %d bytes, mode: %s)", fileInfo.Size(), fileInfo.Mode())
+		} else {
+			fileDetails = fmt.Sprintf(" (stat error: %v)", statErr)
+		}
+		
+		errorMsg := fmt.Sprintf("downloaded FFmpeg is not working%s", fileDetails)
+		if isCI {
+			errorMsg += " - this may be due to CI security restrictions or missing dependencies"
+		}
+		
+		log.Printf("[FFMPEG] ❌ Binary test failed: %s", errorMsg)
 		emitEvent("ffmpeg_error", errorMsg)
 		return fmt.Errorf(errorMsg)
 	}
 	
 	// Mark as ready in database
-	settingsService.SaveFFmpegReady(true)
+	if err := settingsService.SaveFFmpegReady(true); err != nil {
+		log.Printf("[FFMPEG] ⚠️ Warning: failed to save ready state to database: %v", err)
+	}
 	
 	// Set environment variable for ffmpeg-go to use our binary
 	os.Setenv("FFMPEG_BINARY", ffmpegPath)
+	log.Printf("[FFMPEG] Set FFMPEG_BINARY environment variable to: %s", ffmpegPath)
 	
 	// Emit completion event
 	emitEvent("ffmpeg_ready")
-	log.Printf("[FFMPEG] Successfully downloaded and configured app-specific FFmpeg at: %s", ffmpegPath)
+	log.Printf("[FFMPEG] ✅ Successfully configured app-specific FFmpeg")
+	log.Printf("[FFMPEG] === FFmpeg Initialization Complete ===")
 	return nil
 }
 
@@ -286,19 +321,68 @@ func GetDownloadedFFmpegPath() (string, error) {
 	return ffmpegPath, nil
 }
 
-// TestFFmpegBinary tests if an FFmpeg binary is working
+// TestFFmpegBinary tests if an FFmpeg binary is working with detailed error reporting
 func TestFFmpegBinary(path string) bool {
-	_, err := exec.Command(path, "-version").CombinedOutput()
-	return err == nil
+	log.Printf("[FFMPEG] Testing binary at: %s", path)
+	
+	// Check if file exists and get info
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		log.Printf("[FFMPEG] Binary file check failed: %v", err)
+		return false
+	}
+	
+	log.Printf("[FFMPEG] Binary file info - Size: %d bytes, Mode: %s", fileInfo.Size(), fileInfo.Mode())
+	
+	// Check if file is executable
+	if fileInfo.Mode().Perm()&0111 == 0 {
+		log.Printf("[FFMPEG] Binary is not executable, attempting to fix permissions")
+		if err := os.Chmod(path, 0755); err != nil {
+			log.Printf("[FFMPEG] Failed to set executable permissions: %v", err)
+			return false
+		}
+		log.Printf("[FFMPEG] Set executable permissions on binary")
+	}
+	
+	// Test FFmpeg execution
+	cmd := exec.Command(path, "-version")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("[FFMPEG] Binary execution failed: %v", err)
+		log.Printf("[FFMPEG] Command output: %s", string(output))
+		
+		// Check for specific macOS security issues
+		if runtime.GOOS == "darwin" && strings.Contains(string(output), "killed") {
+			log.Printf("[FFMPEG] Possible macOS security/quarantine issue detected")
+		}
+		
+		return false
+	}
+	
+	// Log successful execution info
+	outputStr := strings.TrimSpace(string(output))
+	firstLine := strings.Split(outputStr, "\n")[0]
+	log.Printf("[FFMPEG] Binary test successful: %s", firstLine)
+	return true
 }
 
 // downloadFFmpeg downloads FFmpeg for the current platform
 func downloadFFmpeg() error {
+	// Detect CI environment
+	isCI := os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true"
+	
+	log.Printf("[FFMPEG] Starting download for platform: %s/%s (CI: %v)", runtime.GOOS, runtime.GOARCH, isCI)
+	
 	// Map Go runtime to ffbinaries platform
 	var platform string
-	switch runtime.GOOS + "/" + runtime.GOARCH {
-	case "darwin/amd64", "darwin/arm64":
+	currentPlatform := runtime.GOOS + "/" + runtime.GOARCH
+	switch currentPlatform {
+	case "darwin/amd64":
 		platform = "macos-64"
+		log.Printf("[FFMPEG] Using Intel macOS binary")
+	case "darwin/arm64":
+		platform = "macos-64"  // ffbinaries doesn't have separate ARM build yet
+		log.Printf("[FFMPEG] Using Intel macOS binary for ARM Mac (Rosetta 2)")
 	case "linux/amd64":
 		platform = "linux-64"
 	case "linux/386":
@@ -308,23 +392,55 @@ func downloadFFmpeg() error {
 	case "windows/amd64":
 		platform = "windows-64"
 	default:
-		return fmt.Errorf("unsupported platform: %s/%s", runtime.GOOS, runtime.GOARCH)
+		return fmt.Errorf("unsupported platform: %s", currentPlatform)
 	}
 	
 	// Get download URL from ffbinaries API
 	downloadURL := fmt.Sprintf("https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-%s.zip", platform)
 	log.Printf("[FFMPEG] Downloading from: %s", downloadURL)
 	
-	// Download the zip file
-	resp, err := http.Get(downloadURL)
-	if err != nil {
-		return fmt.Errorf("failed to download FFmpeg: %w", err)
+	// Download the zip file with retry logic
+	var resp *http.Response
+	var downloadErr error
+	maxRetries := 3
+	
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		log.Printf("[FFMPEG] Download attempt %d/%d", attempt, maxRetries)
+		
+		client := &http.Client{
+			Timeout: 60 * time.Second, // 60-second timeout
+		}
+		
+		resp, downloadErr = client.Get(downloadURL)
+		if downloadErr == nil && resp.StatusCode == http.StatusOK {
+			log.Printf("[FFMPEG] Download successful on attempt %d", attempt)
+			break
+		}
+		
+		if resp != nil {
+			resp.Body.Close()
+			log.Printf("[FFMPEG] Download attempt %d failed: HTTP %d", attempt, resp.StatusCode)
+		} else {
+			log.Printf("[FFMPEG] Download attempt %d failed: %v", attempt, downloadErr)
+		}
+		
+		if attempt < maxRetries {
+			waitTime := time.Duration(attempt) * 2 * time.Second
+			log.Printf("[FFMPEG] Waiting %v before retry", waitTime)
+			time.Sleep(waitTime)
+		}
+	}
+	
+	if downloadErr != nil || resp.StatusCode != http.StatusOK {
+		if resp != nil {
+			defer resp.Body.Close()
+			return fmt.Errorf("failed to download FFmpeg after %d attempts: HTTP %d", maxRetries, resp.StatusCode)
+		}
+		return fmt.Errorf("failed to download FFmpeg after %d attempts: %w", maxRetries, downloadErr)
 	}
 	defer resp.Body.Close()
 	
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to download FFmpeg: HTTP %d", resp.StatusCode)
-	}
+	log.Printf("[FFMPEG] Download completed successfully, Content-Length: %s", resp.Header.Get("Content-Length"))
 	
 	// Get app data directory for temp file - same logic as getDownloadedFFmpegPath
 	var userDataDir string
@@ -431,9 +547,38 @@ func extractFFmpeg(zipPath string) error {
 			
 			log.Printf("[FFMPEG] Extracted FFmpeg to: %s", destPath)
 			
-			// Remove quarantine on macOS
+			// Set executable permissions explicitly
+			if err := os.Chmod(destPath, 0755); err != nil {
+				log.Printf("[FFMPEG] Warning: failed to set executable permissions: %v", err)
+			}
+			
+			// Remove quarantine and security attributes on macOS
 			if runtime.GOOS == "darwin" {
-				exec.Command("xattr", "-d", "com.apple.quarantine", destPath).Run()
+				log.Printf("[FFMPEG] Removing macOS security attributes")
+				
+				// Remove quarantine attribute
+				cmd := exec.Command("xattr", "-d", "com.apple.quarantine", destPath)
+				if output, err := cmd.CombinedOutput(); err != nil {
+					log.Printf("[FFMPEG] Quarantine removal failed: %v, output: %s", err, string(output))
+				} else {
+					log.Printf("[FFMPEG] Successfully removed quarantine attribute")
+				}
+				
+				// Remove all extended attributes as a more aggressive approach
+				cmd = exec.Command("xattr", "-c", destPath)
+				if output, err := cmd.CombinedOutput(); err != nil {
+					log.Printf("[FFMPEG] Extended attributes clearing failed: %v, output: %s", err, string(output))
+				} else {
+					log.Printf("[FFMPEG] Cleared all extended attributes")
+				}
+				
+				// Set additional execute permissions if in CI
+				if os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true" {
+					log.Printf("[FFMPEG] CI environment detected, setting additional permissions")
+					if err := os.Chmod(destPath, 0755); err != nil {
+						log.Printf("[FFMPEG] Failed to set CI permissions: %v", err)
+					}
+				}
 			}
 			
 			return nil
