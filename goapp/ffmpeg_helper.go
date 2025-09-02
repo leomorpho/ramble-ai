@@ -64,6 +64,7 @@ func getBundledFFmpegPathMacOS(execPath string) string {
 func getBundledFFmpegPathMacOSWithDetails(execPath string) (string, string) {
 	log.Printf("[FFMPEG] 🔍 Analyzing executable path for macOS app bundle detection")
 	log.Printf("[FFMPEG] 🔍 Full executable path: %s", execPath)
+	log.Printf("[FFMPEG] 🔍 CPU Architecture: %s", runtime.GOARCH)
 	
 	// First, resolve any symlinks in the executable path
 	realExecPath, err := filepath.EvalSymlinks(execPath)
@@ -75,10 +76,26 @@ func getBundledFFmpegPathMacOSWithDetails(execPath string) (string, string) {
 		execPath = realExecPath
 	}
 	
+	// Determine the FFmpeg binary suffix based on architecture
+	var ffmpegSuffix string
+	switch runtime.GOARCH {
+	case "arm64":
+		ffmpegSuffix = "-arm64"
+		log.Printf("[FFMPEG] 🔍 Using ARM64 binary for Apple Silicon")
+	case "amd64":
+		ffmpegSuffix = "-x86_64"
+		log.Printf("[FFMPEG] 🔍 Using x86_64 binary for Intel")
+	default:
+		// Fall back to no suffix (legacy single binary)
+		ffmpegSuffix = ""
+		log.Printf("[FFMPEG] ⚠️ Unknown architecture %s, trying legacy single binary", runtime.GOARCH)
+	}
+	
 	var possiblePaths []string
 	var detailsBuilder []string
 	
 	detailsBuilder = append(detailsBuilder, fmt.Sprintf("Executable path: %s", execPath))
+	detailsBuilder = append(detailsBuilder, fmt.Sprintf("CPU Architecture: %s", runtime.GOARCH))
 	
 	// Check if we're inside an app bundle (path contains .app/Contents/MacOS/)
 	if strings.Contains(execPath, ".app/Contents/MacOS/") {
@@ -88,14 +105,26 @@ func getBundledFFmpegPathMacOSWithDetails(execPath string) (string, string) {
 		// Method 1: Direct path extraction (most reliable for bundled apps)
 		if parts := strings.Split(execPath, ".app/Contents/MacOS/"); len(parts) >= 2 {
 			appContentsDir := parts[0] + ".app/Contents"
+			
+			// Try architecture-specific binary first
+			if ffmpegSuffix != "" {
+				bundledPath := filepath.Join(appContentsDir, "Resources", "binaries", "ffmpeg"+ffmpegSuffix)
+				possiblePaths = append(possiblePaths, bundledPath)
+				log.Printf("[FFMPEG] 🔍 Primary path (arch-specific): %s", bundledPath)
+			}
+			
+			// Fall back to generic binary
 			bundledPath := filepath.Join(appContentsDir, "Resources", "binaries", "ffmpeg")
 			possiblePaths = append(possiblePaths, bundledPath)
-			log.Printf("[FFMPEG] 🔍 Constructed bundled path from executable: %s", bundledPath)
-			detailsBuilder = append(detailsBuilder, fmt.Sprintf("Primary path: %s", bundledPath))
+			log.Printf("[FFMPEG] 🔍 Fallback path (generic): %s", bundledPath)
+			
+			detailsBuilder = append(detailsBuilder, fmt.Sprintf("Looking for ffmpeg%s", ffmpegSuffix))
 		}
 		
 		// Method 2: Standard installation locations
 		standardPaths := []string{
+			"/Applications/RambleAI.app/Contents/Resources/binaries/ffmpeg" + ffmpegSuffix,
+			filepath.Join(os.Getenv("HOME"), "Applications", "RambleAI.app", "Contents", "Resources", "binaries", "ffmpeg"+ffmpegSuffix),
 			"/Applications/RambleAI.app/Contents/Resources/binaries/ffmpeg",
 			filepath.Join(os.Getenv("HOME"), "Applications", "RambleAI.app", "Contents", "Resources", "binaries", "ffmpeg"),
 		}
@@ -107,10 +136,17 @@ func getBundledFFmpegPathMacOSWithDetails(execPath string) (string, string) {
 		
 		// Development build locations
 		if wd, err := os.Getwd(); err == nil {
+			// Try architecture-specific binary first
+			if ffmpegSuffix != "" {
+				devFFmpegPath := filepath.Join(wd, "build", "bin", "RambleAI.app", "Contents", "Resources", "binaries", "ffmpeg"+ffmpegSuffix)
+				possiblePaths = append(possiblePaths, devFFmpegPath)
+			}
+			
+			// Fall back to generic binary
 			devFFmpegPath := filepath.Join(wd, "build", "bin", "RambleAI.app", "Contents", "Resources", "binaries", "ffmpeg")
 			possiblePaths = append(possiblePaths, devFFmpegPath)
-			log.Printf("[FFMPEG] 🔍 Added development path: %s", devFFmpegPath)
-			detailsBuilder = append(detailsBuilder, fmt.Sprintf("Development path: %s", devFFmpegPath))
+			log.Printf("[FFMPEG] 🔍 Added development paths")
+			detailsBuilder = append(detailsBuilder, fmt.Sprintf("Development path with suffix: ffmpeg%s", ffmpegSuffix))
 		}
 	}
 	

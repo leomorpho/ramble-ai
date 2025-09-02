@@ -46,14 +46,56 @@ sign_macos() {
     
     echo "Re-signing with identity: $APPLE_DEVELOPER_ID"
     
-    # Bundle and sign FFmpeg binary if it exists
-    if [[ -f "./build/darwin/binaries/ffmpeg" ]]; then
-      echo "📦 Bundling FFmpeg binary into app..."
-      mkdir -p "$1/Contents/Resources/binaries"
+    # Bundle and sign FFmpeg binaries if they exist
+    mkdir -p "$1/Contents/Resources/binaries"
+    
+    # Handle ARM64 FFmpeg binary
+    if [[ -f "./build/darwin/binaries/ffmpeg-arm64" ]]; then
+      echo "📦 Bundling ARM64 FFmpeg binary into app..."
+      cp "./build/darwin/binaries/ffmpeg-arm64" "$1/Contents/Resources/binaries/ffmpeg-arm64"
+      chmod 755 "$1/Contents/Resources/binaries/ffmpeg-arm64"
+      
+      echo "🔐 Signing ARM64 FFmpeg binary with hardened runtime..."
+      codesign \
+        --force \
+        --timestamp \
+        --options runtime \
+        --entitlements "./build/darwin/entitlements.plist" \
+        --sign "${APPLE_DEVELOPER_ID}" \
+        "$1/Contents/Resources/binaries/ffmpeg-arm64"
+      
+      echo "✅ Verifying ARM64 FFmpeg signature..."
+      codesign --verify --verbose "$1/Contents/Resources/binaries/ffmpeg-arm64"
+      echo "✅ ARM64 FFmpeg bundled and signed with hardened runtime"
+    fi
+    
+    # Handle Intel FFmpeg binary
+    if [[ -f "./build/darwin/binaries/ffmpeg-x86_64" ]]; then
+      echo "📦 Bundling Intel FFmpeg binary into app..."
+      cp "./build/darwin/binaries/ffmpeg-x86_64" "$1/Contents/Resources/binaries/ffmpeg-x86_64"
+      chmod 755 "$1/Contents/Resources/binaries/ffmpeg-x86_64"
+      
+      echo "🔐 Signing Intel FFmpeg binary with hardened runtime..."
+      codesign \
+        --force \
+        --timestamp \
+        --options runtime \
+        --entitlements "./build/darwin/entitlements.plist" \
+        --sign "${APPLE_DEVELOPER_ID}" \
+        "$1/Contents/Resources/binaries/ffmpeg-x86_64"
+      
+      echo "✅ Verifying Intel FFmpeg signature..."
+      codesign --verify --verbose "$1/Contents/Resources/binaries/ffmpeg-x86_64"
+      echo "✅ Intel FFmpeg bundled and signed with hardened runtime"
+    fi
+    
+    # Fall back to legacy single binary if neither architecture-specific binary exists
+    if [[ -f "./build/darwin/binaries/ffmpeg" && ! -f "$1/Contents/Resources/binaries/ffmpeg-arm64" && ! -f "$1/Contents/Resources/binaries/ffmpeg-x86_64" ]]; then
+      echo "📦 Bundling legacy FFmpeg binary into app..."
       cp "./build/darwin/binaries/ffmpeg" "$1/Contents/Resources/binaries/ffmpeg"
       chmod 755 "$1/Contents/Resources/binaries/ffmpeg"
       
-      echo "🔐 Signing FFmpeg binary with hardened runtime..."
+      echo "🔐 Signing legacy FFmpeg binary with hardened runtime..."
       codesign \
         --force \
         --timestamp \
@@ -62,9 +104,9 @@ sign_macos() {
         --sign "${APPLE_DEVELOPER_ID}" \
         "$1/Contents/Resources/binaries/ffmpeg"
       
-      echo "✅ Verifying FFmpeg signature..."
+      echo "✅ Verifying legacy FFmpeg signature..."
       codesign --verify --verbose "$1/Contents/Resources/binaries/ffmpeg"
-      echo "✅ FFmpeg bundled and signed with hardened runtime"
+      echo "✅ Legacy FFmpeg bundled and signed with hardened runtime"
     fi
     
     # Sign the executable first with --force to overwrite existing signature
