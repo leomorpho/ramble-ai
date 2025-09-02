@@ -45,6 +45,19 @@ sign_macos() {
     fi
     
     echo "Re-signing with identity: $APPLE_DEVELOPER_ID"
+    
+    # Copy and sign FFmpeg binary if it exists
+    if [[ -f "./build/darwin/binaries/ffmpeg" ]]; then
+      echo "📦 Bundling FFmpeg binary into app..."
+      mkdir -p "$1/Contents/Resources/binaries"
+      cp "./build/darwin/binaries/ffmpeg" "$1/Contents/Resources/binaries/ffmpeg"
+      chmod 755 "$1/Contents/Resources/binaries/ffmpeg"
+      
+      echo "🔐 Signing bundled FFmpeg binary..."
+      codesign --force --timestamp --options=runtime -s "${APPLE_DEVELOPER_ID}" -v "$1/Contents/Resources/binaries/ffmpeg"
+      echo "✅ FFmpeg binary signed and bundled"
+    fi
+    
     # Sign the executable first with --force to overwrite existing signature
     if [[ -f "$1/Contents/MacOS/RambleAI" ]]; then
       codesign --force --timestamp --options=runtime --entitlements "./build/darwin/entitlements.plist" -s "${APPLE_DEVELOPER_ID}" -v "$1/Contents/MacOS/RambleAI"

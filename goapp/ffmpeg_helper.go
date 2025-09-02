@@ -32,27 +32,79 @@ func getBundledFFmpegPath() string {
 		log.Printf("[FFMPEG] Failed to get executable path: %v", err)
 		return ""
 	}
-
+	
 	log.Printf("[FFMPEG] Executable path: %s", execPath)
 
-	// Check if we're inside an app bundle (path contains .app/Contents/MacOS/)
-	execDir := filepath.Dir(execPath)
-	log.Printf("[FFMPEG] Executable directory: %s", execDir)
-	log.Printf("[FFMPEG] Base of exec dir: %s", filepath.Base(execDir))
-	log.Printf("[FFMPEG] Dir of exec dir: %s", filepath.Dir(execDir))
-	log.Printf("[FFMPEG] Base of dir of exec dir: %s", filepath.Base(filepath.Dir(execDir)))
-	log.Printf("[FFMPEG] Extension of dir of dir of exec dir: %s", filepath.Ext(filepath.Dir(filepath.Dir(execDir))))
+	// Detect platform and get platform-specific bundled paths
+	switch runtime.GOOS {
+	case "darwin":
+		return getBundledFFmpegPathMacOS(execPath)
+	case "windows":
+		// TODO: Implement Windows bundled FFmpeg detection
+		log.Printf("[FFMPEG] Windows bundled FFmpeg support not yet implemented")
+		return ""
+	case "linux":
+		// TODO: Implement Linux bundled FFmpeg detection  
+		log.Printf("[FFMPEG] Linux bundled FFmpeg support not yet implemented")
+		return ""
+	default:
+		log.Printf("[FFMPEG] Unsupported platform for bundled FFmpeg: %s", runtime.GOOS)
+		return ""
+	}
+}
 
-	if filepath.Base(execDir) == "MacOS" && 
-	   filepath.Base(filepath.Dir(execDir)) == "Contents" && 
-	   filepath.Ext(filepath.Dir(filepath.Dir(execDir))) == ".app" {
-		// We're in an app bundle - look for ffmpeg alongside the main executable
-		bundledPath := filepath.Join(execDir, "ffmpeg")
-		log.Printf("[FFMPEG] App bundle detected, bundled FFmpeg path: %s", bundledPath)
-		return bundledPath
+func getBundledFFmpegPathMacOS(execPath string) string {
+	// Check if we're inside an app bundle (path contains .app/Contents/MacOS/)
+	if !strings.Contains(execPath, ".app/Contents/MacOS/") {
+		// Not in app bundle - check for development build
+		if wd, err := os.Getwd(); err == nil {
+			devFFmpegPath := filepath.Join(wd, "build", "bin", "RambleAI.app", "Contents", "Resources", "binaries", "ffmpeg")
+			log.Printf("[FFMPEG] Looking for dev FFmpeg at: %s", devFFmpegPath)
+			if _, err := os.Stat(devFFmpegPath); err == nil {
+				log.Printf("[FFMPEG] ✅ Found development FFmpeg binary")
+				return devFFmpegPath
+			}
+		}
+		log.Printf("[FFMPEG] Not in app bundle and no dev build found")
+		return ""
 	}
 
-	log.Printf("[FFMPEG] Not in an app bundle")
+	// We're in an app bundle - try multiple possible locations
+	var possiblePaths []string
+	
+	// Method 1: Direct path extraction (works for non-sandboxed apps)
+	if parts := strings.Split(execPath, ".app/Contents/MacOS/"); len(parts) >= 2 {
+		appContentsDir := parts[0] + ".app/Contents"
+		possiblePaths = append(possiblePaths, filepath.Join(appContentsDir, "Resources", "binaries", "ffmpeg"))
+	}
+	
+	// Method 2: Common installation locations (for sandboxed apps)
+	possiblePaths = append(possiblePaths, 
+		"/Applications/RambleAI.app/Contents/Resources/binaries/ffmpeg",
+		filepath.Join(os.Getenv("HOME"), "Applications", "RambleAI.app", "Contents", "Resources", "binaries", "ffmpeg"),
+	)
+	
+	// Method 3: Development/testing location
+	possiblePaths = append(possiblePaths, 
+		"/Users/leoaudibert/Workspace/ramble-ai/build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg",
+	)
+	if wd, err := os.Getwd(); err == nil {
+		buildPath := filepath.Join(wd, "build", "bin", "RambleAI.app", "Contents", "Resources", "binaries", "ffmpeg")
+		possiblePaths = append(possiblePaths, buildPath)
+	}
+	
+	// Try each possible path
+	for _, bundledFFmpegPath := range possiblePaths {
+		log.Printf("[FFMPEG] Looking for bundled FFmpeg at: %s", bundledFFmpegPath)
+		if _, err := os.Stat(bundledFFmpegPath); err == nil {
+			log.Printf("[FFMPEG] ✅ Found bundled FFmpeg binary")
+			return bundledFFmpegPath
+		} else {
+			log.Printf("[FFMPEG] Bundled FFmpeg not found at this path: %v", err)
+		}
+	}
+	
+	log.Printf("[FFMPEG] No bundled FFmpeg found in any macOS location")
 	return ""
 }
 
@@ -221,7 +273,19 @@ func EnsureFFmpeg(ctx context.Context, settingsService interface{ GetFFmpegReady
 	log.Printf("[FFMPEG] CI Environment: %v", isCI)
 	log.Printf("[FFMPEG] Working Directory: %s", func() string { wd, _ := os.Getwd(); return wd }())
 	
-	// Check database first
+	// First, check for bundled FFmpeg binary in the app bundle
+	if bundledPath := getBundledFFmpegPath(); bundledPath != "" {
+		log.Printf("[FFMPEG] Testing bundled FFmpeg binary...")
+		if TestFFmpegBinary(bundledPath) {
+			log.Printf("[FFMPEG] ✅ Using bundled FFmpeg binary at: %s", bundledPath)
+			os.Setenv("FFMPEG_BINARY", bundledPath)
+			emitEvent("ffmpeg_ready")
+			return nil
+		}
+		log.Printf("[FFMPEG] ⚠️ Bundled FFmpeg binary failed tests")
+	}
+	
+	// Fall back to checking database for downloaded version
 	if ready, err := settingsService.GetFFmpegReady(); err == nil && ready {
 		log.Printf("[FFMPEG] Database indicates FFmpeg is ready, verifying...")
 		ffmpegPath, err := GetDownloadedFFmpegPath()
@@ -694,6 +758,16 @@ func extractFFmpeg(zipPath string) error {
 					if err := os.Chmod(destPath, 0755); err != nil {
 						log.Printf("[FFMPEG] Failed to set CI permissions: %v", err)
 					}
+				}
+				
+				// Try to sign the downloaded FFmpeg binary for sandboxed execution
+				log.Printf("[FFMPEG] Attempting to sign downloaded FFmpeg binary...")
+				signCmd := exec.Command("codesign", "--force", "--sign", "-", destPath)
+				if output, err := signCmd.CombinedOutput(); err != nil {
+					log.Printf("[FFMPEG] Binary signing failed: %v, output: %s", err, string(output))
+					log.Printf("[FFMPEG] Will attempt execution anyway")
+				} else {
+					log.Printf("[FFMPEG] Successfully signed downloaded FFmpeg binary")
 				}
 			}
 			

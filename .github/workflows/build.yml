@@ -50,7 +50,7 @@ jobs:
           echo "Building Wails app..."
           echo "Current platform: ${{ matrix.platform }}"
           echo "Building universal macOS binary (Intel + ARM)"
-          echo "FFmpeg will be auto-downloaded by the app when needed"
+          echo "FFmpeg will be bundled in the app during signing"
           
           echo "Starting Wails universal build..."
           wails build -platform "darwin/universal" -v 2 || {
@@ -61,6 +61,36 @@ jobs:
           echo "✅ Wails universal build completed successfully"
       
       
+      - name: Pre-download FFmpeg for bundling
+        if: matrix.platform == 'macos-latest'
+        run: |
+          echo "📦 Pre-downloading FFmpeg for bundling into app..."
+          
+          # Create directory for FFmpeg binary
+          mkdir -p build/darwin/binaries
+          
+          # Download macOS FFmpeg binary (works on both Intel and ARM via Rosetta)
+          FFMPEG_URL="https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-macos-64.zip"
+          echo "Downloading FFmpeg from: $FFMPEG_URL"
+          
+          curl -L -o build/darwin/ffmpeg.zip "$FFMPEG_URL" || {
+            echo "❌ Failed to download FFmpeg"
+            exit 1
+          }
+          
+          # Extract FFmpeg binary
+          cd build/darwin
+          unzip ffmpeg.zip
+          mv ffmpeg binaries/ffmpeg
+          chmod +x binaries/ffmpeg
+          rm ffmpeg.zip
+          
+          # Verify download
+          echo "✅ FFmpeg downloaded successfully:"
+          ls -lh binaries/ffmpeg
+          ./binaries/ffmpeg -version | head -1
+        shell: bash
+      
       - name: Verify app build
         run: |
           echo "Verifying app build completed successfully..."
@@ -68,7 +98,7 @@ jobs:
             if [ -f "build/bin/RambleAI.app/Contents/MacOS/RambleAI" ]; then
               echo "✅ App binary found: build/bin/RambleAI.app/Contents/MacOS/RambleAI"
               ls -lh build/bin/RambleAI.app/Contents/MacOS/RambleAI
-              echo "✅ App build verification completed - will auto-download FFmpeg when needed"
+              echo "✅ App build verification completed - FFmpeg will be bundled during signing"
             else
               echo "❌ ERROR: App binary not found!"
               exit 1
@@ -104,6 +134,30 @@ jobs:
         shell: bash
       
       # macOS signing with gon - following Wails documentation approach
+      - name: Bundle FFmpeg into app before signing
+        if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
+        run: |
+          echo "📦 Bundling FFmpeg binary into app before signing..."
+          
+          # Verify FFmpeg binary exists
+          if [ ! -f "build/darwin/binaries/ffmpeg" ]; then
+            echo "❌ FFmpeg binary not found at build/darwin/binaries/ffmpeg"
+            exit 1
+          fi
+          
+          # Create Resources/binaries directory in the app bundle
+          mkdir -p "build/bin/RambleAI.app/Contents/Resources/binaries"
+          
+          # Copy FFmpeg binary into app bundle
+          cp "build/darwin/binaries/ffmpeg" "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg"
+          chmod 755 "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg"
+          
+          # Verify bundling
+          echo "✅ FFmpeg bundled successfully:"
+          ls -lh "build/bin/RambleAI.app/Contents/Resources/binaries/ffmpeg"
+          echo "✅ gon will now sign both the app and bundled FFmpeg binary"
+        shell: bash
+      
       - name: Install gon for macOS signing
         if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
         run: brew install Bearer/tap/gon
