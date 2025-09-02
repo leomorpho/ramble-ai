@@ -17,7 +17,6 @@
     BatchTranscribeUntranscribedClips,
     GetOpenAIApiKey,
     GetUseRemoteAIBackend,
-    IsFFmpegReady,
   } from "$lib/wailsjs/go/main/App";
   import {
     OnFileDrop,
@@ -31,6 +30,7 @@
   import VideoClipCard from "$lib/components/VideoClipCard.svelte";
   import FileDropZone from "$lib/components/FileDropZone.svelte";
   import { updateVideoHighlights } from "$lib/stores/projectHighlights.js";
+  import { checkFFmpegForVideoOperation } from "$lib/stores/ffmpeg.js";
 
   // Props
   let { 
@@ -522,13 +522,9 @@
 
   async function startTranscription(clip) {
     try {
-      // Check if FFmpeg is ready
-      const ffmpegReady = await IsFFmpegReady();
-      if (!ffmpegReady) {
-        toast.error('Video processing unavailable', {
-          description: 'FFmpeg not found. Please restart the application.',
-          duration: 5000
-        });
+      // Check if FFmpeg is ready and redirect if not
+      const canProceed = await checkFFmpegForVideoOperation('transcription');
+      if (!canProceed) {
         return;
       }
       
@@ -652,13 +648,9 @@
       batchTranscribing = true;
       clipError = "";
 
-      // Check if FFmpeg is ready
-      const ffmpegReady = await IsFFmpegReady();
-      if (!ffmpegReady) {
-        toast.error('Video processing unavailable', {
-          description: 'FFmpeg not found. Please restart the application.',
-          duration: 5000
-        });
+      // Check if FFmpeg is ready and redirect if not
+      const canProceed = await checkFFmpegForVideoOperation('batch transcription');
+      if (!canProceed) {
         batchTranscribing = false;
         return;
       }

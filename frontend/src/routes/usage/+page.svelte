@@ -483,7 +483,7 @@
                         {#each [file.status] as status}
                           {@const IconComponent = getStatusIcon(status)}
                           <div class={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border-0 ${getStatusColor(status)}`}>
-                            <svelte:component this={IconComponent} class={`h-3 w-3 mr-1 ${status === 'processing' ? 'animate-spin' : ''}`} />
+                            <IconComponent class={`h-3 w-3 mr-1 ${status === 'processing' ? 'animate-spin' : ''}`} />
                             {status}
                           </div>
                         {/each}

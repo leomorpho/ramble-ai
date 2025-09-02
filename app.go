@@ -975,3 +975,22 @@ func (a *App) InstallFFmpeg() error {
 	return goapp.InstallFFmpeg(a.ctx, emitEvent)
 }
 
+// CheckFFmpegStatus checks FFmpeg status and emits appropriate events
+func (a *App) CheckFFmpegStatus() {
+	// Create event emitter function for this context
+	emitEvent := func(eventName string, data ...interface{}) {
+		if len(data) == 1 {
+			runtime.EventsEmit(a.ctx, eventName, data[0])
+		} else {
+			runtime.EventsEmit(a.ctx, eventName, data...)
+		}
+	}
+	
+	// Check FFmpeg and emit events
+	if err := goapp.EnsureFFmpeg(a.ctx, nil, emitEvent); err != nil {
+		log.Printf("FFmpeg check failed: %v", err)
+	} else {
+		log.Printf("FFmpeg check successful")
+	}
+}
+
