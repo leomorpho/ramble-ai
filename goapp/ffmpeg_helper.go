@@ -198,15 +198,58 @@ func EnsureFFmpeg(ctx context.Context, settingsService interface{}, emitEvent fu
 	return nil
 }
 
+// getAppDataDir returns the application data directory (sandbox-safe)
+func getAppDataDir() (string, error) {
+	// Check if we're in development mode by looking for go.mod file
+	if _, err := os.Stat("go.mod"); err == nil {
+		// In development mode, use current directory
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "", fmt.Errorf("failed to get current working directory: %w", err)
+		}
+		return cwd, nil
+	}
+
+	// In production mode, use Application Support directory (sandbox-safe)
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get user home directory: %w", err)
+	}
+
+	// Use ~/Library/Application Support/RambleAI for production
+	appDataDir := filepath.Join(homeDir, "Library", "Application Support", "RambleAI")
+	if err := os.MkdirAll(appDataDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create app data directory: %w", err)
+	}
+
+	return appDataDir, nil
+}
+
 // FindSystemFFmpeg looks for FFmpeg in common system locations
 func FindSystemFFmpeg() (string, error) {
 	log.Printf("[FFMPEG] 🔍 Searching for system FFmpeg installation...")
 	
+	// First check app's own installation (sandbox-safe)
+	if appDataDir, err := getAppDataDir(); err == nil {
+		appFFmpeg := filepath.Join(appDataDir, "bin", "ffmpeg")
+		if _, err := os.Stat(appFFmpeg); err == nil {
+			log.Printf("[FFMPEG] ✅ Found FFmpeg in app directory: %s", appFFmpeg)
+			return appFFmpeg, nil
+		}
+	}
+	
 	// Common FFmpeg installation locations on macOS
+	homeDir, _ := os.UserHomeDir()
 	commonLocations := []string{
 		"/opt/homebrew/bin/ffmpeg",   // ARM64 Homebrew
 		"/usr/local/bin/ffmpeg",      // Intel Homebrew / manual install
 		"/Applications/FFmpeg.app/Contents/MacOS/ffmpeg", // App bundle install
+	}
+	
+	// Add user-specific location if home directory is available
+	if homeDir != "" {
+		userFFmpeg := filepath.Join(homeDir, ".local", "bin", "ffmpeg")
+		commonLocations = append(commonLocations, userFFmpeg)
 	}
 	
 	// First check PATH
@@ -244,9 +287,15 @@ func InstallFFmpeg(ctx context.Context, emitEvent func(string, ...interface{})) 
 		return fmt.Errorf("unsupported architecture: %s", runtime.GOARCH)
 	}
 	
-	// Create temporary directory
-	tempDir, err := os.MkdirTemp("", "ffmpeg-install")
+	// Get the app's data directory (works in sandbox)
+	appDataDir, err := getAppDataDir()
 	if err != nil {
+		return fmt.Errorf("failed to get app data directory: %w", err)
+	}
+	
+	// Create temporary directory in app's data directory (sandbox-safe)
+	tempDir := filepath.Join(appDataDir, "ffmpeg-install-temp")
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
 		return fmt.Errorf("failed to create temp directory: %w", err)
 	}
 	defer os.RemoveAll(tempDir)
@@ -291,16 +340,18 @@ func InstallFFmpeg(ctx context.Context, emitEvent func(string, ...interface{})) 
 		return fmt.Errorf("FFmpeg binary not found after extraction: %w", err)
 	}
 	
-	// Install to system location
-	emitEvent("ffmpeg_install_progress", "Installing FFmpeg to system...")
+	// Install FFmpeg to app's data directory (sandbox-safe)
+	emitEvent("ffmpeg_install_progress", "Installing FFmpeg...")
 	
-	// Try /usr/local/bin first (doesn't require admin)
-	installPath := "/usr/local/bin/ffmpeg"
+	// App data directory was already retrieved earlier for temp directory
 	
-	// Ensure /usr/local/bin exists
-	if err := os.MkdirAll("/usr/local/bin", 0755); err != nil {
-		return fmt.Errorf("failed to create /usr/local/bin: %w", err)
+	// Install to app's bin directory
+	appBinDir := filepath.Join(appDataDir, "bin")
+	if err := os.MkdirAll(appBinDir, 0755); err != nil {
+		return fmt.Errorf("failed to create app bin directory: %w", err)
 	}
+	
+	installPath := filepath.Join(appBinDir, "ffmpeg")
 	
 	// Copy FFmpeg binary
 	if err := copyFile(ffmpegBinary, installPath); err != nil {
@@ -311,6 +362,8 @@ func InstallFFmpeg(ctx context.Context, emitEvent func(string, ...interface{})) 
 	if err := os.Chmod(installPath, 0755); err != nil {
 		return fmt.Errorf("failed to make FFmpeg executable: %w", err)
 	}
+	
+	log.Printf("[FFMPEG] ✅ FFmpeg installed successfully: %s", installPath)
 	
 	// Test installation
 	emitEvent("ffmpeg_install_progress", "Verifying installation...")
