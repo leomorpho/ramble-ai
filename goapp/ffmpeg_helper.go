@@ -9,11 +9,100 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
+	"time"
 
 	ffmpeg "github.com/u2takey/ffmpeg-go"
 )
+
+// FFmpeg version management
+const MinimumFFmpegVersion = "4.4.0"
+
+// parseFFmpegVersion extracts version from FFmpeg -version output
+func parseFFmpegVersion(output string) (string, error) {
+	// FFmpeg version output typically looks like: "ffmpeg version 4.4.2 Copyright ..."
+	// We want to extract "4.4.2" from this
+	versionRegex := regexp.MustCompile(`ffmpeg version (\d+\.\d+(?:\.\d+)?)`)
+	matches := versionRegex.FindStringSubmatch(output)
+	if len(matches) < 2 {
+		return "", fmt.Errorf("could not parse FFmpeg version from output")
+	}
+	return matches[1], nil
+}
+
+// compareVersions compares two semantic versions (e.g., "4.4.2" vs "4.4.0")
+// Returns true if version >= minimum
+func compareVersions(version, minimum string) (bool, error) {
+	versionParts := strings.Split(version, ".")
+	minimumParts := strings.Split(minimum, ".")
+	
+	// Ensure both have at least major.minor format
+	for len(versionParts) < 2 {
+		versionParts = append(versionParts, "0")
+	}
+	for len(minimumParts) < 2 {
+		minimumParts = append(minimumParts, "0")
+	}
+	
+	// Compare major, minor, patch
+	for i := 0; i < 3; i++ {
+		var versionNum, minimumNum int
+		var err error
+		
+		if i < len(versionParts) {
+			versionNum, err = strconv.Atoi(versionParts[i])
+			if err != nil {
+				return false, fmt.Errorf("invalid version number: %s", versionParts[i])
+			}
+		}
+		
+		if i < len(minimumParts) {
+			minimumNum, err = strconv.Atoi(minimumParts[i])
+			if err != nil {
+				return false, fmt.Errorf("invalid minimum version number: %s", minimumParts[i])
+			}
+		}
+		
+		if versionNum > minimumNum {
+			return true, nil
+		} else if versionNum < minimumNum {
+			return false, nil
+		}
+		// If equal, continue to next part
+	}
+	
+	// All parts are equal, so version meets minimum
+	return true, nil
+}
+
+// getFFmpegVersion gets the version string for a specific FFmpeg binary
+func getFFmpegVersion(binaryPath string) (string, error) {
+	cmd := exec.Command(binaryPath, "-version")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to get FFmpeg version: %w", err)
+	}
+	
+	return parseFFmpegVersion(string(output))
+}
+
+// isFFmpegVersionCompatible checks if the given binary meets minimum version requirements
+func isFFmpegVersionCompatible(binaryPath string) (bool, string, error) {
+	version, err := getFFmpegVersion(binaryPath)
+	if err != nil {
+		return false, "", err
+	}
+	
+	compatible, err := compareVersions(version, MinimumFFmpegVersion)
+	if err != nil {
+		return false, version, err
+	}
+	
+	return compatible, version, nil
+}
 
 // Legacy GetFFmpegCommand for compatibility - now uses system FFmpeg
 // This function is deprecated and will be removed once all callers are updated
@@ -166,33 +255,73 @@ func CheckFFmpegAvailability() error {
 	return nil
 }
 
-// EnsureFFmpeg ensures FFmpeg is available by checking system installation
+// EnsureFFmpeg ensures FFmpeg is available with version-based management and auto-download
 func EnsureFFmpeg(ctx context.Context, settingsService interface{}, emitEvent func(string, ...interface{})) error {
 	log.Printf("[FFMPEG] === FFmpeg Initialization Started ===")
 	log.Printf("[FFMPEG] Runtime Platform: %s/%s", runtime.GOOS, runtime.GOARCH)
+	log.Printf("[FFMPEG] Minimum required version: %s", MinimumFFmpegVersion)
 	
-	// Check for system FFmpeg installation
+	// Step 1: Try to find compatible FFmpeg installation
 	ffmpegPath, err := FindSystemFFmpeg()
 	if err != nil {
-		log.Printf("[FFMPEG] ❌ System FFmpeg not found: %v", err)
-		emitEvent("ffmpeg_not_found", err.Error())
-		return err
+		log.Printf("[FFMPEG] ❌ No compatible FFmpeg found: %v", err)
+		
+		// Step 2: Check if we should auto-download
+		downloaded, downloadedVersion, stateErr := isFFmpegDownloaded()
+		if stateErr != nil {
+			log.Printf("[FFMPEG] ⚠️  Failed to check download state: %v", stateErr)
+		}
+		
+		if downloaded {
+			log.Printf("[FFMPEG] ℹ️  FFmpeg was previously downloaded (v%s) but not found", downloadedVersion)
+			// The downloaded version exists in state but wasn't found by FindSystemFFmpeg
+			// This could mean the file was deleted or corrupted
+			log.Printf("[FFMPEG] 🔄 Downloaded FFmpeg missing, will re-download")
+		}
+		
+		// Auto-download FFmpeg
+		log.Printf("[FFMPEG] 🔄 Attempting automatic FFmpeg download...")
+		emitEvent("ffmpeg_auto_download_started", "Downloading FFmpeg automatically...")
+		
+		if downloadErr := InstallFFmpeg(ctx, emitEvent); downloadErr != nil {
+			errorMsg := fmt.Sprintf("Auto-download failed: %v", downloadErr)
+			log.Printf("[FFMPEG] ❌ %s", errorMsg)
+			emitEvent("ffmpeg_not_found", errorMsg)
+			return fmt.Errorf("FFmpeg auto-download failed: %w", downloadErr)
+		}
+		
+		// Try to find FFmpeg again after download
+		ffmpegPath, err = FindSystemFFmpeg()
+		if err != nil {
+			errorMsg := fmt.Sprintf("FFmpeg still not found after download: %v", err)
+			log.Printf("[FFMPEG] ❌ %s", errorMsg)
+			emitEvent("ffmpeg_error", errorMsg)
+			return fmt.Errorf(errorMsg)
+		}
+		
+		log.Printf("[FFMPEG] ✅ FFmpeg auto-download completed successfully")
 	}
 	
-	log.Printf("[FFMPEG] Testing system FFmpeg binary at: %s", ffmpegPath)
+	// Step 3: Verify the found/downloaded FFmpeg works
+	log.Printf("[FFMPEG] Testing FFmpeg binary at: %s", ffmpegPath)
 	testResult, testDetails := TestFFmpegBinaryWithDetails(ffmpegPath)
 	if !testResult {
-		errorMsg := fmt.Sprintf("System FFmpeg failed verification. Test details: %s", testDetails)
+		errorMsg := fmt.Sprintf("FFmpeg failed verification. Test details: %s", testDetails)
 		log.Printf("[FFMPEG] ❌ %s", errorMsg)
 		emitEvent("ffmpeg_error", errorMsg)
 		return fmt.Errorf(errorMsg)
 	}
 	
-	// Set environment variable for ffmpeg-go to use the system binary
+	// Step 4: Set environment and emit ready event
 	os.Setenv("FFMPEG_BINARY", ffmpegPath)
-	log.Printf("[FFMPEG] ✅ Using system FFmpeg binary at: %s", ffmpegPath)
 	
-	// Emit ready event
+	// Log final version info
+	if version, vErr := getFFmpegVersion(ffmpegPath); vErr == nil {
+		log.Printf("[FFMPEG] ✅ Using FFmpeg v%s at: %s", version, ffmpegPath)
+	} else {
+		log.Printf("[FFMPEG] ✅ Using FFmpeg binary at: %s", ffmpegPath)
+	}
+	
 	emitEvent("ffmpeg_ready")
 	log.Printf("[FFMPEG] === FFmpeg Initialization Complete ===")
 	return nil
@@ -225,17 +354,35 @@ func getAppDataDir() (string, error) {
 	return appDataDir, nil
 }
 
-// FindSystemFFmpeg looks for FFmpeg in common system locations
+// FindSystemFFmpeg looks for FFmpeg with version-based priority
 func FindSystemFFmpeg() (string, error) {
-	log.Printf("[FFMPEG] 🔍 Searching for system FFmpeg installation...")
+	log.Printf("[FFMPEG] 🔍 Searching for FFmpeg installation (minimum version: %s)...", MinimumFFmpegVersion)
 	
-	// First check app's own installation (sandbox-safe)
+	// Priority 1: Check app's own installation first (downloaded version)
+	// This ensures we always use the downloaded version if it exists
 	if appDataDir, err := getAppDataDir(); err == nil {
 		appFFmpeg := filepath.Join(appDataDir, "bin", "ffmpeg")
 		if _, err := os.Stat(appFFmpeg); err == nil {
-			log.Printf("[FFMPEG] ✅ Found FFmpeg in app directory: %s", appFFmpeg)
-			return appFFmpeg, nil
+			// Test the downloaded version
+			if compatible, version, err := isFFmpegVersionCompatible(appFFmpeg); err == nil {
+				if compatible {
+					log.Printf("[FFMPEG] ✅ Found compatible downloaded FFmpeg v%s: %s", version, appFFmpeg)
+					return appFFmpeg, nil
+				} else {
+					log.Printf("[FFMPEG] ⚠️  Downloaded FFmpeg v%s is below minimum version %s: %s", version, MinimumFFmpegVersion, appFFmpeg)
+				}
+			} else {
+				log.Printf("[FFMPEG] ⚠️  Downloaded FFmpeg failed version check: %v", err)
+			}
 		}
+	}
+	
+	// Priority 2: Check system locations for compatible versions
+	systemLocations := []string{}
+	
+	// Add PATH location if available
+	if pathFFmpeg, err := exec.LookPath("ffmpeg"); err == nil {
+		systemLocations = append(systemLocations, pathFFmpeg)
 	}
 	
 	// Common FFmpeg installation locations on macOS
@@ -252,22 +399,73 @@ func FindSystemFFmpeg() (string, error) {
 		commonLocations = append(commonLocations, userFFmpeg)
 	}
 	
-	// First check PATH
-	if pathFFmpeg, err := exec.LookPath("ffmpeg"); err == nil {
-		log.Printf("[FFMPEG] ✅ Found FFmpeg in PATH: %s", pathFFmpeg)
-		return pathFFmpeg, nil
-	}
+	systemLocations = append(systemLocations, commonLocations...)
 	
-	// Then check common locations
-	for _, location := range commonLocations {
+	// Check each system location for version compatibility
+	for _, location := range systemLocations {
 		if _, err := os.Stat(location); err == nil {
-			log.Printf("[FFMPEG] ✅ Found FFmpeg at: %s", location)
-			return location, nil
+			if compatible, version, err := isFFmpegVersionCompatible(location); err == nil {
+				if compatible {
+					log.Printf("[FFMPEG] ✅ Found compatible system FFmpeg v%s: %s", version, location)
+					return location, nil
+				} else {
+					log.Printf("[FFMPEG] ⚠️  System FFmpeg v%s is below minimum version %s: %s", version, MinimumFFmpegVersion, location)
+				}
+			} else {
+				log.Printf("[FFMPEG] ⚠️  System FFmpeg failed version check at %s: %v", location, err)
+			}
 		}
 	}
 	
-	log.Printf("[FFMPEG] ❌ FFmpeg not found in any system location")
-	return "", fmt.Errorf("FFmpeg not found. Please install FFmpeg to continue using video processing features")
+	log.Printf("[FFMPEG] ❌ No compatible FFmpeg installation found (minimum version: %s)", MinimumFFmpegVersion)
+	return "", fmt.Errorf("no compatible FFmpeg found. Minimum version required: %s", MinimumFFmpegVersion)
+}
+
+// State tracking for download management
+func getFFmpegStateFile() (string, error) {
+	appDataDir, err := getAppDataDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(appDataDir, ".ffmpeg_state"), nil
+}
+
+// markFFmpegDownloaded creates a state file indicating FFmpeg has been downloaded
+func markFFmpegDownloaded(version string) error {
+	stateFile, err := getFFmpegStateFile()
+	if err != nil {
+		return err
+	}
+	
+	stateContent := fmt.Sprintf("downloaded_version=%s\ndownloaded_at=%d\n", version, time.Now().Unix())
+	return os.WriteFile(stateFile, []byte(stateContent), 0644)
+}
+
+// isFFmpegDownloaded checks if FFmpeg has been previously downloaded
+func isFFmpegDownloaded() (bool, string, error) {
+	stateFile, err := getFFmpegStateFile()
+	if err != nil {
+		return false, "", err
+	}
+	
+	content, err := os.ReadFile(stateFile)
+	if os.IsNotExist(err) {
+		return false, "", nil
+	}
+	if err != nil {
+		return false, "", err
+	}
+	
+	// Parse version from state file
+	lines := strings.Split(string(content), "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, "downloaded_version=") {
+			version := strings.TrimPrefix(line, "downloaded_version=")
+			return true, version, nil
+		}
+	}
+	
+	return true, "", nil
 }
 
 // InstallFFmpeg downloads and installs FFmpeg to the system
@@ -372,6 +570,16 @@ func InstallFFmpeg(ctx context.Context, emitEvent func(string, ...interface{})) 
 	}
 	
 	log.Printf("[FFMPEG] ✅ FFmpeg successfully installed to: %s", installPath)
+	
+	// Get version of installed FFmpeg and mark as downloaded
+	if version, err := getFFmpegVersion(installPath); err == nil {
+		if err := markFFmpegDownloaded(version); err != nil {
+			log.Printf("[FFMPEG] ⚠️  Failed to mark FFmpeg as downloaded: %v", err)
+		} else {
+			log.Printf("[FFMPEG] ✅ Marked FFmpeg v%s as downloaded", version)
+		}
+	}
+	
 	emitEvent("ffmpeg_install_complete", installPath)
 	return nil
 }
