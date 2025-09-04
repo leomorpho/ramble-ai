@@ -7,6 +7,7 @@
   import { CheckFFmpegStatus } from "$lib/wailsjs/go/main/App";
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
+  import { browser } from "$app/environment";
 
   onMount(async () => {
     initializeTheme();
@@ -40,9 +41,11 @@
   });
   
   onDestroy(() => {
-    EventsOff('ffmpeg_ready');
-    EventsOff('ffmpeg_not_found');
-    EventsOff('ffmpeg_error');
+    if (browser) {
+      EventsOff('ffmpeg_ready');
+      EventsOff('ffmpeg_not_found');
+      EventsOff('ffmpeg_error');
+    }
   });
 </script>
 

@@ -32,6 +32,14 @@ dev: ## Start development server with local PocketBase backend
 	RAMBLE_FRONTEND_URL=http://localhost:8090 \
 	wails dev
 
+.PHONY: dev-simple
+dev-simple: ## Start Wails app with live reload (no backend dependencies)
+	@echo "🚀 Starting Wails app with live reload..."
+	@echo "   - Uses local API keys from settings"
+	@echo "   - No PocketBase backend required"
+	@echo ""
+	wails dev
+
 .PHONY: dev-prod
 dev-prod: ## Start development server with production-like configuration for testing
 	@echo "🚀 Starting Wails app with production-like configuration..."
