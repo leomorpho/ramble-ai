@@ -77,35 +77,6 @@ jobs:
           fi
         shell: bash
 
-      - name: Create DMG for macOS
-        if: matrix.platform == 'macos-latest'
-        run: |
-          echo "Creating DMG from built .app..."
-          
-          # Install create-dmg
-          brew install create-dmg
-          
-          # Create DMG with professional appearance
-          create-dmg \
-            --volname "Ramble AI" \
-            --window-pos 200 120 \
-            --window-size 600 300 \
-            --icon-size 100 \
-            --icon "RambleAI.app" 175 120 \
-            --hide-extension "RambleAI.app" \
-            --app-drop-link 425 120 \
-            "build/bin/ramble-macos-universal.dmg" \
-            "build/bin/RambleAI.app"
-          
-          # Verify DMG was created
-          if [ -f "build/bin/ramble-macos-universal.dmg" ]; then
-            echo "✅ DMG created successfully"
-            ls -lh build/bin/ramble-macos-universal.dmg
-          else
-            echo "❌ ERROR: DMG creation failed!"
-            exit 1
-          fi
-        shell: bash
       
       - name: Clean up after build to save space
         run: |
@@ -287,14 +258,137 @@ jobs:
             exit 1
           fi
         shell: bash
-      
-      # Skip DMG creation for now - just upload the .app bundle
-      # DMG creation is failing due to disk space constraints
-      # - name: Create macOS DMG
-      
-      # DMG and notarization disabled for now - focusing on basic signing first
-      # - name: Sign macOS DMG
-      # - name: Notarize macOS app
+
+      - name: Create DMG from signed app
+        if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
+        run: |
+          echo "Creating DMG from signed .app..."
+          
+          # Install create-dmg if not already installed
+          brew install create-dmg
+          
+          # Extract the signed .app from the notarized zip to use for DMG
+          cd build/bin
+          if [ -f "RambleAI-signed.zip" ]; then
+            echo "Extracting signed app from ZIP for DMG creation..."
+            mkdir -p temp_dmg
+            cd temp_dmg
+            unzip -q ../RambleAI-signed.zip
+            
+            # Create DMG from signed app with professional appearance
+            create-dmg \
+              --volname "Ramble AI" \
+              --window-pos 200 120 \
+              --window-size 600 300 \
+              --icon-size 100 \
+              --icon "RambleAI.app" 175 120 \
+              --hide-extension "RambleAI.app" \
+              --app-drop-link 425 120 \
+              "../ramble-macos-unsigned.dmg" \
+              "RambleAI.app"
+            
+            cd ..
+            rm -rf temp_dmg
+            
+            if [ -f "ramble-macos-unsigned.dmg" ]; then
+              echo "✅ DMG created from signed app"
+              ls -lh ramble-macos-unsigned.dmg
+            else
+              echo "❌ ERROR: DMG creation failed!"
+              exit 1
+            fi
+          else
+            echo "❌ No signed ZIP found for DMG creation"
+            exit 1
+          fi
+        shell: bash
+
+      - name: Sign and notarize DMG
+        if: matrix.platform == 'macos-latest' && github.event_name != 'pull_request'
+        run: |
+          echo "Signing and notarizing DMG..."
+          
+          # Get the signing identity
+          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | awk -F'"' '{print $2}')
+          
+          if [[ -z "$IDENTITY" ]]; then
+            echo "❌ No Developer ID Application identity found"
+            exit 1
+          fi
+          
+          cd build/bin
+          
+          # Sign the DMG
+          echo "Signing DMG with identity: $IDENTITY"
+          codesign --force --verify --verbose --sign "$IDENTITY" ramble-macos-unsigned.dmg
+          
+          # Verify signing
+          codesign --verify --verbose=2 ramble-macos-unsigned.dmg
+          echo "✅ DMG signed successfully"
+          
+          # Create gon configuration for DMG notarization
+          cat > ../darwin/gon-dmg-notarize.json << EOF
+          {
+            "notarize": [{
+              "path": "./build/bin/ramble-macos-unsigned.dmg",
+              "bundle_id": "com.leoaudibert.ramble-ai"
+            }],
+            "apple_id": {
+              "username": "${{ vars.APPLE_ID || secrets.APPLE_ID }}",
+              "password": "${{ secrets.APPLE_ID_PASSWORD }}",
+              "provider": "${{ vars.APPLE_TEAM_ID || secrets.APPLE_TEAM_ID }}"
+            }
+          }
+          EOF
+          
+          # Notarize the DMG
+          echo "Notarizing DMG..."
+          gon -log-level=info ../darwin/gon-dmg-notarize.json
+          
+          # Rename to final name after successful notarization
+          mv ramble-macos-unsigned.dmg ramble-macos-universal.dmg
+          
+          # Staple the notarization ticket
+          xcrun stapler staple ramble-macos-universal.dmg
+          
+          echo "✅ DMG signed and notarized successfully"
+          ls -lh ramble-macos-universal.dmg
+          
+          # Verify the final DMG
+          spctl --assess --type open --context context:primary-signature --verbose ramble-macos-universal.dmg
+        shell: bash
+
+      - name: Create unsigned DMG for development/PR builds
+        if: matrix.platform == 'macos-latest' && github.event_name == 'pull_request'
+        run: |
+          echo "Creating unsigned DMG for development build..."
+          
+          # Install create-dmg if not already installed
+          brew install create-dmg
+          
+          cd build/bin
+          
+          # Create DMG from unsigned app
+          create-dmg \
+            --volname "Ramble AI (Development)" \
+            --window-pos 200 120 \
+            --window-size 600 300 \
+            --icon-size 100 \
+            --icon "RambleAI.app" 175 120 \
+            --hide-extension "RambleAI.app" \
+            --app-drop-link 425 120 \
+            "ramble-macos-universal.dmg" \
+            "RambleAI.app"
+          
+          if [ -f "ramble-macos-universal.dmg" ]; then
+            echo "✅ Unsigned DMG created for development"
+            ls -lh ramble-macos-universal.dmg
+            echo "⚠️ This is an unsigned development build"
+          else
+            echo "❌ ERROR: Development DMG creation failed!"
+            exit 1
+          fi
+        shell: bash
       
       # Windows build temporarily disabled
       
@@ -322,22 +416,48 @@ jobs:
             echo "✅ Created regular RambleAI-macos.zip with proper structure"
           fi
           
-          # Verify DMG artifact exists
+          # Verify DMG artifact exists (signed or unsigned depending on build type)
           if [ -f "ramble-macos-universal.dmg" ]; then
-            echo "✅ DMG artifact ready for upload"
-            ls -lh ramble-macos-universal.dmg
+            if [[ "${{ github.event_name }}" != "pull_request" ]]; then
+              echo "✅ Signed and notarized DMG ready for upload (RECOMMENDED FOR USERS)"
+              ls -lh ramble-macos-universal.dmg
+              
+              # Verify DMG signature for production builds
+              echo "DMG signature verification:"
+              if codesign --verify --verbose=2 ramble-macos-universal.dmg; then
+                echo "✅ DMG signature verification passed"
+              else
+                echo "❌ ERROR: DMG signature verification failed!"
+                exit 1
+              fi
+            else
+              echo "✅ Unsigned development DMG ready for upload"
+              ls -lh ramble-macos-universal.dmg
+              echo "⚠️ This is an unsigned development build - not for distribution"
+            fi
           else
             echo "❌ ERROR: DMG not found for upload!"
             exit 1
           fi
           
-          echo "Final artifact details:"
-          echo "ZIP:"
-          ls -lh RambleAI-macos.zip
-          echo "DMG:"
+          echo ""
+          echo "📦 Final macOS artifacts:"
+          if [[ "${{ github.event_name }}" != "pull_request" ]]; then
+            echo "🎯 PRIMARY: ramble-macos-universal.dmg (signed & notarized - recommended for users)"
+            echo "📁 BACKUP:  RambleAI-macos.zip (for compatibility/advanced users)"
+            echo ""
+            echo "✅ Users should download the DMG for the best installation experience!"
+          else
+            echo "🔨 DEV BUILD: ramble-macos-universal.dmg (unsigned - for testing only)"
+            echo "📁 DEV BACKUP: RambleAI-macos.zip (unsigned - for testing only)"
+            echo ""
+            echo "⚠️ These are unsigned development builds - not for distribution!"
+          fi
           ls -lh ramble-macos-universal.dmg
-          echo "ZIP contents (first 20 lines):"
-          unzip -l RambleAI-macos.zip | head -20
+          ls -lh RambleAI-macos.zip
+          echo ""
+          echo "ZIP contents (for reference):"
+          unzip -l RambleAI-macos.zip | head -10
       
       - name: Upload artifacts macOS
         if: matrix.platform == 'macos-latest'
@@ -345,8 +465,8 @@ jobs:
         with:
           name: RambleAI-macos
           path: |
-            build/bin/RambleAI-macos.zip
             build/bin/ramble-macos-universal.dmg
+            build/bin/RambleAI-macos.zip
           compression-level: 0  # Don't compress again since files are already compressed
       
       # Windows artifacts disabled
@@ -358,10 +478,20 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            build/bin/RambleAI-macos.zip
             build/bin/ramble-macos-universal.dmg
+            build/bin/RambleAI-macos.zip
           draft: true
           generate_release_notes: true
+          body: |
+            ## Download Instructions
+
+            **🎯 Recommended for macOS users:** Download `ramble-macos-universal.dmg`
+            - Fully signed and notarized by Apple
+            - Professional installer with drag-to-install interface
+            - Works on both Intel and Apple Silicon Macs
+            - No security warnings from macOS Gatekeeper
+
+            **📁 Alternative:** `RambleAI-macos.zip` (for advanced users or compatibility)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
