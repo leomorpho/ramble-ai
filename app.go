@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -613,19 +614,200 @@ func (a *App) GetBanners() ([]Banner, error) {
 		},
 	}
 	
-	// Filter banners based on authentication status
+	// Get dismissed banners for filtering
+	dismissed, err := a.getDismissedBanners()
+	if err != nil {
+		// If we can't get dismissed banners, just show all eligible banners
+		dismissed = []string{}
+	}
+	
+	// Helper function to check if banner is dismissed
+	isDismissed := func(bannerID string) bool {
+		for _, id := range dismissed {
+			if id == bannerID {
+				return true
+			}
+		}
+		return false
+	}
+	
+	// Filter banners based on authentication status and dismissal status
+	var visibleBanners []Banner
+	
+	if apiKey == "" {
+		// Unauthenticated - only show public, non-dismissed banners
+		for _, banner := range allBanners {
+			if !banner.RequiresAuth && !isDismissed(banner.ID) {
+				visibleBanners = append(visibleBanners, banner)
+			}
+		}
+	} else {
+		// Authenticated - show all non-dismissed banners (both public and auth-required)
+		for _, banner := range allBanners {
+			if !isDismissed(banner.ID) {
+				visibleBanners = append(visibleBanners, banner)
+			}
+		}
+	}
+	
+	return visibleBanners, nil
+}
+
+// GetAllBanners returns ALL banners with dismissal status for banner management
+func (a *App) GetAllBanners() ([]Banner, error) {
+	// Get current API key to check authentication
+	apiKey, _ := a.GetRambleAIApiKey()
+	
+	// Get dismissed banners to mark them as dismissed
+	dismissed, err := a.getDismissedBanners()
+	if err != nil {
+		dismissed = []string{}
+	}
+	
+	// Helper function to check if banner is dismissed
+	isDismissed := func(bannerID string) bool {
+		for _, id := range dismissed {
+			if id == bannerID {
+				return true
+			}
+		}
+		return false
+	}
+	
+	// Define all available banners (same as GetBanners)
+	allBanners := []Banner{
+		// App Update Banner
+		{
+			ID:           "banner-update-v120",
+			Title:        "🚀 New Version Available!",
+			Message:      "Ramble AI v1.2.0 is now available with enhanced AI processing and better performance. Download now to get the latest features and improvements.",
+			Type:         "info",
+			Active:       true,
+			RequiresAuth: false,
+			ActionURL:    "https://ramble.goosebyteshq.com/download",
+			ActionText:   "Download Update",
+			ExpiresAt:    "",
+			Created:      "2025-09-05T05:00:00Z",
+			Updated:      "2025-09-05T05:00:00Z",
+			Dismissed:    false,
+		},
+		{
+			ID:           "banner-tip-batch",
+			Title:        "💡 Pro Tip: Batch Processing",
+			Message:      "Did you know you can process multiple audio files at once? Select multiple files in the upload dialog to save time and improve your workflow.",
+			Type:         "info",
+			Active:       true,
+			RequiresAuth: false,
+			ActionURL:    "",
+			ActionText:   "",
+			ExpiresAt:    "",
+			Created:      "2025-09-05T04:00:00Z",
+			Updated:      "2025-09-05T04:00:00Z",
+			Dismissed:    false,
+		},
+		{
+			ID:           "banner-maintenance-mar15",
+			Title:        "⚠️ Scheduled Maintenance",
+			Message:      "We'll be performing system maintenance on Sunday, March 15th from 2:00 AM to 4:00 AM EST. Some features may be temporarily unavailable.",
+			Type:         "warning",
+			Active:       true,
+			RequiresAuth: false,
+			ActionURL:    "https://status.ramble.goosebyteshq.com",
+			ActionText:   "View Status Page",
+			ExpiresAt:    "",
+			Created:      "2025-09-04T10:00:00Z",
+			Updated:      "2025-09-04T10:00:00Z",
+			Dismissed:    false,
+		},
+		{
+			ID:           "banner-feature-highlights",
+			Title:        "✨ New Feature: Smart Highlights",
+			Message:      "Our new AI-powered highlight detection automatically identifies the most important parts of your content. Try it out in your next video project!",
+			Type:         "success",
+			Active:       true,
+			RequiresAuth: false,
+			ActionURL:    "/projects",
+			ActionText:   "Try Now",
+			ExpiresAt:    "",
+			Created:      "2025-09-03T14:00:00Z",
+			Updated:      "2025-09-03T14:00:00Z",
+			Dismissed:    false,
+		},
+		{
+			ID:           "banner-api-error",
+			Title:        "🔧 API Issues Resolved",
+			Message:      "We've resolved the intermittent API connectivity issues that some users experienced earlier today. All services are now running normally.",
+			Type:         "error",
+			Active:       true,
+			RequiresAuth: false,
+			ActionURL:    "https://status.ramble.goosebyteshq.com",
+			ActionText:   "Status Page",
+			ExpiresAt:    "",
+			Created:      "2025-09-02T16:30:00Z",
+			Updated:      "2025-09-02T18:00:00Z",
+			Dismissed:    false,
+		},
+		{
+			ID:           "banner-premium-trial",
+			Title:        "🚀 Premium Features Trial",
+			Message:      "You now have access to premium AI processing features for the next 7 days. Experience faster transcription and enhanced accuracy!",
+			Type:         "success",
+			Active:       true,
+			RequiresAuth: true,
+			ActionURL:    "/settings/subscription",
+			ActionText:   "View Premium",
+			ExpiresAt:    "",
+			Created:      "2025-09-01T09:00:00Z",
+			Updated:      "2025-09-01T09:00:00Z",
+			Dismissed:    false,
+		},
+		{
+			ID:           "banner-api-limits",
+			Title:        "📊 API Usage Notice",
+			Message:      "You're approaching your monthly API usage limit. Consider upgrading to our Pro plan for unlimited processing and priority support.",
+			Type:         "warning",
+			Active:       true,
+			RequiresAuth: true,
+			ActionURL:    "/settings/subscription",
+			ActionText:   "Upgrade Now",
+			ExpiresAt:    "",
+			Created:      "2025-08-30T11:15:00Z",
+			Updated:      "2025-08-30T11:15:00Z",
+			Dismissed:    false,
+		},
+		{
+			ID:           "banner-welcome-guide",
+			Title:        "👋 Welcome to Ramble AI!",
+			Message:      "Get started with our comprehensive guide to make the most of your video content creation workflow.",
+			Type:         "info",
+			Active:       true,
+			RequiresAuth: false,
+			ActionURL:    "/help/getting-started",
+			ActionText:   "Get Started",
+			ExpiresAt:    "",
+			Created:      "2025-08-29T12:00:00Z",
+			Updated:      "2025-08-29T12:00:00Z",
+			Dismissed:    false,
+		},
+	}
+	
+	// Filter banners based on authentication and set dismissal status
 	var visibleBanners []Banner
 	
 	if apiKey == "" {
 		// Unauthenticated - only show public banners
 		for _, banner := range allBanners {
 			if !banner.RequiresAuth {
+				banner.Dismissed = isDismissed(banner.ID)
 				visibleBanners = append(visibleBanners, banner)
 			}
 		}
 	} else {
-		// Authenticated - show all banners (both public and auth-required)
-		visibleBanners = allBanners
+		// Authenticated - show all banners with dismissal status
+		for _, banner := range allBanners {
+			banner.Dismissed = isDismissed(banner.ID)
+			visibleBanners = append(visibleBanners, banner)
+		}
 	}
 	
 	return visibleBanners, nil
@@ -633,9 +815,54 @@ func (a *App) GetBanners() ([]Banner, error) {
 
 // DismissBanner marks a banner as dismissed for the current user
 func (a *App) DismissBanner(bannerID string) error {
-	// For now, just return success - we'll implement proper dismissal later
-	// when we set up the banner database tables
-	return nil
+	// Get current dismissed banners
+	dismissed, err := a.getDismissedBanners()
+	if err != nil {
+		return err
+	}
+	
+	// Add banner ID to dismissed list if not already present
+	for _, id := range dismissed {
+		if id == bannerID {
+			return nil // Already dismissed
+		}
+	}
+	
+	dismissed = append(dismissed, bannerID)
+	
+	// Save updated dismissed list
+	return a.saveDismissedBanners(dismissed)
+}
+
+// getDismissedBanners retrieves the list of dismissed banner IDs for current user
+func (a *App) getDismissedBanners() ([]string, error) {
+	dismissedStr, err := a.GetSetting("dismissed_banners")
+	if err != nil {
+		return []string{}, nil // Return empty list if no dismissed banners
+	}
+	
+	if dismissedStr == "" {
+		return []string{}, nil
+	}
+	
+	// Parse JSON array of dismissed banner IDs
+	var dismissed []string
+	err = json.Unmarshal([]byte(dismissedStr), &dismissed)
+	if err != nil {
+		return []string{}, nil // Return empty if parse fails
+	}
+	
+	return dismissed, nil
+}
+
+// saveDismissedBanners saves the list of dismissed banner IDs
+func (a *App) saveDismissedBanners(dismissed []string) error {
+	dismissedJson, err := json.Marshal(dismissed)
+	if err != nil {
+		return err
+	}
+	
+	return a.SaveSetting("dismissed_banners", string(dismissedJson))
 }
 
 // Word represents a single word with timing information

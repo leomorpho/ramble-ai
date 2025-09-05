@@ -17,7 +17,7 @@
  * Never attempt to use pb.collection() methods in the Wails frontend!
  */
 
-import { GetBanners, DismissBanner } from "$lib/wailsjs/go/main/App";
+import { GetBanners, GetAllBanners, DismissBanner } from "$lib/wailsjs/go/main/App";
 
 /**
  * Fetch banners with optional authentication and filtering
@@ -54,8 +54,21 @@ export async function fetchBanners(apiKey = null, includeDismissed = false) {
  * Fetch ALL banners (including dismissed ones) with dismissal status
  * This is used for the banner management page
  */
-export async function fetchAllBanners(apiKey) {
-  return fetchBanners(apiKey, true); // includeDismissed = true
+export async function fetchAllBanners(apiKey = null) {
+  try {
+    console.log('🔍 Fetching ALL banners (including dismissed) via Wails native method');
+    console.log('🔑 API Key provided:', !!apiKey);
+
+    // Use native Wails method to get ALL banners with dismissal status
+    const banners = await GetAllBanners();
+    
+    console.log('📦 Native ALL banners response:', banners);
+    
+    return banners || [];
+  } catch (error) {
+    console.error('❌ Failed to fetch ALL banners via native method:', error);
+    return [];
+  }
 }
 
 /**
