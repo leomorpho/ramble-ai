@@ -10,12 +10,11 @@
     DialogTrigger 
   } from "$lib/components/ui/dialog";
   import { ThemeSwitcher } from "$lib/components/ui/theme-switcher";
-  import { Settings, Lightbulb, Video, Volume2, HelpCircle, Target, FileText, Brain, RotateCcw, Upload, Zap, Plus, RefreshCw, BarChart } from "@lucide/svelte";
-  import { CreateProject, GetProjects, GetVideoClipsByProject, GetRambleAIApiKey } from "$lib/wailsjs/go/main/App";
+  import { Settings, Lightbulb, Video, Volume2, HelpCircle, Target, FileText, Brain, RotateCcw, Upload, Zap, Plus, RefreshCw, BarChart, Bell } from "@lucide/svelte";
+  import { CreateProject, GetProjects, GetVideoClipsByProject, GetRambleAIApiKey, GetOpenAIApiKey, GetOpenRouterApiKey, GetUseRemoteAIBackend } from "$lib/wailsjs/go/main/App";
   import OnboardingDialog from "$lib/components/OnboardingDialog.svelte";
   import ApiKeyRequiredBanner from "$lib/components/ApiKeyRequiredBanner.svelte";
-  import { BannerList } from "$lib/components/ui/banner";
-  import { fetchBanners } from "$lib/services/bannerService.js";
+  import BannerNotificationDropdown from "$lib/components/BannerNotificationDropdown.svelte";
   import { onMount } from "svelte";
 
   let projects = $state([]);
@@ -26,15 +25,15 @@
   let loading = $state(false);
   let error = $state("");
   let onboardingDialogOpen = $state(false);
-  let banners = $state([]);
   let hasApiKey = $state(true); // Optimistically assume they have one to prevent flash
   let apiKeyLoaded = $state(false);
+  let isRemoteMode = $state(true); // Track if using remote AI backend
+  let hasAllRequiredKeys = $state(false); // Track if user has configured all required keys
 
-  // Load projects and banners on mount
+  // Load projects on mount
   onMount(async () => {
     await loadProjects();
-    await loadBanners();
-    await checkApiKey();
+    await checkApiKeys();
   });
 
   async function loadProjects() {
@@ -100,31 +99,34 @@
     }
   }
 
-  async function loadBanners() {
+
+  async function checkApiKeys() {
     try {
-      // Get API key if available
-      let apiKey = null;
-      try {
-        apiKey = await GetRambleAIApiKey();
-      } catch (err) {
-        console.log("No API key available for authenticated banners");
+      // Check which mode we're in
+      isRemoteMode = await GetUseRemoteAIBackend();
+      
+      if (isRemoteMode) {
+        // Remote mode: only need Ramble AI API key
+        const rambleApiKey = await GetRambleAIApiKey();
+        hasApiKey = !!(rambleApiKey && rambleApiKey.trim());
+        hasAllRequiredKeys = hasApiKey;
+      } else {
+        // Local mode: need both OpenAI and OpenRouter API keys
+        const [openAIKey, openRouterKey] = await Promise.all([
+          GetOpenAIApiKey(),
+          GetOpenRouterApiKey()
+        ]);
+        
+        const hasOpenAI = !!(openAIKey && openAIKey.trim());
+        const hasOpenRouter = !!(openRouterKey && openRouterKey.trim());
+        
+        hasApiKey = hasOpenAI && hasOpenRouter;
+        hasAllRequiredKeys = hasApiKey;
       }
-
-      // Fetch banners (public + authenticated if API key available)
-      banners = await fetchBanners(apiKey);
     } catch (err) {
-      console.error("Failed to load banners:", err);
-      // Don't show banner errors to user, just log them
-    }
-  }
-
-  async function checkApiKey() {
-    try {
-      const apiKey = await GetRambleAIApiKey();
-      hasApiKey = !!(apiKey && apiKey.trim());
-    } catch (err) {
-      console.log("No API key configured");
+      console.log("Error checking API keys:", err);
       hasApiKey = false;
+      hasAllRequiredKeys = false;
     } finally {
       apiKeyLoaded = true;
     }
@@ -139,15 +141,20 @@
       <div class="flex items-center gap-2">
         <ThemeSwitcher />
         
-        <Button variant="ghost" size="icon" class="h-9 w-9" title="Help & Setup Guide" onclick={() => onboardingDialogOpen = true}>
-          <HelpCircle class="h-4 w-4" />
-        </Button>
+        <!-- Banner Notification Dropdown -->
+        <BannerNotificationDropdown />
         
         {#if hasApiKey}
           <Button variant="ghost" size="icon" class="h-9 w-9" title="Usage Statistics" asChild>
             <a href="/usage">
               <BarChart class="h-4 w-4" />
             </a>
+          </Button>
+        {/if}
+        
+        {#if !hasAllRequiredKeys || !apiKeyLoaded}
+          <Button variant="ghost" size="icon" class="h-9 w-9" title="Help & Setup Guide" onclick={() => onboardingDialogOpen = true}>
+            <HelpCircle class="h-4 w-4" />
           </Button>
         {/if}
         
@@ -212,8 +219,6 @@
       </div>
     </div>
 
-    <!-- Banners -->
-    <BannerList banners={banners} />
 
     <!-- API Key Required Banner - only show after backend response confirms no API key -->
     {#if apiKeyLoaded && !hasApiKey && projects.length === 0 && !loading}

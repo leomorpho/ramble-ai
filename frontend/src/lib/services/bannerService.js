@@ -1,80 +1,82 @@
-// Banner service for fetching banners from PocketBase backend
+/**
+ * Banner Service - Custom API Endpoint Access
+ * 
+ * IMPORTANT: Wails App Architecture
+ * 
+ * This service is critical for the Wails desktop app architecture.
+ * Users of the Wails app:
+ * - Do NOT have PocketBase accounts or authentication
+ * - Cannot use PocketBase SDK collection methods (pb.collection())
+ * - Authenticate ONLY via API keys stored in the app settings
+ * 
+ * Therefore, this service:
+ * - Uses custom API endpoints (/api/banners) instead of PocketBase collections
+ * - Sends API keys as Bearer tokens for authenticated requests
+ * - The backend API endpoints internally handle PocketBase operations
+ * 
+ * Never attempt to use pb.collection() methods in the Wails frontend!
+ */
 
-const REMOTE_BACKEND_URL = 'http://localhost:8090'; // Default for development
+import { GetBanners, DismissBanner } from "$lib/wailsjs/go/main/App";
 
 /**
- * Fetch public banners (no authentication required)
+ * Fetch banners with optional authentication and filtering
+ * @param {string|null} apiKey - API key for authentication (optional)
+ * @param {boolean} includeDismissed - Whether to include dismissed banners (default: false)
+ * @returns {Promise<Array>} Array of banner objects
  */
-export async function fetchPublicBanners() {
+export async function fetchBanners(apiKey = null, includeDismissed = false) {
   try {
-    const response = await fetch(`${REMOTE_BACKEND_URL}/api/banners`);
+    console.log('🔍 Fetching banners via Wails native method');
+    console.log('🔑 API Key provided:', !!apiKey);
+    console.log('📝 Include dismissed:', includeDismissed);
+
+    // Use native Wails method instead of HTTP request
+    const banners = await GetBanners();
     
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    console.log('📦 Native banners response:', banners);
+    
+    // Filter out dismissed banners if requested
+    if (!includeDismissed) {
+      const filteredBanners = banners.filter(banner => !banner.dismissed);
+      console.log('📋 Filtered banners (non-dismissed):', filteredBanners);
+      return filteredBanners;
     }
     
-    const data = await response.json();
-    return data.banners || [];
+    return banners || [];
   } catch (error) {
-    console.warn('Failed to fetch public banners:', error);
+    console.error('❌ Failed to fetch banners via native method:', error);
     return [];
   }
 }
 
 /**
- * Fetch authenticated banners (requires API key)
+ * Fetch ALL banners (including dismissed ones) with dismissal status
+ * This is used for the banner management page
  */
-export async function fetchAuthenticatedBanners(apiKey) {
-  if (!apiKey) {
-    return [];
-  }
-
-  try {
-    const response = await fetch(`${REMOTE_BACKEND_URL}/api/banners/authenticated`, {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    return data.banners || [];
-  } catch (error) {
-    console.warn('Failed to fetch authenticated banners:', error);
-    return [];
-  }
+export async function fetchAllBanners(apiKey) {
+  return fetchBanners(apiKey, true); // includeDismissed = true
 }
 
 /**
- * Fetch all banners (public + authenticated if API key available)
+ * Dismiss a banner for the current API key
+ * This uses the native Wails method instead of HTTP
  */
-export async function fetchBanners(apiKey = null) {
+export async function dismissBanner(bannerId, apiKey) {
+  if (!bannerId) {
+    throw new Error('Banner ID is required');
+  }
+
   try {
-    // Always fetch public banners
-    const publicBanners = await fetchPublicBanners();
+    console.log('🗑️ Dismissing banner via native method:', bannerId);
     
-    // If we have an API key, fetch authenticated banners too
-    if (apiKey) {
-      const authenticatedBanners = await fetchAuthenticatedBanners(apiKey);
-      
-      // Merge banners, removing duplicates by ID
-      const allBanners = [...publicBanners];
-      authenticatedBanners.forEach(authBanner => {
-        if (!allBanners.find(banner => banner.id === authBanner.id)) {
-          allBanners.push(authBanner);
-        }
-      });
-      
-      return allBanners;
-    }
+    // Use native Wails method instead of HTTP request
+    await DismissBanner(bannerId);
     
-    return publicBanners;
+    console.log('✅ Banner dismissed successfully:', bannerId);
+    return { success: true, message: 'Banner dismissed successfully' };
   } catch (error) {
-    console.warn('Failed to fetch banners:', error);
-    return [];
+    console.error('❌ Failed to dismiss banner via native method:', error);
+    throw error;
   }
 }

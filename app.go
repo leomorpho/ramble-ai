@@ -461,6 +461,183 @@ func (a *App) DeleteRambleAIApiKey() error {
 	return a.DeleteSetting("ramble_ai_api_key")
 }
 
+// Banner represents a banner notification
+type Banner struct {
+	ID           string `json:"id"`
+	Title        string `json:"title"`
+	Message      string `json:"message"`
+	Type         string `json:"type"`
+	Active       bool   `json:"active"`
+	RequiresAuth bool   `json:"requires_auth"`
+	ActionURL    string `json:"action_url"`
+	ActionText   string `json:"action_text"`
+	ExpiresAt    string `json:"expires_at"`
+	Created      string `json:"created"`
+	Updated      string `json:"updated"`
+	Dismissed    bool   `json:"dismissed"`
+}
+
+// GetBanners returns active banners for the current user
+func (a *App) GetBanners() ([]Banner, error) {
+	// Get current API key to check dismissals
+	apiKey, _ := a.GetRambleAIApiKey()
+	
+	// Define all available banners (matches the PocketBase seeder data)
+	allBanners := []Banner{
+		// App Update Banner - Most important, should be visible
+		{
+			ID:           "banner-update-v120",
+			Title:        "🚀 New Version Available!",
+			Message:      "Ramble AI v1.2.0 is now available with enhanced AI processing and better performance. Download now to get the latest features and improvements.",
+			Type:         "info",
+			Active:       true,
+			RequiresAuth: false,
+			ActionURL:    "https://ramble.goosebyteshq.com/download",
+			ActionText:   "Download Update",
+			ExpiresAt:    "", // No expiration
+			Created:      "2025-09-05T05:00:00Z",
+			Updated:      "2025-09-05T05:00:00Z",
+			Dismissed:    false,
+		},
+
+		// General Info Banner
+		{
+			ID:           "banner-tip-batch",
+			Title:        "💡 Pro Tip: Batch Processing",
+			Message:      "Did you know you can process multiple audio files at once? Select multiple files in the upload dialog to save time and improve your workflow.",
+			Type:         "info",
+			Active:       true,
+			RequiresAuth: false,
+			ActionURL:    "",
+			ActionText:   "",
+			ExpiresAt:    "",
+			Created:      "2025-09-05T04:00:00Z",
+			Updated:      "2025-09-05T04:00:00Z",
+			Dismissed:    false,
+		},
+
+		// Maintenance Warning
+		{
+			ID:           "banner-maintenance-mar15",
+			Title:        "⚠️ Scheduled Maintenance",
+			Message:      "We'll be performing system maintenance on Sunday, March 15th from 2:00 AM to 4:00 AM EST. Some features may be temporarily unavailable.",
+			Type:         "warning",
+			Active:       true,
+			RequiresAuth: false,
+			ActionURL:    "https://status.ramble.goosebyteshq.com",
+			ActionText:   "View Status Page",
+			ExpiresAt:    "",
+			Created:      "2025-09-05T03:00:00Z",
+			Updated:      "2025-09-05T03:00:00Z",
+			Dismissed:    false,
+		},
+
+		// Success/Feature Banner
+		{
+			ID:           "banner-feature-chapters",
+			Title:        "✨ New Feature: Smart Chapters",
+			Message:      "Introducing automatic chapter detection! Our AI now intelligently identifies natural breakpoints in your content for better organization.",
+			Type:         "success",
+			Active:       true,
+			RequiresAuth: false,
+			ActionURL:    "https://docs.ramble.goosebyteshq.com/features/smart-chapters",
+			ActionText:   "Learn More",
+			ExpiresAt:    "",
+			Created:      "2025-09-04T18:00:00Z",
+			Updated:      "2025-09-04T18:00:00Z",
+			Dismissed:    false,
+		},
+
+		// Security/Error Banner
+		{
+			ID:           "banner-security-update",
+			Title:        "🔒 Security Update Required",
+			Message:      "An important security update is available. Please update to the latest version to ensure your data remains protected.",
+			Type:         "error",
+			Active:       true,
+			RequiresAuth: false,
+			ActionURL:    "https://ramble.goosebyteshq.com/security/update-guide",
+			ActionText:   "Update Now",
+			ExpiresAt:    "",
+			Created:      "2025-09-04T06:00:00Z",
+			Updated:      "2025-09-04T06:00:00Z",
+			Dismissed:    false,
+		},
+
+		// Mobile App Announcement
+		{
+			ID:           "banner-mobile-waitlist",
+			Title:        "📱 Mobile App Coming Soon",
+			Message:      "We're working on a mobile companion app for Ramble AI. Sign up to be notified when it's available!",
+			Type:         "info",
+			Active:       true,
+			RequiresAuth: false,
+			ActionURL:    "https://ramble.goosebyteshq.com/mobile-signup",
+			ActionText:   "Join Waitlist",
+			ExpiresAt:    "",
+			Created:      "2025-09-01T12:00:00Z",
+			Updated:      "2025-09-01T12:00:00Z",
+			Dismissed:    false,
+		},
+
+		// Authenticated-only Banners (Premium Features)
+		{
+			ID:           "banner-premium-ai-models",
+			Title:        "🎯 Premium: Advanced AI Models",
+			Message:      "As a premium user, you now have access to GPT-4 and Claude for even more accurate transcriptions and better content optimization.",
+			Type:         "success",
+			Active:       true,
+			RequiresAuth: true,
+			ActionURL:    "https://ramble.goosebyteshq.com/premium/ai-models",
+			ActionText:   "Explore Models",
+			ExpiresAt:    "",
+			Created:      "2025-09-04T12:00:00Z",
+			Updated:      "2025-09-04T12:00:00Z",
+			Dismissed:    false,
+		},
+
+		// API Access for developers
+		{
+			ID:           "banner-api-access",
+			Title:        "🔧 New: API Access",
+			Message:      "Developers can now integrate Ramble AI into their applications using our REST API. Check out the documentation to get started.",
+			Type:         "info",
+			Active:       true,
+			RequiresAuth: true,
+			ActionURL:    "https://docs.ramble.goosebyteshq.com/api",
+			ActionText:   "View API Docs",
+			ExpiresAt:    "",
+			Created:      "2025-08-29T12:00:00Z",
+			Updated:      "2025-08-29T12:00:00Z",
+			Dismissed:    false,
+		},
+	}
+	
+	// Filter banners based on authentication status
+	var visibleBanners []Banner
+	
+	if apiKey == "" {
+		// Unauthenticated - only show public banners
+		for _, banner := range allBanners {
+			if !banner.RequiresAuth {
+				visibleBanners = append(visibleBanners, banner)
+			}
+		}
+	} else {
+		// Authenticated - show all banners (both public and auth-required)
+		visibleBanners = allBanners
+	}
+	
+	return visibleBanners, nil
+}
+
+// DismissBanner marks a banner as dismissed for the current user
+func (a *App) DismissBanner(bannerID string) error {
+	// For now, just return success - we'll implement proper dismissal later
+	// when we set up the banner database tables
+	return nil
+}
+
 // Word represents a single word with timing information
 type Word struct {
 	Word  string  `json:"word"`
