@@ -326,11 +326,13 @@ jobs:
           codesign --verify --verbose=2 ramble-macos-unsigned.dmg
           echo "✅ DMG signed successfully"
           
-          # Create gon configuration for DMG notarization
-          cat > ../darwin/gon-dmg-notarize.json << EOF
+          # Create gon configuration for DMG notarization using absolute path
+          DMG_PATH=$(pwd)/ramble-macos-unsigned.dmg
+          echo "Using absolute DMG path: $DMG_PATH"
+          cat > gon-dmg-notarize.json << EOF
           {
             "notarize": [{
-              "path": "./build/bin/ramble-macos-unsigned.dmg",
+              "path": "$DMG_PATH",
               "bundle_id": "com.leoaudibert.ramble-ai"
             }],
             "apple_id": {
@@ -343,7 +345,7 @@ jobs:
           
           # Notarize the DMG
           echo "Notarizing DMG..."
-          gon -log-level=info ../darwin/gon-dmg-notarize.json
+          gon -log-level=info gon-dmg-notarize.json
           
           # Rename to final name after successful notarization
           mv ramble-macos-unsigned.dmg ramble-macos-universal.dmg
